@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-manrope), Manrope, ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sora), Sora, ui-sans-serif, system-ui, sans-serif;
+  --font-ui: var(--font-manrope), Manrope, ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #120b20;
+  --color-muted: #6a6079;
+  --color-lavender-50: #fbf9ff;
+  --color-lavender-100: #f2ecff;
+  --color-lavender-200: #e5d8ff;
+  --color-lavender-300: #cdb7ff;
+  --color-lavender-500: #8352f4;
+  --color-swift-600: #5d22c6;
+  --color-swift-700: #42118f;
+}
+
+:root {
+  color-scheme: light;
+  background: #fbf8ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(251, 249, 255, 0.96) 36%, rgba(244, 238, 255, 0.96) 64%, rgba(247, 252, 255, 0.94) 100%);
+  color: #120b20;
+  font-family: var(--font-manrope), Manrope, ui-sans-serif, system-ui, sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-sora), Sora, ui-sans-serif, system-ui, sans-serif;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(93, 34, 198, 0.24);
+}
+
+.soft-grid {
+  background-image:
+    linear-gradient(rgba(66, 17, 143, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(66, 17, 143, 0.07) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
