@@ -8,13 +8,11 @@ import {
   CircleDollarSign,
   Copy,
   ExternalLink,
-  Home as HomeIcon,
   KeyRound,
   Loader2,
   QrCode,
   ReceiptText,
   RefreshCw,
-  Send,
   UserPlus,
   Users,
   Wallet,
@@ -245,13 +243,6 @@ export default function Dashboard() {
   } satisfies Record<ArcTokenSymbol, bigint | undefined>;
 
   const selectedTokenBalance = tokenBalances[selectedToken];
-  const selectedBalanceText = isConnected
-    ? formatTokenAmount(
-        selectedTokenBalance,
-        selectedTokenInfo.decimals,
-        selectedToken,
-      )
-    : "Connect wallet";
   const nativeBalanceText = nativeBalance
     ? `${Number(nativeBalance.formatted).toLocaleString(undefined, {
         maximumFractionDigits: 4,
@@ -902,11 +893,12 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-2 text-ink sm:px-6 sm:py-3 lg:px-8">
-      <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[390px]" />
+    <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+      <div className="dashboard-ambient pointer-events-none absolute inset-0" />
+      <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-3 sm:gap-4">
-        <header className="sticky top-2 z-20 flex items-center justify-between rounded-lg border border-white/80 bg-white/90 px-3 py-2 shadow-[0_12px_36px_rgba(66,17,143,0.11)] ring-1 ring-lavender-100/60 backdrop-blur-xl sm:px-4">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
+        <header className="surface-panel sticky top-3 z-20 flex items-center justify-between px-3 py-2 sm:px-4">
           <Link className="flex min-w-0 items-center gap-3" href="/">
             <BrandMark className="h-12 w-12 shrink-0" />
             <div className="min-w-0">
@@ -914,151 +906,168 @@ export default function Dashboard() {
                 <span className="text-ink">Swift</span>
                 <span className="text-swift-700">Pay</span>
               </p>
-              <p className="hidden text-xs font-medium text-muted sm:block">
-                Payments
+              <p className="truncate text-sm font-semibold text-muted sm:text-base">
+                Move stablecoins instantly onchain.
               </p>
             </div>
           </Link>
 
           <div className="flex items-center gap-2">
-            <Link
-              className="hidden h-10 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white px-3 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-swift-700 hover:text-white active:translate-y-0 sm:inline-flex"
-              href="/"
+            <a
+              className="hidden h-11 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-4 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0 sm:inline-flex"
+              href="#activity"
             >
-              <HomeIcon className="h-4 w-4" />
-              Home
-            </Link>
+              <ReceiptText className="h-4 w-4" />
+              View activity
+            </a>
             <WalletConnectButton />
           </div>
         </header>
 
-        <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-stretch xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="rounded-lg border border-swift-700/30 bg-[linear-gradient(135deg,#32106d_0%,#42118f_46%,#5d22c6_100%)] p-4 text-white shadow-[0_20px_56px_rgba(66,17,143,0.32)] ring-1 ring-white/12 sm:p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-semibold text-lavender-100/95">
-                  <CircleDollarSign className="h-4 w-4" />
-                  Available balance
-                </div>
-                <p className="font-heading mt-2 text-3xl font-semibold tracking-normal sm:text-4xl">
-                  {selectedBalanceText}
-                </p>
-              </div>
-
-              <select
-                aria-label="Balance asset"
-                className="h-10 shrink-0 rounded-lg border border-white/20 bg-white/12 px-3 text-sm font-bold text-white outline-none transition hover:bg-white/18 focus:border-white/35 focus:ring-2 focus:ring-white/20"
-                onChange={(event) =>
-                  setSelectedToken(event.target.value as ArcTokenSymbol)
-                }
-                value={selectedToken}
-              >
-                {arcTokenSymbols.map((symbol) => (
-                  <option className="text-ink" key={symbol} value={symbol}>
-                    {symbol}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-4 flex max-w-lg flex-wrap items-center gap-2 rounded-lg border border-white/18 bg-white/12 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]">
-              <Wallet className="h-4 w-4 text-lavender-200" />
-              <span className="min-w-0 flex-1 truncate font-mono text-sm font-semibold">
-                {shortenAddress(walletAddress)}
-              </span>
-              <button
-                className="inline-flex h-8 items-center gap-1 rounded-md bg-white/12 px-2 text-xs font-bold text-white transition hover:bg-white/20 active:bg-white/25"
-                onClick={copyAddress}
-                type="button"
-              >
-                {copied ? (
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
+        <section className="surface-panel p-4 sm:p-5">
+          <div className="mb-5">
+            <p className="eyebrow">Balances</p>
+            <h1 className="mt-3 font-heading text-2xl font-semibold tracking-normal text-ink sm:text-3xl">
+              Your funds, ready
+            </h1>
           </div>
 
-          <div className="rounded-lg border border-lavender-200/80 bg-gradient-to-br from-white via-white to-lavender-50 p-3.5 shadow-[0_16px_48px_rgba(66,17,143,0.12)] ring-1 ring-white/80 sm:p-4">
-            <p className="font-ui mb-2.5 text-sm font-semibold text-swift-700">
-              Quick actions
-            </p>
-            <div className="grid gap-2.5">
-              <button
-                className={`font-ui inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 ${
-                  activeAction === "send" && !receiveOpen
-                    ? "border-swift-700 bg-gradient-to-br from-swift-600 to-swift-700 text-white shadow-[0_10px_24px_rgba(66,17,143,0.22)]"
-                    : "border-lavender-200 bg-white text-ink hover:border-swift-600 hover:bg-swift-700 hover:text-white"
-                }`}
-                onClick={() => {
-                  setActiveAction("send");
-                  setReceiveOpen(false);
-                }}
-                type="button"
-              >
-                <Send className="h-4 w-4" />
-                Send
-              </button>
-              <button
-                className={`font-ui inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 ${
-                  receiveOpen
-                    ? "border-swift-700 bg-gradient-to-br from-swift-600 to-swift-700 text-white shadow-[0_10px_24px_rgba(66,17,143,0.22)]"
-                    : "border-lavender-200 bg-white text-ink hover:border-swift-600 hover:bg-swift-700 hover:text-white"
-                }`}
-                onClick={() => setReceiveOpen(true)}
-                type="button"
-              >
-                <QrCode className="h-4 w-4" />
-                Receive
-              </button>
-              <button
-                className={`font-ui inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 ${
-                  activeAction === "swap" && !receiveOpen
-                    ? "border-swift-700 bg-gradient-to-br from-swift-600 to-swift-700 text-white shadow-[0_10px_24px_rgba(66,17,143,0.22)]"
-                    : "border-lavender-200 bg-white text-ink hover:border-swift-600 hover:bg-swift-700 hover:text-white"
-                }`}
-                onClick={() => {
-                  setActiveAction("swap");
-                  setReceiveOpen(false);
-                }}
-                type="button"
-              >
-                <ArrowDownUp className="h-4 w-4" />
-                Swap
-              </button>
-            </div>
+          <div className="grid gap-3 lg:grid-cols-3">
+            {(["USDC", "EURC"] as const).map((symbol) => {
+              const token = arcTestnetTokens[symbol];
+              const balance = tokenBalances[symbol];
+
+              return (
+                <button
+                  className={`surface-card min-h-[15rem] p-4 text-left transition hover:-translate-y-0.5 hover:border-swift-600/45 hover:shadow-[0_18px_38px_rgba(66,17,143,0.10)] ${
+                    selectedToken === symbol ? "ring-2 ring-swift-600/20" : ""
+                  }`}
+                  key={symbol}
+                  onClick={() => setSelectedToken(symbol)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-base font-black text-ink shadow-sm">
+                        {symbol === "USDC" ? "$" : "E"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="eyebrow text-[0.68rem]">{symbol}</p>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-muted">
+                          {isConnected
+                            ? token.name
+                            : "Connect your wallet to see this balance"}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`soft-pill ${
+                        selectedToken === symbol ? "soft-pill-live" : ""
+                      }`}
+                    >
+                      {selectedToken === symbol ? "Active" : "Select"}
+                    </span>
+                  </div>
+
+                  <p className="mt-8 font-heading text-3xl font-semibold tracking-normal text-ink sm:text-4xl">
+                    {isConnected
+                      ? formatTokenAmount(balance, token.decimals, symbol)
+                      : "Nothing here yet"}
+                  </p>
+                  <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-muted">
+                    {symbol} balance - Arc Testnet
+                  </p>
+
+                  <div className="field-shell mt-4 flex items-center justify-between gap-3 px-3 py-3 text-sm">
+                    <span className="font-semibold text-muted">Status</span>
+                    <span className="rounded-full bg-lavender-100 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-muted">
+                      {isConnected ? "Loaded" : "Connect"}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+
+            <article className="surface-card min-h-[15rem] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="eyebrow text-[0.68rem]">Network funds</p>
+                  <h2 className="mt-6 font-heading text-3xl font-semibold tracking-normal text-ink">
+                    {nativeBalanceText}
+                  </h2>
+                </div>
+                <span className="soft-pill soft-pill-live">Live</span>
+              </div>
+              <p className="mt-6 max-w-sm text-sm leading-6 text-muted">
+                Gas and stablecoin balances stay separate so payments remain
+                easy to scan before signing.
+              </p>
+
+              <div className="mt-7 flex max-w-full items-center gap-2 rounded-lg border border-lavender-200 bg-white/70 px-3 py-2.5">
+                <Wallet className="h-4 w-4 shrink-0 text-swift-600" />
+                <span className="min-w-0 flex-1 truncate font-mono text-sm font-bold text-ink">
+                  {shortenAddress(walletAddress)}
+                </span>
+                <button
+                  className="inline-flex h-8 items-center gap-1 rounded-md bg-lavender-100 px-2 text-xs font-black text-muted transition hover:bg-white hover:text-swift-700"
+                  onClick={copyAddress}
+                  type="button"
+                >
+                  {copied ? (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            </article>
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-lg border border-lavender-200/80 bg-gradient-to-br from-white via-white to-lavender-50/70 p-5 shadow-[0_18px_50px_rgba(66,17,143,0.10)] ring-1 ring-white/75">
-            <div className="mb-5 flex items-center justify-between gap-3">
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_30rem]">
+          <div className="surface-panel p-4 sm:p-5">
+            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="font-ui text-sm font-semibold text-swift-700">
-                  {activeAction === "send" ? "Send payment" : "Swap"}
+                <p className="eyebrow">
+                  {activeAction === "send" ? "Send" : "Swap"}
                 </p>
-                <h1 className="font-heading text-2xl font-semibold tracking-normal text-ink">
-                  {activeAction === "send" ? "Pay anyone" : "Swap balances"}
+                <h1 className="mt-3 font-heading text-xl font-semibold tracking-normal text-ink sm:text-2xl">
+                  {activeAction === "send" ? "Send money" : "Convert balances"}
                 </h1>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  {activeAction === "send"
+                    ? "Recipient, amount, then confirm."
+                    : "Choose the asset pair, quote, then execute."}
+                </p>
               </div>
-              <button
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-lavender-200 bg-lavender-50 text-swift-700 transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-swift-700 hover:text-white active:translate-y-0"
-                onClick={refreshBalancesFromButton}
-                type="button"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${
-                    isEurcBalanceLoading || isUsdcBalanceLoading
-                      ? "animate-spin"
-                      : ""
-                  }`}
-                />
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-lavender-200 bg-white/80 text-swift-700 transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0"
+                  onClick={refreshBalancesFromButton}
+                  type="button"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${
+                      isEurcBalanceLoading || isUsdcBalanceLoading
+                        ? "animate-spin"
+                        : ""
+                    }`}
+                  />
+                </button>
+                <button
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-3 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0"
+                  onClick={() => setReceiveOpen(true)}
+                  type="button"
+                >
+                  <QrCode className="h-4 w-4 text-swift-600" />
+                  Receive
+                </button>
+              </div>
             </div>
 
-            <div className="mb-5 grid grid-cols-2 rounded-lg border border-lavender-200 bg-lavender-50/90 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+            <div className="mb-5 grid grid-cols-2 rounded-lg border border-lavender-200 bg-white/60 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
               {(["send", "swap"] as const).map((action) => (
                 <button
                   className={`font-ui h-10 rounded-md text-sm font-semibold transition ${
@@ -1102,7 +1111,7 @@ export default function Dashboard() {
                   </div>
                 </label>
 
-                <div className="grid gap-3 rounded-lg border border-lavender-200/90 bg-white/90 p-4 shadow-[0_10px_24px_rgba(66,17,143,0.06)] ring-1 ring-white/80">
+                <div className="grid gap-3 rounded-lg border border-lavender-200/90 bg-white/90 p-4 shadow-[0_10px_24px_rgba(32,72,121,0.06)] ring-1 ring-white/80">
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                     <label className="grid gap-2">
                       <span className="text-sm font-semibold text-ink">
@@ -1124,7 +1133,7 @@ export default function Dashboard() {
                     </label>
 
                     <button
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-swift-200 bg-white px-4 text-sm font-bold text-swift-700 shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-swift-700 hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:border-lavender-200 disabled:bg-white disabled:text-muted disabled:shadow-none"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white px-4 text-sm font-bold text-swift-700 shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-swift-700 hover:text-white active:translate-y-0 disabled:cursor-not-allowed disabled:border-lavender-200 disabled:bg-white disabled:text-muted disabled:shadow-none"
                       disabled={!canSaveBeneficiary}
                       onClick={handleSaveBeneficiary}
                       type="button"
@@ -1329,7 +1338,7 @@ export default function Dashboard() {
                 ) : null}
 
                 <button
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-swift-600 px-5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(79,24,173,0.26)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-swift-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-swift-600 px-5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(66,17,143,0.26)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-swift-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
                   disabled={
                     isWritePending ||
                     isConfirming ||
@@ -1486,7 +1495,7 @@ export default function Dashboard() {
                     {swapQuoteButtonText}
                   </button>
                   <button
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-swift-600 px-5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(79,24,173,0.26)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-swift-600 px-5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(66,17,143,0.26)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
                     disabled={!canExecuteSwap}
                     onClick={handleExecuteSwap}
                     type="button"
@@ -1504,56 +1513,51 @@ export default function Dashboard() {
           </div>
 
           <div className="grid gap-4">
-            <div className="rounded-lg border border-lavender-200/80 bg-gradient-to-br from-white via-white to-lavender-50/70 p-4 shadow-[0_18px_50px_rgba(66,17,143,0.10)] ring-1 ring-white/75 sm:p-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="surface-panel p-4 sm:p-5">
+              <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-ui text-sm font-semibold text-swift-700">
-                    Coin balances
-                  </p>
-                  <h2 className="font-heading text-xl font-semibold tracking-normal text-ink">
-                    Wallet assets
+                  <p className="eyebrow">Insights</p>
+                  <h2 className="mt-3 font-heading text-xl font-semibold tracking-normal text-ink">
+                    Payment notes
                   </h2>
                 </div>
-                <CircleDollarSign className="h-5 w-5 shrink-0 text-swift-600" />
+                <button
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-xs font-black text-white shadow-[0_12px_26px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 active:translate-y-0"
+                  onClick={refreshBalancesFromButton}
+                  type="button"
+                >
+                  Refresh
+                </button>
               </div>
-              <div className="grid max-h-[14.5rem] gap-3 overflow-y-auto overscroll-contain pr-1">
-              {arcTokenSymbols.map((symbol) => {
-                const token = arcTestnetTokens[symbol];
-                const balance = tokenBalances[symbol];
 
-                return (
-                  <article
-                    className="rounded-lg border border-lavender-100 bg-white/80 p-4 shadow-sm transition hover:border-swift-600/45 hover:shadow-[0_10px_22px_rgba(66,17,143,0.08)]"
-                    key={symbol}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted">
-                          {token.name}
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-swift-700">
-                          {symbol}
-                        </p>
-                      </div>
-                      <p className="min-w-0 text-right text-lg font-semibold text-ink sm:text-xl">
-                        {isConnected
-                          ? formatTokenAmount(balance, token.decimals, symbol)
-                          : "Connect wallet"}
-                      </p>
-                    </div>
-                  </article>
-                );
-              })}
+              <p className="text-sm leading-6 text-muted">
+                Short summaries from recent payments and balance state.
+              </p>
+
+              <div className="mt-5 rounded-lg border border-dashed border-lavender-200 bg-white/60 px-4 py-4">
+                <p className="text-sm font-bold text-ink">
+                  {!isConnected
+                    ? "Connect a wallet to build a payment view."
+                    : walletTransfers.length === 0
+                      ? "Not enough history yet"
+                      : `${walletTransfers.length} recent transfers indexed`}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  {isConnected
+                    ? `Selected asset: ${selectedToken}. Gas balance: ${nativeBalanceText}.`
+                    : "Your activity and saved contacts will appear here after connection."}
+                </p>
               </div>
             </div>
 
-            <div className="min-h-0 rounded-lg border border-lavender-200/80 bg-gradient-to-br from-white via-white to-lavender-50/60 p-4 shadow-[0_18px_50px_rgba(66,17,143,0.10)] ring-1 ring-white/75 sm:p-5">
+            <div
+              className="surface-panel min-h-0 p-4 sm:p-5"
+              id="activity"
+            >
               <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
                 <div className="min-w-0">
-                  <p className="font-ui text-sm font-semibold text-swift-700">
-                    Activity
-                  </p>
-                  <h2 className="font-heading text-xl font-semibold tracking-normal text-ink sm:text-2xl">
+                  <p className="eyebrow">Activity</p>
+                  <h2 className="mt-3 font-heading text-xl font-semibold tracking-normal text-ink sm:text-2xl">
                     Wallet transactions
                   </h2>
                 </div>
