@@ -13,6 +13,10 @@ import {
 import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
+import { CircleGoogleLogin } from "@/components/circle-google-login";
+import { PlatformNav } from "@/components/platform-nav";
+import { ProfileMenu } from "@/components/profile-menu";
+import { SettingsButton } from "@/components/settings-button";
 
 const reasons: Array<{ title: string; body: string; icon: LucideIcon }> = [
   {
@@ -45,8 +49,8 @@ export default function Home() {
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[560px]" />
 
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-5">
-        <header className="surface-panel flex items-center justify-between px-3 py-2 sm:px-4">
-          <Link className="flex min-w-0 items-center gap-3" href="/">
+        <header className="surface-panel relative z-40 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
+          <Link className="flex min-w-0 items-center gap-3 justify-self-start" href="/">
             <BrandMark className="h-12 w-12 shrink-0" />
             <div className="min-w-0">
               <p className="font-heading truncate text-xl font-semibold leading-none tracking-normal">
@@ -59,14 +63,22 @@ export default function Home() {
             </div>
           </Link>
 
-          <Link
-            className="font-ui inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(66,17,143,0.34)] active:translate-y-0"
-            href="/dashboard"
-          >
-            Dashboard
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
+            <Link
+              className="font-ui hidden h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(66,17,143,0.34)] active:translate-y-0 sm:inline-flex"
+              href="/dashboard"
+            >
+              Dashboard
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <SettingsButton />
+            <ProfileMenu />
+          </div>
         </header>
+
+        <div className="relative z-20 flex justify-center">
+          <PlatformNav />
+        </div>
 
         <section className="grid gap-5 py-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-stretch lg:py-10">
           <div className="surface-panel p-5 sm:p-8 lg:p-10">
@@ -115,31 +127,7 @@ export default function Home() {
             </div>
           </div>
 
-          <aside className="surface-panel p-5 sm:p-6">
-            <p className="eyebrow">SwiftPay promise</p>
-            <p className="font-heading mt-6 text-2xl font-semibold leading-snug text-ink">
-              A wallet-native payment desk that keeps the business action in
-              front: who gets paid, in which currency, and where the receipt
-              lives.
-            </p>
-
-            <div className="mt-8 grid gap-3">
-              {[
-                ["01", "Send to any wallet on Arc Testnet."],
-                ["02", "Receive through a wallet QR."],
-                ["03", "Swap stablecoin balances when needed."],
-              ].map(([label, value]) => (
-                <div className="surface-card flex items-center gap-3 px-4 py-3" key={label}>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-black text-swift-700 shadow-sm">
-                    {label}
-                  </span>
-                  <span className="text-sm font-semibold leading-6 text-muted">
-                    {value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </aside>
+          <CircleGoogleLogin />
         </section>
 
         <section className="grid gap-4 md:grid-cols-3" id="why">

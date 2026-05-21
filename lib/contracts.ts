@@ -10,6 +10,16 @@ export const swiftPayVaultAbi = swiftPayVaultAbiJson as Abi;
 export const erc20Abi = [
   {
     type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
     name: "transfer",
     stateMutability: "nonpayable",
     inputs: [
@@ -38,5 +48,57 @@ export const erc20Abi = [
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "", type: "string" }],
+  },
+] as const;
+
+export const privacyEscrowAddress =
+  process.env.NEXT_PUBLIC_PRIVSWIFTPAY_ESCROW_ADDRESS?.trim() ?? "";
+
+export const privacyEscrowAbi = [
+  {
+    type: "function",
+    name: "depositPayment",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "paymentId", type: "bytes32" },
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "commitment", type: "bytes32" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "depositPayments",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "paymentIds", type: "bytes32[]" },
+      { name: "tokens", type: "address[]" },
+      { name: "amounts", type: "uint256[]" },
+      { name: "commitments", type: "bytes32[]" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "claimPayment",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "paymentId", type: "bytes32" },
+      { name: "secret", type: "bytes32" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "payments",
+    stateMutability: "view",
+    inputs: [{ name: "paymentId", type: "bytes32" }],
+    outputs: [
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "commitment", type: "bytes32" },
+      { name: "claimed", type: "bool" },
+    ],
   },
 ] as const;

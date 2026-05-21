@@ -3,9 +3,8 @@ import "./globals.css";
 
 import type { Metadata } from "next";
 import { Manrope, Sora } from "next/font/google";
+import Script from "next/script";
 import type { ReactNode } from "react";
-
-import { Providers } from "@/app/providers";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -29,9 +28,12 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html data-scroll-behavior="smooth" lang="en">
+    <html data-scroll-behavior="smooth" lang="en" suppressHydrationWarning>
       <body className={`${manrope.variable} ${sora.variable}`}>
-        <Providers>{children}</Providers>
+        <Script id="swiftpay-theme" strategy="beforeInteractive">
+          {`try{var theme=localStorage.getItem("swiftpay.theme");if(theme==="dark"){document.documentElement.dataset.theme="dark";document.documentElement.style.colorScheme="dark";}}catch(error){}`}
+        </Script>
+        {children}
       </body>
     </html>
   );

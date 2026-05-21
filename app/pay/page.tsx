@@ -1,0 +1,90 @@
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+
+import { BrandMark } from "@/components/brand-mark";
+import { PlatformNav } from "@/components/platform-nav";
+import { ProfileMenu } from "@/components/profile-menu";
+import { SettingsButton } from "@/components/settings-button";
+import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
+import { PaymentRequestBuilder } from "./payment-request-builder";
+
+type PayPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function readParam(
+  params: Record<string, string | string[] | undefined>,
+  key: string,
+) {
+  const value = params[key];
+
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+
+  return value ?? "";
+}
+
+function normalizeToken(value: string): ArcTokenSymbol {
+  return arcTokenSymbols.includes(value as ArcTokenSymbol)
+    ? (value as ArcTokenSymbol)
+    : "USDC";
+}
+
+export default async function PayPage({ searchParams }: PayPageProps) {
+  const params = await searchParams;
+  const recipient =
+    readParam(params, "to") ||
+    readParam(params, "recipient") ||
+    readParam(params, "wallet");
+  const amount = readParam(params, "amount");
+  const note = readParam(params, "note") || readParam(params, "memo");
+  const token = normalizeToken(readParam(params, "token"));
+
+  return (
+    <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+      <div className="dashboard-ambient pointer-events-none absolute inset-0" />
+      <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
+
+      <div className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col gap-4">
+        <header className="surface-panel flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
+          <Link className="flex min-w-0 items-center gap-3 justify-self-start" href="/">
+            <BrandMark className="h-12 w-12 shrink-0" />
+            <div className="min-w-0">
+              <p className="font-heading truncate text-xl font-semibold leading-none tracking-normal">
+                <span className="text-ink">Swift</span>
+                <span className="text-swift-700">Pay</span>
+              </p>
+              <p className="truncate text-sm font-semibold text-muted">
+                Payrequest
+              </p>
+            </div>
+          </Link>
+
+          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
+            <Link
+              className="font-ui hidden h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.28)] transition hover:-translate-y-0.5 active:translate-y-0 sm:inline-flex"
+              href="/dashboard"
+            >
+              Dashboard
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <SettingsButton />
+            <ProfileMenu />
+          </div>
+        </header>
+
+        <div className="flex justify-center">
+          <PlatformNav />
+        </div>
+
+        <PaymentRequestBuilder
+          initialAmount={amount}
+          initialNote={note}
+          initialToken={token}
+          initialWalletAddress={recipient}
+        />
+      </div>
+    </main>
+  );
+}

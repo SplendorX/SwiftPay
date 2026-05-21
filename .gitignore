@@ -15,12 +15,17 @@ build/
 
 # Logs and local runtime output
 *.log
+*.err
 next-dev.log
 next-dev.err.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Build/generated contract output
+artifacts/
+cache/
 
 # TypeScript
 *.tsbuildinfo
@@ -30,3 +35,5 @@ pnpm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+.vercel
