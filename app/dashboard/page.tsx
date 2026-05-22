@@ -44,9 +44,11 @@ import {
 } from "viem";
 
 import { BrandMark } from "@/components/brand-mark";
+import { PlatformAccessGate } from "@/components/platform-access-gate";
+import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
 import { PlatformNav } from "@/components/platform-nav";
+import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
-import { SettingsButton } from "@/components/settings-button";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { type BeneficiaryRecord } from "@/lib/beneficiaries";
 import {
@@ -501,11 +503,17 @@ function DashboardContent() {
   const isCircleWalletConnected = Boolean(circleLogin && circleAddress);
   const isEmbeddedWalletMode =
     walletMode === "circle" && isCircleWalletConnected;
-  const address = isEmbeddedWalletMode ? circleAddress : externalAddress;
+  const isExternalWalletMode = walletMode === "external";
+  const address = isEmbeddedWalletMode
+    ? circleAddress
+    : isExternalWalletMode
+      ? externalAddress
+      : undefined;
   const isConnected = Boolean(address);
   const walletAddress = address ?? sampleAddress;
   const fallbackAddressTyped = fallbackAddress as Address;
-  const isArcNetwork = isEmbeddedWalletMode || chainId === arcTestnet.id;
+  const isArcNetwork =
+    isEmbeddedWalletMode || (isExternalWalletMode && chainId === arcTestnet.id);
   const selectedTokenInfo = arcTestnetTokens[selectedToken];
   const selectedBillOption =
     billPaymentOptions.find((option) => option.id === selectedBillId) ??
@@ -1682,7 +1690,7 @@ function DashboardContent() {
     setCircleBalances([]);
     setCircleError(null);
     setCircleStatus("No embedded wallet session");
-    setWalletMode("external");
+    setWalletMode("circle");
   }
 
   return (
@@ -1713,19 +1721,17 @@ function DashboardContent() {
               <ReceiptText className="h-4 w-4" />
               View activity
             </a>
-            <SettingsButton />
-            {circleLogin ? (
-              <ProfileMenu
-                circleLogin={circleLogin}
-                circleWalletAddress={circleAddress}
-                externalAddress={externalAddress}
-                onCircleSessionCleared={handleCircleSessionCleared}
-                onWalletModeChange={setWalletMode}
-                walletMode={walletMode}
-              />
-            ) : (
-              <WalletConnectButton />
-            )}
+            <CircleFaucetLink />
+            <ProfileMenu
+              circleLogin={circleLogin}
+              circleWalletAddress={circleAddress}
+              externalAddress={externalAddress}
+              externalWalletAction={<WalletConnectButton />}
+              onCircleSessionCleared={handleCircleSessionCleared}
+              onWalletModeChange={setWalletMode}
+              walletMode={walletMode}
+            />
+            <PlatformNavDrawer />
           </div>
         </header>
 
@@ -2622,7 +2628,9 @@ function DashboardContent() {
 export default function Dashboard() {
   return (
     <Providers>
-      <DashboardContent />
+      <PlatformAccessGate>
+        <DashboardContent />
+      </PlatformAccessGate>
     </Providers>
   );
 }

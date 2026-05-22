@@ -3,7 +3,13 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { AlertCircle, ChevronDown, Wallet } from "lucide-react";
 
-export function WalletConnectButton() {
+type WalletConnectButtonProps = {
+  onConnectIntent?: () => void;
+};
+
+export function WalletConnectButton({
+  onConnectIntent,
+}: WalletConnectButtonProps) {
   return (
     <ConnectButton.Custom>
       {({
@@ -24,7 +30,10 @@ export function WalletConnectButton() {
             {!connected ? (
               <button
                 className="font-ui inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(66,17,143,0.34)] active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-swift-600 focus:ring-offset-2"
-                onClick={openConnectModal}
+                onClick={() => {
+                  onConnectIntent?.();
+                  openConnectModal();
+                }}
                 type="button"
               >
                 <Wallet className="h-4 w-4" />

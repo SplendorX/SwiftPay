@@ -1,6 +1,8 @@
 import {
   ArrowRight,
+  BookOpen,
   CircleDollarSign,
+  ExternalLink,
   Globe2,
   Landmark,
   LockKeyhole,
@@ -15,8 +17,15 @@ import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
 import { CircleGoogleLogin } from "@/components/circle-google-login";
 import { PlatformNav } from "@/components/platform-nav";
-import { ProfileMenu } from "@/components/profile-menu";
-import { SettingsButton } from "@/components/settings-button";
+import { PlatformProfileControls } from "@/components/platform-profile-controls";
+import { Providers } from "@/app/providers";
+
+const circleFaucetUrl = "https://faucet.circle.com/";
+
+const platformDocsLinks = [
+  { href: "https://docs.arc.io/", label: "Arc docs" },
+  { href: "https://developers.circle.com/", label: "Circle docs" },
+];
 
 const reasons: Array<{ title: string; body: string; icon: LucideIcon }> = [
   {
@@ -42,7 +51,44 @@ const steps = [
   "Confirm the payment, receive by QR, or swap balances when needed.",
 ];
 
-export default function Home() {
+const featureHighlights: Array<{
+  title: string;
+  body: string;
+  href: string;
+  icon: LucideIcon;
+  label: string;
+}> = [
+  {
+    title: "Private send",
+    body: "Create funded privacy codes for a receiver, track recent codes, and see when a receiver has claimed the payment.",
+    href: "/privSwiftPay/private-send",
+    icon: LockKeyhole,
+    label: "Open Private send",
+  },
+  {
+    title: "Payroll folders",
+    body: "Group employees, prepare batch claim codes, and fund payroll distributions from the same privSwiftPay workflow.",
+    href: "/privSwiftPay/payroll",
+    icon: Landmark,
+    label: "Open Payroll",
+  },
+  {
+    title: "Claim desk",
+    body: "Paste a privSwiftPay claim code, verify the receiver wallet, and submit the claim from the dedicated Claim page.",
+    href: "/privSwiftPay/claim",
+    icon: ReceiptText,
+    label: "Open Claim",
+  },
+  {
+    title: "Test funds",
+    body: "Use the Circle faucet link in the header to top up Arc Testnet balances before trying EURC and USDC flows.",
+    href: circleFaucetUrl,
+    icon: CircleDollarSign,
+    label: "Open faucet",
+  },
+];
+
+function HomeContent() {
   return (
     <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
@@ -63,17 +109,7 @@ export default function Home() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
-            <Link
-              className="font-ui hidden h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(66,17,143,0.34)] active:translate-y-0 sm:inline-flex"
-              href="/dashboard"
-            >
-              Dashboard
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <SettingsButton />
-            <ProfileMenu />
-          </div>
+          <PlatformProfileControls showDashboardLink />
         </header>
 
         <div className="relative z-20 flex justify-center">
@@ -91,8 +127,8 @@ export default function Home() {
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-muted sm:text-lg">
               SwiftPay is a stablecoin payment platform for people who need to
-              send, receive, and rebalance money without turning every action
-              into a contract inspection task.
+              send, receive, rebalance, and run private claim-code workflows
+              without turning every action into a contract inspection task.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -105,9 +141,9 @@ export default function Home() {
               </Link>
               <a
                 className="font-ui inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-5 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0"
-                href="#why"
+                href="#new-features"
               >
-                Why SwiftPay
+                New features
               </a>
             </div>
 
@@ -115,7 +151,7 @@ export default function Home() {
               {[
                 ["Currency", "EURC and USDC"],
                 ["Network", "Arc Testnet"],
-                ["Proof", "ArcScan receipts"],
+                ["Privacy", "Claim-code payments"],
               ].map(([label, value]) => (
                 <div className="surface-card px-4 py-3" key={label}>
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted">
@@ -128,6 +164,73 @@ export default function Home() {
           </div>
 
           <CircleGoogleLogin />
+        </section>
+
+        <section
+          className="surface-panel grid gap-5 p-5 sm:p-6 lg:grid-cols-[0.7fr_1fr]"
+          id="new-features"
+        >
+          <div>
+            <p className="eyebrow">New in SwiftPay</p>
+            <h2 className="mt-3 font-heading text-3xl font-semibold tracking-normal text-ink">
+              Private payments, payroll, and claims now have their own flows.
+            </h2>
+            <p className="mt-3 text-base leading-7 text-muted">
+              Connect with Google or an external wallet from Home, then use the
+              privSwiftPay feature pages for sender codes, payroll folders, and
+              receiver claims. The header also includes the Circle faucet for
+              quick Arc Testnet funding.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {featureHighlights.map((feature) => {
+              const Icon = feature.icon;
+              const isExternal = feature.href.startsWith("http");
+              const cardClassName =
+                "surface-card group flex min-h-[12rem] flex-col justify-between p-4 transition hover:-translate-y-0.5 hover:border-swift-600/45 hover:shadow-[0_14px_30px_rgba(66,17,143,0.10)]";
+
+              const content = (
+                <>
+                  <div>
+                    <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white text-swift-700 shadow-sm">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-heading text-lg font-semibold text-ink">
+                      {feature.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-muted">
+                      {feature.body}
+                    </p>
+                  </div>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-swift-700">
+                    {feature.label}
+                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                  </span>
+                </>
+              );
+
+              return isExternal ? (
+                <a
+                  className={cardClassName}
+                  href={feature.href}
+                  key={feature.title}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {content}
+                </a>
+              ) : (
+                <Link
+                  className={cardClassName}
+                  href={feature.href}
+                  key={feature.title}
+                >
+                  {content}
+                </Link>
+              );
+            })}
+          </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-3" id="why">
@@ -185,21 +288,55 @@ export default function Home() {
           </div>
         </section>
 
-        <footer className="flex flex-col gap-3 pb-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Landmark className="h-4 w-4 text-swift-600" />
-            <span>Designed for stablecoin payment workflows.</span>
+        <footer className="flex flex-col gap-4 pb-8 text-sm text-muted">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Landmark className="h-4 w-4 text-swift-600" />
+              <span>Designed for stablecoin payment workflows.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Globe2 className="h-4 w-4 text-swift-600" />
+              <span>Built on Arc Testnet.</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <LockKeyhole className="h-4 w-4 text-swift-600" />
+              <span>Wallet-signed actions.</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Globe2 className="h-4 w-4 text-swift-600" />
-            <span>Built on Arc Testnet.</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <LockKeyhole className="h-4 w-4 text-swift-600" />
-            <span>Wallet-signed actions.</span>
+
+          <div
+            aria-label="Platform documentation"
+            className="surface-card flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex items-center gap-2 font-bold text-ink">
+              <BookOpen className="h-4 w-4 text-swift-600" />
+              <span>Platform documentation</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {platformDocsLinks.map((link) => (
+                <a
+                  className="inline-flex h-9 items-center justify-center gap-1 rounded-md border border-lavender-100 bg-white/70 px-3 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white hover:text-swift-700"
+                  href={link.href}
+                  key={link.href}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {link.label}
+                  <ExternalLink className="h-3.5 w-3.5 text-muted" />
+                </a>
+              ))}
+            </div>
           </div>
         </footer>
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Providers>
+      <HomeContent />
+    </Providers>
   );
 }

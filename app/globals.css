@@ -142,6 +142,22 @@ button {
   box-shadow: 0 0 0 3px rgba(93, 34, 198, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+.drawer-slide-panel {
+  animation: drawer-slide-in 180ms ease-out both;
+}
+
+@keyframes drawer-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 html[data-theme="dark"] {
   --color-ink: #f7f2ff;
   --color-muted: #baafcb;

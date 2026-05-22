@@ -43,9 +43,11 @@ import {
 
 import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
+import { PlatformAccessGate } from "@/components/platform-access-gate";
+import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
 import { PlatformNav } from "@/components/platform-nav";
+import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
-import { SettingsButton } from "@/components/settings-button";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import {
   callCircleWalletApi,
@@ -799,8 +801,17 @@ export function PrivSwiftPayContent({
   const isCircleWalletConnected = Boolean(circleLogin && circleAddress);
   const isEmbeddedWalletMode =
     walletMode === "circle" && isCircleWalletConnected;
-  const address = isEmbeddedWalletMode ? circleAddress : externalAddress;
-  const walletLabel = isEmbeddedWalletMode ? "Circle wallet" : "External wallet";
+  const isExternalWalletMode = walletMode === "external";
+  const address = isEmbeddedWalletMode
+    ? circleAddress
+    : isExternalWalletMode
+      ? externalAddress
+      : undefined;
+  const walletLabel = isEmbeddedWalletMode
+    ? "Circle wallet"
+    : isExternalWalletMode
+      ? "External wallet"
+      : "Wallet";
   const walletStorageKind = isEmbeddedWalletMode ? "circle" : "external";
   const walletPaymentStorageKey = address
     ? buildWalletStorageKey(paymentStorageKey, walletStorageKind, address)
@@ -808,7 +819,8 @@ export function PrivSwiftPayContent({
   const walletPayrollStorageKey = address
     ? buildWalletStorageKey(payrollStorageKey, walletStorageKind, address)
     : "";
-  const isArcNetwork = isEmbeddedWalletMode || chainId === arcTestnet.id;
+  const isArcNetwork =
+    isEmbeddedWalletMode || (isExternalWalletMode && chainId === arcTestnet.id);
   const isEscrowConfigured = Boolean(escrowAddress);
   const isTransactionBusy =
     isGeneratingCode ||
@@ -2322,7 +2334,7 @@ export function PrivSwiftPayContent({
     circleSdkRef.current = null;
     setCircleLogin(null);
     setCircleWallets([]);
-    setWalletMode("external");
+    setWalletMode("circle");
   }
 
   return (
@@ -2349,19 +2361,17 @@ export function PrivSwiftPayContent({
           </Link>
 
           <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
-            <SettingsButton />
-            {circleLogin ? (
-              <ProfileMenu
-                circleLogin={circleLogin}
-                circleWalletAddress={circleAddress}
-                externalAddress={externalAddress}
-                onCircleSessionCleared={handleCircleSessionCleared}
-                onWalletModeChange={setWalletMode}
-                walletMode={walletMode}
-              />
-            ) : (
-              <WalletConnectButton />
-            )}
+            <CircleFaucetLink />
+            <ProfileMenu
+              circleLogin={circleLogin}
+              circleWalletAddress={circleAddress}
+              externalAddress={externalAddress}
+              externalWalletAction={<WalletConnectButton />}
+              onCircleSessionCleared={handleCircleSessionCleared}
+              onWalletModeChange={setWalletMode}
+              walletMode={walletMode}
+            />
+            <PlatformNavDrawer />
           </div>
         </header>
 
@@ -3110,7 +3120,9 @@ export function PrivSwiftPayFeaturePage({
 }) {
   return (
     <Providers>
-      <PrivSwiftPayContent feature={feature} />
+      <PlatformAccessGate>
+        <PrivSwiftPayContent feature={feature} />
+      </PlatformAccessGate>
     </Providers>
   );
 }

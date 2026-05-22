@@ -7,10 +7,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
+import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformNav } from "@/components/platform-nav";
-import { ProfileMenu } from "@/components/profile-menu";
-import { SettingsButton } from "@/components/settings-button";
+import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const settingsSections = [
@@ -38,6 +39,8 @@ const settingsSections = [
 
 export default function SettingsPage() {
   return (
+    <Providers>
+      <PlatformAccessGate>
     <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
@@ -60,10 +63,7 @@ export default function SettingsPage() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
-            <SettingsButton />
-            <ProfileMenu />
-          </div>
+          <PlatformProfileControls />
         </header>
 
         <div className="sticky top-[5.75rem] z-10 flex justify-center">
@@ -119,5 +119,7 @@ export default function SettingsPage() {
         </section>
       </div>
     </main>
+      </PlatformAccessGate>
+    </Providers>
   );
 }

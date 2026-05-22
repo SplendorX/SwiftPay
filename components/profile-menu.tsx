@@ -2,6 +2,7 @@
 
 import {
   ChevronDown,
+  CheckCircle2,
   Copy,
   LogOut,
   Mail,
@@ -9,6 +10,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type ReactNode,
   useEffect,
@@ -29,6 +31,13 @@ import {
   type CircleWallet,
   writeCircleWallets,
 } from "@/lib/circle-session";
+import {
+  clearActivatedExternalProfile,
+  markPlatformProfileConnected,
+  platformAccessEventName,
+  readActivatedExternalProfile,
+  writeActivatedExternalProfile,
+} from "@/lib/platform-access";
 
 export type WalletMode = "circle" | "external";
 
@@ -79,11 +88,13 @@ export function ProfileMenu({
   onWalletModeChange,
   walletMode,
 }: ProfileMenuProps) {
+  const router = useRouter();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [storedLogin, setStoredLogin] = useState<CircleLoginResult | null>(
     null,
   );
+  const [activatedExternalProfile, setActivatedExternalProfile] = useState("");
   const [loadedCircleWalletAddress, setLoadedCircleWalletAddress] =
     useState("");
   const [copied, setCopied] = useState(false);
@@ -96,14 +107,14 @@ export function ProfileMenu({
     (activeLogin || resolvedCircleWalletAddress ? "circle" : "external");
   const activeAddress =
     activeMode === "circle" ? resolvedCircleWalletAddress : externalAddress;
-  const buttonLabel =
-    identity.email ??
-    identity.name ??
-    (activeAddress
-      ? shortenCircleAddress(activeAddress)
-      : externalAddress
-        ? shortenCircleAddress(externalAddress)
-        : "Account");
+  const normalizedExternalAddress = externalAddress?.toLowerCase() ?? "";
+  const isActivatedExternalWallet = Boolean(
+    normalizedExternalAddress &&
+      activatedExternalProfile === normalizedExternalAddress,
+  );
+  const isCurrentExternalWallet = Boolean(
+    externalAddress && activeMode === "external",
+  );
   const googleLabel = useMemo(() => {
     if (!activeLogin) {
       return "No Google account connected";
@@ -111,10 +122,51 @@ export function ProfileMenu({
 
     return identity.email ?? identity.name ?? "Google account connected";
   }, [activeLogin, identity.email, identity.name]);
+  const buttonLabel =
+    isCurrentExternalWallet && activeAddress
+      ? shortenCircleAddress(activeAddress)
+      : identity.email ??
+        identity.name ??
+        (activeAddress
+          ? shortenCircleAddress(activeAddress)
+          : externalAddress
+            ? shortenCircleAddress(externalAddress)
+            : "Account");
+  const profileProviderLabel = activeLogin
+    ? identity.provider
+    : externalAddress
+      ? "External wallet"
+      : "Google";
+  const profilePrimaryLabel = activeLogin
+    ? googleLabel
+    : externalAddress
+      ? isActivatedExternalWallet
+        ? "Wallet profile active"
+        : "Wallet connected"
+      : googleLabel;
+  const profileSecondaryLabel =
+    activeLogin && identity.name && identity.email
+      ? identity.name
+      : externalAddress
+        ? shortenCircleAddress(externalAddress)
+        : "";
+  const shouldShowExternalWalletAction = Boolean(
+    externalAddress &&
+      onWalletModeChange &&
+      (!isActivatedExternalWallet || activeMode !== "external"),
+  );
+  const externalWalletActionLabel =
+    activeMode === "external" ? "Continue with this wallet" : "Switch to wallet";
 
   useEffect(() => {
     function refreshStoredLogin() {
-      setStoredLogin(readCircleLogin());
+      const login = readCircleLogin();
+
+      if (login) {
+        markPlatformProfileConnected();
+      }
+
+      setStoredLogin(login);
     }
 
     refreshStoredLogin();
@@ -124,6 +176,27 @@ export function ProfileMenu({
     return () => {
       window.removeEventListener(circleSessionEventName, refreshStoredLogin);
       window.removeEventListener("storage", refreshStoredLogin);
+    };
+  }, []);
+
+  useEffect(() => {
+    function refreshActivatedExternalProfile() {
+      setActivatedExternalProfile(readActivatedExternalProfile());
+    }
+
+    refreshActivatedExternalProfile();
+    window.addEventListener(
+      platformAccessEventName,
+      refreshActivatedExternalProfile,
+    );
+    window.addEventListener("storage", refreshActivatedExternalProfile);
+
+    return () => {
+      window.removeEventListener(
+        platformAccessEventName,
+        refreshActivatedExternalProfile,
+      );
+      window.removeEventListener("storage", refreshActivatedExternalProfile);
     };
   }, []);
 
@@ -194,11 +267,21 @@ export function ProfileMenu({
 
   function handleSignOut() {
     clearCircleSession();
+    clearActivatedExternalProfile();
     setOpen(false);
     setStoredLogin(null);
     setLoadedCircleWalletAddress("");
     onCircleSessionCleared?.();
+    router.replace("/");
+  }
+
+  function selectExternalWallet() {
+    if (externalAddress) {
+      writeActivatedExternalProfile(externalAddress);
+    }
+
     onWalletModeChange?.("external");
+    setOpen(false);
   }
 
   async function copyAddress(value?: string) {
@@ -233,18 +316,22 @@ export function ProfileMenu({
           <div className="rounded-lg border border-lavender-100 bg-lavender-50 px-3 py-3">
             <div className="flex items-start gap-3">
               <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-swift-700 shadow-sm">
-                <Mail className="h-4 w-4" />
+                {activeLogin ? (
+                  <Mail className="h-4 w-4" />
+                ) : (
+                  <Wallet className="h-4 w-4" />
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-muted">
-                  {identity.provider}
+                  {profileProviderLabel}
                 </p>
                 <p className="mt-1 truncate text-sm font-bold text-ink">
-                  {googleLabel}
+                  {profilePrimaryLabel}
                 </p>
-                {identity.name && identity.email ? (
+                {profileSecondaryLabel ? (
                   <p className="mt-1 truncate text-xs font-semibold text-muted">
-                    {identity.name}
+                    {profileSecondaryLabel}
                   </p>
                 ) : null}
               </div>
@@ -280,6 +367,21 @@ export function ProfileMenu({
                     {shortenCircleAddress(externalAddress)}
                   </span>
                 </div>
+                {shouldShowExternalWalletAction ? (
+                  <button
+                    className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
+                    onClick={selectExternalWallet}
+                    type="button"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    {externalWalletActionLabel}
+                  </button>
+                ) : externalAddress ? (
+                  <div className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    External wallet active
+                  </div>
+                ) : null}
                 {externalWalletAction ? (
                   <div className="mt-3">{externalWalletAction}</div>
                 ) : (

@@ -26,9 +26,11 @@ import { formatUnits, isAddress, parseUnits, type Address } from "viem";
 
 import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
+import { PlatformAccessGate } from "@/components/platform-access-gate";
+import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
 import { PlatformNav } from "@/components/platform-nav";
+import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
-import { SettingsButton } from "@/components/settings-button";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import {
   callCircleWalletApi,
@@ -133,10 +135,16 @@ function SwapContent() {
   const isCircleWalletConnected = Boolean(circleLogin && circleAddress);
   const isEmbeddedWalletMode =
     walletMode === "circle" && isCircleWalletConnected;
-  const address = isEmbeddedWalletMode ? circleAddress : externalAddress;
+  const isExternalWalletMode = walletMode === "external";
+  const address = isEmbeddedWalletMode
+    ? circleAddress
+    : isExternalWalletMode
+      ? externalAddress
+      : undefined;
   const isConnected = Boolean(address);
   const fallbackAddressTyped = fallbackAddress as Address;
-  const isArcNetwork = isEmbeddedWalletMode || chainId === arcTestnet.id;
+  const isArcNetwork =
+    isEmbeddedWalletMode || (isExternalWalletMode && chainId === arcTestnet.id);
 
   const {
     data: rawEurcBalance,
@@ -573,7 +581,7 @@ function SwapContent() {
     circleSdkRef.current = null;
     setCircleLogin(null);
     setCircleWallets([]);
-    setWalletMode("external");
+    setWalletMode("circle");
     setSwapEstimate(undefined);
     setSwapExplorerUrl(undefined);
   }
@@ -606,19 +614,17 @@ function SwapContent() {
               <ArrowLeft className="h-4 w-4" />
               Dashboard
             </Link>
-            <SettingsButton />
-            {circleLogin ? (
-              <ProfileMenu
-                circleLogin={circleLogin}
-                circleWalletAddress={circleAddress}
-                externalAddress={externalAddress}
-                onCircleSessionCleared={handleCircleSessionCleared}
-                onWalletModeChange={setWalletMode}
-                walletMode={walletMode}
-              />
-            ) : (
-              <WalletConnectButton />
-            )}
+            <CircleFaucetLink />
+            <ProfileMenu
+              circleLogin={circleLogin}
+              circleWalletAddress={circleAddress}
+              externalAddress={externalAddress}
+              externalWalletAction={<WalletConnectButton />}
+              onCircleSessionCleared={handleCircleSessionCleared}
+              onWalletModeChange={setWalletMode}
+              walletMode={walletMode}
+            />
+            <PlatformNavDrawer />
           </div>
         </header>
 
@@ -877,7 +883,9 @@ function SwapContent() {
 export default function SwapPage() {
   return (
     <Providers>
-      <SwapContent />
+      <PlatformAccessGate>
+        <SwapContent />
+      </PlatformAccessGate>
     </Providers>
   );
 }

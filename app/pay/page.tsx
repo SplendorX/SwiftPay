@@ -1,10 +1,10 @@
-import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
+import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
+import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformNav } from "@/components/platform-nav";
-import { ProfileMenu } from "@/components/profile-menu";
-import { SettingsButton } from "@/components/settings-button";
+import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import { PaymentRequestBuilder } from "./payment-request-builder";
 
@@ -42,6 +42,8 @@ export default async function PayPage({ searchParams }: PayPageProps) {
   const token = normalizeToken(readParam(params, "token"));
 
   return (
+    <Providers>
+      <PlatformAccessGate>
     <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
@@ -61,17 +63,7 @@ export default async function PayPage({ searchParams }: PayPageProps) {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
-            <Link
-              className="font-ui hidden h-11 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.28)] transition hover:-translate-y-0.5 active:translate-y-0 sm:inline-flex"
-              href="/dashboard"
-            >
-              Dashboard
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <SettingsButton />
-            <ProfileMenu />
-          </div>
+          <PlatformProfileControls showDashboardLink />
         </header>
 
         <div className="flex justify-center">
@@ -86,5 +78,7 @@ export default async function PayPage({ searchParams }: PayPageProps) {
         />
       </div>
     </main>
+      </PlatformAccessGate>
+    </Providers>
   );
 }

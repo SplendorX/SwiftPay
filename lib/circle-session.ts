@@ -1,6 +1,10 @@
 "use client";
 
 import { type ArcTokenSymbol } from "@/lib/tokens";
+import {
+  clearPlatformProfileConnected,
+  markPlatformProfileConnected,
+} from "@/lib/platform-access";
 
 export type CircleOAuthInfo = {
   provider?: string;
@@ -120,6 +124,7 @@ export function readCircleLogin() {
 
 export function writeCircleLogin(login: CircleLoginResult) {
   writeCircleSessionStorage(circleStorageKeys.login, JSON.stringify(login));
+  markPlatformProfileConnected();
   notifyCircleSessionChanged();
 }
 
@@ -169,6 +174,7 @@ export function clearCircleSession(options: { clearDevice?: boolean } = {}) {
     window.localStorage.removeItem(key);
   });
 
+  clearPlatformProfileConnected();
   notifyCircleSessionChanged();
 }
 

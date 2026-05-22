@@ -930,10 +930,10 @@ export function CircleGoogleLogin() {
 
       {balances.length > 0 ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {balances.slice(0, 2).map((balance) => (
+          {balances.slice(0, 2).map((balance, index) => (
             <div
               className="rounded-lg border border-lavender-100 bg-white/80 px-3 py-2"
-              key={`${balance.token?.symbol ?? "token"}-${balance.amount}`}
+              key={`${balance.token?.id ?? balance.token?.symbol ?? balance.token?.name ?? "token"}-${balance.amount ?? "0"}-${index}`}
             >
               <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted">
                 {balance.token?.symbol ?? balance.token?.name ?? "Token"}

@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navItems = [
+export const platformNavItems = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/swap", label: "Swap" },
   { href: "/pay", label: "Payrequest" },
   { href: "/privSwiftPay", label: "privSwiftPay" },
+  { href: "/roadmap", label: "Roadmap" },
 ];
 
 export function PlatformNav() {
@@ -20,7 +21,7 @@ export function PlatformNav() {
       className="flex w-full min-w-0 justify-self-center overflow-x-auto rounded-lg border border-lavender-100 bg-white/75 p-1 shadow-sm lg:w-auto lg:max-w-full"
     >
       <div className="mx-auto flex min-w-max items-center justify-center gap-1">
-        {navItems.map((item) => {
+        {platformNavItems.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === item.href
