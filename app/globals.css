@@ -16,6 +16,8 @@
 }
 
 :root {
+  --font-manrope: ui-sans-serif, system-ui, sans-serif;
+  --font-sora: ui-sans-serif, system-ui, sans-serif;
   color-scheme: light;
   background: #fbf8ff;
 }

@@ -15,9 +15,9 @@ import { baseSepolia, sepolia } from "wagmi/chains";
 export const arcTestnet = {
   id: 5_042_002,
   name: "Arc Testnet",
-  iconBackground: "#f5efff",
+  iconBackground: "#120b20",
   iconUrl:
-    "data:image/svg+xml;utf8,<svg width='64' height='64' viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'><rect width='64' height='64' rx='32' fill='%23f2ecff'/><path d='M18 38c4 6 18 7 24 1 5-5 2-12-8-12h-8c-6 0-8-7-3-11 6-5 18-2 21 5' fill='none' stroke='%235d22c6' stroke-width='5' stroke-linecap='round'/><path d='M33 18l-6 14h8l-5 14 14-20h-8l5-8z' fill='%23713be2'/></svg>",
+    "https://cdn.prod.website-files.com/685311a976e7c248b5dfde95/699e21e934a48439675361dc_arc-icon.svg",
   nativeCurrency: {
     decimals: 18,
     name: "USDC",

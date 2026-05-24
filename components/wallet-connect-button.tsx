@@ -59,7 +59,7 @@ export function WalletConnectButton({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       alt={chain.name ?? "Network"}
-                      className="h-4 w-4 rounded-full"
+                      className="h-4 w-4 rounded-full bg-ink p-0.5"
                       src={chain.iconUrl}
                     />
                   ) : null}

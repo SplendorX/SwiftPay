@@ -17,10 +17,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
-import { PlatformNav } from "@/components/platform-nav";
+import { PlatformPageBody } from "@/components/platform-page-body";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 
 const roadmapTracks: Array<{
@@ -115,8 +114,7 @@ const roadmapStats = [
 
 export default function RoadmapPage() {
   return (
-    <Providers>
-      <PlatformAccessGate>
+    <PlatformAccessGate>
         <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
           <div className="dashboard-ambient pointer-events-none absolute inset-0" />
           <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
@@ -142,10 +140,7 @@ export default function RoadmapPage() {
               <PlatformProfileControls />
             </header>
 
-            <div className="sticky top-[5.75rem] z-10 flex justify-center">
-              <PlatformNav />
-            </div>
-
+            <PlatformPageBody>
             <section className="surface-panel grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_24rem] lg:items-stretch">
               <div>
                 <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-lavender-200 bg-white/80 px-3 py-2 text-xs font-bold text-swift-700 shadow-sm">
@@ -296,9 +291,9 @@ export default function RoadmapPage() {
                 );
               })}
             </section>
+            </PlatformPageBody>
           </div>
         </main>
-      </PlatformAccessGate>
-    </Providers>
+    </PlatformAccessGate>
   );
 }

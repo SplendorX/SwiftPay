@@ -5,7 +5,6 @@ import {
   ArrowDownUp,
   ArrowRight,
   CheckCircle2,
-  CircleDollarSign,
   Copy,
   Download,
   ExternalLink,
@@ -21,7 +20,6 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
@@ -46,9 +44,11 @@ import {
 import { BrandMark } from "@/components/brand-mark";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
-import { PlatformNav } from "@/components/platform-nav";
+import { PlatformPageBody } from "@/components/platform-page-body";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
+import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
 import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
+import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { type BeneficiaryRecord } from "@/lib/beneficiaries";
 import {
@@ -75,14 +75,7 @@ import {
   type ArcTokenSymbol,
 } from "@/lib/tokens";
 import { arcTestnet } from "@/lib/wagmi";
-import {
-  estimateCircleSwap,
-  estimateCircleUserWalletSwap,
-  executeCircleSwap,
-  executeCircleUserWalletSwap,
-  type CircleSwapEstimate,
-} from "@/swap/browser";
-import { Providers } from "@/app/providers";
+import type { CircleSwapEstimate } from "@/swap/browser";
 
 const fallbackAddress = "0x0000000000000000000000000000000000000000";
 const sampleAddress = "0xA71CE15C5A0F4B9d7217B8A7A2E6d9D3F55A9cE1";
@@ -1503,6 +1496,8 @@ function DashboardContent() {
 
     try {
       setIsSwapEstimating(true);
+      const { estimateCircleSwap, estimateCircleUserWalletSwap } =
+        await import("@/swap/browser");
       const estimate = activeEmbeddedSwapWallet
         ? await estimateCircleUserWalletSwap({
             amountIn: swapAmount,
@@ -1575,6 +1570,8 @@ function DashboardContent() {
           ? "Preparing Circle wallet swap"
           : "Confirm swap in external wallet",
       );
+      const { executeCircleSwap, executeCircleUserWalletSwap } =
+        await import("@/swap/browser");
       const result = activeEmbeddedSwapWallet
         ? await executeCircleUserWalletSwap({
             amountIn: swapAmount,
@@ -1713,7 +1710,7 @@ function DashboardContent() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
+          <div className="flex min-w-0 items-center gap-2 justify-self-start lg:justify-self-end">
             <a
               className="hidden h-11 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-4 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0 sm:inline-flex"
               href="#activity"
@@ -1735,10 +1732,7 @@ function DashboardContent() {
           </div>
         </header>
 
-        <div className="sticky top-[5.75rem] z-10 flex justify-center">
-          <PlatformNav />
-        </div>
-
+        <PlatformPageBody>
         <section className="surface-panel p-4 sm:p-5">
           <div className="mb-5">
             <p className="eyebrow">Balances</p>
@@ -1763,9 +1757,10 @@ function DashboardContent() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-base font-black text-ink shadow-sm">
-                        {symbol === "USDC" ? "$" : "E"}
-                      </span>
+                      <TokenIcon
+                        className="h-12 w-12 shrink-0 rounded-full shadow-sm"
+                        symbol={symbol}
+                      />
                       <div className="min-w-0">
                         <p className="eyebrow text-[0.68rem]">{symbol}</p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-muted">
@@ -2079,7 +2074,10 @@ function DashboardContent() {
                       Amount
                     </span>
                     <div className="flex h-12 items-center gap-2 rounded-lg border border-lavender-200/90 bg-white/80 px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] transition focus-within:border-swift-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-swift-600/15">
-                      <CircleDollarSign className="h-4 w-4 text-swift-600" />
+                      <TokenIcon
+                        className="h-5 w-5 shrink-0 rounded-full"
+                        symbol={selectedToken}
+                      />
                       <input
                         className="min-w-0 flex-1 bg-transparent text-sm font-medium text-ink outline-none placeholder:text-muted"
                         inputMode="decimal"
@@ -2333,9 +2331,15 @@ function DashboardContent() {
                       key={`${transfer.hash}-${transfer.symbol}-${transfer.direction}-${transfer.logIndex}`}
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-ink">
-                          {transfer.direction === "out" ? "Sent" : "Received"}{" "}
-                          {transfer.symbol}
+                        <p className="inline-flex max-w-full items-center gap-1.5 truncate text-sm font-bold text-ink">
+                          <TokenIcon
+                            className="h-4 w-4 shrink-0 rounded-full"
+                            symbol={transfer.symbol}
+                          />
+                          <span className="truncate">
+                            {transfer.direction === "out" ? "Sent" : "Received"}{" "}
+                            {transfer.symbol}
+                          </span>
                         </p>
                         <p className="truncate text-xs font-medium text-muted">
                           {transfer.direction === "out" ? "To" : "From"}{" "}
@@ -2386,9 +2390,17 @@ function DashboardContent() {
                               : "text-emerald-700"
                           }`}
                         >
-                          {transfer.direction === "out" ? "-" : "+"}
-                          {formatDisplayAmount(transfer.amount)}{" "}
-                          {transfer.symbol}
+                          <span className="inline-flex items-center justify-end gap-1.5">
+                            <TokenIcon
+                              className="h-4 w-4 shrink-0 rounded-full"
+                              symbol={transfer.symbol}
+                            />
+                            <span>
+                              {transfer.direction === "out" ? "-" : "+"}
+                              {formatDisplayAmount(transfer.amount)}{" "}
+                              {transfer.symbol}
+                            </span>
+                          </span>
                         </p>
                         <p className="shrink-0 text-xs font-bold text-muted">
                           Block {transfer.blockNumber}
@@ -2414,6 +2426,7 @@ function DashboardContent() {
             </div>
           </div>
         </section>
+        </PlatformPageBody>
       </div>
 
       {receiptTransfer ? (
@@ -2570,7 +2583,7 @@ function DashboardContent() {
 
             <div className="mx-auto flex aspect-square w-full max-w-[280px] items-center justify-center rounded-lg border border-lavender-200 bg-white/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
               <div className="rounded-lg bg-white p-3 shadow-sm">
-                <QRCodeSVG
+                <LazyQRCodeSVG
                   bgColor="#ffffff"
                   fgColor="#160f24"
                   marginSize={1}
@@ -2627,10 +2640,8 @@ function DashboardContent() {
 
 export default function Dashboard() {
   return (
-    <Providers>
-      <PlatformAccessGate>
-        <DashboardContent />
-      </PlatformAccessGate>
-    </Providers>
+    <PlatformAccessGate>
+      <DashboardContent />
+    </PlatformAccessGate>
   );
 }

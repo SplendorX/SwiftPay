@@ -16,9 +16,8 @@ import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
 import { CircleGoogleLogin } from "@/components/circle-google-login";
-import { PlatformNav } from "@/components/platform-nav";
+import { PlatformPageBody } from "@/components/platform-page-body";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
-import { Providers } from "@/app/providers";
 
 const circleFaucetUrl = "https://faucet.circle.com/";
 
@@ -109,13 +108,10 @@ function HomeContent() {
             </div>
           </Link>
 
-          <PlatformProfileControls showDashboardLink />
+          <PlatformProfileControls />
         </header>
 
-        <div className="relative z-20 flex justify-center">
-          <PlatformNav />
-        </div>
-
+        <PlatformPageBody>
         <section className="grid gap-5 py-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-stretch lg:py-10">
           <div className="surface-panel p-5 sm:p-8 lg:p-10">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-lavender-200 bg-white/80 px-3 py-2 text-xs font-bold text-swift-700 shadow-sm">
@@ -328,15 +324,12 @@ function HomeContent() {
             </div>
           </div>
         </footer>
+        </PlatformPageBody>
       </div>
     </main>
   );
 }
 
 export default function Home() {
-  return (
-    <Providers>
-      <HomeContent />
-    </Providers>
-  );
+  return <HomeContent />;
 }

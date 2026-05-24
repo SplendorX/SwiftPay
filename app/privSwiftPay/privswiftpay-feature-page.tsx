@@ -41,13 +41,13 @@ import {
   useWriteContract,
 } from "wagmi";
 
-import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
-import { PlatformNav } from "@/components/platform-nav";
+import { PlatformPageBody } from "@/components/platform-page-body";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
+import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import {
   callCircleWalletApi,
@@ -2342,7 +2342,7 @@ export function PrivSwiftPayContent({
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-4">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
         <header className="surface-panel sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link
             className="flex min-w-0 items-center gap-3 justify-self-start"
@@ -2360,7 +2360,7 @@ export function PrivSwiftPayContent({
             </div>
           </Link>
 
-          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
+          <div className="flex min-w-0 items-center gap-2 justify-self-start lg:justify-self-end">
             <CircleFaucetLink />
             <ProfileMenu
               circleLogin={circleLogin}
@@ -2375,10 +2375,7 @@ export function PrivSwiftPayContent({
           </div>
         </header>
 
-        <div className="sticky top-[5.75rem] z-10 flex justify-center">
-          <PlatformNav />
-        </div>
-
+        <PlatformPageBody>
         <nav
           aria-label="privSwiftPay features"
           className="flex flex-wrap gap-2 rounded-lg border border-lavender-100 bg-white/85 p-1 shadow-sm"
@@ -2620,8 +2617,17 @@ export function PrivSwiftPayContent({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-ink">
-                            {payment.payload.amount} {payment.payload.token}
+                          <p className="inline-flex max-w-full items-center gap-1.5 truncate text-sm font-bold text-ink">
+                            <TokenIcon
+                              className="h-4 w-4 shrink-0 rounded-full"
+                              symbol={payment.payload.token}
+                            />
+                            <span className="truncate">
+                              {payment.payload.amount}
+                            </span>
+                            <span className="shrink-0">
+                              {payment.payload.token}
+                            </span>
                           </p>
                           <p className="truncate text-xs font-semibold text-muted">
                             To {shortenAddress(payment.payload.recipient)} -{" "}
@@ -2905,8 +2911,13 @@ export function PrivSwiftPayContent({
                           </p>
                         </div>
                         <div className="flex items-center justify-between gap-3 sm:justify-end">
-                          <span className="text-sm font-black text-ink">
-                            {recipient.amount} {recipient.token}
+                          <span className="inline-flex items-center gap-1.5 text-sm font-black text-ink">
+                            <TokenIcon
+                              className="h-4 w-4 shrink-0 rounded-full"
+                              symbol={recipient.token}
+                            />
+                            <span>{recipient.amount}</span>
+                            <span>{recipient.token}</span>
                           </span>
                           <button
                             className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-lavender-100 bg-white text-muted transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
@@ -3085,10 +3096,19 @@ export function PrivSwiftPayContent({
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold text-muted">Amount</span>
-                  <span className="text-right font-bold text-ink">
-                    {claimPayload
-                      ? `${claimPayload.amount} ${claimPayload.token}`
-                      : "No code"}
+                  <span className="inline-flex items-center justify-end gap-1.5 text-right font-bold text-ink">
+                    {claimPayload ? (
+                      <>
+                        <TokenIcon
+                          className="h-4 w-4 shrink-0 rounded-full"
+                          symbol={claimPayload.token}
+                        />
+                        <span>{claimPayload.amount}</span>
+                        <span>{claimPayload.token}</span>
+                      </>
+                    ) : (
+                      "No code"
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
@@ -3108,6 +3128,7 @@ export function PrivSwiftPayContent({
           </div>
         </section>
         ) : null}
+        </PlatformPageBody>
       </div>
     </main>
   );
@@ -3119,11 +3140,9 @@ export function PrivSwiftPayFeaturePage({
   feature: PrivSwiftPayFeature;
 }) {
   return (
-    <Providers>
-      <PlatformAccessGate>
-        <PrivSwiftPayContent feature={feature} />
-      </PlatformAccessGate>
-    </Providers>
+    <PlatformAccessGate>
+      <PrivSwiftPayContent feature={feature} />
+    </PlatformAccessGate>
   );
 }
 

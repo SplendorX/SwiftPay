@@ -7,10 +7,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
-import { PlatformNav } from "@/components/platform-nav";
+import { PlatformPageBody } from "@/components/platform-page-body";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -39,13 +38,12 @@ const settingsSections = [
 
 export default function SettingsPage() {
   return (
-    <Providers>
-      <PlatformAccessGate>
+    <PlatformAccessGate>
     <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-4">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
         <header className="surface-panel sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link
             className="flex min-w-0 items-center gap-3 justify-self-start"
@@ -66,10 +64,7 @@ export default function SettingsPage() {
           <PlatformProfileControls />
         </header>
 
-        <div className="sticky top-[5.75rem] z-10 flex justify-center">
-          <PlatformNav />
-        </div>
-
+        <PlatformPageBody>
         <section className="surface-panel p-4 sm:p-5">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -117,9 +112,9 @@ export default function SettingsPage() {
             })}
           </div>
         </section>
+        </PlatformPageBody>
       </div>
     </main>
-      </PlatformAccessGate>
-    </Providers>
+    </PlatformAccessGate>
   );
 }

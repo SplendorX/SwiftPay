@@ -2,6 +2,7 @@
 
 import {
   ChevronRight,
+  BookOpen,
   Home,
   LayoutDashboard,
   Menu,
@@ -22,6 +23,7 @@ import { platformNavItems } from "@/components/platform-nav";
 const navIcons: Record<string, LucideIcon> = {
   "/": Home,
   "/dashboard": LayoutDashboard,
+  "/docs": BookOpen,
   "/pay": Send,
   "/privSwiftPay": ShieldCheck,
   "/roadmap": Zap,
@@ -33,6 +35,8 @@ const drawerNavItems = [
   ...platformNavItems,
   { href: "/settings", label: "Settings" },
 ];
+
+const shouldPrefetchPlatformRoutes = process.env.NODE_ENV === "production";
 
 export function PlatformNavDrawer() {
   const pathname = usePathname();
@@ -58,7 +62,7 @@ export function PlatformNavDrawer() {
   }, [pathname]);
 
   return (
-    <div className="relative z-[110]">
+    <div className="relative z-[110] lg:hidden">
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -123,6 +127,7 @@ export function PlatformNavDrawer() {
                     }`}
                     href={item.href}
                     key={item.href}
+                    prefetch={shouldPrefetchPlatformRoutes}
                   >
                     <span className="inline-flex min-w-0 items-center gap-3">
                       <Icon className="h-4 w-4 shrink-0" />

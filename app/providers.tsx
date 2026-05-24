@@ -10,6 +10,14 @@ import { WagmiProvider } from "wagmi";
 
 import { arcTestnet, config } from "@/lib/wagmi";
 
+const rainbowKitTheme = lightTheme({
+  accentColor: "#5d22c6",
+  accentColorForeground: "#ffffff",
+  borderRadius: "medium",
+  fontStack: "system",
+  overlayBlur: "small",
+});
+
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
@@ -19,13 +27,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <RainbowKitProvider
           initialChain={arcTestnet}
           modalSize="compact"
-          theme={lightTheme({
-            accentColor: "#5d22c6",
-            accentColorForeground: "#ffffff",
-            borderRadius: "medium",
-            fontStack: "system",
-            overlayBlur: "small",
-          })}
+          theme={rainbowKitTheme}
         >
           {children}
         </RainbowKitProvider>

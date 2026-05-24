@@ -367,13 +367,17 @@ function getCircleKitKey() {
   );
 }
 
-function buildSwapConfig(slippageBps: number, stopLimit?: string) {
+function buildSwapConfig(
+  slippageBps: number,
+  stopLimit?: string,
+  allowanceStrategy?: "approve" | "permit",
+) {
   const kitKey = getCircleKitKey();
 
   return {
-    allowanceStrategy: "approve" as const,
     kitKey,
     slippageBps,
+    ...(allowanceStrategy ? { allowanceStrategy } : {}),
     ...(stopLimit ? { stopLimit } : {}),
   };
 }
@@ -1540,7 +1544,7 @@ async function buildCircleUserWalletSwapParams(
     kit,
     params: {
       amountIn: request.amountIn,
-      config: buildSwapConfig(request.slippageBps, request.stopLimit),
+      config: buildSwapConfig(request.slippageBps, request.stopLimit, "approve"),
       from: { adapter, chain: SwapChain.Arc_Testnet },
       tokenIn: request.tokenIn,
       tokenOut: request.tokenOut,

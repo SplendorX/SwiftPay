@@ -5,7 +5,6 @@ import {
   ArrowDownUp,
   ArrowLeft,
   ArrowRight,
-  CircleDollarSign,
   ExternalLink,
   Loader2,
   ReceiptText,
@@ -24,13 +23,13 @@ import {
 } from "wagmi";
 import { formatUnits, isAddress, parseUnits, type Address } from "viem";
 
-import { Providers } from "@/app/providers";
 import { BrandMark } from "@/components/brand-mark";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
-import { PlatformNav } from "@/components/platform-nav";
+import { PlatformPageBody } from "@/components/platform-page-body";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
+import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import {
   callCircleWalletApi,
@@ -47,13 +46,7 @@ import {
   type ArcTokenSymbol,
 } from "@/lib/tokens";
 import { arcTestnet } from "@/lib/wagmi";
-import {
-  estimateCircleSwap,
-  estimateCircleUserWalletSwap,
-  executeCircleSwap,
-  executeCircleUserWalletSwap,
-  type CircleSwapEstimate,
-} from "@/swap/browser";
+import type { CircleSwapEstimate } from "@/swap/browser";
 
 const fallbackAddress = "0x0000000000000000000000000000000000000000";
 const zeroAmount = BigInt(0);
@@ -459,6 +452,8 @@ function SwapContent() {
 
     try {
       setIsSwapEstimating(true);
+      const { estimateCircleSwap, estimateCircleUserWalletSwap } =
+        await import("@/swap/browser");
       const estimate = activeEmbeddedSwapWallet
         ? await estimateCircleUserWalletSwap({
             amountIn: swapAmount,
@@ -531,6 +526,8 @@ function SwapContent() {
           ? "Preparing Circle wallet swap"
           : "Confirm swap in external wallet",
       );
+      const { executeCircleSwap, executeCircleUserWalletSwap } =
+        await import("@/swap/browser");
       const result = activeEmbeddedSwapWallet
         ? await executeCircleUserWalletSwap({
             amountIn: swapAmount,
@@ -591,7 +588,7 @@ function SwapContent() {
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-4">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
         <header className="surface-panel sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link className="flex min-w-0 items-center gap-3 justify-self-start" href="/">
             <BrandMark className="h-12 w-12 shrink-0" />
@@ -606,9 +603,9 @@ function SwapContent() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
+          <div className="flex min-w-0 items-center gap-2 justify-self-start lg:justify-self-end">
             <Link
-              className="hidden h-11 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-4 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0 sm:inline-flex"
+              className="hidden h-11 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-4 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0 sm:inline-flex lg:hidden"
               href="/dashboard"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -628,10 +625,7 @@ function SwapContent() {
           </div>
         </header>
 
-        <div className="sticky top-[5.75rem] z-10 flex justify-center">
-          <PlatformNav />
-        </div>
-
+        <PlatformPageBody>
         <section className="surface-panel p-4 sm:p-5">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -665,9 +659,10 @@ function SwapContent() {
             {(["USDC", "EURC"] as const).map((symbol) => (
               <div className="surface-card px-4 py-4" key={symbol}>
                 <div className="flex items-center justify-between gap-3">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white text-swift-700 shadow-sm">
-                    <CircleDollarSign className="h-5 w-5" />
-                  </div>
+                  <TokenIcon
+                    className="h-10 w-10 shrink-0 rounded-full shadow-sm"
+                    symbol={symbol}
+                  />
                   <span className="text-xs font-black text-muted">
                     {arcTestnetTokens[symbol].name}
                   </span>
@@ -875,6 +870,7 @@ function SwapContent() {
             </div>
           </div>
         </section>
+        </PlatformPageBody>
       </div>
     </main>
   );
@@ -882,10 +878,8 @@ function SwapContent() {
 
 export default function SwapPage() {
   return (
-    <Providers>
-      <PlatformAccessGate>
-        <SwapContent />
-      </PlatformAccessGate>
-    </Providers>
+    <PlatformAccessGate>
+      <SwapContent />
+    </PlatformAccessGate>
   );
 }

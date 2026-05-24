@@ -11,8 +11,8 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
-import { SocialLoginProvider } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 
+import { TokenIcon } from "@/components/token-icon";
 import {
   CircleClientError,
   circleStorageKeys as storageKeys,
@@ -28,6 +28,7 @@ import {
   type CircleTokenBalance,
   type CircleWallet,
 } from "@/lib/circle-session";
+import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 
 type DeviceTokenResponse = {
   deviceEncryptionKey: string;
@@ -58,8 +59,7 @@ function isValidRedirectUri(value: string) {
   }
 }
 
-const googleProvider =
-  SocialLoginProvider.GOOGLE as Parameters<W3SSdk["performLogin"]>[0];
+const googleProvider = "Google" as Parameters<W3SSdk["performLogin"]>[0];
 
 function shortAddress(value?: string) {
   if (!value) {
@@ -67,6 +67,14 @@ function shortAddress(value?: string) {
   }
 
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function getSupportedTokenSymbol(value?: string): ArcTokenSymbol | undefined {
+  const symbol = value?.toUpperCase();
+
+  return arcTokenSymbols.includes(symbol as ArcTokenSymbol)
+    ? (symbol as ArcTokenSymbol)
+    : undefined;
 }
 
 function GoogleLogo({ className = "h-4 w-4" }: { className?: string }) {
@@ -931,17 +939,31 @@ export function CircleGoogleLogin() {
       {balances.length > 0 ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {balances.slice(0, 2).map((balance, index) => (
-            <div
-              className="rounded-lg border border-lavender-100 bg-white/80 px-3 py-2"
-              key={`${balance.token?.id ?? balance.token?.symbol ?? balance.token?.name ?? "token"}-${balance.amount ?? "0"}-${index}`}
-            >
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted">
-                {balance.token?.symbol ?? balance.token?.name ?? "Token"}
-              </p>
-              <p className="mt-1 truncate text-sm font-black text-ink">
-                {balance.amount ?? "0"}
-              </p>
-            </div>
+            (() => {
+              const symbol = getSupportedTokenSymbol(balance.token?.symbol);
+
+              return (
+                <div
+                  className="rounded-lg border border-lavender-100 bg-white/80 px-3 py-2"
+                  key={`${balance.token?.id ?? balance.token?.symbol ?? balance.token?.name ?? "token"}-${balance.amount ?? "0"}-${index}`}
+                >
+                  <div className="flex items-center gap-2">
+                    {symbol ? (
+                      <TokenIcon
+                        className="h-5 w-5 shrink-0 rounded-full"
+                        symbol={symbol}
+                      />
+                    ) : null}
+                    <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted">
+                      {balance.token?.symbol ?? balance.token?.name ?? "Token"}
+                    </p>
+                  </div>
+                  <p className="mt-1 truncate text-sm font-black text-ink">
+                    {balance.amount ?? "0"}
+                  </p>
+                </div>
+              );
+            })()
           ))}
         </div>
       ) : null}

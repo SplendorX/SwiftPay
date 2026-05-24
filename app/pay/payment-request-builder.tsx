@@ -3,7 +3,6 @@
 import {
   ArrowRight,
   CheckCircle2,
-  CircleDollarSign,
   Copy,
   Link2,
   MessageSquareText,
@@ -12,10 +11,11 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
+import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
+import { TokenIcon } from "@/components/token-icon";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { arcTestnet } from "@/lib/wagmi";
 
@@ -174,7 +174,10 @@ export function PaymentRequestBuilder({
           <label className="grid gap-2">
             <span className="text-sm font-semibold text-ink">Amount</span>
             <div className="field-shell flex h-12 items-center gap-2 px-3">
-              <CircleDollarSign className="h-4 w-4 shrink-0 text-swift-600" />
+              <TokenIcon
+                className="h-5 w-5 shrink-0 rounded-full"
+                symbol={initialToken}
+              />
               <input
                 className="min-w-0 flex-1 bg-transparent text-sm font-medium text-ink outline-none placeholder:text-muted"
                 inputMode="decimal"
@@ -274,7 +277,7 @@ export function PaymentRequestBuilder({
         <div className="mx-auto flex aspect-square w-full max-w-[280px] items-center justify-center rounded-lg border border-lavender-200 bg-white/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
           {requestLink ? (
             <div className="rounded-lg bg-white p-3 shadow-sm">
-              <QRCodeSVG
+              <LazyQRCodeSVG
                 bgColor="#ffffff"
                 fgColor="#160f24"
                 marginSize={1}
@@ -299,8 +302,13 @@ export function PaymentRequestBuilder({
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="font-semibold text-muted">Amount</span>
-            <span className="font-bold text-ink">
-              {trimmedAmount || "0.00"} {initialToken}
+            <span className="inline-flex items-center gap-1.5 font-bold text-ink">
+              <TokenIcon
+                className="h-4 w-4 shrink-0 rounded-full"
+                symbol={initialToken}
+              />
+              <span>{trimmedAmount || "0.00"}</span>
+              <span>{initialToken}</span>
             </span>
           </div>
           <div className="flex items-start justify-between gap-3">
