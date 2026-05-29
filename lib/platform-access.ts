@@ -1,3 +1,5 @@
+import { recordPlatformProfileCreation } from "@/lib/platform-analytics";
+
 export const platformAccessEventName = "swiftpay:platform-access";
 export const platformAccessCookieName = "swiftpay_platform_access";
 
@@ -63,6 +65,14 @@ export function writeActivatedExternalProfile(address: string) {
     activatedExternalProfileKey,
     address.toLowerCase(),
   );
+  recordPlatformProfileCreation({
+    metadata: {
+      profileType: "external_wallet",
+    },
+    profileId: address,
+    provider: "external_wallet",
+    walletAddress: address,
+  });
   writePlatformAccessCookie();
   notifyPlatformAccessChanged();
 }

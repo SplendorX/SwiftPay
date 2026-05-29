@@ -28,6 +28,7 @@ import {
   type CircleTokenBalance,
   type CircleWallet,
 } from "@/lib/circle-session";
+import { recordPlatformProfileCreation } from "@/lib/platform-analytics";
 import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 
 type DeviceTokenResponse = {
@@ -755,7 +756,23 @@ export function CircleGoogleLogin() {
       setStatus("Wallet setup complete");
       removeStorage(storageKeys.setupIntent);
       window.setTimeout(() => {
-        void loadWallets(auth.userToken);
+        void (async () => {
+          const nextWallets = await loadWallets(auth.userToken);
+          const createdWallet = nextWallets?.[0];
+
+          if (createdWallet) {
+            recordPlatformProfileCreation({
+              metadata: {
+                blockchain: createdWallet.blockchain,
+                profileType: "circle_wallet",
+                walletState: createdWallet.state,
+              },
+              profileId: createdWallet.address ?? createdWallet.id,
+              provider: auth.oAuthInfo?.provider ?? "circle",
+              walletAddress: createdWallet.address,
+            });
+          }
+        })();
       }, 1600);
     });
   }

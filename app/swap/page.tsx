@@ -45,6 +45,7 @@ import {
   arcTokenSymbols,
   type ArcTokenSymbol,
 } from "@/lib/tokens";
+import { recordPlatformPaymentEvent } from "@/lib/platform-analytics";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
 
@@ -558,6 +559,18 @@ function SwapContent() {
           ? `Received ${result.amountOut} ${swapTokenOut}`
           : "Swap submitted",
       );
+      recordPlatformPaymentEvent({
+        amount: swapAmount,
+        eventType: "swap",
+        metadata: {
+          amountOut: result.amountOut,
+          tokenOut: swapTokenOut,
+          walletMode: activeEmbeddedSwapWallet ? "circle" : "external",
+        },
+        token: swapTokenIn,
+        txHash: result.txHash,
+        walletAddress: address,
+      });
       setSwapEstimate(undefined);
       await refreshBalances();
     } catch (error) {
@@ -584,11 +597,11 @@ function SwapContent() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+    <main className="relative min-h-screen overflow-hidden px-0 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
+      <div className="relative mx-auto flex w-full max-w-none flex-col gap-4">
         <header className="surface-panel sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link className="flex min-w-0 items-center gap-3 justify-self-start" href="/">
             <BrandMark className="h-12 w-12 shrink-0" />

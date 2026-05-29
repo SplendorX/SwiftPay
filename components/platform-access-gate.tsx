@@ -76,7 +76,7 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
 
   if (isLocked) {
     return (
-      <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+      <main className="relative min-h-screen overflow-hidden px-0 py-4 text-ink sm:px-6 lg:px-8">
         <div className="dashboard-ambient pointer-events-none absolute inset-0" />
         <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
         <section className="surface-panel relative mx-auto mt-10 max-w-xl p-5 text-center sm:p-6">

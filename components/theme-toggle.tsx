@@ -30,34 +30,21 @@ export function ThemeToggle() {
     applyTheme(nextTheme);
   }
 
+  const isDark = theme === "dark";
+  const nextTheme = isDark ? "light" : "dark";
+  const Icon = isDark ? Moon : Sun;
+
   return (
-    <div className="inline-flex rounded-lg border border-lavender-200 bg-white/80 p-1 shadow-sm">
-      <button
-        aria-pressed={theme === "light"}
-        className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition ${
-          theme === "light"
-            ? "bg-ink text-white shadow-sm"
-            : "text-muted hover:bg-white hover:text-swift-700"
-        }`}
-        onClick={() => selectTheme("light")}
-        type="button"
-      >
-        <Sun className="h-4 w-4" />
-        Light
-      </button>
-      <button
-        aria-pressed={theme === "dark"}
-        className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition ${
-          theme === "dark"
-            ? "bg-ink text-white shadow-sm"
-            : "text-muted hover:bg-white hover:text-swift-700"
-        }`}
-        onClick={() => selectTheme("dark")}
-        type="button"
-      >
-        <Moon className="h-4 w-4" />
-        Dark
-      </button>
-    </div>
+    <button
+      aria-label={`Switch to ${nextTheme} mode`}
+      aria-pressed={isDark}
+      className="inline-flex h-10 min-w-[6.5rem] items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-3 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white hover:text-swift-700 active:translate-y-0"
+      onClick={() => selectTheme(nextTheme)}
+      title={`Switch to ${nextTheme} mode`}
+      type="button"
+    >
+      <Icon className="h-4 w-4" />
+      {isDark ? "Dark" : "Light"}
+    </button>
   );
 }

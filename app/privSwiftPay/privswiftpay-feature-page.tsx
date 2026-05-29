@@ -68,6 +68,7 @@ import {
   arcTokenSymbols,
   type ArcTokenSymbol,
 } from "@/lib/tokens";
+import { recordPlatformPaymentEvent } from "@/lib/platform-analytics";
 import { arcTestnet } from "@/lib/wagmi";
 
 const paymentStorageKey = "swiftpay.privacy.payments";
@@ -2022,6 +2023,18 @@ export function PrivSwiftPayContent({
           ? `${arcTestnet.blockExplorers.default.url}/tx/${fundingResult.txHash}`
           : "",
       );
+      recordPlatformPaymentEvent({
+        amount: result.payload.amount,
+        counterpartyAddress: result.payload.recipient,
+        eventType: "private_send",
+        metadata: {
+          note: result.payload.note,
+          paymentId: result.payload.id,
+        },
+        token: result.payload.token,
+        txHash: fundingResult.txHash,
+        walletAddress: result.payload.sender,
+      });
       setSendStatus("Funded claim code ready");
     } catch (error) {
       setSendError(getErrorMessage(error));
@@ -2203,6 +2216,23 @@ export function PrivSwiftPayContent({
           ? `${arcTestnet.blockExplorers.default.url}/tx/${fundingResult.txHash}`
           : "",
       );
+      recordPlatformPaymentEvent({
+        amount: generatedCodes
+          .reduce((total, record) => total + Number(record.payload.amount), 0)
+          .toFixed(6),
+        eventType: "payroll",
+        metadata: {
+          codeCount: generatedCodes.length,
+          folderId: activeFolder.id,
+          folderName: activeFolder.name,
+        },
+        token:
+          new Set(generatedCodes.map((record) => record.payload.token)).size === 1
+            ? generatedCodes[0]?.payload.token
+            : "MIXED",
+        txHash: fundingResult.txHash,
+        walletAddress: address,
+      });
       setPayrollStatus(`${generatedCodes.length} payroll code(s) funded`);
     } catch (error) {
       setPayrollError(getErrorMessage(error));
@@ -2321,6 +2351,17 @@ export function PrivSwiftPayContent({
           ? `${arcTestnet.blockExplorers.default.url}/tx/${claimResult.txHash}`
           : "",
       );
+      recordPlatformPaymentEvent({
+        amount: claimPayload.amount,
+        counterpartyAddress: claimPayload.sender,
+        eventType: "claim",
+        metadata: {
+          paymentId: claimPayload.id,
+        },
+        token: claimPayload.token,
+        txHash: claimResult.txHash,
+        walletAddress: address,
+      });
       setClaimStatus("Claim transaction submitted");
     } catch (error) {
       setClaimError(getErrorMessage(error));
@@ -2338,11 +2379,11 @@ export function PrivSwiftPayContent({
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+    <main className="relative min-h-screen overflow-hidden px-0 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
+      <div className="relative mx-auto flex w-full max-w-none flex-col gap-4">
         <header className="surface-panel sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link
             className="flex min-w-0 items-center gap-3 justify-self-start"
@@ -2533,7 +2574,7 @@ export function PrivSwiftPayContent({
                       {sendStatus}
                     </span>
                     <button
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-ink px-3 text-xs font-bold text-white transition hover:bg-swift-700"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-swift-600 px-3 text-xs font-bold text-white transition hover:bg-swift-700"
                       onClick={() => void copyToClipboard(generatedCode, "send")}
                       type="button"
                     >
@@ -2700,7 +2741,7 @@ export function PrivSwiftPayContent({
                     />
                   </label>
                   <button
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
                     disabled={!address}
                     onClick={handleCreateFolder}
                     type="button"
@@ -2857,7 +2898,7 @@ export function PrivSwiftPayContent({
                     </p>
                   </div>
                   <button
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
                     disabled={
                       !address ||
                       !isEscrowConfigured ||

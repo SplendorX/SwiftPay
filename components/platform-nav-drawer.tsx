@@ -69,7 +69,7 @@ export function PlatformNavDrawer() {
         aria-label="Open navigation"
         className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-sm font-bold shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-swift-600 focus:ring-offset-2 ${
           open
-            ? "border-ink bg-ink text-white hover:bg-ink"
+            ? "border-swift-600 bg-swift-600 text-white hover:bg-swift-700"
             : "border-lavender-200 bg-white/80 text-ink hover:border-swift-600 hover:bg-white hover:text-swift-700"
         }`}
         onClick={() => setOpen((value) => !value)}
@@ -81,7 +81,7 @@ export function PlatformNavDrawer() {
 
       {open ? (
         <div
-          className="fixed inset-0 z-[115] bg-ink/18 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[115] bg-swift-700/18 backdrop-blur-[2px]"
           onClick={() => setOpen(false)}
         >
           <aside
@@ -122,11 +122,12 @@ export function PlatformNavDrawer() {
                     aria-current={isActive ? "page" : undefined}
                     className={`group flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm font-bold transition hover:-translate-y-0.5 ${
                       isActive
-                        ? "border-ink bg-ink text-white shadow-sm"
+                        ? "border-swift-600 bg-swift-600 text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)]"
                         : "border-lavender-100 bg-lavender-50 text-ink hover:border-swift-600 hover:bg-white hover:text-swift-700"
                     }`}
                     href={item.href}
                     key={item.href}
+                    onClick={() => setOpen(false)}
                     prefetch={shouldPrefetchPlatformRoutes}
                   >
                     <span className="inline-flex min-w-0 items-center gap-3">

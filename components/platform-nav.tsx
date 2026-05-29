@@ -32,10 +32,10 @@ export function PlatformNav() {
 
           return (
             <Link
-              className={`font-ui inline-flex min-h-10 w-full shrink-0 items-center justify-start rounded-md px-3 text-sm font-bold transition hover:bg-white hover:text-swift-700 ${
+              className={`font-ui inline-flex min-h-10 w-full shrink-0 items-center justify-start rounded-md px-3 text-sm font-bold transition ${
                 isActive
-                  ? "bg-ink text-white shadow-sm hover:bg-ink hover:text-white"
-                  : "text-muted"
+                  ? "bg-swift-600 text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] hover:bg-swift-700 hover:text-white"
+                  : "text-muted hover:bg-white hover:text-swift-700"
               }`}
               href={item.href}
               key={item.href}

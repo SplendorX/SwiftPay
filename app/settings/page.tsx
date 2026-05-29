@@ -39,11 +39,11 @@ const settingsSections = [
 export default function SettingsPage() {
   return (
     <PlatformAccessGate>
-    <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+    <main className="relative min-h-screen overflow-hidden px-0 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
+      <div className="relative mx-auto flex w-full max-w-none flex-col gap-4">
         <header className="surface-panel sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link
             className="flex min-w-0 items-center gap-3 justify-self-start"

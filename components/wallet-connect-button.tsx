@@ -59,7 +59,7 @@ export function WalletConnectButton({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       alt={chain.name ?? "Network"}
-                      className="h-4 w-4 rounded-full bg-ink p-0.5"
+                      className="h-4 w-4 rounded-full bg-swift-700 p-0.5"
                       src={chain.iconUrl}
                     />
                   ) : null}
@@ -67,7 +67,7 @@ export function WalletConnectButton({
                   <ChevronDown className="h-3.5 w-3.5 text-muted" />
                 </button>
                 <button
-                  className="font-ui inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white shadow-[0_14px_32px_rgba(17,24,39,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
+                  className="font-ui inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_14px_32px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
                   onClick={openAccountModal}
                   type="button"
                 >

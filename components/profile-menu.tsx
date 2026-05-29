@@ -299,7 +299,7 @@ export function ProfileMenu({
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="font-ui inline-flex h-11 max-w-[13rem] items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-bold text-white shadow-[0_14px_32px_rgba(17,24,39,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-swift-600 focus:ring-offset-2 sm:px-4"
+        className="font-ui inline-flex h-11 max-w-[13rem] items-center justify-center gap-2 rounded-lg bg-swift-600 px-3 text-sm font-bold text-white shadow-[0_14px_32px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-swift-600 focus:ring-offset-2 sm:px-4"
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
@@ -310,7 +310,7 @@ export function ProfileMenu({
 
       {open ? (
         <div
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-[100] w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-lavender-200 bg-white p-3 text-ink shadow-[0_22px_70px_rgba(18,11,32,0.22)]"
+          className="fixed left-2 right-2 top-20 z-[100] max-h-[calc(100vh-6rem)] w-auto overflow-y-auto rounded-lg border border-lavender-200 bg-white p-3 text-ink shadow-[0_22px_70px_rgba(18,11,32,0.22)] sm:left-auto sm:right-4 sm:w-[min(22rem,calc(100vw-2rem))] lg:absolute lg:right-0 lg:top-[calc(100%+0.5rem)]"
           role="menu"
         >
           <div className="rounded-lg border border-lavender-100 bg-lavender-50 px-3 py-3">
@@ -369,7 +369,7 @@ export function ProfileMenu({
                 </div>
                 {shouldShowExternalWalletAction ? (
                   <button
-                    className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
+                    className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-swift-600 px-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
                     onClick={selectExternalWallet}
                     type="button"
                   >

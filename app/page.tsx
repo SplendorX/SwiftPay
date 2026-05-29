@@ -16,8 +16,10 @@ import Link from "next/link";
 
 import { BrandMark } from "@/components/brand-mark";
 import { CircleGoogleLogin } from "@/components/circle-google-login";
+import { PlatformAnalyticsView } from "@/components/platform-analytics-view";
 import { PlatformPageBody } from "@/components/platform-page-body";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const circleFaucetUrl = "https://faucet.circle.com/";
 
@@ -89,11 +91,11 @@ const featureHighlights: Array<{
 
 function HomeContent() {
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+    <main className="relative min-h-screen overflow-hidden px-0 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[560px]" />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-5">
+      <div className="relative mx-auto flex w-full max-w-none flex-col gap-5">
         <header className="surface-panel relative z-40 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link className="flex min-w-0 items-center gap-3 justify-self-start" href="/">
             <BrandMark className="h-12 w-12 shrink-0" />
@@ -108,7 +110,10 @@ function HomeContent() {
             </div>
           </Link>
 
-          <PlatformProfileControls />
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            <ThemeToggle />
+            <PlatformProfileControls />
+          </div>
         </header>
 
         <PlatformPageBody>
@@ -137,9 +142,9 @@ function HomeContent() {
               </Link>
               <a
                 className="font-ui inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white/80 px-5 text-sm font-bold text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-white active:translate-y-0"
-                href="#new-features"
+                href="#analytics"
               >
-                New features
+                View analytics
               </a>
             </div>
 
@@ -161,6 +166,8 @@ function HomeContent() {
 
           <CircleGoogleLogin />
         </section>
+
+        <PlatformAnalyticsView />
 
         <section
           className="surface-panel grid gap-5 p-5 sm:p-6 lg:grid-cols-[0.7fr_1fr]"
@@ -254,7 +261,7 @@ function HomeContent() {
 
         <section className="surface-panel grid gap-6 p-5 sm:p-6 lg:grid-cols-[0.8fr_1fr]">
           <div>
-            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-ink text-white shadow-[0_14px_30px_rgba(18,11,32,0.18)]">
+            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-swift-600 text-white shadow-[0_14px_30px_rgba(66,17,143,0.22)]">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <h2 className="font-heading text-3xl font-semibold tracking-normal text-ink">

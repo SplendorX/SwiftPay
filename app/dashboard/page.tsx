@@ -74,6 +74,7 @@ import {
   arcTokenSymbols,
   type ArcTokenSymbol,
 } from "@/lib/tokens";
+import { recordPlatformPaymentEvent } from "@/lib/platform-analytics";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
 
@@ -1352,8 +1353,31 @@ function DashboardContent() {
         if (txHash) {
           setTransactionHash(txHash as Hash);
           setPaymentStatus(`${selectedToken} payment submitted`);
+          recordPlatformPaymentEvent({
+            amount: paymentAmount.trim(),
+            counterpartyAddress: trimmedRecipientAddress,
+            eventType: "direct_send",
+            metadata: {
+              narration: trimmedPaymentNarration,
+              walletMode: "circle",
+            },
+            token: selectedToken,
+            txHash,
+            walletAddress: circleAddress,
+          });
         } else {
           setPaymentStatus("Circle payment confirmed");
+          recordPlatformPaymentEvent({
+            amount: paymentAmount.trim(),
+            counterpartyAddress: trimmedRecipientAddress,
+            eventType: "direct_send",
+            metadata: {
+              narration: trimmedPaymentNarration,
+              walletMode: "circle",
+            },
+            token: selectedToken,
+            walletAddress: circleAddress,
+          });
           void refreshBalances();
         }
       });
@@ -1406,6 +1430,18 @@ function DashboardContent() {
       });
 
       setTransactionHash(hash);
+      recordPlatformPaymentEvent({
+        amount: paymentAmount.trim(),
+        counterpartyAddress: trimmedRecipientAddress,
+        eventType: "direct_send",
+        metadata: {
+          narration: trimmedPaymentNarration,
+          walletMode: "external",
+        },
+        token: selectedToken,
+        txHash: hash,
+        walletAddress: address,
+      });
       setTransactionLabel(
         trimmedPaymentNarration
           ? `${trimmedPaymentNarration} to ${shortenAddress(trimmedRecipientAddress)}`
@@ -1602,6 +1638,18 @@ function DashboardContent() {
           ? `Received ${result.amountOut} ${swapTokenOut}`
           : "Swap submitted",
       );
+      recordPlatformPaymentEvent({
+        amount: swapAmount,
+        eventType: "swap",
+        metadata: {
+          amountOut: result.amountOut,
+          tokenOut: swapTokenOut,
+          walletMode: activeEmbeddedSwapWallet ? "circle" : "external",
+        },
+        token: swapTokenIn,
+        txHash: result.txHash,
+        walletAddress,
+      });
       setSwapEstimate(undefined);
       await refreshBalances();
     } catch (error) {
@@ -1691,11 +1739,11 @@ function DashboardContent() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-4 text-ink sm:px-6 lg:px-8">
+    <main className="relative min-h-screen overflow-hidden px-0 py-4 text-ink sm:px-6 lg:px-8">
       <div className="dashboard-ambient pointer-events-none absolute inset-0" />
       <div className="soft-grid pointer-events-none absolute inset-x-0 top-0 h-[420px]" />
 
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
+      <div className="relative mx-auto flex w-full max-w-none flex-col gap-4">
         <header className="surface-panel sticky top-3 z-20 flex flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
           <Link className="flex min-w-0 items-center gap-3 justify-self-start" href="/">
             <BrandMark className="h-12 w-12 shrink-0" />
@@ -2430,7 +2478,7 @@ function DashboardContent() {
       </div>
 
       {receiptTransfer ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/50 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-swift-700/40 px-4 py-6 backdrop-blur-sm">
           <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-white/80 bg-gradient-to-br from-white via-white to-lavender-50 p-5 shadow-[0_28px_90px_rgba(18,11,32,0.28)] ring-1 ring-white/75">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -2531,7 +2579,7 @@ function DashboardContent() {
       ) : null}
 
       {receiveOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/50 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-swift-700/40 px-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-lg border border-white/80 bg-gradient-to-br from-white via-white to-lavender-50 p-5 shadow-[0_28px_90px_rgba(18,11,32,0.28)] ring-1 ring-white/75">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -2606,7 +2654,7 @@ function DashboardContent() {
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
                   onClick={copyAddress}
                   type="button"
                 >

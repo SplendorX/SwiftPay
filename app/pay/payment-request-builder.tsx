@@ -16,6 +16,7 @@ import { isAddress } from "viem";
 
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
 import { TokenIcon } from "@/components/token-icon";
+import { recordPlatformPaymentEvent } from "@/lib/platform-analytics";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { arcTestnet } from "@/lib/wagmi";
 
@@ -114,6 +115,18 @@ export function PaymentRequestBuilder({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(type);
+      if (type === "link" && canGenerateLink) {
+        recordPlatformPaymentEvent({
+          amount: trimmedAmount,
+          eventType: "payment_request",
+          metadata: {
+            action: "copy_link",
+            note: trimmedNote,
+          },
+          token: initialToken,
+          walletAddress: trimmedWalletAddress,
+        });
+      }
       window.setTimeout(() => setCopied(null), 1400);
     } catch {
       setCopied(null);
@@ -131,6 +144,16 @@ export function PaymentRequestBuilder({
           text: trimmedNote || `Payment request for ${trimmedAmount} ${initialToken}`,
           title: "SwiftPay payment request",
           url: requestLink,
+        });
+        recordPlatformPaymentEvent({
+          amount: trimmedAmount,
+          eventType: "payment_request",
+          metadata: {
+            action: "share_link",
+            note: trimmedNote,
+          },
+          token: initialToken,
+          walletAddress: trimmedWalletAddress,
         });
         return;
       }
@@ -219,7 +242,7 @@ export function PaymentRequestBuilder({
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
                 disabled={!requestLink}
                 onClick={() => void copyValue(requestLink, "link")}
                 type="button"
