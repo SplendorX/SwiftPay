@@ -21,6 +21,7 @@ export const runtime = "nodejs";
 type WalletAuthBody =
   | {
       action?: "challenge";
+      connectorName?: unknown;
       ownerWallet?: unknown;
     }
   | {
@@ -31,7 +32,15 @@ type WalletAuthBody =
 const secureCookie = process.env.NODE_ENV === "production";
 
 function jsonError(message: string, status: number) {
-  return NextResponse.json({ message }, { status });
+  return NextResponse.json(
+    { message },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+      status,
+    },
+  );
 }
 
 function normalizeWallet(value: unknown) {
@@ -40,6 +49,16 @@ function normalizeWallet(value: unknown) {
   }
 
   return getAddress(value);
+}
+
+function normalizeConnectorName(value: unknown) {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const connectorName = value.trim().replace(/\s+/g, " ");
+
+  return connectorName ? connectorName.slice(0, 80) : undefined;
 }
 
 async function readJsonBody(request: NextRequest) {
@@ -58,13 +77,30 @@ export async function GET() {
   );
 
   if (!session) {
-    return NextResponse.json({ authenticated: false });
+    return NextResponse.json(
+      { authenticated: false },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
   }
 
-  return NextResponse.json({
-    authenticated: true,
-    ownerWallet: session.ownerWallet,
-  });
+  return NextResponse.json(
+    {
+      authenticated: true,
+      authMethod: "wallet_signature",
+      connectorName: session.connectorName,
+      expiresAt: session.expiresAt,
+      ownerWallet: session.ownerWallet,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -81,10 +117,18 @@ export async function POST(request: NextRequest) {
       return jsonError("A valid wallet address is required.", 400);
     }
 
-    const challenge = createWalletChallenge(ownerWallet);
+    const connectorName = normalizeConnectorName(body.connectorName);
+    const challenge = createWalletChallenge(ownerWallet, { connectorName });
     const response = NextResponse.json({
+      authMethod: "wallet_signature",
+      connectorName,
+      expiresAt: challenge.expiresAt,
       ownerWallet,
       signingMessage: buildWalletAuthMessage(challenge),
+    }, {
+      headers: {
+        "Cache-Control": "no-store",
+      },
     });
 
     response.cookies.set(walletChallengeCookieName, createWalletToken(challenge), {
@@ -126,10 +170,19 @@ export async function POST(request: NextRequest) {
     return jsonError("Wallet signature could not be verified.", 401);
   }
 
-  const session = createWalletSession(challenge.ownerWallet);
+  const session = createWalletSession(challenge.ownerWallet, {
+    connectorName: challenge.connectorName,
+  });
   const response = NextResponse.json({
     authenticated: true,
+    authMethod: "wallet_signature",
+    connectorName: session.connectorName,
+    expiresAt: session.expiresAt,
     ownerWallet: session.ownerWallet,
+  }, {
+    headers: {
+      "Cache-Control": "no-store",
+    },
   });
 
   response.cookies.set(walletSessionCookieName, createWalletToken(session), {
@@ -145,7 +198,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
-  const response = NextResponse.json({ authenticated: false });
+  const response = NextResponse.json(
+    { authenticated: false },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 
   response.cookies.delete(walletChallengeCookieName);
   response.cookies.delete(walletSessionCookieName);

@@ -11,6 +11,7 @@ export const walletSessionCookieName = "swiftpay_wallet_session";
 type WalletTokenType = "challenge" | "session";
 
 export type WalletTokenPayload = {
+  connectorName?: string;
   expiresAt: string;
   issuedAt: string;
   nonce: string;
@@ -62,6 +63,8 @@ function isWalletTokenPayload(value: unknown): value is WalletTokenPayload {
     typeof payload.issuedAt === "string" &&
     typeof payload.nonce === "string" &&
     typeof payload.ownerWallet === "string" &&
+    (payload.connectorName === undefined ||
+      typeof payload.connectorName === "string") &&
     (payload.type === "challenge" || payload.type === "session")
   );
 }
@@ -109,10 +112,18 @@ export function readWalletToken(token: string | undefined, type: WalletTokenType
   }
 }
 
-export function createWalletChallenge(ownerWallet: string) {
+type WalletSessionMetadata = {
+  connectorName?: string;
+};
+
+export function createWalletChallenge(
+  ownerWallet: string,
+  metadata: WalletSessionMetadata = {},
+) {
   const now = Date.now();
 
   return {
+    ...metadata,
     expiresAt: new Date(now + walletAuthChallengeTtlMs).toISOString(),
     issuedAt: new Date(now).toISOString(),
     nonce: crypto.randomBytes(16).toString("hex"),
@@ -121,10 +132,14 @@ export function createWalletChallenge(ownerWallet: string) {
   };
 }
 
-export function createWalletSession(ownerWallet: string) {
+export function createWalletSession(
+  ownerWallet: string,
+  metadata: WalletSessionMetadata = {},
+) {
   const now = Date.now();
 
   return {
+    ...metadata,
     expiresAt: new Date(now + walletAuthSessionTtlMs).toISOString(),
     issuedAt: new Date(now).toISOString(),
     nonce: crypto.randomBytes(16).toString("hex"),

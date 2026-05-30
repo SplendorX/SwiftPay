@@ -75,6 +75,7 @@ import {
   type ArcTokenSymbol,
 } from "@/lib/tokens";
 import { recordPlatformPaymentEvent } from "@/lib/platform-analytics";
+import { getSwapErrorMessage } from "@/lib/swap-errors";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
 
@@ -192,11 +193,11 @@ function getCounterpartyLabel(transfer: WalletTransfer) {
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message.split("\n")[0] ?? error.message;
+    return getSwapErrorMessage(error.message.split("\n")[0] ?? error.message);
   }
 
   if (typeof error === "string") {
-    return error;
+    return getSwapErrorMessage(error);
   }
 
   if (typeof error === "object" && error !== null) {
@@ -204,7 +205,11 @@ function getErrorMessage(error: unknown) {
     const message = payload.message ?? payload.error;
 
     if (message) {
-      return payload.code ? `[${payload.code}] ${message}` : message;
+      const normalizedMessage = getSwapErrorMessage(message);
+
+      return payload.code
+        ? `[${payload.code}] ${normalizedMessage}`
+        : normalizedMessage;
     }
   }
 
@@ -1167,6 +1172,7 @@ function DashboardContent() {
       const challengeResponse = await fetch("/api/auth/wallet", {
         body: JSON.stringify({
           action: "challenge",
+          connectorName: connector?.name,
           ownerWallet,
         }),
         headers: {

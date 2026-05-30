@@ -46,6 +46,7 @@ import {
   type ArcTokenSymbol,
 } from "@/lib/tokens";
 import { recordPlatformPaymentEvent } from "@/lib/platform-analytics";
+import { getSwapErrorMessage } from "@/lib/swap-errors";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
 
@@ -76,7 +77,7 @@ function formatTokenAmount(
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message.split("\n")[0] ?? error.message;
+    return getSwapErrorMessage(error.message.split("\n")[0] ?? error.message);
   }
 
   return "Swap failed. Check wallet details and try again.";

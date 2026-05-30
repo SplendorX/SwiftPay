@@ -55,6 +55,13 @@ function readSupabaseError(error: { message?: string } | null) {
     return "Create the beneficiaries table with supabase/beneficiaries.sql before saving recipients.";
   }
 
+  if (
+    message.toLowerCase().includes("bigint") ||
+    message.toLowerCase().includes("out of range")
+  ) {
+    return "The beneficiaries table has wallet columns with the wrong type. Run the latest supabase/beneficiaries.sql so owner_wallet and beneficiary_wallet are text columns.";
+  }
+
   return message || "Supabase could not save this beneficiary.";
 }
 

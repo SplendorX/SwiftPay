@@ -1,16 +1,10 @@
+import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import {
-  getDefaultConfig,
-  type Chain,
-  type WalletList,
-} from "@rainbow-me/rainbowkit";
-import {
-  injectedWallet,
-  okxWallet,
-  rabbyWallet,
-  walletConnectWallet,
-} from "@rainbow-me/rainbowkit/wallets";
-import { createStorage, http } from "wagmi";
-import { baseSepolia, sepolia } from "wagmi/chains";
+  baseSepolia,
+  sepolia,
+  type AppKitNetwork,
+} from "@reown/appkit/networks";
+import { http, type Config } from "wagmi";
 
 export const arcTestnet = {
   id: 5_042_002,
@@ -40,86 +34,48 @@ export const arcTestnet = {
     },
   },
   testnet: true,
-} as const satisfies Chain;
+} as const;
 
-const walletConnectProjectId =
+const configuredProjectId =
+  process.env.NEXT_PUBLIC_REOWN_PROJECT_ID?.trim() ||
+  process.env.NEXT_PUBLIC_PROJECT_ID?.trim() ||
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim();
-const invalidWalletConnectProjectIds = new Set([
+const invalidProjectIds = new Set([
   "swiftpay-demo-project",
   "YOUR_PROJECT_ID",
 ]);
 
-if (
-  !walletConnectProjectId ||
-  invalidWalletConnectProjectIds.has(walletConnectProjectId)
-) {
-  throw new Error(
-    "Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to a valid Reown/WalletConnect project ID.",
-  );
-}
+export const projectId =
+  configuredProjectId && !invalidProjectIds.has(configuredProjectId)
+    ? configuredProjectId
+    : "b56e18d47c72ab683b10814fe9495694";
 
-const appName = "SwiftPay";
-const appDescription =
-  "A stablecoin payment platform for EURC and USDC transfers, receiving, swaps, and ArcScan receipts.";
 const appUrl =
-  typeof window === "undefined"
-    ? process.env.NEXT_PUBLIC_APP_URL?.trim()
-    : window.location.origin;
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
 
-const wallets = [
-  {
-    groupName: "Recommended",
-    wallets: [injectedWallet, okxWallet, rabbyWallet, walletConnectWallet],
-  },
-] satisfies WalletList;
+export const metadata = {
+  description:
+    "A stablecoin payment platform for EURC and USDC transfers, receiving, swaps, and ArcScan receipts.",
+  icons: [`${appUrl}/tokens/usdc.svg`],
+  name: "SwiftPay",
+  url: appUrl,
+};
 
-const storage = createStorage({
-  key: "swiftpay2-wagmi-v2",
-  storage: {
-    getItem(key) {
-      if (typeof window === "undefined") {
-        return null;
-      }
+export const networks = [
+  arcTestnet,
+  baseSepolia,
+  sepolia,
+] as [AppKitNetwork, ...AppKitNetwork[]];
 
-      return window.localStorage.getItem(key);
-    },
-    removeItem(key) {
-      if (typeof window === "undefined") {
-        return;
-      }
-
-      window.localStorage.removeItem(key);
-    },
-    setItem(key, value) {
-      if (typeof window === "undefined") {
-        return;
-      }
-
-      window.localStorage.setItem(key, value);
-    },
-  },
-});
-
-export const config = getDefaultConfig({
-  appName,
-  appDescription,
-  appUrl,
-  projectId: walletConnectProjectId,
-  storage,
-  wallets,
-  walletConnectParameters: {
-    storageOptions: {
-      database: "swiftpay2-walletconnect",
-    },
-  },
-  chains: [arcTestnet, baseSepolia, sepolia],
+export const wagmiAdapter = new WagmiAdapter({
+  networks,
+  projectId,
   ssr: true,
-  // Some browser extensions announce duplicate EIP-6963 ids like app.keplr.
-  // Use the explicit RainbowKit wallet list to avoid duplicate React keys.
-  multiInjectedProviderDiscovery: false,
   transports: {
     [arcTestnet.id]: http(arcTestnet.rpcUrls.default.http[0]),
     [baseSepolia.id]: http(),
     [sepolia.id]: http(),
   },
 });
+
+export const config = wagmiAdapter.wagmiConfig as Config;

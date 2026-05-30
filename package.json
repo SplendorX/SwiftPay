@@ -31,19 +31,25 @@
     "@circle-fin/smart-contract-platform": "^10.3.1",
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@rainbow-me/rainbowkit": "^2.2.11",
+    "@reown/appkit": "^1.7.8",
+    "@reown/appkit-adapter-wagmi": "^1.7.8",
     "@supabase/supabase-js": "^2.106.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@tanstack/react-query": "^5.100.10",
+    "@walletconnect/sign-client": "^2.23.9",
+    "@walletconnect/universal-provider": "^2.23.9",
     "cookies-next": "^6.1.1",
     "dotenv": "^17.4.2",
     "ethers": "^6.16.0",
     "lucide-react": "^1.16.0",
     "next": "^16.2.6",
     "postcss": "^8.5.14",
+    "qr": "^0.6.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwindcss": "^4.3.0",
+    "uuid": "^14.0.0",
     "viem": "^2.49.3",
     "wagmi": "^2.19.5"
   },
@@ -54,5 +60,14 @@
     "hardhat": "^3.5.0",
     "tsx": "^4.22.1",
     "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "utf-8-validate@5.0.10": true,
+    "utf-8-validate@6.0.6": true,
+    "bufferutil@4.1.0": true,
+    "esbuild@0.28.0": true,
+    "keccak@3.0.4": true,
+    "protobufjs@7.6.1": true,
+    "sharp@0.34.5": true
   }
 }
