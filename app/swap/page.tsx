@@ -424,7 +424,7 @@ function SwapContent() {
     setSwapExplorerUrl(undefined);
 
     if (isEmbeddedWalletMode && !activeEmbeddedSwapWallet) {
-      setSwapError("Embedded Circle wallet is not ready.");
+      setSwapError("Circle wallet is not ready.");
       return;
     }
 
@@ -488,7 +488,7 @@ function SwapContent() {
     setSwapError(null);
 
     if (isEmbeddedWalletMode && !activeEmbeddedSwapWallet) {
-      setSwapError("Embedded Circle wallet is not ready.");
+      setSwapError("Circle wallet is not ready.");
       return;
     }
 

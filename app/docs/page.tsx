@@ -22,7 +22,7 @@ import { PlatformProfileControls } from "@/components/platform-profile-controls"
 import { TokenIcon } from "@/components/token-icon";
 
 const quickStartSteps = [
-  "Connect with a Circle embedded wallet or an external wallet.",
+  "Connect with a Circle wallet or an external wallet.",
   "Confirm the wallet is operating on Arc Testnet.",
   "Choose USDC or EURC for payment, request, swap, or private claim-code workflows.",
   "Verify submitted transactions from the dashboard receipt and ArcScan links.",
@@ -71,7 +71,7 @@ const environmentRows = [
   ["Network", "Arc Testnet"],
   ["Primary assets", "USDC and EURC"],
   ["Token precision", "6 decimals"],
-  ["Wallet options", "Circle embedded wallet and external wallet"],
+  ["Wallet options", "Circle wallet and external wallet"],
 ];
 
 function DocsPageContent() {

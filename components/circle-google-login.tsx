@@ -902,7 +902,7 @@ export function CircleGoogleLogin() {
         <div>
           <p className="eyebrow">Google auth</p>
           <h2 className="mt-3 font-heading text-2xl font-semibold leading-snug text-ink">
-            Embedded Circle wallet
+            Circle wallet
           </h2>
         </div>
         <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white text-swift-700 shadow-sm">

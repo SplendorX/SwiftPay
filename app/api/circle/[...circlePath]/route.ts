@@ -1,11 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { request as httpsRequest } from "node:https";
+import {
+  Agent,
+  fetch as undiciFetch,
+  type RequestInit as UndiciRequestInit,
+} from "undici";
 
 const circleApiOrigin = "https://api.circle.com";
 const allowedPaths = new Set([
+  "/v1/stablecoinKits/quote",
   "/v1/stablecoinKits/swap",
   "/v1/stablecoinKits/swap/status",
 ]);
+const circleRequestAttempts = 3;
+const circleRetryDelayMs = 500;
 
 export const runtime = "nodejs";
 
@@ -15,18 +22,40 @@ type CircleProxyResponse = {
   status: number;
 };
 
+type FetchInitWithDispatcher = UndiciRequestInit & {
+  dispatcher: Agent;
+};
+
 function getCircleKitKey() {
   return process.env.KIT_KEY ?? process.env.NEXT_PUBLIC_CIRCLE_KIT_KEY;
 }
 
-function isNodeCertificateError(error: unknown) {
-  return (
-    error instanceof TypeError &&
-    error.message === "fetch failed" &&
+function getErrorCauseCode(error: unknown) {
+  if (
+    error instanceof Error &&
     typeof error.cause === "object" &&
     error.cause !== null &&
     "code" in error.cause &&
-    error.cause.code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
+    typeof error.cause.code === "string"
+  ) {
+    return error.cause.code;
+  }
+
+  return undefined;
+}
+
+function isRetryableNodeFetchError(error: unknown) {
+  const retryableCauseCodes = new Set([
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "UND_ERR_SOCKET",
+    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  ]);
+
+  return (
+    error instanceof TypeError &&
+    error.message === "fetch failed" &&
+    retryableCauseCodes.has(getErrorCauseCode(error) ?? "")
   );
 }
 
@@ -40,6 +69,26 @@ function parseBody(rawBody: string, contentType: string) {
   } catch {
     return rawBody;
   }
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+function getLoggableErrorDetails(error: unknown) {
+  const cause =
+    error instanceof Error && error.cause instanceof Error
+      ? error.cause
+      : undefined;
+
+  return {
+    causeCode: getErrorCauseCode(error),
+    causeMessage: cause?.message,
+    message: error instanceof Error ? error.message : String(error),
+    name: error instanceof Error ? error.name : typeof error,
+  };
 }
 
 async function requestCircleWithSystemTls(
@@ -67,50 +116,40 @@ async function requestCircleWithSystemTls(
   };
 }
 
-function requestCircleWithLocalTlsFallback(
+async function requestCircleWithLocalTlsFallback(
   targetUrl: URL,
   method: string,
   body: string | undefined,
   kitKey: string,
-): Promise<CircleProxyResponse> {
-  return new Promise((resolve, reject) => {
-    const request = httpsRequest(
-      targetUrl,
-      {
-        headers: {
-          Authorization: `Bearer ${kitKey}`,
-          "Content-Type": "application/json",
-        },
-        method,
-        rejectUnauthorized: false,
-      },
-      (response) => {
-        let rawBody = "";
-
-        response.setEncoding("utf8");
-        response.on("data", (chunk) => {
-          rawBody += chunk;
-        });
-        response.on("end", () => {
-          const contentType = String(response.headers["content-type"] ?? "");
-
-          resolve({
-            body: parseBody(rawBody, contentType),
-            contentType,
-            status: response.statusCode ?? 502,
-          });
-        });
-      },
-    );
-
-    request.on("error", reject);
-
-    if (method !== "GET" && body) {
-      request.write(body);
-    }
-
-    request.end();
+) {
+  const localTlsDispatcher = new Agent({
+    connect: {
+      rejectUnauthorized: false,
+    },
   });
+  const init: FetchInitWithDispatcher = {
+    body: method === "GET" ? undefined : body,
+    dispatcher: localTlsDispatcher,
+    headers: {
+      Authorization: `Bearer ${kitKey}`,
+      "Content-Type": "application/json",
+    },
+    method,
+  };
+
+  try {
+    const response = await undiciFetch(targetUrl.toString(), init);
+    const contentType = response.headers.get("content-type") ?? "";
+    const rawBody = await response.text();
+
+    return {
+      body: parseBody(rawBody, contentType),
+      contentType,
+      status: response.status,
+    };
+  } finally {
+    await localTlsDispatcher.close();
+  }
 }
 
 async function requestCircle(
@@ -119,15 +158,39 @@ async function requestCircle(
   body: string | undefined,
   kitKey: string,
 ) {
-  try {
-    return await requestCircleWithSystemTls(targetUrl, method, body, kitKey);
-  } catch (error) {
-    if (!isNodeCertificateError(error)) {
-      throw error;
-    }
+  let lastError: unknown;
 
-    return requestCircleWithLocalTlsFallback(targetUrl, method, body, kitKey);
+  for (let attempt = 1; attempt <= circleRequestAttempts; attempt += 1) {
+    try {
+      return await requestCircleWithSystemTls(targetUrl, method, body, kitKey);
+    } catch (systemError) {
+      if (!isRetryableNodeFetchError(systemError)) {
+        throw systemError;
+      }
+
+      try {
+        return await requestCircleWithLocalTlsFallback(
+          targetUrl,
+          method,
+          body,
+          kitKey,
+        );
+      } catch (fallbackError) {
+        lastError = fallbackError;
+
+        if (
+          !isRetryableNodeFetchError(fallbackError) ||
+          attempt === circleRequestAttempts
+        ) {
+          throw fallbackError;
+        }
+
+        await wait(circleRetryDelayMs * attempt);
+      }
+    }
   }
+
+  throw lastError;
 }
 
 async function proxyCircleRequest(request: NextRequest) {
@@ -146,7 +209,7 @@ async function proxyCircleRequest(request: NextRequest) {
 
   if (!kitKey) {
     return NextResponse.json(
-      { message: "Missing Circle KIT_KEY for swaps." },
+      { message: "Missing Circle KIT_KEY for Circle App Kit routes." },
       { status: 500 },
     );
   }
@@ -163,7 +226,12 @@ async function proxyCircleRequest(request: NextRequest) {
     );
 
     return NextResponse.json(response.body, { status: response.status });
-  } catch {
+  } catch (error) {
+    console.error("Circle proxy request failed", {
+      path,
+      ...getLoggableErrorDetails(error),
+    });
+
     return NextResponse.json(
       {
         message:

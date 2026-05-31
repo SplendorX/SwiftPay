@@ -69,6 +69,12 @@ export type CircleSwapExecution = {
 const ARC_TESTNET_CHAIN_ID = 5_042_002;
 const ARC_TESTNET_CHAIN_ID_HEX = `0x${ARC_TESTNET_CHAIN_ID.toString(16)}`;
 const CIRCLE_API_ORIGIN = "https://api.circle.com";
+const CIRCLE_BROWSER_KIT_KEY_PLACEHOLDER = "KIT_KEY:swiftpay-proxy:browser";
+const CIRCLE_STABLECOIN_KIT_PROXY_PATHS = new Set([
+  "/v1/stablecoinKits/quote",
+  "/v1/stablecoinKits/swap",
+  "/v1/stablecoinKits/swap/status",
+]);
 const NATIVE_TOKEN_ADDRESS = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const zeroBigInt = BigInt(0);
 const defaultFeeBufferBasisPoints = BigInt(500);
@@ -361,10 +367,9 @@ async function callCircleUserWalletApi<T>(
 }
 
 function getCircleKitKey() {
-  return (
-    process.env.NEXT_PUBLIC_CIRCLE_KIT_KEY ??
-    "KIT_KEY:swiftpay-proxy:browser"
-  );
+  // The browser SDK validates the format locally; /api/circle adds the real
+  // server-side KIT_KEY before forwarding requests to Circle.
+  return CIRCLE_BROWSER_KIT_KEY_PLACEHOLDER;
 }
 
 function buildSwapConfig(
@@ -765,7 +770,7 @@ async function withCircleStablecoinProxy<TResult>(
 
     if (
       url.origin === CIRCLE_API_ORIGIN &&
-      url.pathname.startsWith("/v1/stablecoinKits/swap")
+      CIRCLE_STABLECOIN_KIT_PROXY_PATHS.has(url.pathname)
     ) {
       const proxyUrl = `/api/circle${url.pathname}${url.search}`;
 
@@ -1201,7 +1206,7 @@ async function createCircleUserWalletAdapter(
     capabilities: { addressContext: "user-controlled" },
     ensureChain: async (targetChain: unknown) => {
       if (!isArcTestnetChain(targetChain)) {
-        throw new Error("Circle embedded wallet swaps only support Arc Testnet.");
+        throw new Error("Circle wallet swaps only support Arc Testnet.");
       }
     },
     getAddress: async () => request.walletAddress,
@@ -1250,11 +1255,11 @@ async function createCircleUserWalletAdapter(
       context: unknown,
     ): Promise<EvmPreparedRequest> => {
       if (params.type !== "evm") {
-        throw new Error("Circle embedded wallet swaps only support EVM requests.");
+        throw new Error("Circle wallet swaps only support EVM requests.");
       }
 
       if (!params.abi || !params.functionName) {
-        throw new Error("Circle embedded wallet swaps require contract calldata.");
+        throw new Error("Circle wallet swaps require contract calldata.");
       }
 
       return isReadOnlyFunction(params.abi, params.functionName)
@@ -1396,14 +1401,14 @@ async function createCircleUserWalletAdapter(
         }
 
         default:
-          throw new Error(`Circle embedded wallet does not support ${action}.`);
+          throw new Error(`Circle wallet does not support ${action}.`);
       }
     },
     resetState: () => undefined,
     switchToChain: async () => undefined,
     validateChainSupport: (targetChain: unknown) => {
       if (!isArcTestnetChain(targetChain)) {
-        throw new Error("Circle embedded wallet swaps only support Arc Testnet.");
+        throw new Error("Circle wallet swaps only support Arc Testnet.");
       }
     },
     waitForTransaction: async (txHash: string, config?: AnyRecord) => {

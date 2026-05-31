@@ -36,7 +36,7 @@ const reasons: Array<{ title: string; body: string; icon: LucideIcon }> = [
   },
   {
     title: "Stable by default",
-    body: "Arc Testnet uses stablecoin rails, so the experience feels closer to digital money than speculative crypto. SwiftPay puts EURC and USDC where users expect them.",
+    body: "Arc Testnet uses stablecoin rails, so the experience feels closer to digital money than speculative crypto. SwiftPay puts USDC and EURC where users expect them.",
     icon: CircleDollarSign,
   },
   {
@@ -48,7 +48,7 @@ const reasons: Array<{ title: string; body: string; icon: LucideIcon }> = [
 
 const steps = [
   "Connect a wallet on Arc Testnet.",
-  "Choose EURC or USDC and enter the recipient.",
+  "Choose USDC or EURC and enter the recipient.",
   "Confirm the payment, receive by QR, or swap balances when needed.",
 ];
 
@@ -82,7 +82,7 @@ const featureHighlights: Array<{
   },
   {
     title: "Test funds",
-    body: "Use the Circle faucet link in the header to top up Arc Testnet balances before trying EURC and USDC flows.",
+    body: "Use the Circle faucet link in the header to top up Arc Testnet balances before trying USDC and EURC flows.",
     href: circleFaucetUrl,
     icon: CircleDollarSign,
     label: "Open faucet",
@@ -121,7 +121,7 @@ function HomeContent() {
           <div className="surface-panel p-5 sm:p-8 lg:p-10">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-lavender-200 bg-white/80 px-3 py-2 text-xs font-bold text-swift-700 shadow-sm">
               <Zap className="h-3.5 w-3.5" />
-              EURC and USDC payments
+              USDC and EURC payments
             </div>
             <h1 className="font-heading max-w-4xl text-4xl font-semibold leading-[1.04] tracking-normal text-ink sm:text-6xl lg:text-7xl">
               Payments should feel direct, calm, and complete.
@@ -150,7 +150,7 @@ function HomeContent() {
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {[
-                ["Currency", "EURC and USDC"],
+                ["Currency", "USDC and EURC"],
                 ["Network", "Arc Testnet"],
                 ["Privacy", "Claim-code payments"],
               ].map(([label, value]) => (

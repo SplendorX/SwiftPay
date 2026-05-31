@@ -10,7 +10,7 @@ import { Providers } from "@/app/providers";
 export const metadata: Metadata = {
   title: "SwiftPay | Circle-powered wallet payments",
   description:
-    "A stablecoin payment platform for EURC and USDC transfers, receiving, swaps, and ArcScan receipts.",
+    "A stablecoin payment platform for USDC and EURC transfers, receiving, swaps, and ArcScan receipts.",
 };
 
 export default async function RootLayout({

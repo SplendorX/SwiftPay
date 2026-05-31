@@ -45,7 +45,7 @@ const roadmapTracks: Array<{
     body: "Reduce onboarding friction while giving users stronger account controls.",
     icon: ShieldCheck,
     items: [
-      "Google login with Circle embedded wallets",
+      "Google login with Circle wallets",
       "Email-based wallet creation",
       "Profile updates and usernames",
       "Session and device management",

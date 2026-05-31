@@ -1173,7 +1173,7 @@ export function PrivSwiftPayContent({
 
   async function listCircleTransactions(params: Record<string, unknown> = {}) {
     if (!circleLogin || !circleWallet?.id) {
-      throw new Error("Embedded Circle wallet is not ready.");
+      throw new Error("Circle wallet is not ready.");
     }
 
     return callCircleWalletApi("listTransactions", {
@@ -1640,7 +1640,7 @@ export function PrivSwiftPayContent({
     refId?: string;
   }) {
     if (!circleLogin || !circleWallet?.id) {
-      throw new Error("Embedded Circle wallet is not ready.");
+      throw new Error("Circle wallet is not ready.");
     }
 
     const statusHandler = onStatus ?? setSendStatus;

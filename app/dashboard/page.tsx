@@ -461,7 +461,7 @@ function DashboardContent() {
   const [circleBalances, setCircleBalances] = useState<CircleTokenBalance[]>(
     [],
   );
-  const [circleStatus, setCircleStatus] = useState("Embedded wallet loading");
+  const [circleStatus, setCircleStatus] = useState("Circle wallet loading");
   const [circleError, setCircleError] = useState<string | null>(null);
   const [isCircleLoading, setIsCircleLoading] = useState(false);
   const [isCirclePaymentPending, setIsCirclePaymentPending] = useState(false);
@@ -765,7 +765,7 @@ function DashboardContent() {
       const login = readCircleLogin();
 
       if (!login) {
-        setCircleStatus("No embedded wallet session");
+        setCircleStatus("No Circle wallet session");
         setCircleLogin(null);
         setCircleWallets([]);
         setCircleBalances([]);
@@ -781,9 +781,9 @@ function DashboardContent() {
 
       if (cachedWallets.length > 0) {
         setCircleWallets(cachedWallets);
-        setCircleStatus("Embedded Circle wallet active");
+        setCircleStatus("Circle wallet active");
       } else {
-        setCircleStatus("Loading embedded wallet");
+        setCircleStatus("Loading Circle wallet");
       }
 
       setIsCircleLoading(true);
@@ -822,7 +822,7 @@ function DashboardContent() {
         writeCircleWallets(wallets);
 
         if (!wallets[0]) {
-          setCircleStatus("Embedded wallet not found");
+          setCircleStatus("Circle wallet not found");
           setCircleBalances([]);
           return;
         }
@@ -839,11 +839,11 @@ function DashboardContent() {
         }
 
         setCircleBalances(balancePayload.tokenBalances ?? []);
-        setCircleStatus("Embedded Circle wallet active");
+        setCircleStatus("Circle wallet active");
       } catch (error) {
         if (!cancelled) {
           setCircleError(getErrorMessage(error));
-          setCircleStatus("Embedded wallet unavailable");
+          setCircleStatus("Circle wallet unavailable");
         }
       } finally {
         if (!cancelled) {
@@ -1287,7 +1287,7 @@ function DashboardContent() {
 
   async function handleCirclePaymentAction() {
     if (!circleLogin || !circleWallet?.id || !circleAddress) {
-      setPaymentError("Embedded Circle wallet is not ready.");
+      setPaymentError("Circle wallet is not ready.");
       return;
     }
 
@@ -1503,7 +1503,7 @@ function DashboardContent() {
     setSwapExplorerUrl(undefined);
 
     if (isEmbeddedWalletMode && !activeEmbeddedSwapWallet) {
-      setSwapError("Embedded Circle wallet is not ready.");
+      setSwapError("Circle wallet is not ready.");
       return;
     }
 
@@ -1572,7 +1572,7 @@ function DashboardContent() {
     setSwapError(null);
 
     if (isEmbeddedWalletMode && !activeEmbeddedSwapWallet) {
-      setSwapError("Embedded Circle wallet is not ready.");
+      setSwapError("Circle wallet is not ready.");
       return;
     }
 
@@ -1740,7 +1740,7 @@ function DashboardContent() {
     setCircleWallets([]);
     setCircleBalances([]);
     setCircleError(null);
-    setCircleStatus("No embedded wallet session");
+    setCircleStatus("No Circle wallet session");
     setWalletMode("circle");
   }
 
@@ -1856,7 +1856,7 @@ function DashboardContent() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="eyebrow text-[0.68rem]">
-                    {isEmbeddedWalletMode ? "Embedded wallet" : "Network funds"}
+                    {isEmbeddedWalletMode ? "Circle wallet" : "Network funds"}
                   </p>
                   <h2 className="mt-6 font-heading text-3xl font-semibold tracking-normal text-ink">
                     {nativeBalanceText}
@@ -2004,7 +2004,7 @@ function DashboardContent() {
                       {!isConnected
                         ? "Connect wallet"
                         : isEmbeddedWalletMode
-                          ? "Embedded wallet active"
+                          ? "Circle wallet active"
                           : !isWalletAuthenticated
                           ? "Sign in first"
                           : "Save beneficiary"}
@@ -2074,7 +2074,7 @@ function DashboardContent() {
 
                     {isEmbeddedWalletMode ? (
                       <div className="rounded-lg border border-lavender-100 bg-lavender-50 px-3 py-2 text-sm font-semibold text-muted">
-                        Embedded wallet payments can use any recipient address.
+                        Circle wallet payments can use any recipient address.
                       </div>
                     ) : !isConnected ? (
                       <div className="rounded-lg border border-lavender-100 bg-lavender-50 px-3 py-2 text-sm font-semibold text-muted">
