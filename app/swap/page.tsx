@@ -112,7 +112,7 @@ function SwapContent() {
   const [isCircleLoading, setIsCircleLoading] = useState(false);
   const [swapTokenIn, setSwapTokenIn] = useState<ArcTokenSymbol>("USDC");
   const [swapTokenOut, setSwapTokenOut] = useState<ArcTokenSymbol>("EURC");
-  const [swapAmount, setSwapAmount] = useState("10.00");
+  const [swapAmount, setSwapAmount] = useState("");
   const [swapEstimate, setSwapEstimate] = useState<CircleSwapEstimate>();
   const [swapExplorerUrl, setSwapExplorerUrl] = useState<string>();
   const [swapStatus, setSwapStatus] = useState("Ready");

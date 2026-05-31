@@ -442,7 +442,7 @@ function DashboardContent() {
   const [selectedBillId, setSelectedBillId] = useState("internet");
   const [recipientAddress, setRecipientAddress] = useState("");
   const [beneficiaryName, setBeneficiaryName] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("25.00");
+  const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNarration, setPaymentNarration] = useState(
     "Internet and TV bill payment",
   );
@@ -450,7 +450,7 @@ function DashboardContent() {
   const [transactionLabel, setTransactionLabel] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("Ready");
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [receiveAmount, setReceiveAmount] = useState("25.00");
+  const [receiveAmount, setReceiveAmount] = useState("");
   const [receiveToken, setReceiveToken] = useState<ArcTokenSymbol>("USDC");
   const [paymentRequestCopied, setPaymentRequestCopied] = useState(false);
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(
@@ -467,7 +467,7 @@ function DashboardContent() {
   const [isCirclePaymentPending, setIsCirclePaymentPending] = useState(false);
   const [swapTokenIn, setSwapTokenIn] = useState<ArcTokenSymbol>("USDC");
   const [swapTokenOut, setSwapTokenOut] = useState<ArcTokenSymbol>("EURC");
-  const [swapAmount, setSwapAmount] = useState("10.00");
+  const [swapAmount, setSwapAmount] = useState("");
   const [swapEstimate, setSwapEstimate] = useState<CircleSwapEstimate>();
   const [swapExplorerUrl, setSwapExplorerUrl] = useState<string>();
   const [swapStatus, setSwapStatus] = useState("Ready");

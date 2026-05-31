@@ -761,7 +761,7 @@ export function PrivSwiftPayContent({
   const [activeFolderId, setActiveFolderId] = useState("");
 
   const [recipientAddress, setRecipientAddress] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("25.00");
+  const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentToken, setPaymentToken] = useState<ArcTokenSymbol>("USDC");
   const [paymentNote, setPaymentNote] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
@@ -775,7 +775,7 @@ export function PrivSwiftPayContent({
   const [folderDraftName, setFolderDraftName] = useState("");
   const [employeeName, setEmployeeName] = useState("");
   const [employeeAddress, setEmployeeAddress] = useState("");
-  const [employeeAmount, setEmployeeAmount] = useState("100.00");
+  const [employeeAmount, setEmployeeAmount] = useState("");
   const [employeeToken, setEmployeeToken] = useState<ArcTokenSymbol>("USDC");
   const [payrollCodes, setPayrollCodes] = useState<PayrollCodeRecord[]>([]);
   const [payrollStatus, setPayrollStatus] = useState("No folder selected");
