@@ -37,3 +37,9 @@ Thumbs.db
 .vscode/
 
 .vercel
+
+# Local agent/terminal harness output
+agent-tools/
+mcps/
+terminals/
+apps/web/terminals/

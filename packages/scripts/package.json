@@ -1,0 +1,29 @@
+{
+  "name": "@swiftpay/scripts",
+  "version": "1.0.0",
+  "description": "Operational scripts for SwiftPay wallets, transfers, swaps, and bridge flows.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "create-wallet": "tsx --env-file=../../.env create-wallet.ts",
+    "batch-wallets": "tsx --env-file=../../.env batch-wallets.ts",
+    "send-tokens": "tsx --env-file=../../.env send-tokens.ts",
+    "generate-entity-secret": "node generate.js",
+    "create-wallet:js": "node createWallet.js",
+    "bridge": "tsx --env-file=../../.env bridge/index.ts",
+    "swap": "tsx --env-file=../../.env swap/index.ts",
+    "send": "tsx --env-file=../../.env send/index.ts"
+  },
+  "dependencies": {
+    "@circle-fin/adapter-viem-v2": "^1.11.0",
+    "@circle-fin/app-kit": "^1.5.1",
+    "@circle-fin/developer-controlled-wallets": "^10.3.1",
+    "@supabase/supabase-js": "^2.106.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "tsx": "^4.22.1",
+    "typescript": "^6.0.3"
+  }
+}

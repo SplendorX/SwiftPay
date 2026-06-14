@@ -1,0 +1,6 @@
+{
+  "name": "@swiftpay/database",
+  "version": "1.0.0",
+  "description": "Database schema and SQL assets for SwiftPay.",
+  "private": true
+}
