@@ -11,6 +11,7 @@
     "dev": "npm run dev --workspace @swiftpay/web",
     "dev:clean": "npm run dev:clean --workspace @swiftpay/web",
     "build": "npm run build --workspace @swiftpay/web",
+    "vercel-build": "npm run build --workspace @swiftpay/web && node scripts/vercel-sync-next.mjs",
     "start": "npm run start --workspace @swiftpay/web",
     "typecheck": "npm run typecheck --workspace @swiftpay/web",
     "test": "npm run test --workspaces --if-present",
