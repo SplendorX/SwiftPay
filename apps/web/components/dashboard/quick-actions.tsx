@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import {
   ArrowDownUp,
+  CalendarClock,
   LockKeyhole,
   QrCode,
   Send,
@@ -22,6 +23,7 @@ const actions: Array<{
   { href: "#send", icon: Send, label: "Send Payment" },
   { href: "/pay", icon: QrCode, label: "Request Payment" },
   { href: "/swiftBatch", icon: Users, label: "Batch Settlement" },
+  { href: "/swiftRecurepay", icon: CalendarClock, label: "SwiftRecurepay" },
   { href: "/swap", icon: ArrowDownUp, label: "Swap" },
   {
     href: "/privSwiftPay/private-send",

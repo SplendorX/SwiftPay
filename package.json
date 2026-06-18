@@ -24,6 +24,7 @@
     "contracts:deploy": "pnpm --filter @swiftpay/contracts deploy",
     "contracts:deploy-escrow": "pnpm --filter @swiftpay/contracts deploy:escrow",
     "contracts:deploy-swiftbatch": "pnpm --filter @swiftpay/contracts deploy:swiftbatch",
+    "contracts:deploy-swiftrecurepay": "pnpm --filter @swiftpay/contracts deploy:swiftrecurepay",
     "create-wallet": "pnpm --filter @swiftpay/scripts create-wallet",
     "batch-wallets": "pnpm --filter @swiftpay/scripts batch-wallets",
     "send-tokens": "pnpm --filter @swiftpay/scripts send-tokens",

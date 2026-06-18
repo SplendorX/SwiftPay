@@ -36,7 +36,7 @@ const roadmapTracks: Array<{
   {
     body: "Make everyday stablecoin movement feel as simple as a fintech account balance.",
     icon: Zap,
-    items: ["Send and swap flows", "Payment request links", "Recurring payments", "Privacy payments and bulk payments"],
+    items: ["Send and swap flows", "Payment request links", "SwiftRecurepay recurring payments", "Privacy payments and bulk payments"],
     phase: "Phase 01",
     status: "completed",
     title: "Core Money Movement",

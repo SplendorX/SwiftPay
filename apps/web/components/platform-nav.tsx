@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  CalendarClock,
   LayoutDashboard,
   LockKeyhole,
   RefreshCw,
@@ -20,6 +21,7 @@ export const platformNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/swap", label: "Swap", icon: RefreshCw },
   { href: "/swiftBatch", label: "SwiftBatch", icon: Users },
+  { href: "/swiftRecurepay", label: "SwiftRecurepay", icon: CalendarClock },
   { href: "/pay", label: "Request", icon: Send },
   { href: "/privSwiftPay", label: "PrivSwiftPay", icon: LockKeyhole },
   { href: "/docs", label: "Docs", icon: BookOpen },

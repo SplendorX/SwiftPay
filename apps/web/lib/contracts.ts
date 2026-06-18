@@ -123,6 +123,32 @@ export const swiftBatchFeeBasisPoints = 10;
 
 export const swiftBatchMaxRecipients = 500;
 
+export const swiftRecurepayExecutorAddress =
+  process.env.NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS?.trim() ?? "";
+
+export const swiftRecurepayExecutorAbi = [
+  {
+    type: "function",
+    name: "executeRecurringPayment",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "executionId", type: "bytes32" },
+      { name: "token", type: "address" },
+      { name: "payer", type: "address" },
+      { name: "recipient", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "consumedExecutionIds",
+    stateMutability: "view",
+    inputs: [{ name: "executionId", type: "bytes32" }],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
 export const swiftBatchAbi = [
   {
     type: "function",

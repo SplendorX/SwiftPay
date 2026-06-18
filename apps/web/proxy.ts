@@ -10,6 +10,8 @@ const protectedRouteMatchers = [
   "/roadmap",
   "/settings",
   "/swap",
+  "/swiftBatch",
+  "/swiftRecurepay",
 ];
 
 function isProtectedRoute(pathname: string) {
@@ -44,5 +46,7 @@ export const config = {
     "/roadmap/:path*",
     "/settings/:path*",
     "/swap/:path*",
+    "/swiftBatch/:path*",
+    "/swiftRecurepay/:path*",
   ],
 };

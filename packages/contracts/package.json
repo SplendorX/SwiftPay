@@ -8,7 +8,8 @@
     "compile": "hardhat compile",
     "deploy": "hardhat run contracts/deploy.js --network arcTestnet",
     "deploy:escrow": "node contracts/deployEscrow.js",
-    "deploy:swiftbatch": "node contracts/deploySwiftBatch.js"
+    "deploy:swiftbatch": "node contracts/deploySwiftBatch.js",
+    "deploy:swiftrecurepay": "hardhat run contracts/deploySwiftRecurepayExecutor.js --network arcTestnet"
   },
   "dependencies": {
     "@circle-fin/smart-contract-platform": "^10.3.1",
