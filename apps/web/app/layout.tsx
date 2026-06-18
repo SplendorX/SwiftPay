@@ -45,10 +45,11 @@ export default async function RootLayout({
       lang="en"
       suppressHydrationWarning
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
       <body>
+        <script
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+          id="swiftpay-theme-init"
+        />
         <TooltipProvider>
           <Providers cookies={cookies}>{children}</Providers>
           <Toaster position="top-right" richColors />

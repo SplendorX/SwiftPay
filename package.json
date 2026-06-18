@@ -7,32 +7,29 @@
     "apps/*",
     "packages/*"
   ],
-  "scripts": {
-    "dev": "npm run dev --workspace @swiftpay/web",
-    "dev:clean": "npm run dev:clean --workspace @swiftpay/web",
-    "build": "npm run build --workspace @swiftpay/web",
-    "start": "npm run start --workspace @swiftpay/web",
-    "typecheck": "npm run typecheck --workspace @swiftpay/web",
-    "test": "npm run test --workspaces --if-present",
-    "contracts:compile": "npm run compile --workspace @swiftpay/contracts",
-    "contracts:deploy": "npm run deploy --workspace @swiftpay/contracts",
-    "contracts:deploy-escrow": "npm run deploy:escrow --workspace @swiftpay/contracts",
-    "contracts:deploy-swiftbatch": "npm run deploy:swiftbatch --workspace @swiftpay/contracts",
-    "create-wallet": "npm run create-wallet --workspace @swiftpay/scripts",
-    "batch-wallets": "npm run batch-wallets --workspace @swiftpay/scripts",
-    "send-tokens": "npm run send-tokens --workspace @swiftpay/scripts",
-    "generate-entity-secret": "npm run generate-entity-secret --workspace @swiftpay/scripts",
-    "bridge": "npm run bridge --workspace @swiftpay/scripts",
-    "swap": "npm run swap --workspace @swiftpay/scripts",
-    "send": "npm run send --workspace @swiftpay/scripts"
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10.12.1"
   },
-  "allowScripts": {
-    "utf-8-validate@5.0.10": true,
-    "utf-8-validate@6.0.6": true,
-    "bufferutil@4.1.0": true,
-    "esbuild@0.28.0": true,
-    "keccak@3.0.4": true,
-    "protobufjs@7.6.1": true,
-    "sharp@0.34.5": true
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "dev": "pnpm --filter @swiftpay/web dev",
+    "dev:clean": "pnpm --filter @swiftpay/web dev:clean",
+    "build": "pnpm --filter @swiftpay/web build",
+    "start": "pnpm --filter @swiftpay/web start",
+    "typecheck": "pnpm --filter @swiftpay/web typecheck",
+    "test": "pnpm -r --if-present test",
+    "contracts:compile": "pnpm --filter @swiftpay/contracts compile",
+    "contracts:deploy": "pnpm --filter @swiftpay/contracts deploy",
+    "contracts:deploy-escrow": "pnpm --filter @swiftpay/contracts deploy:escrow",
+    "contracts:deploy-swiftbatch": "pnpm --filter @swiftpay/contracts deploy:swiftbatch",
+    "create-wallet": "pnpm --filter @swiftpay/scripts create-wallet",
+    "batch-wallets": "pnpm --filter @swiftpay/scripts batch-wallets",
+    "send-tokens": "pnpm --filter @swiftpay/scripts send-tokens",
+    "generate-entity-secret": "pnpm --filter @swiftpay/scripts generate-entity-secret",
+    "bridge": "pnpm --filter @swiftpay/scripts bridge",
+    "swap": "pnpm --filter @swiftpay/scripts swap",
+    "send": "pnpm --filter @swiftpay/scripts send"
   }
 }

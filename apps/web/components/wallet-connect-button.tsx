@@ -1,12 +1,12 @@
 "use client";
 
-import { useAppKit } from "@reown/appkit/react";
 import { AlertCircle, CheckCircle2, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAddress, isAddress } from "viem";
 import { useAccount } from "wagmi";
 
 import { Button } from "@/components/ui/button";
+import { openAppKit } from "@/lib/appkit";
 import { cn } from "@/lib/utils";
 import { arcTestnet } from "@/lib/wagmi";
 
@@ -33,7 +33,6 @@ export function WalletConnectButton({
   onConnectIntent,
   variant = "default",
 }: WalletConnectButtonProps) {
-  const { open } = useAppKit();
   const { address, chainId, isConnected, status } = useAccount();
   const [mounted, setMounted] = useState(false);
   const isConnecting = status === "connecting" || status === "reconnecting";
@@ -47,15 +46,15 @@ export function WalletConnectButton({
 
   async function openConnectModal() {
     onConnectIntent?.();
-    await open({ view: "Connect" });
+    await openAppKit({ view: "Connect" });
   }
 
   async function openAccountModal() {
-    await open({ view: "Account" });
+    await openAppKit({ view: "Account" });
   }
 
   async function openNetworkModal() {
-    await open({ view: "Networks" });
+    await openAppKit({ view: "Networks" });
   }
 
   const widthClass = fullWidth ? "w-full" : "";

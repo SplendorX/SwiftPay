@@ -1,0 +1,17 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+engineStrict: true
+
+overrides:
+  '@wagmi/connectors': '6.2.0'
+
+onlyBuiltDependencies:
+  - '@reown/appkit'
+  - bufferutil
+  - esbuild
+  - keccak
+  - protobufjs
+  - sharp
+  - utf-8-validate

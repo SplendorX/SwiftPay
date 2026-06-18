@@ -17,6 +17,7 @@ import {
   CircleClientError,
   circleStorageKeys as storageKeys,
   getCircleErrorMessage as getClientErrorMessage,
+  getCircleLoginIdentity,
   readCircleLogin as readStoredLogin,
   readCircleSessionStorage as readStorage,
   removeCircleSessionStorage as removeStorage,
@@ -28,6 +29,7 @@ import {
   type CircleTokenBalance,
   type CircleWallet,
 } from "@/lib/circle-session";
+import { ensureProfile } from "@/lib/profile";
 import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 
 type DeviceTokenResponse = {
@@ -568,6 +570,18 @@ export function CircleGoogleLogin({ embedded = false }: CircleGoogleLoginProps) 
       const nextWallets = payload.wallets ?? [];
       setWallets(nextWallets);
       writeCircleWallets(nextWallets);
+
+      const walletAddress = nextWallets[0]?.address;
+
+      if (walletAddress) {
+        const identity = getCircleLoginIdentity(loginResult);
+        void ensureProfile({
+          authProvider: "google",
+          circleSocialUuid: identity.socialUserUUID,
+          displayName: identity.name,
+          walletAddress,
+        }).catch(() => undefined);
+      }
 
       if (nextWallets[0]) {
         await loadBalances(userToken, nextWallets[0].id);

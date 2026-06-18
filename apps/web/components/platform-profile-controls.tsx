@@ -10,6 +10,7 @@ import {
   readActivatedExternalProfile,
   writeActivatedExternalProfile,
 } from "@/lib/platform-access";
+import { ensureProfile } from "@/lib/profile";
 
 export function PlatformProfileControls() {
   const { address, isConnected } = useAccount();
@@ -18,6 +19,10 @@ export function PlatformProfileControls() {
   useEffect(() => {
     if (externalConnectStarted && isConnected && address) {
       writeActivatedExternalProfile(address);
+      void ensureProfile({
+        authProvider: "external",
+        walletAddress: address,
+      }).catch(() => undefined);
       setExternalConnectStarted(false);
     }
   }, [address, externalConnectStarted, isConnected]);
@@ -29,6 +34,10 @@ export function PlatformProfileControls() {
       readActivatedExternalProfile() === address.toLowerCase()
     ) {
       writeActivatedExternalProfile(address);
+      void ensureProfile({
+        authProvider: "external",
+        walletAddress: address,
+      }).catch(() => undefined);
     }
   }, [address, isConnected]);
 

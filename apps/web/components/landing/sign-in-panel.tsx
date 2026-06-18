@@ -10,6 +10,7 @@ import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { writeActivatedExternalProfile } from "@/lib/platform-access";
+import { ensureProfile } from "@/lib/profile";
 
 export function SignInPanel() {
   const { address, isConnected } = useAccount();
@@ -18,6 +19,10 @@ export function SignInPanel() {
   useEffect(() => {
     if (externalConnectStarted && isConnected && address) {
       writeActivatedExternalProfile(address);
+      void ensureProfile({
+        authProvider: "external",
+        walletAddress: address,
+      }).catch(() => undefined);
       setExternalConnectStarted(false);
     }
   }, [address, externalConnectStarted, isConnected]);

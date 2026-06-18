@@ -4,7 +4,6 @@ import {
   sepolia,
   type AppKitNetwork,
 } from "@reown/appkit/networks";
-import { coinbaseWallet } from "@wagmi/connectors";
 import { http, type Config } from "wagmi";
 
 export const arcTestnet = {
@@ -69,14 +68,6 @@ export const networks = [
 ] as [AppKitNetwork, ...AppKitNetwork[]];
 
 export const wagmiAdapter = new WagmiAdapter({
-  connectors: [
-    coinbaseWallet({
-      preference: {
-        options: "all",
-        telemetry: false,
-      },
-    }),
-  ],
   networks,
   projectId,
   ssr: true,

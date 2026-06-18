@@ -38,6 +38,13 @@ import {
   readActivatedExternalProfile,
   writeActivatedExternalProfile,
 } from "@/lib/platform-access";
+import {
+  ensureProfile,
+  fetchProfile,
+  formatUsernameLabel,
+  profileUpdatedEventName,
+  type ProfileRecord,
+} from "@/lib/profile";
 
 export type WalletMode = "circle" | "external";
 
@@ -98,6 +105,8 @@ export function ProfileMenu({
   const [loadedCircleWalletAddress, setLoadedCircleWalletAddress] =
     useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedUsername, setCopiedUsername] = useState(false);
+  const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const activeLogin = circleLogin === undefined ? storedLogin : circleLogin;
   const identity = getCircleLoginIdentity(activeLogin);
   const resolvedCircleWalletAddress =
@@ -122,8 +131,9 @@ export function ProfileMenu({
 
     return identity.email ?? identity.name ?? "Google account connected";
   }, [activeLogin, identity.email, identity.name]);
-  const buttonLabel =
-    isCurrentExternalWallet && activeAddress
+  const buttonLabel = profile?.username
+    ? `@${profile.username}`
+    : isCurrentExternalWallet && activeAddress
       ? shortenCircleAddress(activeAddress)
       : identity.email ??
         identity.name ??
@@ -137,15 +147,24 @@ export function ProfileMenu({
     : externalAddress
       ? "External wallet"
       : "Google";
-  const profilePrimaryLabel = activeLogin
-    ? googleLabel
-    : externalAddress
-      ? isActivatedExternalWallet
-        ? "Wallet profile active"
-        : "Wallet connected"
-      : googleLabel;
-  const profileSecondaryLabel =
-    activeLogin && identity.name && identity.email
+  const profilePrimaryLabel = profile?.username
+    ? `@${profile.username}`
+    : activeLogin
+      ? googleLabel
+      : externalAddress
+        ? isActivatedExternalWallet
+          ? "Wallet profile active"
+          : "Wallet connected"
+        : googleLabel;
+  const profileSecondaryLabel = profile?.username
+    ? activeLogin
+      ? (identity.email ?? identity.name ?? "")
+      : externalAddress
+        ? shortenCircleAddress(externalAddress)
+        : activeAddress
+          ? shortenCircleAddress(activeAddress)
+          : ""
+    : activeLogin && identity.name && identity.email
       ? identity.name
       : externalAddress
         ? shortenCircleAddress(externalAddress)
@@ -265,12 +284,97 @@ export function ProfileMenu({
     };
   }, [activeLogin?.userToken, circleWalletAddress]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const walletAddress =
+      activeMode === "circle"
+        ? resolvedCircleWalletAddress
+        : isActivatedExternalWallet
+          ? normalizedExternalAddress
+          : "";
+
+    async function loadProfile() {
+      if (!walletAddress) {
+        if (!cancelled) {
+          setProfile(null);
+        }
+        return;
+      }
+
+      try {
+        let nextProfile = await fetchProfile(walletAddress);
+
+        if (!nextProfile) {
+          nextProfile = await ensureProfile({
+            authProvider: activeLogin ? "google" : "external",
+            circleSocialUuid: identity.socialUserUUID,
+            displayName: identity.name,
+            walletAddress,
+          });
+        }
+
+        if (!cancelled) {
+          setProfile(nextProfile);
+        }
+      } catch {
+        if (!cancelled) {
+          setProfile(null);
+        }
+      }
+    }
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeLogin,
+    activeMode,
+    identity.name,
+    identity.socialUserUUID,
+    isActivatedExternalWallet,
+    normalizedExternalAddress,
+    resolvedCircleWalletAddress,
+  ]);
+
+  useEffect(() => {
+    function handleProfileUpdated(event: Event) {
+      const customEvent = event as CustomEvent<ProfileRecord>;
+      const updatedProfile = customEvent.detail;
+      const walletAddress =
+        activeMode === "circle"
+          ? resolvedCircleWalletAddress?.toLowerCase()
+          : normalizedExternalAddress;
+
+      if (
+        updatedProfile?.wallet_address?.toLowerCase() === walletAddress
+      ) {
+        setProfile(updatedProfile);
+      }
+    }
+
+    window.addEventListener(profileUpdatedEventName, handleProfileUpdated);
+
+    return () => {
+      window.removeEventListener(
+        profileUpdatedEventName,
+        handleProfileUpdated,
+      );
+    };
+  }, [
+    activeMode,
+    normalizedExternalAddress,
+    resolvedCircleWalletAddress,
+  ]);
+
   function handleSignOut() {
     clearCircleSession();
     clearActivatedExternalProfile();
     setOpen(false);
     setStoredLogin(null);
     setLoadedCircleWalletAddress("");
+    setProfile(null);
     onCircleSessionCleared?.();
     router.replace("/");
   }
@@ -278,6 +382,10 @@ export function ProfileMenu({
   function selectExternalWallet() {
     if (externalAddress) {
       writeActivatedExternalProfile(externalAddress);
+      void ensureProfile({
+        authProvider: "external",
+        walletAddress: externalAddress,
+      }).catch(() => undefined);
     }
 
     onWalletModeChange?.("external");
@@ -292,6 +400,20 @@ export function ProfileMenu({
     await navigator.clipboard.writeText(value);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function copyUsername(username: string) {
+    if (typeof navigator === "undefined") {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(formatUsernameLabel(username));
+      setCopiedUsername(true);
+      window.setTimeout(() => setCopiedUsername(false), 1600);
+    } catch {
+      setCopiedUsername(false);
+    }
   }
 
   return (
@@ -326,9 +448,25 @@ export function ProfileMenu({
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-muted">
                   {profileProviderLabel}
                 </p>
-                <p className="mt-1 truncate text-sm font-bold text-foreground">
-                  {profilePrimaryLabel}
-                </p>
+                <div className="mt-1 flex min-w-0 items-center gap-2">
+                  <p className="truncate text-sm font-bold text-foreground">
+                    {profilePrimaryLabel}
+                  </p>
+                  {profile?.username ? (
+                    <button
+                      aria-label="Copy username"
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:border-primary/30 hover:text-primary"
+                      onClick={() => void copyUsername(profile.username)}
+                      type="button"
+                    >
+                      {copiedUsername ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  ) : null}
+                </div>
                 {profileSecondaryLabel ? (
                   <p className="mt-1 truncate text-xs font-semibold text-muted">
                     {profileSecondaryLabel}

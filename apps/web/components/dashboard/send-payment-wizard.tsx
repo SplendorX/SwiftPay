@@ -45,6 +45,7 @@ export type SendPaymentWizardProps = {
   isConfirming: boolean;
   isConnected: boolean;
   isEmbeddedWalletMode: boolean;
+  isRecipientResolving: boolean;
   isRecipientValid: boolean;
   isSubmitting: boolean;
   isSwitchingChain: boolean;
@@ -68,6 +69,9 @@ export type SendPaymentWizardProps = {
   primaryButtonText: string;
   receiveHref: string;
   recipientAddress: string;
+  recipientDisplayLabel: string;
+  recipientResolveError: string | null;
+  resolvedRecipientUsername: string | null;
   refreshBalances: () => void;
   savedBeneficiaries: BeneficiaryRecord[];
   selectedBillId: string;
@@ -124,6 +128,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     isConfirming,
     isConnected,
     isEmbeddedWalletMode,
+    isRecipientResolving,
     isRecipientValid,
     isSubmitting,
     isSwitchingChain,
@@ -146,6 +151,9 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     primaryButtonText,
     receiveHref,
     recipientAddress,
+    recipientDisplayLabel,
+    recipientResolveError,
+    resolvedRecipientUsername,
     refreshBalances,
     savedBeneficiaries,
     selectedBillId,
@@ -233,19 +241,29 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             >
               <label className="grid gap-2">
                 <span className="text-sm font-semibold text-foreground">
-                  Recipient wallet
+                  Recipient wallet or @username
                 </span>
                 <div className="field-shell flex h-11 items-center gap-2 px-3">
                   <Wallet className="h-4 w-4 text-primary" />
                   <input
                     autoComplete="off"
-                    className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none placeholder:text-muted-foreground"
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                     onChange={(event) => onRecipientChange(event.target.value)}
-                    placeholder="0x recipient address"
+                    placeholder="0x address or @username"
                     spellCheck={false}
                     value={recipientAddress}
                   />
+                  {isRecipientResolving ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                  ) : null}
                 </div>
+                {recipientResolveError ? (
+                  <p className="text-sm text-destructive">{recipientResolveError}</p>
+                ) : isRecipientValid && resolvedRecipientUsername ? (
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                    Resolved to @{resolvedRecipientUsername}
+                  </p>
+                ) : null}
               </label>
 
               <div className="rounded-lg border border-border bg-muted/30 p-4">
@@ -445,7 +463,9 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 from={shortenAddress(address)}
                 to={
                   isRecipientValid
-                    ? shortenAddress(trimmedRecipientAddress)
+                    ? resolvedRecipientUsername
+                      ? `@${resolvedRecipientUsername}`
+                      : shortenAddress(trimmedRecipientAddress)
                     : "Recipient"
                 }
               />
@@ -454,7 +474,14 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 {[
                   ["Bill", selectedBillOption.title],
                   ["From", shortenAddress(address)],
-                  ["To", isRecipientValid ? shortenAddress(trimmedRecipientAddress) : "—"],
+                  [
+                    "To",
+                    isRecipientValid
+                      ? resolvedRecipientUsername
+                        ? `@${resolvedRecipientUsername}`
+                        : shortenAddress(trimmedRecipientAddress)
+                      : "—",
+                  ],
                   ["Amount", `${paymentAmount || "0.00"} ${selectedToken}`],
                   ["Narration", trimmedPaymentNarration || "No note"],
                   ["Status", paymentStatus],

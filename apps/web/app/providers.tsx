@@ -1,42 +1,11 @@
 "use client";
 
-import { createAppKit } from "@reown/appkit/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cookieToInitialState, WagmiProvider } from "wagmi";
 
-import {
-  arcTestnet,
-  config,
-  metadata,
-  networks,
-  projectId,
-  wagmiAdapter,
-} from "@/lib/wagmi";
-
-createAppKit({
-  adapters: [wagmiAdapter],
-  chainImages: {
-    [arcTestnet.id]: arcTestnet.iconUrl,
-  },
-  defaultNetwork: arcTestnet,
-  features: {
-    allWallets: true,
-    analytics: false,
-    email: false,
-    onramp: false,
-    socials: false,
-    swaps: false,
-  },
-  metadata,
-  networks,
-  projectId,
-  themeMode: "light",
-  themeVariables: {
-    "--w3m-accent": "#5d22c6",
-    "--w3m-border-radius-master": "2px",
-  },
-});
+import { ensureAppKitInitialized } from "@/lib/appkit";
+import { config } from "@/lib/wagmi";
 
 export function Providers({
   children,
@@ -47,6 +16,10 @@ export function Providers({
 }) {
   const [queryClient] = useState(() => new QueryClient());
   const initialState = cookieToInitialState(config, cookies ?? null);
+
+  useEffect(() => {
+    void ensureAppKitInitialized();
+  }, []);
 
   return (
     <WagmiProvider config={config} initialState={initialState}>

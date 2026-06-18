@@ -27,6 +27,7 @@ function normalizeToken(value: string): ArcTokenSymbol {
 
 export default async function PayPage({ searchParams }: PayPageProps) {
   const params = await searchParams;
+  const username = readParam(params, "username");
   const recipient =
     readParam(params, "to") ||
     readParam(params, "recipient") ||
@@ -41,6 +42,7 @@ export default async function PayPage({ searchParams }: PayPageProps) {
         initialAmount={amount}
         initialNote={note}
         initialToken={token}
+        initialUsername={username}
         initialWalletAddress={recipient}
       />
     </PayPageShell>

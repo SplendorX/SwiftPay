@@ -44,9 +44,15 @@ const roadmapTracks: Array<{
   {
     body: "Reduce onboarding friction while giving users stronger account controls.",
     icon: CheckCircle2,
-    items: ["Google login with Circle wallets", "Email-based wallet creation", "Profile updates and usernames", "Session and device management"],
+    items: [
+      "Google login with Circle wallets",
+      "Email-based wallet creation",
+      "Profile updates and usernames",
+      "Username transactions",
+      "Session and device management",
+    ],
     phase: "Phase 02",
-    status: "in-progress",
+    status: "completed",
     title: "Identity And Wallet Access",
   },
   {

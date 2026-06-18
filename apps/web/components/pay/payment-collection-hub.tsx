@@ -25,7 +25,13 @@ import { TokenIcon } from "@/components/token-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  buildPaymentRequestPath,
+  buildPaymentRequestUrl,
+} from "@/lib/payment-request-url";
+import { formatUsernameLabel } from "@/lib/profile";
 import type { ArcTokenSymbol } from "@/lib/tokens";
+import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 import { arcTestnet } from "@/lib/wagmi";
 
 const requestsStorageKey = "swiftpay.payment.requests";
@@ -39,6 +45,7 @@ type SavedRequest = {
   note: string;
   status: "active" | "expired";
   token: ArcTokenSymbol;
+  username?: string;
   wallet: string;
 };
 
@@ -46,6 +53,7 @@ type PaymentCollectionHubProps = {
   initialAmount: string;
   initialNote: string;
   initialToken: ArcTokenSymbol;
+  initialUsername?: string;
   initialWalletAddress: string;
 };
 
@@ -72,10 +80,15 @@ export function PaymentCollectionHub({
   initialAmount,
   initialNote,
   initialToken,
+  initialUsername = "",
   initialWalletAddress,
 }: PaymentCollectionHubProps) {
   const [origin, setOrigin] = useState("");
-  const [walletAddress, setWalletAddress] = useState(initialWalletAddress);
+  const [walletAddress, setWalletAddress] = useState(
+    initialUsername
+      ? formatUsernameLabel(initialUsername)
+      : initialWalletAddress,
+  );
   const [amount, setAmount] = useState(initialAmount);
   const [note, setNote] = useState(initialNote);
   const [token, setToken] = useState<ArcTokenSymbol>(initialToken);
@@ -83,32 +96,72 @@ export function PaymentCollectionHub({
   const [copied, setCopied] = useState<"address" | "link" | null>(null);
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
 
-  const trimmedWalletAddress = walletAddress.trim();
+  const {
+    displayLabel: recipientDisplayLabel,
+    error: recipientResolveError,
+    isResolving: isRecipientResolving,
+    isValid: isRecipientValid,
+    resolvedAddress: resolvedRecipientAddress,
+    resolvedUsername: resolvedRecipientUsername,
+  } = useResolvedRecipient(walletAddress);
+
+  const trimmedWalletAddress = resolvedRecipientAddress ?? walletAddress.trim();
   const trimmedAmount = amount.trim();
   const trimmedNote = note.trim();
-  const isWalletValid = isAddress(trimmedWalletAddress);
+  const isWalletValid = Boolean(
+    resolvedRecipientAddress && isAddress(resolvedRecipientAddress),
+  );
   const isAmountValid = isPositiveAmount(trimmedAmount);
-  const canGenerateLink = Boolean(origin && isWalletValid && isAmountValid);
+  const canGenerateLink = Boolean(
+    origin && isWalletValid && isAmountValid && !isRecipientResolving,
+  );
 
   const requestLink = useMemo(() => {
     if (!canGenerateLink) return "";
 
-    const requestUrl = new URL("/dashboard", origin);
-    requestUrl.searchParams.set("to", trimmedWalletAddress);
-    requestUrl.searchParams.set("amount", trimmedAmount);
-    requestUrl.searchParams.set("token", token);
-    if (trimmedNote) requestUrl.searchParams.set("memo", trimmedNote);
-    return requestUrl.toString();
-  }, [canGenerateLink, origin, token, trimmedAmount, trimmedNote, trimmedWalletAddress]);
+    return buildPaymentRequestUrl({
+      amount: trimmedAmount,
+      memo: trimmedNote,
+      origin,
+      path: "/dashboard",
+      token,
+      username: resolvedRecipientUsername ?? undefined,
+      walletAddress: resolvedRecipientUsername
+        ? undefined
+        : trimmedWalletAddress,
+    });
+  }, [
+    canGenerateLink,
+    origin,
+    resolvedRecipientUsername,
+    token,
+    trimmedAmount,
+    trimmedNote,
+    trimmedWalletAddress,
+  ]);
 
   const dashboardHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (isWalletValid) params.set("to", trimmedWalletAddress);
-    if (isAmountValid) params.set("amount", trimmedAmount);
-    params.set("token", token);
-    if (trimmedNote) params.set("memo", trimmedNote);
-    return `/dashboard?${params.toString()}`;
-  }, [isAmountValid, isWalletValid, token, trimmedAmount, trimmedNote, trimmedWalletAddress]);
+    return buildPaymentRequestPath({
+      amount: isAmountValid ? trimmedAmount : undefined,
+      memo: trimmedNote,
+      path: "/dashboard",
+      token,
+      username: resolvedRecipientUsername ?? undefined,
+      walletAddress: resolvedRecipientUsername
+        ? undefined
+        : isWalletValid
+          ? trimmedWalletAddress
+          : undefined,
+    });
+  }, [
+    isAmountValid,
+    isWalletValid,
+    resolvedRecipientUsername,
+    token,
+    trimmedAmount,
+    trimmedNote,
+    trimmedWalletAddress,
+  ]);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -130,6 +183,7 @@ export function PaymentCollectionHub({
       note: trimmedNote,
       status: "active",
       token,
+      username: resolvedRecipientUsername ?? undefined,
       wallet: trimmedWalletAddress,
     };
 
@@ -140,6 +194,7 @@ export function PaymentCollectionHub({
     canGenerateLink,
     expiresInHours,
     requestLink,
+    resolvedRecipientUsername,
     token,
     trimmedAmount,
     trimmedNote,
@@ -175,6 +230,11 @@ export function PaymentCollectionHub({
   }
 
   const activeCount = savedRequests.filter((r) => r.status === "active").length;
+  const recipientSummary = resolvedRecipientUsername
+    ? formatUsernameLabel(resolvedRecipientUsername)
+    : isWalletValid
+      ? trimmedWalletAddress
+      : recipientDisplayLabel;
 
   return (
     <div className="collection-hub">
@@ -219,16 +279,25 @@ export function PaymentCollectionHub({
 
           <div className="mt-5 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-sm font-semibold">Receiving wallet</span>
+              <span className="text-sm font-semibold">
+                Receiving wallet or @username
+              </span>
               <div className="field-shell flex h-11 items-center gap-2 px-3">
                 <Wallet className="h-4 w-4 text-primary" />
                 <Input
-                  className="border-0 bg-transparent font-mono shadow-none focus-visible:ring-0"
+                  className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
                   onChange={(event) => setWalletAddress(event.target.value)}
-                  placeholder="0x…"
+                  placeholder="0x address or @username"
                   value={walletAddress}
                 />
               </div>
+              {recipientResolveError ? (
+                <p className="text-sm text-destructive">{recipientResolveError}</p>
+              ) : isRecipientValid && resolvedRecipientUsername ? (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                  Resolved to {formatUsernameLabel(resolvedRecipientUsername)}
+                </p>
+              ) : null}
             </label>
 
             <div className="grid gap-3 sm:grid-cols-[1fr_12rem_7rem]">
@@ -286,7 +355,8 @@ export function PaymentCollectionHub({
                 <span className="text-sm font-semibold">Generated link</span>
               </div>
               <p className="break-all font-mono text-xs text-muted-foreground">
-                {requestLink || "Enter a valid wallet and amount to generate."}
+                {requestLink ||
+                  "Enter a valid wallet or @username and amount to generate."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button disabled={!requestLink} onClick={() => void copyValue(requestLink, "link")} type="button">
@@ -344,6 +414,12 @@ export function PaymentCollectionHub({
 
           <div className="mt-4 grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
             <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Recipient</span>
+              <span className="max-w-[12rem] truncate text-right font-semibold">
+                {recipientSummary || "Waiting"}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
               <span className="text-muted-foreground">Amount</span>
               <span className="font-semibold">
                 {trimmedAmount || "0.00"} {token}
@@ -387,7 +463,9 @@ export function PaymentCollectionHub({
                       {request.amount} {request.token}
                     </p>
                     <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                      {request.wallet}
+                      {request.username
+                        ? formatUsernameLabel(request.username)
+                        : request.wallet}
                     </p>
                     {request.note ? (
                       <p className="mt-1 text-xs text-muted-foreground">{request.note}</p>

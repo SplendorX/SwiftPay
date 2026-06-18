@@ -16,13 +16,19 @@ import { isAddress } from "viem";
 
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
 import { TokenIcon } from "@/components/token-icon";
+import {
+  buildPaymentRequestPath,
+  buildPaymentRequestUrl,
+} from "@/lib/payment-request-url";
+import { formatUsernameLabel } from "@/lib/profile";
 import type { ArcTokenSymbol } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 
 type PaymentRequestBuilderProps = {
   initialAmount: string;
   initialNote: string;
   initialToken: ArcTokenSymbol;
+  initialUsername?: string;
   initialWalletAddress: string;
 };
 
@@ -36,67 +42,82 @@ export function PaymentRequestBuilder({
   initialAmount,
   initialNote,
   initialToken,
+  initialUsername = "",
   initialWalletAddress,
 }: PaymentRequestBuilderProps) {
   const [origin, setOrigin] = useState("");
-  const [walletAddress, setWalletAddress] = useState(initialWalletAddress);
+  const [walletAddress, setWalletAddress] = useState(
+    initialUsername
+      ? formatUsernameLabel(initialUsername)
+      : initialWalletAddress,
+  );
   const [amount, setAmount] = useState(initialAmount);
   const [note, setNote] = useState(initialNote);
   const [copied, setCopied] = useState<"address" | "link" | null>(null);
 
-  const trimmedWalletAddress = walletAddress.trim();
+  const {
+    error: recipientResolveError,
+    isResolving: isRecipientResolving,
+    isValid: isRecipientValid,
+    resolvedAddress: resolvedRecipientAddress,
+    resolvedUsername: resolvedRecipientUsername,
+  } = useResolvedRecipient(walletAddress);
+
+  const trimmedWalletAddress = resolvedRecipientAddress ?? walletAddress.trim();
   const trimmedAmount = amount.trim();
   const trimmedNote = note.trim();
-  const isWalletValid = isAddress(trimmedWalletAddress);
+  const isWalletValid = Boolean(
+    resolvedRecipientAddress && isAddress(resolvedRecipientAddress),
+  );
   const isAmountValid = isPositiveAmount(trimmedAmount);
-  const canGenerateLink = Boolean(origin && isWalletValid && isAmountValid);
+  const canGenerateLink = Boolean(
+    origin && isWalletValid && isAmountValid && !isRecipientResolving,
+  );
 
   const requestLink = useMemo(() => {
     if (!canGenerateLink) {
       return "";
     }
 
-    const requestUrl = new URL("/dashboard", origin);
-    requestUrl.searchParams.set("to", trimmedWalletAddress);
-    requestUrl.searchParams.set("amount", trimmedAmount);
-    requestUrl.searchParams.set("token", initialToken);
-
-    if (trimmedNote) {
-      requestUrl.searchParams.set("memo", trimmedNote);
-    }
-
-    return requestUrl.toString();
+    return buildPaymentRequestUrl({
+      amount: trimmedAmount,
+      memo: trimmedNote,
+      origin,
+      path: "/dashboard",
+      token: initialToken,
+      username: resolvedRecipientUsername ?? undefined,
+      walletAddress: resolvedRecipientUsername
+        ? undefined
+        : trimmedWalletAddress,
+    });
   }, [
     canGenerateLink,
     initialToken,
     origin,
+    resolvedRecipientUsername,
     trimmedAmount,
     trimmedNote,
     trimmedWalletAddress,
   ]);
 
   const dashboardHref = useMemo(() => {
-    const params = new URLSearchParams();
-
-    if (isWalletValid) {
-      params.set("to", trimmedWalletAddress);
-    }
-
-    if (isAmountValid) {
-      params.set("amount", trimmedAmount);
-    }
-
-    params.set("token", initialToken);
-
-    if (trimmedNote) {
-      params.set("memo", trimmedNote);
-    }
-
-    return `/dashboard?${params.toString()}`;
+    return buildPaymentRequestPath({
+      amount: isAmountValid ? trimmedAmount : undefined,
+      memo: trimmedNote,
+      path: "/dashboard",
+      token: initialToken,
+      username: resolvedRecipientUsername ?? undefined,
+      walletAddress: resolvedRecipientUsername
+        ? undefined
+        : isWalletValid
+          ? trimmedWalletAddress
+          : undefined,
+    });
   }, [
     initialToken,
     isAmountValid,
     isWalletValid,
+    resolvedRecipientUsername,
     trimmedAmount,
     trimmedNote,
     trimmedWalletAddress,
@@ -143,6 +164,12 @@ export function PaymentRequestBuilder({
     }
   }
 
+  const recipientSummary = resolvedRecipientUsername
+    ? formatUsernameLabel(resolvedRecipientUsername)
+    : isWalletValid
+      ? trimmedWalletAddress
+      : "Waiting for address";
+
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
       <div className="surface-panel p-4 sm:p-6">
@@ -156,19 +183,26 @@ export function PaymentRequestBuilder({
         <div className="grid gap-4">
           <label className="grid gap-2">
             <span className="text-sm font-semibold text-ink">
-              Wallet address
+              Wallet address or @username
             </span>
             <div className="field-shell flex h-12 items-center gap-2 px-3">
               <Wallet className="h-4 w-4 shrink-0 text-swift-600" />
               <input
                 autoComplete="off"
-                className="min-w-0 flex-1 bg-transparent font-mono text-sm font-medium text-ink outline-none placeholder:text-muted"
+                className="min-w-0 flex-1 bg-transparent text-sm font-medium text-ink outline-none placeholder:text-muted"
                 onChange={(event) => setWalletAddress(event.target.value)}
-                placeholder="0x receiving wallet address"
+                placeholder="0x address or @username"
                 spellCheck={false}
                 value={walletAddress}
               />
             </div>
+            {recipientResolveError ? (
+              <p className="text-sm text-destructive">{recipientResolveError}</p>
+            ) : isRecipientValid && resolvedRecipientUsername ? (
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                Resolved to {formatUsernameLabel(resolvedRecipientUsername)}
+              </p>
+            ) : null}
           </label>
 
           <label className="grid gap-2">
@@ -215,7 +249,7 @@ export function PaymentRequestBuilder({
               </span>
             </div>
             <p className="min-h-10 break-all text-xs font-bold leading-5 text-swift-700">
-              {requestLink || "Enter a valid wallet address and amount."}
+              {requestLink || "Enter a valid wallet or @username and amount."}
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button
@@ -295,9 +329,9 @@ export function PaymentRequestBuilder({
 
         <div className="mt-5 grid gap-3 rounded-lg border border-lavender-200 bg-white/80 p-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.82)]">
           <div className="flex items-start justify-between gap-3">
-            <span className="font-semibold text-muted">Wallet</span>
-            <span className="min-w-0 break-all text-right font-mono text-xs font-bold text-ink">
-              {trimmedWalletAddress || "Waiting for address"}
+            <span className="font-semibold text-muted">Recipient</span>
+            <span className="min-w-0 break-all text-right text-xs font-bold text-ink">
+              {recipientSummary}
             </span>
           </div>
           <div className="flex items-center justify-between gap-3">
@@ -322,7 +356,14 @@ export function PaymentRequestBuilder({
         <button
           className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-lavender-200 bg-white px-4 text-sm font-bold text-ink transition hover:-translate-y-0.5 hover:border-swift-600 hover:text-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-100 disabled:text-muted"
           disabled={!isWalletValid}
-          onClick={() => void copyValue(trimmedWalletAddress, "address")}
+          onClick={() =>
+            void copyValue(
+              resolvedRecipientUsername
+                ? formatUsernameLabel(resolvedRecipientUsername)
+                : trimmedWalletAddress,
+              "address",
+            )
+          }
           type="button"
         >
           {copied === "address" ? (
@@ -330,7 +371,11 @@ export function PaymentRequestBuilder({
           ) : (
             <Copy className="h-4 w-4" />
           )}
-          {copied === "address" ? "Address copied" : "Copy wallet address"}
+          {copied === "address"
+            ? "Copied"
+            : resolvedRecipientUsername
+              ? "Copy @username"
+              : "Copy wallet address"}
         </button>
       </aside>
     </section>

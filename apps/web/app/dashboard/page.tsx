@@ -56,6 +56,14 @@ import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { type BeneficiaryRecord } from "@/lib/beneficiaries";
+import { buildPaymentRequestUrl } from "@/lib/payment-request-url";
+import {
+  ensureProfile,
+  fetchProfile,
+  formatUsernameLabel,
+  type ProfileRecord,
+} from "@/lib/profile";
+import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 import {
   getArcScanHistoryUrls,
   normalizeArcScanTokenTransfers,
@@ -66,6 +74,7 @@ import { erc20Abi } from "@/lib/contracts";
 import {
   callCircleWalletApi,
   findCircleTokenBalance,
+  getCircleLoginIdentity,
   readCircleLogin,
   readCircleWallets,
   type CircleClientErrorPayload,
@@ -495,6 +504,7 @@ function DashboardContent() {
     null,
   );
   const [beneficiaryError, setBeneficiaryError] = useState<string | null>(null);
+  const [walletProfile, setWalletProfile] = useState<ProfileRecord | null>(null);
 
   const externalAddress =
     isMounted && isAccountConnected ? accountAddress : undefined;
@@ -521,9 +531,17 @@ function DashboardContent() {
   const selectedBillOption =
     billPaymentOptions.find((option) => option.id === selectedBillId) ??
     billPaymentOptions[0];
-  const trimmedRecipientAddress = recipientAddress.trim();
+  const trimmedRecipientInput = recipientAddress.trim();
+  const {
+    displayLabel: recipientDisplayLabel,
+    error: recipientResolveError,
+    isResolving: isRecipientResolving,
+    isValid: isRecipientValid,
+    resolvedAddress: resolvedRecipientAddress,
+    resolvedUsername: resolvedRecipientUsername,
+  } = useResolvedRecipient(recipientAddress);
+  const trimmedRecipientAddress = resolvedRecipientAddress ?? trimmedRecipientInput;
   const trimmedPaymentNarration = paymentNarration.trim();
-  const isRecipientValid = isAddress(trimmedRecipientAddress);
   const trimmedBeneficiaryName = beneficiaryName.trim().replace(/\s+/g, " ");
   const isWalletAuthenticated = Boolean(
     isEmbeddedWalletMode ||
@@ -701,8 +719,10 @@ function DashboardContent() {
     ? "Connect wallet"
     : !isArcNetwork
       ? "Switch to Arc Testnet"
-      : !isRecipientValid
-        ? "Enter recipient"
+      : isRecipientResolving
+        ? "Resolving recipient"
+        : !isRecipientValid
+          ? "Enter recipient"
         : paymentAmountUnits === null || paymentAmountUnits <= zeroAmount
           ? "Enter amount"
           : selectedTokenBalance === undefined
@@ -721,25 +741,36 @@ function DashboardContent() {
       return "";
     }
 
-    const requestUrl = new URL("/pay", window.location.origin);
-    requestUrl.searchParams.set("to", walletAddress);
-    requestUrl.searchParams.set("token", receiveToken);
-    requestUrl.searchParams.set("chainId", String(arcTestnet.id));
-
-    if (receiveAmount.trim()) {
-      requestUrl.searchParams.set("amount", receiveAmount.trim());
-    }
-
-    return requestUrl.toString();
-  }, [isMounted, receiveAmount, receiveToken, walletAddress]);
+    return buildPaymentRequestUrl({
+      amount: receiveAmount,
+      chainId: arcTestnet.id,
+      origin: window.location.origin,
+      path: "/pay",
+      token: receiveToken,
+      username: walletProfile?.username,
+      walletAddress,
+    });
+  }, [
+    isMounted,
+    receiveAmount,
+    receiveToken,
+    walletAddress,
+    walletProfile?.username,
+  ]);
   const paymentNarrationSteps = useMemo(
     () => [
       selectedBillOption
         ? `${selectedBillOption.title} selected`
         : "Custom payment selected",
-      isRecipientValid
-        ? `Recipient ${shortenAddress(trimmedRecipientAddress)} is ready`
-        : "Add the recipient wallet address",
+      isRecipientResolving
+        ? "Resolving recipient username"
+        : isRecipientValid
+          ? resolvedRecipientUsername
+            ? `Recipient ${formatUsernameLabel(resolvedRecipientUsername)} is ready`
+            : `Recipient ${shortenAddress(trimmedRecipientAddress)} is ready`
+          : recipientResolveError
+            ? recipientResolveError
+            : "Add a recipient wallet address or @username",
       paymentAmountUnits !== null && paymentAmountUnits > zeroAmount
         ? `${formatDisplayAmount(paymentAmount)} ${selectedToken} prepared`
         : "Enter the payment amount",
@@ -748,9 +779,12 @@ function DashboardContent() {
         : "Add a receipt note if needed",
     ],
     [
+      isRecipientResolving,
       isRecipientValid,
       paymentAmount,
       paymentAmountUnits,
+      recipientResolveError,
+      resolvedRecipientUsername,
       selectedBillOption,
       selectedToken,
       trimmedPaymentNarration,
@@ -866,12 +900,25 @@ function DashboardContent() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedRecipient = params.get("recipient") ?? params.get("to");
+    const requestedUsername = params.get("username");
     const requestedAmount = params.get("amount");
     const requestedToken = params.get("token");
     const requestedMemo = params.get("memo");
 
-    if (requestedRecipient && isAddress(requestedRecipient)) {
+    if (requestedUsername) {
+      setRecipientAddress(
+        requestedUsername.startsWith("@")
+          ? requestedUsername
+          : `@${requestedUsername}`,
+      );
+    } else if (requestedRecipient && isAddress(requestedRecipient)) {
       setRecipientAddress(requestedRecipient);
+    } else if (requestedRecipient) {
+      setRecipientAddress(
+        requestedRecipient.startsWith("@")
+          ? requestedRecipient
+          : `@${requestedRecipient}`,
+      );
     }
 
     if (requestedAmount) {
@@ -887,10 +934,51 @@ function DashboardContent() {
 
     if (requestedMemo) {
       setPaymentNarration(requestedMemo);
-    } else if (requestedRecipient || requestedAmount || requestedToken) {
+    } else if (
+      requestedRecipient ||
+      requestedUsername ||
+      requestedAmount ||
+      requestedToken
+    ) {
       setPaymentNarration("Payment request link");
     }
   }, []);
+
+  useEffect(() => {
+    if (!address) {
+      setWalletProfile(null);
+      return;
+    }
+
+    const connectedAddress = address;
+    let cancelled = false;
+
+    async function loadWalletProfile() {
+      try {
+        const profile =
+          (await fetchProfile(connectedAddress)) ??
+          (await ensureProfile({
+            authProvider: isEmbeddedWalletMode ? "google" : "external",
+            circleSocialUuid: getCircleLoginIdentity(circleLogin).socialUserUUID,
+            walletAddress: connectedAddress,
+          }));
+
+        if (!cancelled) {
+          setWalletProfile(profile);
+        }
+      } catch {
+        if (!cancelled) {
+          setWalletProfile(null);
+        }
+      }
+    }
+
+    void loadWalletProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, circleLogin, isEmbeddedWalletMode]);
 
   useEffect(() => {
     if (!transactionReceipt) {
@@ -1241,7 +1329,10 @@ function DashboardContent() {
     }
 
     if (!isRecipientValid) {
-      setBeneficiaryError("Enter a valid beneficiary wallet address.");
+      setBeneficiaryError(
+        recipientResolveError ??
+          "Enter a valid beneficiary wallet address or @username.",
+      );
       return;
     }
 
@@ -1300,8 +1391,11 @@ function DashboardContent() {
       return;
     }
 
-    if (!isRecipientValid) {
-      setPaymentError("Enter a valid recipient wallet address.");
+    if (!isRecipientValid || !resolvedRecipientAddress) {
+      setPaymentError(
+        recipientResolveError ??
+          "Enter a valid recipient wallet address or @username.",
+      );
       return;
     }
 
@@ -1310,6 +1404,10 @@ function DashboardContent() {
       return;
     }
 
+    const destinationAddress = getAddress(resolvedRecipientAddress);
+    const recipientLabel = resolvedRecipientUsername
+      ? formatUsernameLabel(resolvedRecipientUsername)
+      : shortenAddress(destinationAddress);
     const tokenBalance = findCircleTokenBalance(circleBalances, selectedToken);
 
     try {
@@ -1321,7 +1419,7 @@ function DashboardContent() {
         {
           amount: paymentAmount.trim(),
           blockchain: circleWallet.blockchain ?? "ARC-TESTNET",
-          destinationAddress: trimmedRecipientAddress,
+          destinationAddress,
           feeLevel: "MEDIUM",
           refId: trimmedPaymentNarration.slice(0, 50) || undefined,
           tokenAddress: selectedTokenInfo.address,
@@ -1356,8 +1454,8 @@ function DashboardContent() {
         setPaymentError(null);
         setTransactionLabel(
           trimmedPaymentNarration
-            ? `${trimmedPaymentNarration} to ${shortenAddress(trimmedRecipientAddress)}`
-            : `Payment to ${shortenAddress(trimmedRecipientAddress)}`,
+            ? `${trimmedPaymentNarration} to ${recipientLabel}`
+            : `Payment to ${recipientLabel}`,
         );
 
         if (txHash) {
@@ -1392,8 +1490,11 @@ function DashboardContent() {
       return;
     }
 
-    if (!isRecipientValid) {
-      setPaymentError("Enter a valid recipient wallet address.");
+    if (!isRecipientValid || !resolvedRecipientAddress) {
+      setPaymentError(
+        recipientResolveError ??
+          "Enter a valid recipient wallet address or @username.",
+      );
       return;
     }
 
@@ -1407,20 +1508,25 @@ function DashboardContent() {
       return;
     }
 
+    const destinationAddress = getAddress(resolvedRecipientAddress) as Address;
+    const recipientLabel = resolvedRecipientUsername
+      ? formatUsernameLabel(resolvedRecipientUsername)
+      : shortenAddress(destinationAddress);
+
     try {
       const hash = await writeContractAsync({
         address: selectedTokenInfo.address,
         abi: erc20Abi,
         functionName: "transfer",
-        args: [trimmedRecipientAddress as Address, paymentAmountUnits],
+        args: [destinationAddress, paymentAmountUnits],
         chainId: arcTestnet.id,
       });
 
       setTransactionHash(hash);
       setTransactionLabel(
         trimmedPaymentNarration
-          ? `${trimmedPaymentNarration} to ${shortenAddress(trimmedRecipientAddress)}`
-          : `Payment to ${shortenAddress(trimmedRecipientAddress)}`,
+          ? `${trimmedPaymentNarration} to ${recipientLabel}`
+          : `Payment to ${recipientLabel}`,
       );
       setPaymentStatus(`${selectedToken} payment submitted`);
     } catch (error) {
@@ -1910,7 +2016,11 @@ function DashboardContent() {
               isConfirming={isConfirming}
               isConnected={isConnected}
               isEmbeddedWalletMode={isEmbeddedWalletMode}
+              isRecipientResolving={isRecipientResolving}
               isRecipientValid={isRecipientValid}
+              recipientDisplayLabel={recipientDisplayLabel}
+              recipientResolveError={recipientResolveError}
+              resolvedRecipientUsername={resolvedRecipientUsername}
               isSubmitting={
                 isWritePending || isConfirming || isCirclePaymentPending
               }
@@ -1938,7 +2048,11 @@ function DashboardContent() {
               paymentNarration={paymentNarration}
               paymentStatus={paymentStatus}
               primaryButtonText={primaryButtonText}
-              receiveHref={`/pay?to=${encodeURIComponent(walletAddress)}`}
+              receiveHref={
+                walletProfile?.username
+                  ? `/pay?username=${encodeURIComponent(walletProfile.username)}`
+                  : `/pay?to=${encodeURIComponent(walletAddress)}`
+              }
               recipientAddress={recipientAddress}
               refreshBalances={refreshBalancesFromButton}
               savedBeneficiaries={savedBeneficiaries}
@@ -2295,6 +2409,11 @@ function DashboardContent() {
               <p className="mb-3 break-all text-xs font-bold leading-5 text-swift-700">
                 {paymentRequestUrl || "Payment link will be generated here."}
               </p>
+              {walletProfile?.username ? (
+                <p className="mb-2 text-sm font-bold text-swift-700">
+                  {formatUsernameLabel(walletProfile.username)}
+                </p>
+              ) : null}
               <p className="truncate font-mono text-sm font-bold text-ink">
                 {walletAddress}
               </p>

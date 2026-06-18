@@ -62,7 +62,6 @@ import {
  swiftBatchMaxRecipients,
 } from "@/lib/contracts";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
-import { resolvePlatformWalletMode } from "@/lib/platform-wallet";
 import { arcTestnet } from "@/lib/wagmi";
 
 type BatchRecipient = {
@@ -299,9 +298,7 @@ export default function SwiftBatchPage() {
  const chainId = useChainId();
  const { switchChainAsync } = useSwitchChain();
  const { writeContractAsync } = useWriteContract();
- const [walletMode, setWalletMode] = useState<WalletMode>(() =>
- resolvePlatformWalletMode(),
- );
+ const [walletMode, setWalletMode] = useState<WalletMode>("external");
  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(
  null,
  );
