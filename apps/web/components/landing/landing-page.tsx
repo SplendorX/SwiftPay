@@ -37,6 +37,12 @@ const productFlows = [
     title: "Send payments",
   },
   {
+    body: "Savings pockets and Spend&Save — no interest, just structured saving.",
+    href: "/save",
+    icon: Wallet,
+    title: "Swift+Save",
+  },
+  {
     body: "CSV upload, validation, and settlement for up to 500 recipients.",
     href: "/swiftBatch",
     icon: Users,
@@ -97,7 +103,11 @@ export function LandingPage() {
   return (
     <MarketingShell>
       <section className="marketing-hero">
-        <FadeUp className="marketing-hero-copy">
+        <FadeUp className="marketing-hero-visual mx-auto w-full max-w-[30rem] lg:mx-0 lg:max-w-none">
+          <HeroVisual />
+        </FadeUp>
+
+        <FadeUp className="marketing-hero-copy" delay={0.08}>
           <SignInPanel />
           <Badge className="mb-5 mt-8" variant="secondary">
             <Sparkles className="mr-1 h-3 w-3" />
@@ -139,10 +149,6 @@ export function LandingPage() {
               Wallet-signed settlements
             </span>
           </div>
-        </FadeUp>
-
-        <FadeUp className="marketing-hero-visual mx-auto w-full max-w-[30rem] lg:mx-0 lg:max-w-none" delay={0.08}>
-          <HeroVisual />
         </FadeUp>
       </section>
 

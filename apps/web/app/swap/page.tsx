@@ -634,6 +634,8 @@ function SwapContent() {
  </button>
  </div>
 
+
+
  <div className="mb-5 grid gap-3 sm:grid-cols-3">
  {(["USDC", "EURC"] as const).map((symbol) => (
  <div className="surface-card px-4 py-4" key={symbol}>

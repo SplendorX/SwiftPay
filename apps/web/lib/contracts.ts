@@ -1,11 +1,18 @@
 import type { Abi, Address } from "viem";
 
-import swiftPayVaultAbiJson from "@/abi.json";
+/**
+ * @deprecated Legacy merchant treasury stub ABI (apps/web/abi.json).
+ * Earn uses `lib/earn/*` — ERC-4626 SwiftPayVault + Aave strategy.
+ */
+import legacyTreasuryAbiJson from "@/abi.json";
 
-export const swiftPayVaultAddress =
-  "0xb854303ea392cafceda9d0f4c2c48c0af9560281" as const satisfies Address;
+/** @deprecated Use earnConfig.vaultAddress from @/lib/earn/config */
+export const swiftPayVaultAddress = (process.env
+  .NEXT_PUBLIC_EARN_VAULT_ADDRESS?.trim() ||
+  "0x0000000000000000000000000000000000000000") as Address;
 
-export const swiftPayVaultAbi = swiftPayVaultAbiJson as Abi;
+/** @deprecated Prefer swiftPayVaultAbi from @/lib/earn/abis */
+export const swiftPayVaultAbi = legacyTreasuryAbiJson as Abi;
 
 export const erc20Abi = [
   {
@@ -64,6 +71,9 @@ export const erc20Abi = [
 export const privacyEscrowAddress =
   process.env.NEXT_PUBLIC_PRIVSWIFTPAY_ESCROW_ADDRESS?.trim() ?? "";
 
+/** Platform fee for PrivSwiftPay escrow deposits: 1% = 100 bps. */
+export const privacyEscrowFeeBasisPoints = 100;
+
 export const privacyEscrowAbi = [
   {
     type: "function",
@@ -111,6 +121,20 @@ export const privacyEscrowAbi = [
       { name: "claimed", type: "bool" },
     ],
   },
+  {
+    type: "function",
+    name: "feeRecipient",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "PLATFORM_FEE_BASIS_POINTS",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
 ] as const;
 
 export const swiftBatchAddress =
@@ -119,7 +143,11 @@ export const swiftBatchAddress =
 export const swiftBatchFeeRecipient =
   process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim() ?? "";
 
-export const swiftBatchFeeBasisPoints = 10;
+/** Platform fee for SwiftBatch and SwiftRecurepay: 1% = 100 bps. */
+export const swiftBatchFeeBasisPoints = 100;
+
+/** Same 1% platform fee for recurring (SwiftRecurepay) payments. */
+export const recurringPlatformFeeBasisPoints = 100;
 
 export const swiftBatchMaxRecipients = 500;
 
@@ -127,6 +155,13 @@ export const swiftRecurepayExecutorAddress =
   process.env.NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS?.trim() ?? "";
 
 export const swiftRecurepayExecutorAbi = [
+  {
+    type: "function",
+    name: "operator",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
   {
     type: "function",
     name: "executeRecurringPayment",

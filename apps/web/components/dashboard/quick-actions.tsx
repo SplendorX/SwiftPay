@@ -5,8 +5,10 @@ import {
   ArrowDownUp,
   CalendarClock,
   LockKeyhole,
+  PiggyBank,
   QrCode,
   Send,
+  TrendingUp,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -21,6 +23,8 @@ const actions: Array<{
   tone?: string;
 }> = [
   { href: "#send", icon: Send, label: "Send Payment" },
+  { href: "/save", icon: PiggyBank, label: "Swift+Save" },
+  { href: "/earn", icon: TrendingUp, label: "Earn" },
   { href: "/pay", icon: QrCode, label: "Request Payment" },
   { href: "/swiftBatch", icon: Users, label: "Batch Settlement" },
   { href: "/swiftRecurepay", icon: CalendarClock, label: "SwiftRecurepay" },

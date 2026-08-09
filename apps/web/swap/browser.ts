@@ -36,20 +36,23 @@ type CircleChallengeExecutionResult = {
   txHash?: string;
 };
 
-export type CircleUserWalletSwapRequest = {
-  amountIn: string;
+export type CircleUserWalletKitRequest = {
   executeChallenge: (
     challengeId: string,
     label?: string,
   ) => Promise<CircleChallengeExecutionResult>;
   onStatus?: (status: string) => void;
+  userToken: string;
+  walletAddress: Address;
+  walletId: string;
+};
+
+export type CircleUserWalletSwapRequest = CircleUserWalletKitRequest & {
+  amountIn: string;
   slippageBps: number;
   stopLimit?: string;
   tokenIn: ArcTokenSymbol;
   tokenOut: ArcTokenSymbol;
-  userToken: string;
-  walletAddress: Address;
-  walletId: string;
 };
 
 export type CircleSwapEstimate = {
@@ -792,8 +795,8 @@ async function withCircleStablecoinProxy<TResult>(
   }
 }
 
-async function createCircleUserWalletAdapter(
-  request: CircleUserWalletSwapRequest,
+export async function createCircleUserWalletAdapter(
+  request: CircleUserWalletKitRequest,
 ) {
   const { createPublicClient, encodeFunctionData, formatUnits, http } =
     await import("viem");

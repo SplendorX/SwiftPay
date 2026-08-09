@@ -1,0 +1,30 @@
+{
+  "deployedAt": "2026-08-08T20:51:53.654Z",
+  "network": {
+    "key": "arcTestnet",
+    "name": "Arc Testnet",
+    "chainId": 5042002,
+    "isTestnet": true,
+    "explorer": "https://testnet.arcscan.app"
+  },
+  "earnMode": "simulation",
+  "disclaimer": "Testnet Demo — no real economic yield. Simulation only.",
+  "addresses": {
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "vault": "0x23cb92Dc76f63fb17e909fCE7c755b7bb4eF89E4",
+    "strategy": "0x2467F2374fbeF09bFDf22Bf85edE46d360741E0d",
+    "aavePool": "0x047cc89aCDAe5B12a87d29A19E12D295EFCa73c7",
+    "aToken": "0x9D7540787AC2d1dbF8228A333f975F7De55BE788",
+    "mockAavePool": "0x047cc89aCDAe5B12a87d29A19E12D295EFCa73c7",
+    "mockUsdc": null,
+    "owner": "0x6Aa30a03D7F0c7928CD9CaCFd8c765FCcB2efD77",
+    "feeRecipient": "0x7f99be073c65bbf70ec75d6d33824ed473028200"
+  },
+  "envHints": {
+    "NEXT_PUBLIC_EARN_VAULT_ADDRESS": "0x23cb92Dc76f63fb17e909fCE7c755b7bb4eF89E4",
+    "NEXT_PUBLIC_EARN_STRATEGY_ADDRESS": "0x2467F2374fbeF09bFDf22Bf85edE46d360741E0d",
+    "NEXT_PUBLIC_EARN_MODE": "simulation",
+    "NEXT_PUBLIC_AAVE_POOL_ADDRESS": "0x047cc89aCDAe5B12a87d29A19E12D295EFCa73c7",
+    "NEXT_PUBLIC_AAVE_ATOKEN_USDC": "0x9D7540787AC2d1dbF8228A333f975F7De55BE788"
+  }
+}

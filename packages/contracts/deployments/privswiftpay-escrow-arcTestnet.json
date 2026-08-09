@@ -1,0 +1,9 @@
+{
+  "network": "arcTestnet",
+  "contract": "PrivSwiftPayEscrow",
+  "address": "0x4dDe09fCDc23106d6f32dAD6BA4B93ab4d7D1941",
+  "feeRecipient": "0x7f99be073c65bbf70ec75d6d33824ed473028200",
+  "platformFeeBasisPoints": 100,
+  "deployedAt": "2026-08-09T00:00:00.000Z",
+  "notes": "1% platform fee on deposit; claim amount is full payment amount"
+}

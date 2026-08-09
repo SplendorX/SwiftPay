@@ -9,7 +9,7 @@ import {
   readCircleLogin,
 } from "@/lib/circle-session";
 import {
-  markPlatformProfileConnected,
+  ensurePlatformAccessCookie,
   platformAccessEventName,
   readActivatedExternalProfile,
 } from "@/lib/platform-access";
@@ -42,18 +42,20 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
       }
 
       if (hasPlatformAccess(isConnected ? address : undefined)) {
-        markPlatformProfileConnected();
-        setIsLocked(false);
+        // Silent cookie refresh only — never notify from this listener
+        // (notify would re-enter this effect and infinite-loop).
+        ensurePlatformAccessCookie();
+        setIsLocked((locked) => (locked ? false : locked));
         return;
       }
 
       if (status === "connecting" || status === "reconnecting") {
-        setIsLocked(false);
+        setIsLocked((locked) => (locked ? false : locked));
         return;
       }
 
       lockTimeoutId = window.setTimeout(() => {
-        setIsLocked(true);
+        setIsLocked((locked) => (locked ? locked : true));
       }, 900);
     }
 

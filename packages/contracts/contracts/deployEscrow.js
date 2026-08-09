@@ -23,9 +23,18 @@ async function main() {
   // ── 2. Connect to Arc Testnet ──
   const RPC_URL = process.env.ARC_TESTNET_RPC_URL;
   const PRIVATE_KEY = process.env.PRIVATE_KEY;
+  const feeRecipient =
+    process.env.PLATFORM_FEE_RECIPIENT?.trim() ||
+    process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim();
 
   if (!RPC_URL || !PRIVATE_KEY) {
     throw new Error("Missing ARC_TESTNET_RPC_URL or PRIVATE_KEY in .env");
+  }
+
+  if (!feeRecipient || !ethers.isAddress(feeRecipient)) {
+    throw new Error(
+      "PLATFORM_FEE_RECIPIENT (or NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT) must be a valid address.",
+    );
   }
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -35,6 +44,7 @@ async function main() {
 
   const balance = await provider.getBalance(wallet.address);
   console.log("Wallet balance:", ethers.formatEther(balance), "ETH");
+  console.log("Fee recipient (1%):", feeRecipient);
 
   // ── 3. Deploy PrivSwiftPayEscrow ──
   const factory = new ethers.ContractFactory(
@@ -44,13 +54,14 @@ async function main() {
   );
 
   console.log("Deploying PrivSwiftPayEscrow...");
-  const contract = await factory.deploy();
+  const contract = await factory.deploy(feeRecipient);
   await contract.waitForDeployment();
 
   const address = await contract.getAddress();
   console.log("✅ PrivSwiftPayEscrow deployed to:", address);
   console.log("\nUpdate your .env:");
   console.log(`NEXT_PUBLIC_PRIVSWIFTPAY_ESCROW_ADDRESS=${address}`);
+  console.log(`NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=${feeRecipient}`);
 }
 
 main().catch((err) => {

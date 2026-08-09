@@ -5,10 +5,12 @@ import {
   Command,
   LayoutDashboard,
   LockKeyhole,
+  PiggyBank,
   RefreshCw,
   Search,
   Send,
   Settings,
+  TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
@@ -28,6 +30,8 @@ import { cn } from "@/lib/utils";
 
 const navIcons: Record<string, typeof Command> = {
   "/dashboard": LayoutDashboard,
+  "/save": PiggyBank,
+  "/earn": TrendingUp,
   "/swap": RefreshCw,
   "/swiftBatch": Users,
   "/pay": Send,

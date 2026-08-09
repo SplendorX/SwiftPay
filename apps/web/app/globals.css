@@ -849,7 +849,8 @@ html.dark .platform-wordmark-swift,
 
 @media (min-width: 1024px) {
   .marketing-hero {
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    /* Left: logo + balance preview · Right: sign-in + copy */
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
     gap: 2.5rem;
     padding: 1.25rem 0 5rem;
     align-items: start;
@@ -1010,8 +1011,8 @@ html.dark .platform-wordmark-swift,
 
 @media (min-width: 1024px) {
   .marketing-hero-visual {
-    justify-content: flex-end;
-    padding-right: 1rem;
+    justify-content: flex-start;
+    padding-left: 0.25rem;
   }
 }
 
@@ -1449,4 +1450,1005 @@ html.dark .platform-wordmark-swift,
   html {
     @apply font-sans;
   }
+}
+/* ── Confidential Payments ── */
+
+.privacy-level-badge-standard {
+  border: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.privacy-level-badge-confidential {
+  border: 1px solid color-mix(in oklch, var(--primary) 40%, var(--border));
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
+  color: var(--primary);
+  box-shadow: 0 0 12px color-mix(in oklch, var(--primary) 22%, transparent);
+}
+
+.confidential-aurora-card {
+  border-radius: calc(var(--radius) + 6px);
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
+  background:
+    radial-gradient(ellipse 80% 60% at 10% 0%, color-mix(in oklch, var(--primary) 22%, transparent), transparent),
+    radial-gradient(ellipse 60% 50% at 90% 100%, color-mix(in oklch, 0.65 0.18 220, transparent 70%), transparent),
+    color-mix(in oklch, var(--card) 92%, var(--primary));
+  box-shadow: 0 18px 40px -24px color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+.confidential-aurora-inner {
+  border-radius: inherit;
+  backdrop-filter: blur(10px);
+}
+
+.confidential-shield-icon {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--primary) 35%, var(--border));
+  background: color-mix(in oklch, var(--primary) 14%, var(--card));
+  color: var(--primary);
+}
+
+.confidential-activity-item-private {
+  border-color: color-mix(in oklch, var(--primary) 25%, var(--border));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--primary) 6%, transparent), transparent 55%),
+    var(--card);
+}
+
+.confidential-hub-hero {
+  position: relative;
+}
+
+.confidential-hub-aurora {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 80% at 0% 0%, color-mix(in oklch, var(--primary) 18%, transparent), transparent),
+    radial-gradient(ellipse 40% 60% at 100% 100%, color-mix(in oklch, 0.62 0.14 200, transparent 75%), transparent);
+}
+
+.confidential-floating-card {
+  box-shadow: 0 20px 48px -28px color-mix(in oklch, var(--primary) 50%, transparent);
+}
+
+.confidential-toggle {
+  border: 1px solid color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+
+/* ─── SwiftPay Earn ─────────────────────────────────────────────────────── */
+
+.earn-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 72rem;
+}
+
+.earn-mode-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  padding: 1rem 1.15rem;
+  background: var(--card);
+}
+
+.earn-mode-banner-warning {
+  border-color: color-mix(in oklch, oklch(0.75 0.15 85) 45%, var(--border));
+  background: color-mix(in oklch, oklch(0.75 0.15 85) 10%, var(--card));
+  color: color-mix(in oklch, oklch(0.55 0.14 75) 80%, var(--foreground));
+}
+
+.earn-mode-banner-danger {
+  border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+  background: color-mix(in oklch, var(--destructive) 8%, var(--card));
+  color: var(--destructive);
+}
+
+.earn-mode-banner-success {
+  border-color: color-mix(in oklch, oklch(0.65 0.15 150) 40%, var(--border));
+  background: color-mix(in oklch, oklch(0.65 0.15 150) 8%, var(--card));
+}
+
+.earn-mode-banner-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.earn-mode-banner-body {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  line-height: 1.45;
+}
+
+.earn-hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.earn-kicker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.earn-hero-title {
+  margin-top: 0.35rem;
+  font-family: var(--font-heading);
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.earn-hero-sub {
+  margin-top: 0.5rem;
+  max-width: 36rem;
+  color: var(--muted-foreground);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.earn-hero-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.earn-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.earn-pill-warn {
+  border-color: color-mix(in oklch, oklch(0.75 0.15 85) 50%, var(--border));
+  color: color-mix(in oklch, oklch(0.55 0.14 75) 90%, var(--foreground));
+}
+
+.earn-main-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1.4fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .earn-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.earn-balance-card,
+.earn-performance-card,
+.earn-transparency,
+.earn-risks {
+  border-radius: 1.15rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 12px 40px -28px color-mix(in oklch, var(--foreground) 25%, transparent);
+}
+
+.earn-balance-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.earn-balance-value {
+  margin-top: 0.65rem;
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.earn-balance-sub {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.earn-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.earn-stat-label {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+
+.earn-stat-value {
+  margin-top: 0.2rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.earn-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.earn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.earn-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.earn-btn-primary {
+  flex: 1;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.earn-btn-secondary {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.earn-form {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.earn-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.earn-input {
+  border-radius: 0.75rem;
+  border: 1px solid var(--input);
+  background: var(--background);
+  padding: 0.75rem 0.9rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.earn-form-hint {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.earn-error {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin-top: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--destructive);
+}
+
+.earn-tx-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.earn-performance-card h2,
+.earn-transparency h2,
+.earn-risks h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.earn-dl {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.earn-dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.earn-dl dt {
+  color: var(--muted-foreground);
+}
+
+.earn-dl dd {
+  font-weight: 600;
+  text-align: right;
+}
+
+.earn-footnote {
+  margin-top: 1rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.earn-flow {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.earn-flow li {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  padding: 0.35rem 0.7rem;
+}
+
+.earn-flow li:not(:last-child)::after {
+  content: "→";
+  margin-left: 0.45rem;
+  opacity: 0.5;
+}
+
+.earn-address-grid {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.earn-address-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.85rem;
+}
+
+.earn-address-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--primary);
+  text-decoration: none;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.earn-risks ul {
+  margin-top: 0.75rem;
+  padding-left: 1.1rem;
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.earn-connect-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 0.9rem;
+  border: 1px dashed var(--border);
+  padding: 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+.earn-footer-link {
+  font-size: 0.9rem;
+}
+
+.earn-footer-link a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.earn-autosave-card {
+  border-radius: 1.15rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 1.25rem 1.35rem;
+}
+
+.earn-autosave-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.earn-autosave-header h2,
+.earn-autosave-card h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.earn-autosave-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.earn-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.earn-auth-box {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin-top: 0.5rem;
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border));
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+}
+
+.earn-auth-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.earn-auth-hint {
+  margin-top: 0.4rem;
+  color: color-mix(in oklch, oklch(0.55 0.14 75) 90%, var(--foreground));
+}
+
+.earn-exec-list {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.earn-exec-list ul {
+  margin-top: 0.4rem;
+  padding-left: 1rem;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.earn-admin-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .earn-admin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.earn-admin-auth {
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 1rem 1.15rem;
+}
+
+.earn-admin-fees {
+  margin-top: 0.75rem;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+  color: var(--muted-foreground);
+  line-height: 1.55;
+}
+
+/* Earn transactions */
+.earn-tx-card {
+  border-radius: 1.15rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 12px 40px -28px color-mix(in oklch, var(--foreground) 25%, transparent);
+}
+
+.earn-tx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.earn-tx-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.earn-tx-title-row h2,
+.earn-tx-card h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.earn-tx-sub {
+  margin-top: 0.35rem;
+}
+
+.earn-tx-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.earn-tx-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.earn-tx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+  padding: 1.5rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px dashed var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.earn-tx-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.earn-tx-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--background) 70%, var(--card));
+  padding: 0.85rem 0.95rem;
+}
+
+.earn-tx-item-pending {
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+}
+
+.earn-tx-icon {
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.earn-tx-icon-in {
+  background: color-mix(in oklch, oklch(0.72 0.14 155) 16%, var(--card));
+  color: oklch(0.45 0.12 155);
+}
+
+.earn-tx-icon-out {
+  background: color-mix(in oklch, oklch(0.65 0.16 40) 14%, var(--card));
+  color: oklch(0.5 0.14 40);
+}
+
+.dark .earn-tx-icon-in,
+html[data-theme="dark"] .earn-tx-icon-in {
+  color: oklch(0.78 0.12 155);
+}
+
+.dark .earn-tx-icon-out,
+html[data-theme="dark"] .earn-tx-icon-out {
+  color: oklch(0.78 0.12 55);
+}
+
+.earn-tx-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.earn-tx-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.earn-tx-type {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.earn-tx-amount {
+  font-size: 0.95rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.earn-tx-amount-in {
+  color: oklch(0.42 0.12 155);
+}
+
+.earn-tx-amount-out {
+  color: oklch(0.48 0.14 40);
+}
+
+.dark .earn-tx-amount-in,
+html[data-theme="dark"] .earn-tx-amount-in {
+  color: oklch(0.8 0.12 155);
+}
+
+.dark .earn-tx-amount-out,
+html[data-theme="dark"] .earn-tx-amount-out {
+  color: oklch(0.8 0.1 55);
+}
+
+.earn-tx-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.earn-tx-dot {
+  opacity: 0.5;
+}
+
+.earn-tx-status {
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.earn-tx-hash {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  color: var(--primary);
+  text-decoration: none;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+}
+
+.earn-tx-hash:hover {
+  text-decoration: underline;
+}
+
+.earn-tx-error {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+  max-height: 4.5rem;
+  overflow: hidden;
+}
+
+/* Performance / chart / dashboard earn strip */
+:root {
+  --earn-chart-line: oklch(0.55 0.18 290);
+}
+
+.dark,
+html[data-theme="dark"] {
+  --earn-chart-line: oklch(0.78 0.14 290);
+}
+
+.earn-earned-positive {
+  color: oklch(0.55 0.14 150);
+}
+
+.dark .earn-earned-positive,
+html[data-theme="dark"] .earn-earned-positive {
+  color: oklch(0.78 0.12 150);
+}
+
+.earn-fee-detail {
+  font-weight: 500;
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+
+.earn-yield-split {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+  background: color-mix(in oklch, var(--muted) 35%, transparent);
+}
+
+.earn-yield-arrow {
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.earn-balance-earned {
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: oklch(0.55 0.14 150);
+}
+
+.dark .earn-balance-earned,
+html[data-theme="dark"] .earn-balance-earned {
+  color: oklch(0.78 0.12 150);
+}
+
+.earn-range-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.earn-range-tab {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.28rem 0.65rem;
+  cursor: default;
+}
+
+.earn-range-tab-active {
+  border-color: color-mix(in oklch, var(--earn-chart-line) 50%, var(--border));
+  background: color-mix(in oklch, var(--earn-chart-line) 12%, transparent);
+  color: var(--foreground);
+}
+
+.earn-form-preview {
+  margin: 0.65rem 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 25%, transparent);
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+}
+
+.earn-form-preview div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.earn-form-preview dt {
+  color: var(--muted-foreground);
+}
+
+.earn-form-preview dd {
+  font-weight: 600;
+  text-align: right;
+}
+
+.earn-chart-card {
+  border-radius: 1.15rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 1.15rem 1.25rem 1rem;
+}
+
+.earn-chart-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.earn-chart-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.earn-chart-note {
+  margin-top: 0.35rem;
+}
+
+.earn-chart-empty {
+  margin-top: 1rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  border-radius: 0.85rem;
+  border: 1px dashed var(--border);
+  background: color-mix(in oklch, var(--muted) 20%, transparent);
+}
+
+.earn-chart-empty-title {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.earn-chart-svg-wrap {
+  margin-top: 0.75rem;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.earn-chart-svg {
+  width: 100%;
+  min-width: 280px;
+  height: auto;
+  display: block;
+}
+
+.earn-chart-grid {
+  stroke: color-mix(in oklch, var(--border) 80%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.earn-chart-line {
+  stroke: var(--earn-chart-line);
+  stroke-width: 2.25;
+}
+
+.earn-chart-dot {
+  fill: var(--card);
+  stroke: var(--earn-chart-line);
+  stroke-width: 2;
+}
+
+.earn-chart-dot-current {
+  fill: var(--earn-chart-line);
+}
+
+.earn-chart-axis {
+  fill: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.earn-chart-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.earn-dashboard-summary {
+  border-radius: 1.15rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.earn-dashboard-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.earn-dashboard-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .earn-dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.earn-dashboard-stat {
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
+  padding: 0.85rem 1rem;
+  background: color-mix(in oklch, var(--muted) 22%, transparent);
+}
+
+.earn-dashboard-stat-total {
+  border-color: color-mix(in oklch, var(--earn-chart-line) 35%, var(--border));
+  background: color-mix(in oklch, var(--earn-chart-line) 8%, var(--card));
+}
+
+.earn-dashboard-value {
+  margin-top: 0.25rem;
+  font-family: var(--font-heading, inherit);
+  font-size: 1.45rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.earn-dashboard-actions {
+  margin-top: 0.9rem;
+}
+
+.earn-dashboard-actions a.earn-btn {
+  text-decoration: none;
+}
+
+.earn-unhealthy-banner {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in oklch, oklch(0.75 0.15 85) 50%, var(--border));
+  background: color-mix(in oklch, oklch(0.75 0.15 85) 12%, var(--card));
+  padding: 0.85rem 1rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.earn-unhealthy-banner strong {
+  display: block;
+  margin-bottom: 0.15rem;
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeft,
@@ -9,13 +8,14 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
+  LockKeyhole,
   RefreshCw,
   UserPlus,
   Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SendStepIndicator } from "@/components/dashboard/send-step-indicator";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
@@ -85,27 +85,13 @@ export type SendPaymentWizardProps = {
   walletAddress: string;
 };
 
-function PaymentRouteViz({
-  from,
-  to,
-}: {
-  from: string;
-  to: string;
-}) {
+function PaymentRouteViz({ from, to }: { from: string; to: string }) {
   return (
     <div className="payment-route-viz">
       <div className="route-node">{from}</div>
-      <motion.div
-        animate={{ scaleX: [0.4, 1, 0.4] }}
-        className="route-line"
-        transition={{ duration: 2.4, ease: "easeInOut", repeat: Infinity }}
-      />
+      <div className="route-line" />
       <div className="route-node">Arc</div>
-      <motion.div
-        animate={{ scaleX: [0.4, 1, 0.4] }}
-        className="route-line"
-        transition={{ duration: 2.4, delay: 0.3, ease: "easeInOut", repeat: Infinity }}
-      />
+      <div className="route-line" />
       <div className="route-node">{to}</div>
     </div>
   );
@@ -151,7 +137,6 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     primaryButtonText,
     receiveHref,
     recipientAddress,
-    recipientDisplayLabel,
     recipientResolveError,
     resolvedRecipientUsername,
     refreshBalances,
@@ -172,20 +157,125 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
+  // Local draft fields so typing does not thrash the whole dashboard tree.
+  const [localRecipient, setLocalRecipient] = useState(recipientAddress);
+  const [localAmount, setLocalAmount] = useState(paymentAmount);
+  const [localNarration, setLocalNarration] = useState(paymentNarration);
+  const recipientSyncTimer = useRef<number | null>(null);
+  const amountSyncTimer = useRef<number | null>(null);
+  const narrationSyncTimer = useRef<number | null>(null);
+  const lastExternalRecipient = useRef(recipientAddress);
+  const lastExternalAmount = useRef(paymentAmount);
+  const lastExternalNarration = useRef(paymentNarration);
+
+  // Pull in external updates (URL prefill, beneficiary pick) without fighting keystrokes.
   useEffect(() => {
-    if (isSubmitting || transactionConfirmed) {
-      setStep(4);
+    if (recipientAddress !== lastExternalRecipient.current) {
+      lastExternalRecipient.current = recipientAddress;
+      setLocalRecipient(recipientAddress);
     }
+  }, [recipientAddress]);
+
+  useEffect(() => {
+    if (paymentAmount !== lastExternalAmount.current) {
+      lastExternalAmount.current = paymentAmount;
+      setLocalAmount(paymentAmount);
+    }
+  }, [paymentAmount]);
+
+  useEffect(() => {
+    if (paymentNarration !== lastExternalNarration.current) {
+      lastExternalNarration.current = paymentNarration;
+      setLocalNarration(paymentNarration);
+    }
+  }, [paymentNarration]);
+
+  useEffect(() => {
+    return () => {
+      if (recipientSyncTimer.current !== null) {
+        window.clearTimeout(recipientSyncTimer.current);
+      }
+      if (amountSyncTimer.current !== null) {
+        window.clearTimeout(amountSyncTimer.current);
+      }
+      if (narrationSyncTimer.current !== null) {
+        window.clearTimeout(narrationSyncTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!(isSubmitting || transactionConfirmed)) {
+      return;
+    }
+    setStep((current) => (current === 4 ? current : 4));
   }, [isSubmitting, transactionConfirmed]);
 
+  function scheduleRecipientSync(value: string) {
+    setLocalRecipient(value);
+    if (recipientSyncTimer.current !== null) {
+      window.clearTimeout(recipientSyncTimer.current);
+    }
+    recipientSyncTimer.current = window.setTimeout(() => {
+      lastExternalRecipient.current = value;
+      onRecipientChange(value);
+    }, 150);
+  }
+
+  function scheduleAmountSync(value: string) {
+    setLocalAmount(value);
+    if (amountSyncTimer.current !== null) {
+      window.clearTimeout(amountSyncTimer.current);
+    }
+    amountSyncTimer.current = window.setTimeout(() => {
+      lastExternalAmount.current = value;
+      onPaymentAmountChange(value);
+    }, 150);
+  }
+
+  function scheduleNarrationSync(value: string) {
+    setLocalNarration(value);
+    if (narrationSyncTimer.current !== null) {
+      window.clearTimeout(narrationSyncTimer.current);
+    }
+    narrationSyncTimer.current = window.setTimeout(() => {
+      lastExternalNarration.current = value;
+      onPaymentNarrationChange(value);
+    }, 150);
+  }
+
+  function flushDrafts() {
+    if (recipientSyncTimer.current !== null) {
+      window.clearTimeout(recipientSyncTimer.current);
+      recipientSyncTimer.current = null;
+    }
+    if (amountSyncTimer.current !== null) {
+      window.clearTimeout(amountSyncTimer.current);
+      amountSyncTimer.current = null;
+    }
+    if (narrationSyncTimer.current !== null) {
+      window.clearTimeout(narrationSyncTimer.current);
+      narrationSyncTimer.current = null;
+    }
+    lastExternalRecipient.current = localRecipient;
+    lastExternalAmount.current = localAmount;
+    lastExternalNarration.current = localNarration;
+    onRecipientChange(localRecipient);
+    onPaymentAmountChange(localAmount);
+    onPaymentNarrationChange(localNarration);
+  }
+
   function goNext() {
+    flushDrafts();
     if (step === 1 && isRecipientValid) setStep(2);
     else if (step === 2 && hasAmount) setStep(3);
     else if (step === 3) setStep(4);
   }
 
   function goBack() {
-    if (step > 1 && step < 4) setStep((current) => (current - 1) as 1 | 2 | 3 | 4);
+    if (step > 1 && step < 4) {
+      setStep((current) => (current - 1) as 1 | 2 | 3 | 4);
+    }
   }
 
   const isBusy =
@@ -204,7 +294,12 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={refreshBalances} size="icon" type="button" variant="outline">
+          <Button
+            onClick={refreshBalances}
+            size="icon"
+            type="button"
+            variant="outline"
+          >
             <RefreshCw className={`h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
           </Button>
           <Button asChild variant="outline">
@@ -226,323 +321,309 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             goNext();
             return;
           }
+          flushDrafts();
           onSubmit();
         }}
       >
-        <AnimatePresence mode="wait">
-          {step === 1 ? (
-            <motion.div
-              animate={{ opacity: 1, x: 0 }}
-              className="grid gap-4"
-              exit={{ opacity: 0, x: -12 }}
-              initial={{ opacity: 0, x: 12 }}
-              key="step-1"
-              transition={{ duration: 0.25 }}
-            >
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold text-foreground">
-                  Recipient wallet or @username
-                </span>
-                <div className="field-shell flex h-11 items-center gap-2 px-3">
-                  <Wallet className="h-4 w-4 text-primary" />
-                  <input
-                    autoComplete="off"
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    onChange={(event) => onRecipientChange(event.target.value)}
-                    placeholder="0x address or @username"
-                    spellCheck={false}
-                    value={recipientAddress}
-                  />
-                  {isRecipientResolving ? (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                  ) : null}
-                </div>
-                {recipientResolveError ? (
-                  <p className="text-sm text-destructive">{recipientResolveError}</p>
-                ) : isRecipientValid && resolvedRecipientUsername ? (
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                    Resolved to @{resolvedRecipientUsername}
-                  </p>
+        {step === 1 ? (
+          <div className="grid gap-4" key="step-1">
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-foreground">
+                Recipient wallet or @username
+              </span>
+              <div className="field-shell flex h-11 items-center gap-2 px-3">
+                <Wallet className="h-4 w-4 text-primary" />
+                <input
+                  autoComplete="off"
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  onChange={(event) => scheduleRecipientSync(event.target.value)}
+                  placeholder="0x address or @username"
+                  spellCheck={false}
+                  value={localRecipient}
+                />
+                {isRecipientResolving ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
                 ) : null}
-              </label>
-
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      Beneficiary name
-                    </span>
-                    <div className="field-shell flex h-11 items-center gap-2 px-3">
-                      <Users className="h-4 w-4 text-primary" />
-                      <input
-                        autoComplete="off"
-                        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                        maxLength={80}
-                        onChange={(event) =>
-                          onBeneficiaryNameChange(event.target.value)
-                        }
-                        placeholder="Name this wallet"
-                        value={beneficiaryName}
-                      />
-                    </div>
-                  </label>
-                  <Button
-                    disabled={!canSaveBeneficiary}
-                    onClick={onSaveBeneficiary}
-                    type="button"
-                    variant="outline"
-                  >
-                    {isBeneficiarySaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4" />
-                    )}
-                    Save beneficiary
-                  </Button>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
-                  <div className="flex min-w-0 items-center gap-2 text-sm">
-                    {isWalletAuthenticated ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-                    ) : (
-                      <KeyRound className="h-4 w-4 shrink-0 text-primary" />
-                    )}
-                    <span className="truncate text-muted-foreground">
-                      {isEmbeddedWalletMode
-                        ? `Circle wallet: ${shortenAddress(walletAddress)}`
-                        : isWalletAuthenticated
-                          ? `Session: ${shortenAddress(authWallet ?? undefined)}`
-                          : isConnected
-                            ? "Wallet session required"
-                            : "Connect wallet"}
-                    </span>
-                  </div>
-                  {isConnected && !isWalletAuthenticated && !isEmbeddedWalletMode ? (
-                    <Button
-                      disabled={isAuthenticatingWallet}
-                      onClick={onWalletSignIn}
-                      size="sm"
-                      type="button"
-                    >
-                      {isAuthenticatingWallet ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <KeyRound className="h-3.5 w-3.5" />
-                      )}
-                      Sign in
-                    </Button>
-                  ) : null}
-                </div>
-
-                {beneficiaryError ? (
-                  <p className="mt-2 text-sm text-destructive">{beneficiaryError}</p>
-                ) : beneficiaryStatus ? (
-                  <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    {beneficiaryStatus}
-                  </p>
-                ) : null}
-
-                <div className="mt-3 grid gap-2">
-                  <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                    Saved beneficiaries
-                  </span>
-                  {isBeneficiariesLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading…
-                    </div>
-                  ) : savedBeneficiaries.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No saved beneficiaries yet.
-                    </p>
-                  ) : (
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {savedBeneficiaries.map((beneficiary) => (
-                        <button
-                          className="min-w-[11rem] rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-primary/40"
-                          key={`${beneficiary.owner_wallet}-${beneficiary.beneficiary_wallet}`}
-                          onClick={() => onSelectBeneficiary(beneficiary)}
-                          type="button"
-                        >
-                          <span className="block truncate text-sm font-semibold">
-                            {beneficiary.name}
-                          </span>
-                          <span className="block font-mono text-xs text-muted-foreground">
-                            {shortenAddress(beneficiary.beneficiary_wallet)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
-            </motion.div>
-          ) : null}
+              {recipientResolveError ? (
+                <p className="text-sm text-destructive">{recipientResolveError}</p>
+              ) : isRecipientValid && resolvedRecipientUsername ? (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                  Resolved to @{resolvedRecipientUsername}
+                </p>
+              ) : null}
+            </label>
 
-          {step === 2 ? (
-            <motion.div
-              animate={{ opacity: 1, x: 0 }}
-              className="grid gap-4"
-              exit={{ opacity: 0, x: -12 }}
-              initial={{ opacity: 0, x: 12 }}
-              key="step-2"
-              transition={{ duration: 0.25 }}
-            >
-              <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <label className="grid gap-2">
-                  <span className="text-sm font-semibold text-foreground">Amount</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    Beneficiary name
+                  </span>
                   <div className="field-shell flex h-11 items-center gap-2 px-3">
-                    <TokenIcon className="h-5 w-5 rounded-full" symbol={selectedToken} />
+                    <Users className="h-4 w-4 text-primary" />
                     <input
+                      autoComplete="off"
                       className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                      inputMode="decimal"
-                      onChange={(event) => onPaymentAmountChange(event.target.value)}
-                      placeholder="0.00"
-                      value={paymentAmount}
+                      maxLength={80}
+                      onChange={(event) =>
+                        onBeneficiaryNameChange(event.target.value)
+                      }
+                      placeholder="Name this wallet"
+                      value={beneficiaryName}
                     />
                   </div>
                 </label>
-                <TokenSelect
-                  label="Asset"
-                  onChange={onSelectToken}
-                  size="sm"
-                  value={selectedToken}
-                />
+                <Button
+                  disabled={!canSaveBeneficiary}
+                  onClick={onSaveBeneficiary}
+                  type="button"
+                  variant="outline"
+                >
+                  {isBeneficiarySaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  Save beneficiary
+                </Button>
               </div>
 
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                  {isWalletAuthenticated ? (
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                  ) : (
+                    <KeyRound className="h-4 w-4 shrink-0 text-primary" />
+                  )}
+                  <span className="truncate text-muted-foreground">
+                    {isEmbeddedWalletMode
+                      ? `Circle wallet: ${shortenAddress(walletAddress)}`
+                      : isWalletAuthenticated
+                        ? `Session: ${shortenAddress(authWallet ?? undefined)}`
+                        : isConnected
+                          ? "Wallet session required"
+                          : "Connect wallet"}
+                  </span>
+                </div>
+                {isConnected && !isWalletAuthenticated && !isEmbeddedWalletMode ? (
+                  <Button
+                    disabled={isAuthenticatingWallet}
+                    onClick={onWalletSignIn}
+                    size="sm"
+                    type="button"
+                  >
+                    {isAuthenticatingWallet ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <KeyRound className="h-3.5 w-3.5" />
+                    )}
+                    Sign in
+                  </Button>
+                ) : null}
+              </div>
+
+              {beneficiaryError ? (
+                <p className="mt-2 text-sm text-destructive">{beneficiaryError}</p>
+              ) : beneficiaryStatus ? (
+                <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+                  {beneficiaryStatus}
+                </p>
+              ) : null}
+
+              <div className="mt-3 grid gap-2">
+                <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  Saved beneficiaries
+                </span>
+                {isBeneficiariesLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </div>
+                ) : savedBeneficiaries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No saved beneficiaries yet.
+                  </p>
+                ) : (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {savedBeneficiaries.map((beneficiary) => (
+                      <button
+                        className="min-w-[11rem] rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-primary/40"
+                        key={`${beneficiary.owner_wallet}-${beneficiary.beneficiary_wallet}`}
+                        onClick={() => onSelectBeneficiary(beneficiary)}
+                        type="button"
+                      >
+                        <span className="block truncate text-sm font-semibold">
+                          {beneficiary.name}
+                        </span>
+                        <span className="block font-mono text-xs text-muted-foreground">
+                          {shortenAddress(beneficiary.beneficiary_wallet)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="grid gap-4" key="step-2">
+            <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
               <label className="grid gap-2">
-                <span className="text-sm font-semibold text-foreground">Narration</span>
-                <div className="field-shell p-3">
-                  <textarea
-                    className="min-h-20 w-full resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-muted-foreground"
-                    maxLength={140}
-                    onChange={(event) => onPaymentNarrationChange(event.target.value)}
-                    placeholder="Payment note or bill reference"
-                    value={paymentNarration}
+                <span className="text-sm font-semibold text-foreground">Amount</span>
+                <div className="field-shell flex h-11 items-center gap-2 px-3">
+                  <TokenIcon className="h-5 w-5 rounded-full" symbol={selectedToken} />
+                  <input
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    inputMode="decimal"
+                    onChange={(event) => scheduleAmountSync(event.target.value)}
+                    placeholder="0.00"
+                    value={localAmount}
                   />
                 </div>
               </label>
+              <TokenSelect
+                label="Asset"
+                onChange={onSelectToken}
+                size="sm"
+                value={selectedToken}
+              />
+            </div>
 
-              <div className="grid max-h-40 gap-2 overflow-y-auto">
-                {billPaymentOptions.map((option) => (
-                  <button
-                    className={`rounded-lg border px-3 py-2 text-left transition ${
-                      selectedBillId === option.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border bg-card hover:border-primary/30"
-                    }`}
-                    key={option.id}
-                    onClick={() => onBillSelect(option)}
-                    type="button"
-                  >
-                    <span className="text-sm font-semibold">{option.title}</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </button>
-                ))}
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-foreground">Narration</span>
+              <div className="field-shell p-3">
+                <textarea
+                  className="min-h-20 w-full resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-muted-foreground"
+                  maxLength={140}
+                  onChange={(event) => scheduleNarrationSync(event.target.value)}
+                  placeholder="Payment note or bill reference"
+                  value={localNarration}
+                />
               </div>
+            </label>
 
-              <p className="text-xs text-muted-foreground">
-                Estimated fee: USDC-native gas on Arc Testnet
+            <div className="grid max-h-40 gap-2 overflow-y-auto">
+              {billPaymentOptions.map((option) => (
+                <button
+                  className={`rounded-lg border px-3 py-2 text-left transition ${
+                    selectedBillId === option.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card hover:border-primary/30"
+                  }`}
+                  key={option.id}
+                  onClick={() => onBillSelect(option)}
+                  type="button"
+                >
+                  <span className="text-sm font-semibold">{option.title}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-3 text-sm">
+              <p className="flex items-center gap-2 font-semibold text-foreground">
+                <LockKeyhole className="h-4 w-4 text-primary" />
+                Need private settlement?
               </p>
-            </motion.div>
-          ) : null}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Standard sends are public on ArcScan. For claim-code privacy escrow
+                (recipient not a direct transfer), use PrivSwiftPay.
+              </p>
+              <Button asChild className="mt-3" size="sm" variant="outline">
+                <Link href="/privSwiftPay/private-send">
+                  <LockKeyhole className="h-3.5 w-3.5" />
+                  Open PrivSwiftPay
+                </Link>
+              </Button>
+            </div>
 
-          {step === 3 ? (
-            <motion.div
-              animate={{ opacity: 1, x: 0 }}
-              className="grid gap-4"
-              exit={{ opacity: 0, x: -12 }}
-              initial={{ opacity: 0, x: 12 }}
-              key="step-3"
-              transition={{ duration: 0.25 }}
-            >
-              <PaymentRouteViz
-                from={shortenAddress(address)}
-                to={
+            <p className="text-xs text-muted-foreground">
+              Estimated fee: USDC-native gas on Arc Testnet
+            </p>
+          </div>
+        ) : null}
+
+        {step === 3 ? (
+          <div className="grid gap-4" key="step-3">
+            <PaymentRouteViz
+              from={shortenAddress(address)}
+              to={
+                isRecipientValid
+                  ? resolvedRecipientUsername
+                    ? `@${resolvedRecipientUsername}`
+                    : shortenAddress(trimmedRecipientAddress)
+                  : "Recipient"
+              }
+            />
+
+            <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm">
+              {[
+                ["Bill", selectedBillOption.title],
+                ["From", shortenAddress(address)],
+                [
+                  "To",
                   isRecipientValid
                     ? resolvedRecipientUsername
                       ? `@${resolvedRecipientUsername}`
                       : shortenAddress(trimmedRecipientAddress)
-                    : "Recipient"
-                }
-              />
-
-              <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm">
-                {[
-                  ["Bill", selectedBillOption.title],
-                  ["From", shortenAddress(address)],
-                  [
-                    "To",
-                    isRecipientValid
-                      ? resolvedRecipientUsername
-                        ? `@${resolvedRecipientUsername}`
-                        : shortenAddress(trimmedRecipientAddress)
-                      : "—",
-                  ],
-                  ["Amount", `${paymentAmount || "0.00"} ${selectedToken}`],
-                  ["Narration", trimmedPaymentNarration || "No note"],
-                  ["Status", paymentStatus],
-                ].map(([label, value]) => (
-                  <div
-                    className="flex items-start justify-between gap-3 border-b border-border/60 py-2 last:border-0"
-                    key={label}
-                  >
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="max-w-[14rem] text-right font-medium">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          ) : null}
-
-          {step === 4 ? (
-            <motion.div
-              animate={{ opacity: 1, scale: 1 }}
-              className="grid gap-4 text-center"
-              initial={{ opacity: 0, scale: 0.96 }}
-              key="step-4"
-              transition={{ duration: 0.35 }}
-            >
-              {transactionConfirmed ? (
-                <motion.div
-                  animate={{ scale: [0.8, 1.05, 1] }}
-                  className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15"
+                    : "—",
+                ],
+                ["Amount", `${paymentAmount || "0.00"} ${selectedToken}`],
+                ["Narration", trimmedPaymentNarration || "No note"],
+                ["Status", paymentStatus],
+              ].map(([label, value]) => (
+                <div
+                  className="flex items-start justify-between gap-3 border-b border-border/60 py-2 last:border-0"
+                  key={label}
                 >
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                </motion.div>
-              ) : (
-                <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="max-w-[14rem] text-right font-medium">{value}</span>
                 </div>
-              )}
-              <div>
-                <p className="font-heading text-lg font-semibold">
-                  {transactionConfirmed ? "Payment confirmed" : "Processing payment"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">{paymentStatus}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {step === 4 ? (
+          <div className="grid gap-4 text-center" key="step-4">
+            {transactionConfirmed ? (
+              <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15">
+                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
               </div>
-              {transactionExplorerUrl ? (
-                <a
-                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-primary"
-                  href={transactionExplorerUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  View on ArcScan
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              ) : null}
-              {transactionConfirmed ? (
-                <Button onClick={() => setStep(1)} type="button" variant="outline">
-                  Send another payment
-                </Button>
-              ) : null}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+            ) : (
+              <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+            <div>
+              <p className="font-heading text-lg font-semibold">
+                {transactionConfirmed ? "Payment confirmed" : "Processing payment"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{paymentStatus}</p>
+            </div>
+            {transactionExplorerUrl ? (
+              <a
+                className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-primary"
+                href={transactionExplorerUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                View on ArcScan
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            ) : null}
+            {transactionConfirmed ? (
+              <Button onClick={() => setStep(1)} type="button" variant="outline">
+                Send another payment
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
 
         {paymentError ? (
           <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -563,9 +644,9 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               className="ml-auto"
               disabled={
                 step === 1
-                  ? !isRecipientValid
+                  ? !isRecipientValid && localRecipient.trim().length === 0
                   : step === 2
-                    ? !hasAmount
+                    ? !hasAmount && localAmount.trim().length === 0
                     : step === 3
                       ? isBusy || (isConnected && !canSubmitPayment)
                       : false

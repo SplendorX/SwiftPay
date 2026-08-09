@@ -43,11 +43,12 @@ export function PrivacyHeroSection() {
               PrivSwiftPay
             </Badge>
             <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              Privacy-first payments, built like Apple. Settles like fintech.
+              SwiftPay confidential payments
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">
-              Create receiver-bound claim codes, run private payroll batches, and
-              redeem settlements without broadcasting payment intent onchain.
+              PrivSwiftPay is the confidential payment path: receiver-bound claim
+              codes, private payroll batches, and escrow settlement so funds are
+              not a direct public transfer to the recipient.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Button asChild>

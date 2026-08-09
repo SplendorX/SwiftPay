@@ -8,6 +8,8 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 
 import {
+  erc20Abi,
+  recurringPlatformFeeBasisPoints,
   swiftRecurepayExecutorAbi,
   swiftRecurepayExecutorAddress,
 } from "@/lib/contracts";
@@ -56,13 +58,96 @@ function createArcClients() {
   return { account, publicClient, walletClient };
 }
 
+/**
+ * Client-wallet autopay eligibility (no server private key).
+ * Settlement is performed by the payer's connected wallet in the hub.
+ */
 export function canAutopaySchedule(schedule: RecurringScheduleRecord) {
+  return schedule.autopay_enabled && schedule.status === "active";
+}
+
+/** Server operator pull path (optional; requires env private key + executor). */
+export function canOperatorAutopaySchedule(schedule: RecurringScheduleRecord) {
   return (
     schedule.autopay_enabled &&
     schedule.wallet_mode === "external" &&
     schedule.status === "active" &&
     isAutopayConfigured()
   );
+}
+
+async function verifyOperatorAccount(
+  clients: NonNullable<ReturnType<typeof createArcClients>>,
+) {
+  const onchainOperator = await clients.publicClient.readContract({
+    abi: swiftRecurepayExecutorAbi,
+    address: swiftRecurepayExecutorAddress as Address,
+    functionName: "operator",
+  });
+
+  if (
+    onchainOperator.toLowerCase() !== clients.account.address.toLowerCase()
+  ) {
+    return "Recurring operator wallet does not match the onchain executor operator.";
+  }
+
+  return null;
+}
+
+async function verifyAutopayPreflight(
+  clients: NonNullable<ReturnType<typeof createArcClients>>,
+  schedule: RecurringScheduleRecord,
+) {
+  const tokenInfo = arcTestnetTokens[schedule.token_symbol];
+  const payer = schedule.owner_wallet as Address;
+  const amount = BigInt(schedule.amount_units);
+  // Operator path pulls payment + 1% platform fee in one contract call.
+  const fee = (amount * BigInt(recurringPlatformFeeBasisPoints)) / 10_000n;
+  const required = amount + fee;
+
+  const [balance, allowance] = await Promise.all([
+    clients.publicClient.readContract({
+      abi: erc20Abi,
+      address: tokenInfo.address,
+      args: [payer],
+      functionName: "balanceOf",
+    }),
+    clients.publicClient.readContract({
+      abi: erc20Abi,
+      address: tokenInfo.address,
+      args: [payer, swiftRecurepayExecutorAddress as Address],
+      functionName: "allowance",
+    }),
+  ]);
+
+  if (balance < required) {
+    return "Payer does not have enough token balance for autopay (payment + 1% platform fee).";
+  }
+
+  if (allowance < required) {
+    return "Payer has not approved enough allowance for the autopay executor (payment + 1% platform fee).";
+  }
+
+  return null;
+}
+
+async function recordAutopayAttempt(
+  executionId: string,
+  ownerWallet: string,
+  errorMessage: string,
+) {
+  const { createSupabaseAdminClient } = await import("@/lib/supabase-server");
+  const supabase = createSupabaseAdminClient();
+
+  await supabase
+    .from(executionsTable)
+    .update({
+      attempted_at: new Date().toISOString(),
+      error_message: errorMessage.slice(0, 280),
+    })
+    .eq("id", executionId)
+    .eq("owner_wallet", ownerWallet.toLowerCase())
+    .eq("status", "awaiting_wallet");
 }
 
 export async function executeAutopayForExecution(
@@ -77,14 +162,26 @@ export async function executeAutopayForExecution(
     return { error: "Execution is not awaiting payment." };
   }
 
-  if (!canAutopaySchedule(schedule)) {
-    return { error: "Autopay is not enabled for this schedule." };
+  if (!canOperatorAutopaySchedule(schedule)) {
+    return { error: "Operator autopay is not available for this schedule." };
   }
 
   const clients = createArcClients();
 
   if (!clients) {
     return { error: "Recurring operator wallet is not configured." };
+  }
+
+  const operatorError = await verifyOperatorAccount(clients);
+
+  if (operatorError) {
+    return { error: operatorError };
+  }
+
+  const preflightError = await verifyAutopayPreflight(clients, schedule);
+
+  if (preflightError) {
+    return { error: preflightError };
   }
 
   const tokenInfo = arcTestnetTokens[schedule.token_symbol];
@@ -135,12 +232,17 @@ export async function settleAutopayExecution(
   executionId: string,
   ownerWallet: string,
   schedule: RecurringScheduleRecord,
-  execution: Pick<RecurringExecutionRecord, "id" | "status">,
+  execution: Pick<RecurringExecutionRecord, "id" | "status" | "due_at">,
 ) {
   const { createSupabaseAdminClient } = await import("@/lib/supabase-server");
   const result = await executeAutopayForExecution(schedule, execution);
 
   if ("error" in result) {
+    await recordAutopayAttempt(
+      executionId,
+      ownerWallet,
+      result.error ?? "Autopay failed.",
+    );
     return result;
   }
 
@@ -167,7 +269,63 @@ export async function settleAutopayExecution(
     };
   }
 
+  const { advanceScheduleAfterConfirmedRun } = await import(
+    "@/lib/recurring-service"
+  );
+  await advanceScheduleAfterConfirmedRun(schedule.id, execution.due_at);
+
   return { execution: mutation.data, txHash: result.txHash };
+}
+
+async function settlePendingAutopayRows(
+  pending: Array<
+    Pick<
+      RecurringExecutionRecord,
+      "id" | "status" | "due_at" | "owner_wallet" | "schedule_id"
+    >
+  >,
+  scheduleMap: Map<string, RecurringScheduleRecord>,
+) {
+  const results = [];
+  const errors: Array<{ executionId: string; message: string }> = [];
+  let confirmedCount = 0;
+
+  for (const execution of pending) {
+    const schedule = scheduleMap.get(execution.schedule_id);
+
+    if (!schedule || !canOperatorAutopaySchedule(schedule)) {
+      continue;
+    }
+
+    const settled = await settleAutopayExecution(
+      execution.id,
+      execution.owner_wallet,
+      schedule,
+      execution,
+    );
+
+    results.push({
+      executionId: execution.id,
+      ...settled,
+    });
+
+    if ("execution" in settled) {
+      confirmedCount += 1;
+    } else if ("error" in settled) {
+      errors.push({
+        executionId: execution.id,
+        message: settled.error ?? "Autopay failed.",
+      });
+    }
+  }
+
+  return {
+    attemptedCount: results.length,
+    confirmedCount,
+    errors,
+    results,
+    scannedCount: pending.length,
+  };
 }
 
 export async function processAutopayExecutions(limit = 25) {
@@ -177,6 +335,7 @@ export async function processAutopayExecutions(limit = 25) {
     return {
       attemptedCount: 0,
       confirmedCount: 0,
+      errors: [] as Array<{ executionId: string; message: string }>,
       results: [],
       scannedCount: 0,
     };
@@ -196,6 +355,7 @@ export async function processAutopayExecutions(limit = 25) {
     return {
       attemptedCount: 0,
       confirmedCount: 0,
+      errors: [] as Array<{ executionId: string; message: string }>,
       results: [],
       scannedCount: pending.data?.length ?? 0,
     };
@@ -213,6 +373,7 @@ export async function processAutopayExecutions(limit = 25) {
     return {
       attemptedCount: 0,
       confirmedCount: 0,
+      errors: [] as Array<{ executionId: string; message: string }>,
       results: [],
       scannedCount: pending.data.length,
     };
@@ -225,37 +386,72 @@ export async function processAutopayExecutions(limit = 25) {
     ]),
   );
 
-  const results = [];
-  let confirmedCount = 0;
+  return settlePendingAutopayRows(pending.data, scheduleMap);
+}
 
-  for (const execution of pending.data) {
-    const schedule = scheduleMap.get(execution.schedule_id);
+/** Settle awaiting autopay executions for one owner only. */
+export async function processAutopayExecutionsForOwner(
+  ownerWallet: string,
+  limit = 25,
+) {
+  const { createSupabaseAdminClient } = await import("@/lib/supabase-server");
 
-    if (!schedule || !canAutopaySchedule(schedule)) {
-      continue;
-    }
-
-    const settled = await settleAutopayExecution(
-      execution.id,
-      execution.owner_wallet,
-      schedule,
-      execution,
-    );
-
-    results.push({
-      executionId: execution.id,
-      ...settled,
-    });
-
-    if ("execution" in settled) {
-      confirmedCount += 1;
-    }
+  if (!isAutopayConfigured()) {
+    return {
+      attemptedCount: 0,
+      confirmedCount: 0,
+      errors: [] as Array<{ executionId: string; message: string }>,
+      results: [],
+      scannedCount: 0,
+    };
   }
 
-  return {
-    attemptedCount: results.length,
-    confirmedCount,
-    results,
-    scannedCount: pending.data.length,
-  };
+  const supabase = createSupabaseAdminClient();
+  const schedulesTable =
+    process.env.SUPABASE_RECURRING_SCHEDULES_TABLE ?? "recurring_schedules";
+  const pending = await supabase
+    .from(executionsTable)
+    .select("*")
+    .eq("status", "awaiting_wallet")
+    .eq("owner_wallet", ownerWallet.toLowerCase())
+    .order("due_at", { ascending: true })
+    .limit(limit);
+
+  if (pending.error || !pending.data?.length) {
+    return {
+      attemptedCount: 0,
+      confirmedCount: 0,
+      errors: [] as Array<{ executionId: string; message: string }>,
+      results: [],
+      scannedCount: pending.data?.length ?? 0,
+    };
+  }
+
+  const scheduleIds = [
+    ...new Set(pending.data.map((execution) => execution.schedule_id)),
+  ];
+  const schedules = await supabase
+    .from(schedulesTable)
+    .select("*")
+    .eq("owner_wallet", ownerWallet.toLowerCase())
+    .in("id", scheduleIds);
+
+  if (schedules.error || !schedules.data) {
+    return {
+      attemptedCount: 0,
+      confirmedCount: 0,
+      errors: [] as Array<{ executionId: string; message: string }>,
+      results: [],
+      scannedCount: pending.data.length,
+    };
+  }
+
+  const scheduleMap = new Map(
+    schedules.data.map((schedule) => [
+      schedule.id,
+      schedule as RecurringScheduleRecord,
+    ]),
+  );
+
+  return settlePendingAutopayRows(pending.data, scheduleMap);
 }

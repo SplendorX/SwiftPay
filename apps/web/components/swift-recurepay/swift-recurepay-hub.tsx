@@ -4,6 +4,7 @@ import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   CalendarClock,
   CheckCircle2,
+  KeyRound,
   Loader2,
   Pause,
   Play,
@@ -25,6 +26,7 @@ import {
   useAccount,
   useChainId,
   useReadContract,
+  useSignMessage,
   useSwitchChain,
   useWriteContract,
 } from "wagmi";
@@ -47,14 +49,18 @@ import {
 } from "@/lib/circle-session";
 import {
   erc20Abi,
+  recurringPlatformFeeBasisPoints,
+  swiftBatchFeeRecipient,
   swiftRecurepayExecutorAddress,
 } from "@/lib/contracts";
+import { formatUnitsToDecimal } from "@/lib/save/decimal";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 import {
   createRecurringSchedule,
   deleteRecurringSchedule,
   fetchRecurringExecutions,
   fetchRecurringSchedules,
+  processRecurringDue,
   runRecurringScheduleNow,
   updateRecurringExecution,
   updateRecurringSchedule,
@@ -67,7 +73,12 @@ import {
   type RecurringFrequency,
   type RecurringScheduleRecord,
 } from "@/lib/recurring-utils";
+import { ensureProfile, fetchProfile } from "@/lib/profile";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import {
+  fetchWalletSession,
+  signInWalletSession,
+} from "@/lib/wallet-auth-client";
 import { arcTestnet } from "@/lib/wagmi";
 
 type CircleTransferChallenge = { challengeId?: string };
@@ -78,14 +89,22 @@ function shortenAddress(value?: string) {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
+const feeBps = BigInt(recurringPlatformFeeBasisPoints);
+const feeDenom = 10_000n;
+
+function computePlatformFeeUnits(amountUnits: bigint) {
+  return (amountUnits * feeBps) / feeDenom;
+}
+
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Something went wrong.";
 }
 
 export function SwiftRecurepayHub() {
-  const { address, isConnected } = useAccount();
+  const { address, connector, isConnected } = useAccount();
   const chainId = useChainId();
+  const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
   const { isPending: isWritePending, writeContractAsync } = useWriteContract();
   const circleSdkRef = useRef<W3SSdk | null>(null);
@@ -98,6 +117,9 @@ export function SwiftRecurepayHub() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [payingExecutionId, setPayingExecutionId] = useState<string | null>(null);
+  const [authWallet, setAuthWallet] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isProfileReady, setIsProfileReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -114,6 +136,13 @@ export function SwiftRecurepayHub() {
   const [approvingScheduleId, setApprovingScheduleId] = useState<string | null>(
     null,
   );
+  const [isProcessingAutopay, setIsProcessingAutopay] = useState(false);
+  const processInFlightRef = useRef(false);
+  const executePaymentRef = useRef<
+    (schedule: RecurringScheduleRecord, executionId: string) => Promise<string>
+  >(async () => {
+    throw new Error("Payment handler is not ready.");
+  });
 
   const circleIdentity = getCircleLoginIdentity(circleLogin);
   const circleAddress =
@@ -129,10 +158,22 @@ export function SwiftRecurepayHub() {
   const isArcNetwork =
     isEmbeddedWalletMode || (isConnected && chainId === arcTestnet.id);
   const tokenInfo = arcTestnetTokens[token];
-  const canUseAutopay =
-    !isEmbeddedWalletMode &&
-    Boolean(ownerAddress) &&
-    Boolean(swiftRecurepayExecutorAddress);
+  // Autopay uses the connected wallet (external or Circle) — no env private key.
+  const canUseAutopay = Boolean(ownerAddress);
+  const isWalletAuthenticated = Boolean(
+    isEmbeddedWalletMode ||
+      (ownerAddress &&
+        authWallet &&
+        authWallet.toLowerCase() === ownerAddress.toLowerCase()),
+  );
+  const canAccessRecurring = Boolean(
+    ownerAddress &&
+      isProfileReady &&
+      (isEmbeddedWalletMode
+        ? Boolean(circleIdentity.socialUserUUID)
+        : isWalletAuthenticated),
+  );
+  const isAuthenticatingWallet = isAuthLoading || isSigningIn;
 
   const { refetch: refetchExecutorAllowance } = useReadContract({
     abi: erc20Abi,
@@ -183,7 +224,7 @@ export function SwiftRecurepayHub() {
   ).length;
 
   const refreshData = useCallback(async () => {
-    if (!requestContext) {
+    if (!canAccessRecurring || !requestContext) {
       setSchedules([]);
       setExecutions([]);
       setIsLoading(false);
@@ -205,7 +246,125 @@ export function SwiftRecurepayHub() {
     } finally {
       setIsLoading(false);
     }
-  }, [requestContext]);
+  }, [canAccessRecurring, requestContext]);
+
+  const processDueAndAutopay = useCallback(async () => {
+    if (
+      !canAccessRecurring ||
+      !requestContext ||
+      !ownerAddress ||
+      processInFlightRef.current
+    ) {
+      return;
+    }
+
+    processInFlightRef.current = true;
+    setIsProcessingAutopay(true);
+
+    try {
+      // 1) Server only queues due executions (no operator private key).
+      const result = await processRecurringDue(requestContext);
+      const dueFailed = result.due.errors[0]?.message;
+
+      // 2) Load latest queue for this wallet.
+      const [nextSchedules, nextExecutions] = await Promise.all([
+        fetchRecurringSchedules(requestContext),
+        fetchRecurringExecutions(requestContext),
+      ]);
+      setSchedules(nextSchedules);
+      setExecutions(nextExecutions);
+
+      const scheduleById = new Map(nextSchedules.map((item) => [item.id, item]));
+      const dueAutopay = nextExecutions.filter((execution) => {
+        if (execution.status !== "awaiting_wallet") {
+          return false;
+        }
+        const schedule = scheduleById.get(execution.schedule_id);
+        return Boolean(schedule?.autopay_enabled && schedule.status === "active");
+      });
+
+      // 3) Settle with the connected wallet that owns the schedules.
+      let settled = 0;
+      let lastPayError: string | null = null;
+
+      for (const execution of dueAutopay) {
+        const schedule = scheduleById.get(execution.schedule_id);
+        if (!schedule) {
+          continue;
+        }
+
+        // Match wallet mode to the active connection when possible.
+        if (schedule.wallet_mode === "circle" && !isEmbeddedWalletMode) {
+          continue;
+        }
+        if (schedule.wallet_mode === "external" && isEmbeddedWalletMode) {
+          continue;
+        }
+
+        try {
+          setPayingExecutionId(execution.id);
+          const txHash = await executePaymentRef.current(
+            schedule,
+            execution.id,
+          );
+          settled += 1;
+          setExecutions((current) =>
+            current.map((item) =>
+              item.id === execution.id
+                ? {
+                    ...item,
+                    completed_at: new Date().toISOString(),
+                    status: "confirmed",
+                    tx_hash: txHash as Hash,
+                  }
+                : item,
+            ),
+          );
+        } catch (payError) {
+          lastPayError = getErrorMessage(payError);
+          try {
+            await updateRecurringExecution(execution.id, {
+              ...requestContext,
+              errorMessage: lastPayError,
+              ownerWallet: ownerAddress,
+              status: "failed",
+            });
+          } catch {
+            // keep going
+          }
+        } finally {
+          setPayingExecutionId(null);
+        }
+      }
+
+      if (settled > 0) {
+        setSuccess(
+          settled === 1
+            ? "Autopay sent 1 due payment from your connected wallet."
+            : `Autopay sent ${settled} due payments from your connected wallet.`,
+        );
+        setError(null);
+        await refreshData();
+      } else if (lastPayError) {
+        setError(lastPayError);
+      } else if (dueFailed) {
+        setError(dueFailed);
+      } else if (result.due.createdCount > 0 && dueAutopay.length === 0) {
+        setSuccess("Due payments queued. Confirm with Pay now if needed.");
+      }
+    } catch {
+      // Keep the queue visible; manual pay remains as a fallback.
+    } finally {
+      processInFlightRef.current = false;
+      setIsProcessingAutopay(false);
+    }
+  }, [
+    canAccessRecurring,
+    isEmbeddedWalletMode,
+    ownerAddress,
+    refreshData,
+    requestContext,
+  ]);
 
   useEffect(() => {
     setCircleLogin(readCircleLogin());
@@ -216,6 +375,103 @@ export function SwiftRecurepayHub() {
   useEffect(() => {
     void refreshData();
   }, [refreshData]);
+
+  // Settle due autopay without waiting for the daily cron when the hub is open.
+  useEffect(() => {
+    if (!canAccessRecurring || !requestContext) {
+      return;
+    }
+
+    void processDueAndAutopay();
+    const intervalId = window.setInterval(() => {
+      void processDueAndAutopay();
+    }, 30_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [canAccessRecurring, processDueAndAutopay, requestContext]);
+
+  useEffect(() => {
+    if (!ownerAddress) {
+      setAuthWallet(null);
+      setIsProfileReady(false);
+      return;
+    }
+
+    const connectedAddress = ownerAddress;
+    let cancelled = false;
+
+    async function bootstrapWalletAccess() {
+      setIsAuthLoading(true);
+
+      try {
+        await fetchProfile(connectedAddress).catch(() => null);
+        await ensureProfile({
+          authProvider: isEmbeddedWalletMode ? "google" : "external",
+          circleSocialUuid: circleIdentity.socialUserUUID,
+          walletAddress: connectedAddress,
+        });
+
+        if (!cancelled) {
+          setIsProfileReady(true);
+        }
+
+        if (!isEmbeddedWalletMode) {
+          const session = await fetchWalletSession();
+          const sessionWallet = session.ownerWallet;
+
+          if (!cancelled) {
+            setAuthWallet(
+              session.authenticated &&
+                sessionWallet?.toLowerCase() === connectedAddress.toLowerCase()
+                ? sessionWallet
+                : null,
+            );
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setIsProfileReady(false);
+          setAuthWallet(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsAuthLoading(false);
+        }
+      }
+    }
+
+    void bootstrapWalletAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [circleIdentity.socialUserUUID, isEmbeddedWalletMode, ownerAddress]);
+
+  async function handleWalletSignIn() {
+    if (!ownerAddress || isEmbeddedWalletMode) {
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    setIsAuthLoading(true);
+
+    try {
+      const session = await signInWalletSession({
+        connectorName: connector?.name,
+        ownerWallet: ownerAddress,
+        signMessage: (message) => signMessageAsync({ message }),
+      });
+      setAuthWallet(session.ownerWallet ?? ownerAddress);
+      setSuccess("Wallet authorized for SwiftRecurepay.");
+    } catch (signInError) {
+      setError(getErrorMessage(signInError));
+    } finally {
+      setIsAuthLoading(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -325,7 +581,7 @@ export function SwiftRecurepayHub() {
       setAmount("");
       setSuccess(
         schedule.autopay_enabled
-          ? "Schedule created. Approve autopay allowance to finish setup."
+          ? "Schedule created with autopay. Keep this page open with this wallet to settle due runs automatically."
           : "SwiftRecurepay schedule created.",
       );
     } catch (createError) {
@@ -401,18 +657,20 @@ export function SwiftRecurepayHub() {
         chainId: arcTestnet.id,
       });
 
-      if (requestContext && !schedule.autopay_enabled) {
-        const updated = await updateRecurringSchedule(schedule.id, {
-          ...requestContext,
-          autopayEnabled: true,
-        });
-        setSchedules((current) =>
-          current.map((item) => (item.id === updated.id ? updated : item)),
-        );
-      }
+      const updated = await updateRecurringSchedule(schedule.id, {
+        ...requestContext!,
+        autopayEnabled: true,
+      });
+      setSchedules((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
 
       await refetchExecutorAllowance();
-      setSuccess("Autopay allowance approved.");
+      await processDueAndAutopay();
+      await refreshData();
+      setSuccess(
+        "Autopay allowance approved. Due payments are settling automatically.",
+      );
     } catch (approveError) {
       setError(getErrorMessage(approveError));
     } finally {
@@ -453,6 +711,38 @@ export function SwiftRecurepayHub() {
     }
   }
 
+  async function executeCircleChallenge(challengeId: string) {
+    if (!circleLogin || !circleSdkRef.current) {
+      throw new Error("Circle wallet confirmation is not ready.");
+    }
+
+    circleSdkRef.current.setAuthentication({
+      encryptionKey: circleLogin.encryptionKey,
+      userToken: circleLogin.userToken,
+    });
+
+    const txHash = await new Promise<string>((resolve, reject) => {
+      circleSdkRef.current?.execute(challengeId, (executeError, result) => {
+        if (executeError) {
+          reject(executeError);
+          return;
+        }
+
+        const challengeResult = result as CircleChallengeResult | undefined;
+        const hash = challengeResult?.data?.txHash;
+
+        if (!hash) {
+          reject(new Error("Circle transfer completed without a transaction hash."));
+          return;
+        }
+
+        resolve(hash);
+      });
+    });
+
+    return { txHash };
+  }
+
   async function executePaymentForSchedule(
     schedule: RecurringScheduleRecord,
     executionId: string,
@@ -460,6 +750,26 @@ export function SwiftRecurepayHub() {
     if (!ownerAddress) {
       throw new Error("Connect a wallet before paying.");
     }
+
+    if (
+      schedule.owner_wallet.toLowerCase() !== ownerAddress.toLowerCase()
+    ) {
+      throw new Error("Connect the wallet that owns this schedule to autopay.");
+    }
+
+    const amountUnits = BigInt(schedule.amount_units);
+    const feeUnits = computePlatformFeeUnits(amountUnits);
+    const feeRecipient =
+      swiftBatchFeeRecipient && isAddress(swiftBatchFeeRecipient)
+        ? (getAddress(swiftBatchFeeRecipient) as Address)
+        : null;
+    const feeAmountText =
+      feeUnits > 0n
+        ? formatUnitsToDecimal(
+            feeUnits,
+            arcTestnetTokens[schedule.token_symbol].decimals,
+          )
+        : "0";
 
     if (isEmbeddedWalletMode) {
       if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
@@ -471,6 +781,29 @@ export function SwiftRecurepayHub() {
         circleBalances,
         schedule.token_symbol,
       );
+
+      // Platform fee (1%) — separate transfer; not shown in user history UI.
+      if (feeUnits > 0n && feeRecipient) {
+        const feeChallenge = await callCircleWalletApi<CircleTransferChallenge>(
+          "createTransfer",
+          {
+            amount: feeAmountText,
+            blockchain: circleWallet.blockchain ?? "ARC-TESTNET",
+            destinationAddress: feeRecipient,
+            feeLevel: "MEDIUM",
+            refId: "SwiftRecurepay fee",
+            tokenAddress: tokenInfo.address,
+            tokenId: tokenBalance?.token?.id,
+            userToken: circleLogin.userToken,
+            walletId: circleWallet.id,
+          },
+        );
+        if (!feeChallenge.challengeId) {
+          throw new Error("Circle did not return a fee transfer challenge.");
+        }
+        await executeCircleChallenge(feeChallenge.challengeId);
+      }
+
       const challenge = await callCircleWalletApi<CircleTransferChallenge>(
         "createTransfer",
         {
@@ -529,13 +862,25 @@ export function SwiftRecurepayHub() {
     }
 
     const tokenInfo = arcTestnetTokens[schedule.token_symbol];
+
+    // Platform fee (1%) to fee recipient — filtered out of dashboard history.
+    if (feeUnits > 0n && feeRecipient) {
+      await writeContractAsync({
+        address: tokenInfo.address,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [feeRecipient, feeUnits],
+        chainId: arcTestnet.id,
+      });
+    }
+
     const hash = await writeContractAsync({
       address: tokenInfo.address,
       abi: erc20Abi,
       functionName: "transfer",
       args: [
         schedule.beneficiary_wallet as Address,
-        BigInt(schedule.amount_units),
+        amountUnits,
       ],
       chainId: arcTestnet.id,
     });
@@ -548,6 +893,30 @@ export function SwiftRecurepayHub() {
     });
 
     return hash;
+  }
+
+  executePaymentRef.current = executePaymentForSchedule;
+
+  async function handleEnableAutopay(schedule: RecurringScheduleRecord) {
+    if (!requestContext) {
+      return;
+    }
+
+    try {
+      const updated = await updateRecurringSchedule(schedule.id, {
+        ...requestContext,
+        autopayEnabled: true,
+      });
+      setSchedules((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setSuccess(
+        "Autopay enabled. Due payments will send from this connected wallet while SwiftRecurepay is open.",
+      );
+      void processDueAndAutopay();
+    } catch (updateError) {
+      setError(getErrorMessage(updateError));
+    }
   }
 
   async function handlePayExecution(execution: RecurringExecutionRecord) {
@@ -606,17 +975,68 @@ export function SwiftRecurepayHub() {
 
   return (
     <div className="grid gap-4">
+      {!ownerAddress ? (
+        <section className="rounded-lg border border-border bg-card px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Wallet required</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Connect an external wallet or sign in with Google from Home before
+                managing recurring payments.
+              </p>
+            </div>
+            <Wallet className="h-5 w-5 text-primary" />
+          </div>
+        </section>
+      ) : null}
+
+      {ownerAddress && !canAccessRecurring ? (
+        <section className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <p className="text-sm font-semibold">Authorize this wallet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {isEmbeddedWalletMode
+                    ? "Your Circle session is missing a linked profile. Return to Home, sign in with Google, then reopen SwiftRecurepay."
+                    : "Sign a one-time message to authorize recurring schedules and executions for this wallet."}
+                </p>
+              </div>
+            </div>
+            {!isEmbeddedWalletMode ? (
+              <Button
+                disabled={isAuthenticatingWallet}
+                onClick={() => void handleWalletSignIn()}
+              >
+                {isAuthenticatingWallet ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
+                Authorize wallet
+              </Button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       <section className="section-panel">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="section-eyebrow">SwiftRecurepay</p>
             <h1 className="section-title">Recurring stablecoin payments</h1>
             <p className="section-copy">
-              Schedule USDC and EURC transfers on Arc Testnet, enable autopay with
-              a one-time allowance, or confirm each due run manually.
+              Schedule USDC and EURC on Arc Testnet. Autopay uses your connected
+              wallet (no server private key). Keep this page open with the same
+              wallet to settle due runs automatically, or use Pay now.
             </p>
           </div>
-          <Button disabled={!requestContext || isLoading} onClick={() => void refreshData()} variant="outline">
+          <Button
+            disabled={!canAccessRecurring || isLoading}
+            onClick={() => void refreshData()}
+            variant="outline"
+          >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -658,6 +1078,7 @@ export function SwiftRecurepayHub() {
         </div>
       </section>
 
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <section className="glass-panel p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -677,17 +1098,25 @@ export function SwiftRecurepayHub() {
             </div>
           ) : dueExecutions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No due payments right now. Cron will queue the next run when a schedule
-              reaches its next run timestamp.
+              No due payments right now. With autopay enabled, due payments settle
+              from your connected wallet while this page is open.
             </p>
           ) : (
             <div className="grid gap-3">
+              {isProcessingAutopay ? (
+                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Settling autopay payments...
+                </div>
+              ) : null}
               {dueExecutions.map((execution) => {
                 const schedule = scheduleMap.get(execution.schedule_id);
 
                 if (!schedule) {
                   return null;
                 }
+
+                const isAutopaySchedule = Boolean(schedule.autopay_enabled);
 
                 return (
                   <article
@@ -696,27 +1125,66 @@ export function SwiftRecurepayHub() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold">
-                          {schedule.amount} {schedule.token_symbol}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold">
+                            {schedule.amount} {schedule.token_symbol}
+                          </p>
+                          {isAutopaySchedule ? (
+                            <Badge variant="secondary">Autopay</Badge>
+                          ) : null}
+                          <Badge variant="outline">
+                            +{recurringPlatformFeeBasisPoints / 100}% fee
+                          </Badge>
+                        </div>
                         <p className="mt-1 text-sm text-muted-foreground">
                           To {formatScheduleRecipient(schedule)}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           Due {new Date(execution.due_at).toLocaleString()}
+                          {" · "}
+                          Platform fee {recurringPlatformFeeBasisPoints / 100}%
+                          is charged separately and hidden from history
                         </p>
+                        {isAutopaySchedule && !execution.error_message ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Autopay will send this without another wallet prompt.
+                            Manual pay remains available if settlement is delayed.
+                          </p>
+                        ) : null}
+                        {execution.error_message ? (
+                          <p className="mt-1 text-xs text-destructive">
+                            {execution.error_message}
+                          </p>
+                        ) : null}
                       </div>
-                      <Button
-                        disabled={Boolean(payingExecutionId) || !ownerAddress}
-                        onClick={() => void handlePayExecution(execution)}
-                      >
-                        {payingExecutionId === execution.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Play className="h-4 w-4" />
-                        )}
-                        Pay now
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        {isAutopaySchedule ? (
+                          <Button
+                            disabled={isProcessingAutopay}
+                            onClick={() => void processDueAndAutopay()}
+                            variant="outline"
+                          >
+                            {isProcessingAutopay ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                            Retry autopay
+                          </Button>
+                        ) : null}
+                        <Button
+                          disabled={Boolean(payingExecutionId) || !ownerAddress}
+                          onClick={() => void handlePayExecution(execution)}
+                          variant={isAutopaySchedule ? "outline" : "default"}
+                        >
+                          {payingExecutionId === execution.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                          {isAutopaySchedule ? "Pay manually" : "Pay now"}
+                        </Button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -827,21 +1295,17 @@ export function SwiftRecurepayHub() {
                 <span className="grid gap-1">
                   <span className="text-sm font-semibold">Enable autopay</span>
                   <span className="text-xs text-muted-foreground">
-                    Approve the SwiftRecurepay executor once, then due payments
-                    settle automatically without a wallet confirmation.
+                    When due, payments are sent from this connected wallet while
+                    SwiftRecurepay is open. No operator private key in env.
+                    Your wallet may still ask to confirm each transfer.
                   </span>
                 </span>
               </label>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Autopay is available for external wallets after the executor
-                contract is deployed.
-              </p>
-            )}
+            ) : null}
 
             <Button
               disabled={
-                !requestContext ||
+                !canAccessRecurring ||
                 isSaving ||
                 isRecipientResolving ||
                 !isRecipientValid ||
@@ -900,30 +1364,23 @@ export function SwiftRecurepayHub() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {schedule.wallet_mode === "external" &&
-                    swiftRecurepayExecutorAddress ? (
-                      schedule.autopay_enabled ? (
-                        <Button
-                          onClick={() => void handleDisableAutopay(schedule)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          Disable autopay
-                        </Button>
-                      ) : (
-                        <Button
-                          disabled={Boolean(approvingScheduleId)}
-                          onClick={() => void handleApproveExecutor(schedule)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          {approvingScheduleId === schedule.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : null}
-                          Enable autopay
-                        </Button>
-                      )
-                    ) : null}
+                    {schedule.autopay_enabled ? (
+                      <Button
+                        onClick={() => void handleDisableAutopay(schedule)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        Disable autopay
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => void handleEnableAutopay(schedule)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        Enable autopay
+                      </Button>
+                    )}
                     {schedule.status === "active" ? (
                       <Button
                         onClick={() => void handleScheduleStatus(schedule, "paused")}

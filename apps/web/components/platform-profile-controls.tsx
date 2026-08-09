@@ -27,12 +27,21 @@ export function PlatformProfileControls() {
     }
   }, [address, externalConnectStarted, isConnected]);
 
+  // When the connected external wallet changes, point platform access at it.
   useEffect(() => {
-    if (
-      isConnected &&
-      address &&
-      readActivatedExternalProfile() === address.toLowerCase()
-    ) {
+    if (!isConnected || !address) {
+      return;
+    }
+
+    const activated = readActivatedExternalProfile();
+    const next = address.toLowerCase();
+
+    // Only write when the activated profile is missing or different.
+    if (activated === next) {
+      return;
+    }
+
+    if (!activated || activated !== next) {
       writeActivatedExternalProfile(address);
       void ensureProfile({
         authProvider: "external",
@@ -42,7 +51,7 @@ export function PlatformProfileControls() {
   }, [address, isConnected]);
 
   return (
-    <div className="flex min-w-0 items-center gap-2 justify-self-start lg:justify-self-end">
+    <>
       <CircleFaucetLink />
       <ProfileMenu
         externalAddress={isConnected ? address : undefined}
@@ -53,6 +62,6 @@ export function PlatformProfileControls() {
         }
         onWalletModeChange={() => undefined}
       />
-    </div>
+    </>
   );
 }

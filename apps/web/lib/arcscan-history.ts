@@ -73,12 +73,40 @@ function normalizeAddress(value?: string): Address | undefined {
   return value as Address;
 }
 
+/** Platform fee wallets — transfers to these are hidden from end-user history. */
+export function getPlatformFeeRecipientAddresses(): string[] {
+  const values = [
+    process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim(),
+    process.env.PLATFORM_FEE_RECIPIENT?.trim(),
+  ].filter(Boolean) as string[];
+
+  return [...new Set(values.map((value) => value.toLowerCase()))];
+}
+
+function isPlatformFeeTransfer(
+  transfer: Pick<WalletTransfer, "direction" | "counterparty">,
+  feeRecipients: string[],
+) {
+  if (transfer.direction !== "out" || feeRecipients.length === 0) {
+    return false;
+  }
+  return feeRecipients.includes(transfer.counterparty.toLowerCase());
+}
+
 export function normalizeArcScanTokenTransfers(
   address: string,
   payload: ArcScanTokenTransferResponse | ArcScanTokenTransferResponse[],
+  options?: {
+    /** When true (default), hide outbound transfers to the platform fee recipient. */
+    hidePlatformFees?: boolean;
+  },
 ) {
   const walletAddress = address.toLowerCase();
   const payloads = Array.isArray(payload) ? payload : [payload];
+  const hidePlatformFees = options?.hidePlatformFees !== false;
+  const feeRecipients = hidePlatformFees
+    ? getPlatformFeeRecipientAddresses()
+    : [];
 
   return payloads
     .flatMap((item) => item.items ?? [])
@@ -119,6 +147,7 @@ export function normalizeArcScanTokenTransfers(
       };
     })
     .filter((transfer): transfer is WalletTransfer => Boolean(transfer))
+    .filter((transfer) => !isPlatformFeeTransfer(transfer, feeRecipients))
     .sort((left, right) => {
       if (left.blockNumber === right.blockNumber) {
         return right.logIndex - left.logIndex;

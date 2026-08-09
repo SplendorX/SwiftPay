@@ -10,6 +10,8 @@ import {
   isRecurringScheduleStatus,
   normalizeRecurringAmount,
 } from "@/lib/recurring-utils";
+import { processAutopayExecutions } from "@/lib/recurring-autopay";
+import { processSingleDueSchedule } from "@/lib/recurring-service";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
@@ -162,7 +164,18 @@ export async function PATCH(
       return jsonError(readSupabaseError(mutation.error), 500);
     }
 
-    return NextResponse.json({ schedule: mutation.data });
+    const schedule = mutation.data;
+
+    if (body.autopayEnabled === true || body.status === "active") {
+      try {
+        await processSingleDueSchedule(schedule);
+        await processAutopayExecutions(10);
+      } catch {
+        // Schedule update succeeded; autopay can retry on the next cron tick.
+      }
+    }
+
+    return NextResponse.json({ schedule });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Schedule could not be updated.";

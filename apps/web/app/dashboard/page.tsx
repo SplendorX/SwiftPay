@@ -38,6 +38,7 @@ import {
   formatUnits,
   getAddress,
   isAddress,
+  maxUint256,
   parseUnits,
   type Address,
   type Hash,
@@ -48,6 +49,7 @@ import { TokenSelect } from "@/components/design/token-select";
 import { KpiCard } from "@/components/design/kpi-card";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { SendPaymentWizard } from "@/components/dashboard/send-payment-wizard";
+import { DashboardEarnSummary } from "@/components/earn/dashboard-earn-summary";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
@@ -88,6 +90,9 @@ import {
   arcTokenSymbols,
   type ArcTokenSymbol,
 } from "@/lib/tokens";
+import { quoteSpendSave } from "@/lib/save/client";
+import { isSwiftSaveVaultConfigured } from "@/lib/save/config";
+import { settleSpendSaveAfterPayment } from "@/lib/save/spend-save-browser";
 import { getSwapErrorMessage } from "@/lib/swap-errors";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
@@ -463,6 +468,27 @@ function DashboardContent() {
   const [transactionLabel, setTransactionLabel] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("Ready");
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [spendSaveQuote, setSpendSaveQuote] = useState<{
+    active: boolean;
+    saveAmount: string;
+    saveAmountUnits: string;
+    totalRequired: string;
+    totalRequiredUnits: string;
+    percentage: string;
+    pocketName?: string;
+    networkFeeAmount?: string;
+    platformFeeAmount?: string;
+    targetCapped?: boolean;
+  } | null>(null);
+  const [spendSaveNotice, setSpendSaveNotice] = useState<string | null>(null);
+  const spendSaveHandledTx = useRef<string | null>(null);
+  /** Snapshot of payment details at submit time so Spend&Save still runs after receipt. */
+  const pendingSpendSavePayment = useRef<{
+    amount: string;
+    currency: ArcTokenSymbol;
+    ownerWallet: string;
+  } | null>(null);
+
   const [receiveAmount, setReceiveAmount] = useState("");
   const [receiveToken, setReceiveToken] = useState<ArcTokenSymbol>("USDC");
   const [paymentRequestCopied, setPaymentRequestCopied] = useState(false);
@@ -516,12 +542,14 @@ function DashboardContent() {
   const isCircleWalletConnected = Boolean(circleLogin && circleAddress);
   const isEmbeddedWalletMode =
     walletMode === "circle" && isCircleWalletConnected;
-  const isExternalWalletMode = walletMode === "external";
+  const isExternalWalletMode =
+    walletMode === "external" ||
+    (!isEmbeddedWalletMode && Boolean(externalAddress));
+  // Prefer active Circle wallet when in circle mode; otherwise use external.
+  // Fall back so a connected MetaMask is not ignored while walletMode is still "circle".
   const address = isEmbeddedWalletMode
     ? circleAddress
-    : isExternalWalletMode
-      ? externalAddress
-      : undefined;
+    : externalAddress ?? (isCircleWalletConnected ? circleAddress : undefined);
   const isConnected = Boolean(address);
   const walletAddress = address ?? sampleAddress;
   const fallbackAddressTyped = fallbackAddress as Address;
@@ -634,10 +662,28 @@ function DashboardContent() {
     }
   }, [swapAmount, swapTokenIn]);
 
+  const spendSaveUnits = useMemo(() => {
+    if (!spendSaveQuote?.active || !spendSaveQuote.saveAmountUnits) {
+      return zeroAmount;
+    }
+    try {
+      return BigInt(spendSaveQuote.saveAmountUnits);
+    } catch {
+      return zeroAmount;
+    }
+  }, [spendSaveQuote]);
+
+  const totalPaymentRequiredUnits = useMemo(() => {
+    if (paymentAmountUnits === null) return null;
+    return paymentAmountUnits + spendSaveUnits;
+  }, [paymentAmountUnits, spendSaveUnits]);
+
   const hasEnoughTokenBalance = Boolean(
     paymentAmountUnits !== null &&
+      paymentAmountUnits > zeroAmount &&
+      totalPaymentRequiredUnits !== null &&
       selectedTokenBalance !== undefined &&
-      selectedTokenBalance >= paymentAmountUnits,
+      selectedTokenBalance >= totalPaymentRequiredUnits,
   );
   const swapTokenBalance = tokenBalances[swapTokenIn];
   const hasEnoughSwapBalance = Boolean(
@@ -728,7 +774,9 @@ function DashboardContent() {
           : selectedTokenBalance === undefined
             ? "Loading balance"
             : !hasEnoughTokenBalance
-              ? `Insufficient ${selectedToken}`
+              ? spendSaveQuote?.active
+                ? `Need ${spendSaveQuote.totalRequired} ${selectedToken} (payment + Spend&Save)`
+                : `Insufficient ${selectedToken}`
               : isEmbeddedWalletMode
                 ? `Send with Circle wallet`
                 : `Send ${selectedToken}`;
@@ -981,6 +1029,186 @@ function DashboardContent() {
   }, [address, circleLogin, isEmbeddedWalletMode]);
 
   useEffect(() => {
+    if (!paymentAmountUnits || paymentAmountUnits <= zeroAmount || !address) {
+      setSpendSaveQuote(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const social =
+            getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined;
+          const result = await quoteSpendSave({
+            ownerWallet: address,
+            amount: paymentAmount.trim(),
+            currency: selectedToken,
+            paymentKind: "outgoing",
+            circleSocialUuid: social,
+          });
+          if (cancelled) return;
+          if (!result.active || !result.quote) {
+            setSpendSaveQuote(null);
+            return;
+          }
+          setSpendSaveQuote({
+            active: true,
+            saveAmount: result.quote.saveAmount,
+            saveAmountUnits: result.quote.saveAmountUnits,
+            totalRequired: result.quote.totalRequired,
+            totalRequiredUnits: result.quote.totalRequiredUnits,
+            percentage: result.quote.percentage,
+            pocketName: result.pocket?.name,
+            networkFeeAmount: result.quote.networkFeeAmount,
+            platformFeeAmount: result.quote.platformFeeAmount,
+            targetCapped: result.quote.targetCapped,
+          });
+        } catch {
+          // Quote can fail without wallet session; do not block payments.
+          if (!cancelled) setSpendSaveQuote(null);
+        }
+      })();
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [address, paymentAmount, paymentAmountUnits, selectedToken, circleLogin]);
+
+  /**
+   * Always re-check Spend&Save on the server after a confirmed payment.
+   * Do not rely only on client quote state (it can be null after submit / Circle).
+   */
+  async function runSpendSaveAfterConfirmedPayment(paymentTxHash: string) {
+    const snapshot = pendingSpendSavePayment.current;
+    const ownerWallet = snapshot?.ownerWallet ?? address;
+    const amount = snapshot?.amount ?? paymentAmount.trim();
+    const currency = snapshot?.currency ?? selectedToken;
+
+    if (!ownerWallet || !amount || !paymentTxHash) {
+      return;
+    }
+    if (spendSaveHandledTx.current === paymentTxHash) {
+      return;
+    }
+    if (!isSwiftSaveVaultConfigured()) {
+      setSpendSaveNotice(
+        "Spend&Save is on, but the savings vault is not configured on this deployment.",
+      );
+      return;
+    }
+
+    spendSaveHandledTx.current = paymentTxHash;
+    const social =
+      getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined;
+
+    try {
+      // Server is source of truth for whether Spend&Save is active.
+      const liveQuote = await quoteSpendSave({
+        ownerWallet,
+        amount,
+        currency,
+        paymentKind: "outgoing",
+        circleSocialUuid: social,
+      });
+
+      if (!liveQuote.active || !liveQuote.quote) {
+        // Not an error — feature off or ineligible payment.
+        return;
+      }
+
+      setSpendSaveNotice(
+        `Spend&Save: saving ${liveQuote.quote.saveAmount} ${currency} (${liveQuote.quote.percentage}%)…`,
+      );
+      setPaymentStatus(
+        `Payment confirmed. Spend&Save: confirm the savings deposit…`,
+      );
+
+      const useCircle =
+        isEmbeddedWalletMode &&
+        Boolean(circleLogin && circleWallet?.id && circleSdkRef.current);
+
+      const settled = await settleSpendSaveAfterPayment({
+        ownerWallet,
+        amount,
+        currency,
+        paymentTxHash,
+        circleSocialUuid: social,
+        mode: useCircle ? "circle" : "external",
+        chainId: arcTestnet.id,
+        writeContractAsync: useCircle
+          ? undefined
+          : async (args) =>
+              writeContractAsync({
+                address: args.address,
+                abi: args.abi,
+                functionName: args.functionName as "approve" | "deposit",
+                args: args.args as never,
+                chainId: args.chainId,
+              }),
+        circleExecutor:
+          useCircle && circleLogin && circleWallet?.id
+            ? {
+                login: circleLogin,
+                walletId: circleWallet.id,
+                executeChallenge: async (challengeId) => {
+                  const sdk = circleSdkRef.current;
+                  if (!sdk) {
+                    throw new Error(
+                      "Circle wallet confirmation is not ready for Spend&Save.",
+                    );
+                  }
+                  sdk.setAuthentication({
+                    encryptionKey: circleLogin.encryptionKey,
+                    userToken: circleLogin.userToken,
+                  });
+                  setPaymentStatus(
+                    "Confirm Spend&Save deposit in Circle wallet…",
+                  );
+                  return new Promise((resolve, reject) => {
+                    sdk.execute(challengeId, (error, result) => {
+                      if (error) {
+                        reject(new Error(getErrorMessage(error)));
+                        return;
+                      }
+                      const challengeResult =
+                        result as CircleChallengeResult | undefined;
+                      resolve({
+                        transactionId:
+                          challengeResult?.data?.transactionId ??
+                          challengeResult?.transactionId ??
+                          challengeResult?.data?.id ??
+                          challengeResult?.id,
+                        txHash: challengeResult?.data?.txHash,
+                      });
+                    });
+                  });
+                },
+              }
+            : undefined,
+      });
+
+      const pocketLabel =
+        liveQuote.pocket?.name ?? spendSaveQuote?.pocketName ?? "your pocket";
+      const savedMsg = `$${settled.saveAmount} saved automatically to ${pocketLabel}.`;
+      setSpendSaveNotice(savedMsg);
+      setPaymentStatus(`Payment successful. ${savedMsg}`);
+      pendingSpendSavePayment.current = null;
+      void refreshBalances();
+    } catch (error) {
+      // Allow a single retry on a later receipt if settlement failed.
+      if (spendSaveHandledTx.current === paymentTxHash) {
+        spendSaveHandledTx.current = null;
+      }
+      const msg = `Payment succeeded. Spend&Save needs attention: ${getErrorMessage(error)}. Your payment wasn’t affected — open Swift+Save to finish saving.`;
+      setSpendSaveNotice(msg);
+      setPaymentStatus(msg);
+    }
+  }
+
+  useEffect(() => {
     if (!transactionReceipt) {
       return;
     }
@@ -989,6 +1217,12 @@ function DashboardContent() {
       setPaymentError(null);
       setPaymentStatus(`${transactionLabel} confirmed`);
       void refreshBalances();
+
+      const paymentTx = transactionReceipt.transactionHash;
+      if (paymentTx) {
+        void runSpendSaveAfterConfirmedPayment(paymentTx);
+      }
+
       return;
     }
 
@@ -1104,25 +1338,21 @@ function DashboardContent() {
       setIsAuthLoading(true);
 
       try {
-        const response = await fetch("/api/auth/wallet", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const payload = (await response.json()) as {
-          authenticated?: boolean;
-          message?: string;
-          ownerWallet?: string;
-        };
-
-        if (!response.ok) {
-          throw new Error(payload.message ?? "Unable to check wallet session.");
+        const { fetchWalletSessionForAddress } = await import(
+          "@/lib/wallet-auth-client"
+        );
+        if (controller.signal.aborted) {
+          return;
         }
 
-        const ownerWallet = payload.ownerWallet;
+        const session = await fetchWalletSessionForAddress(connectedAddress);
+        if (controller.signal.aborted) {
+          return;
+        }
+
         setAuthWallet(
-          payload.authenticated &&
-            ownerWallet?.toLowerCase() === connectedAddress.toLowerCase()
-            ? ownerWallet
+          session.authenticated && session.ownerWallet
+            ? session.ownerWallet
             : null,
         );
       } catch (error) {
@@ -1439,17 +1669,32 @@ function DashboardContent() {
       });
       setPaymentStatus("Confirm transfer in Circle wallet");
 
+      // Capture payment context before async Circle confirm (amount field may change).
+      pendingSpendSavePayment.current = {
+        amount: paymentAmount.trim(),
+        currency: selectedToken,
+        ownerWallet: circleAddress.toLowerCase(),
+      };
+
       circleSdkRef.current.execute(challenge.challengeId, (error, result) => {
         setIsCirclePaymentPending(false);
 
         if (error) {
           setPaymentError(getErrorMessage(error));
           setPaymentStatus("Circle transfer cancelled");
+          pendingSpendSavePayment.current = null;
           return;
         }
 
         const challengeResult = result as CircleChallengeResult | undefined;
-        const txHash = challengeResult?.data?.txHash;
+        const txHash =
+          challengeResult?.data?.txHash ??
+          (challengeResult as { txHash?: string } | undefined)?.txHash;
+        const transactionId =
+          challengeResult?.data?.transactionId ??
+          challengeResult?.transactionId ??
+          challengeResult?.data?.id ??
+          challengeResult?.id;
 
         setPaymentError(null);
         setTransactionLabel(
@@ -1461,19 +1706,108 @@ function DashboardContent() {
         if (txHash) {
           setTransactionHash(txHash as Hash);
           setPaymentStatus(`${selectedToken} payment submitted`);
+          // Receipt effect will also fire; runSpendSave is idempotent per hash.
+          void runSpendSaveAfterConfirmedPayment(txHash);
         } else {
-          setPaymentStatus("Circle payment confirmed");
+          setPaymentStatus(
+            "Circle payment confirmed — waiting for transaction hash…",
+          );
           void refreshBalances();
+          // Circle often returns no hash immediately — poll then run Spend&Save.
+          void (async () => {
+            try {
+              const recovered = await recoverCirclePaymentTxHash({
+                transactionId,
+                walletId: circleWallet.id,
+                userToken: circleLogin.userToken,
+              });
+              if (recovered) {
+                setTransactionHash(recovered as Hash);
+                setPaymentStatus(`${selectedToken} payment submitted`);
+                await runSpendSaveAfterConfirmedPayment(recovered);
+              } else {
+                setSpendSaveNotice(
+                  "Payment sent. If Spend&Save is on, open Swift+Save if savings don’t appear within a minute.",
+                );
+              }
+            } catch (recoverError) {
+              setSpendSaveNotice(
+                `Payment sent. Spend&Save could not start yet: ${getErrorMessage(recoverError)}`,
+              );
+            }
+          })();
         }
       });
     } catch (error) {
       setIsCirclePaymentPending(false);
       setPaymentError(getErrorMessage(error));
       setPaymentStatus("Circle transfer failed");
+      pendingSpendSavePayment.current = null;
     }
   }
 
-  async function handlePaymentAction() {
+  async function recoverCirclePaymentTxHash(input: {
+    transactionId?: string;
+    walletId: string;
+    userToken: string;
+  }): Promise<string | null> {
+    const maxAttempts = 12;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        if (input.transactionId) {
+          const tx = await callCircleWalletApi<{
+            data?: { txHash?: string; transactionHash?: string };
+            txHash?: string;
+            transactionHash?: string;
+          }>("getTransaction", {
+            id: input.transactionId,
+            userToken: input.userToken,
+          });
+          const hash =
+            tx.data?.txHash ??
+            tx.data?.transactionHash ??
+            tx.txHash ??
+            tx.transactionHash;
+          if (hash && /^0x[a-fA-F0-9]{64}$/.test(hash)) {
+            return hash;
+          }
+        }
+
+        const listed = await callCircleWalletApi<{
+          data?: {
+            transactions?: Array<{
+              txHash?: string;
+              transactionHash?: string;
+              id?: string;
+            }>;
+          };
+          transactions?: Array<{
+            txHash?: string;
+            transactionHash?: string;
+            id?: string;
+          }>;
+        }>("listTransactions", {
+          userToken: input.userToken,
+          walletId: input.walletId,
+          pageSize: 5,
+        });
+        const rows =
+          listed.data?.transactions ?? listed.transactions ?? [];
+        for (const row of rows) {
+          const hash = row.txHash ?? row.transactionHash;
+          if (hash && /^0x[a-fA-F0-9]{64}$/.test(hash)) {
+            return hash;
+          }
+        }
+      } catch {
+        // keep polling
+      }
+    }
+    return null;
+  }
+
+    async function handlePaymentAction() {
     setPaymentError(null);
 
     if (!isConnected || !address) {
@@ -1504,7 +1838,11 @@ function DashboardContent() {
     }
 
     if (!hasEnoughTokenBalance) {
-      setPaymentError(`Insufficient ${selectedToken} balance.`);
+      setPaymentError(
+        spendSaveQuote?.active
+          ? `Insufficient ${selectedToken}. Payment + Spend&Save requires ${spendSaveQuote.totalRequired} ${selectedToken} (you need enough for both the payment and automatic savings).`
+          : `Insufficient ${selectedToken} balance.`,
+      );
       return;
     }
 
@@ -1514,6 +1852,12 @@ function DashboardContent() {
       : shortenAddress(destinationAddress);
 
     try {
+      pendingSpendSavePayment.current = {
+        amount: paymentAmount.trim(),
+        currency: selectedToken,
+        ownerWallet: address.toLowerCase(),
+      };
+
       const hash = await writeContractAsync({
         address: selectedTokenInfo.address,
         abi: erc20Abi,
@@ -1530,11 +1874,12 @@ function DashboardContent() {
       );
       setPaymentStatus(`${selectedToken} payment submitted`);
     } catch (error) {
+      pendingSpendSavePayment.current = null;
       setPaymentError(getErrorMessage(error));
     }
   }
 
-  async function executeCircleChallenge(challengeId: string, label?: string) {
+    async function executeCircleChallenge(challengeId: string, label?: string) {
     const sdk = circleSdkRef.current;
 
     if (!circleLogin || !sdk) {
@@ -1808,7 +2153,11 @@ function DashboardContent() {
   }
 
   const usdcDisplay = isConnected
-    ? formatTokenAmount(tokenBalances.USDC, arcTestnetTokens.USDC.decimals, "USDC")
+    ? formatTokenAmount(
+        tokenBalances.USDC,
+        arcTestnetTokens.USDC.decimals,
+        "USDC",
+      )
     : "—";
   const eurcDisplay = isConnected
     ? formatTokenAmount(tokenBalances.EURC, arcTestnetTokens.EURC.decimals, "EURC")
@@ -1881,6 +2230,12 @@ function DashboardContent() {
               value={<AnimatedCounter value={nativeBalanceText} />}
             />
           </div>
+
+          <DashboardEarnSummary
+            availableUsdc={
+              typeof rawUsdcBalance === "bigint" ? rawUsdcBalance : undefined
+            }
+          />
 
           <QuickActions className="mb-2" />
         </section>
@@ -2046,7 +2401,12 @@ function DashboardContent() {
               paymentAmountUnits={paymentAmountUnits}
               paymentError={paymentError}
               paymentNarration={paymentNarration}
-              paymentStatus={paymentStatus}
+              paymentStatus={
+                spendSaveNotice ??
+                (spendSaveQuote?.active && paymentAmountUnits
+                  ? `Spend&Save ${spendSaveQuote.percentage}% → ${spendSaveQuote.pocketName ?? "pocket"}: payment ${paymentAmount} + save ${spendSaveQuote.saveAmount}${spendSaveQuote.targetCapped ? " (capped to target)" : ""} + fees ${spendSaveQuote.networkFeeAmount ?? "0"} / ${spendSaveQuote.platformFeeAmount ?? "0"} = ${spendSaveQuote.totalRequired} ${selectedToken} total. ${paymentStatus}`
+                  : paymentStatus)
+              }
               primaryButtonText={primaryButtonText}
               receiveHref={
                 walletProfile?.username
@@ -2124,6 +2484,7 @@ function DashboardContent() {
                 </div>
                 <ReceiptText className="h-5 w-5 shrink-0 text-swift-600" />
               </div>
+
               <div className="grid max-h-[20rem] gap-3 overflow-y-auto overscroll-contain pr-1 sm:max-h-[24rem] lg:max-h-[27rem]">
                 {!isConnected ? (
                   <div className="rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">

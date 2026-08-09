@@ -36,16 +36,20 @@ function normalizeCircleSocialUuid(value: unknown) {
   return socialUuid || null;
 }
 
+/**
+ * Authorize an owner wallet for sensitive APIs (notifications, savings, recurring).
+ * Accepts either:
+ * 1) Signed wallet session cookie for that address, or
+ * 2) Circle Google social UUID bound to that wallet in profiles.
+ */
 export async function assertRecurringAccess(input: {
   circleSocialUuid?: unknown;
   ownerWallet: string;
 }) {
+  const owner = input.ownerWallet.toLowerCase();
   const sessionOwnerWallet = await getSessionOwnerWallet();
 
-  if (
-    sessionOwnerWallet &&
-    sessionOwnerWallet === input.ownerWallet.toLowerCase()
-  ) {
+  if (sessionOwnerWallet && sessionOwnerWallet === owner) {
     return true;
   }
 
@@ -55,16 +59,44 @@ export async function assertRecurringAccess(input: {
     return false;
   }
 
-  const supabase = createSupabaseAdminClient();
-  const existing = await supabase
-    .from(profilesTable)
-    .select("wallet_address,circle_social_uuid")
-    .eq("wallet_address", input.ownerWallet.toLowerCase())
-    .maybeSingle();
+  try {
+    const supabase = createSupabaseAdminClient();
 
-  if (existing.error || !existing.data) {
-    return false;
+    // Primary: profile row keyed by wallet address.
+    const byWallet = await supabase
+      .from(profilesTable)
+      .select("wallet_address,circle_social_uuid")
+      .eq("wallet_address", owner)
+      .maybeSingle();
+
+    if (
+      !byWallet.error &&
+      byWallet.data?.circle_social_uuid &&
+      byWallet.data.circle_social_uuid === circleSocialUuid
+    ) {
+      return true;
+    }
+
+    // Fallback: profile row keyed by social UUID (wallet may have been updated).
+    const bySocial = await supabase
+      .from(profilesTable)
+      .select("wallet_address,circle_social_uuid")
+      .eq("circle_social_uuid", circleSocialUuid)
+      .maybeSingle();
+
+    if (
+      !bySocial.error &&
+      bySocial.data?.wallet_address &&
+      bySocial.data.wallet_address.toLowerCase() === owner
+    ) {
+      return true;
+    }
+  } catch (error) {
+    console.warn(
+      "[assertRecurringAccess]",
+      error instanceof Error ? error.message : "profile lookup failed",
+    );
   }
 
-  return existing.data.circle_social_uuid === circleSocialUuid;
+  return false;
 }

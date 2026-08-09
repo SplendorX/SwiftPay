@@ -36,8 +36,9 @@ import {
 } from "@/lib/platform-access";
 import {
   endWalletSession,
-  fetchWalletSession,
+  fetchWalletSessionForAddress,
   signInWalletSession,
+  walletSessionChangedEventName,
   type WalletSessionStatus,
 } from "@/lib/wallet-auth-client";
 
@@ -151,10 +152,12 @@ export function SessionDeviceManagement({
   }, []);
 
   const refreshWalletSession = useCallback(async () => {
-    const session = await fetchWalletSession();
+    const session = await fetchWalletSessionForAddress(
+      connectedAddress || null,
+    );
     setWalletSession(session);
     return session;
-  }, []);
+  }, [connectedAddress]);
 
   const refreshAll = useCallback(async () => {
     setIsLoading(true);
@@ -182,18 +185,24 @@ export function SessionDeviceManagement({
   useEffect(() => {
     function handleSessionChange() {
       refreshLocalState();
+      void refreshWalletSession();
     }
 
     window.addEventListener(circleSessionEventName, handleSessionChange);
     window.addEventListener(platformAccessEventName, handleSessionChange);
+    window.addEventListener(walletSessionChangedEventName, handleSessionChange);
     window.addEventListener("storage", handleSessionChange);
 
     return () => {
       window.removeEventListener(circleSessionEventName, handleSessionChange);
       window.removeEventListener(platformAccessEventName, handleSessionChange);
+      window.removeEventListener(
+        walletSessionChangedEventName,
+        handleSessionChange,
+      );
       window.removeEventListener("storage", handleSessionChange);
     };
-  }, [refreshLocalState]);
+  }, [refreshLocalState, refreshWalletSession]);
 
   useEffect(() => {
     let cancelled = false;

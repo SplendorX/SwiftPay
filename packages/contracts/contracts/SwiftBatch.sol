@@ -8,7 +8,8 @@ interface ISwiftBatchERC20 {
 contract SwiftBatch {
     uint256 public constant BASIS_POINTS = 10_000;
     uint256 public constant MAX_RECIPIENTS = 500;
-    uint256 public constant PLATFORM_FEE_BASIS_POINTS = 10;
+    /// @notice 1% platform fee (100 / 10_000 basis points).
+    uint256 public constant PLATFORM_FEE_BASIS_POINTS = 100;
 
     address public owner;
     address public feeRecipient;

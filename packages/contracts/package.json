@@ -6,17 +6,32 @@
   "type": "module",
   "scripts": {
     "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:earn": "hardhat test test/earn/SwiftPayVault.js",
     "deploy": "hardhat run contracts/deploy.js --network arcTestnet",
     "deploy:escrow": "node contracts/deployEscrow.js",
     "deploy:swiftbatch": "node contracts/deploySwiftBatch.js",
-    "deploy:swiftrecurepay": "hardhat run contracts/deploySwiftRecurepayExecutor.js --network arcTestnet"
+    "deploy:swiftrecurepay": "hardhat run contracts/deploySwiftRecurepayExecutor.js --network arcTestnet",
+    "deploy:earn": "hardhat run contracts/deployEarn.js --network arcTestnet",
+    "deploy:earn:local": "hardhat run contracts/deployEarn.js",
+    "deploy:earn:mainnet": "hardhat run contracts/deployEarn.js --network arcMainnet",
+    "deploy:swiftsave": "hardhat run contracts/deploySwiftSave.js --network arcTestnet",
+    "deploy:swiftsave:local": "hardhat run contracts/deploySwiftSave.js",
+    "test:save": "hardhat test test/save/SwiftSaveVault.js"
   },
   "dependencies": {
     "@circle-fin/smart-contract-platform": "^10.3.1",
-    "dotenv": "^17.4.2",
-    "ethers": "^6.16.0"
+    "@openzeppelin/contracts": "5.4.0",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "hardhat": "^3.5.0"
+    "@nomicfoundation/hardhat-ethers": "^4.0.15",
+    "@nomicfoundation/hardhat-mocha": "^3.1.0",
+    "@nomicfoundation/hardhat-verify": "^3.0.20",
+    "@types/chai": "^5.2.3",
+    "chai": "^6.2.2",
+    "ethers": "^6.16.0",
+    "hardhat": "^3.12.0",
+    "mocha": "^11.8.0"
   }
 }

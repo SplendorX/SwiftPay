@@ -1,8 +1,4 @@
 import {
-  canAutopaySchedule,
-  settleAutopayExecution,
-} from "@/lib/recurring-autopay";
-import {
   advanceNextRunAt,
   buildExecutionIdempotencyKey,
   type RecurringScheduleRecord,
@@ -26,6 +22,56 @@ function readSupabaseError(error: { message?: string } | null) {
   }
 
   return message || "Supabase could not process this recurring payment.";
+}
+
+export async function advanceScheduleAfterConfirmedRun(
+  scheduleId: string,
+  dueAt: string | Date,
+) {
+  const supabase = createSupabaseAdminClient();
+  const dueDate =
+    typeof dueAt === "string" ? new Date(dueAt) : new Date(dueAt.getTime());
+  const loaded = await supabase
+    .from(schedulesTable)
+    .select("*")
+    .eq("id", scheduleId)
+    .single();
+
+  if (loaded.error || !loaded.data) {
+    return;
+  }
+
+  const schedule = loaded.data as RecurringScheduleRecord;
+  const scheduleNextRun = new Date(schedule.next_run_at).getTime();
+
+  if (Math.abs(scheduleNextRun - dueDate.getTime()) > 1000) {
+    return;
+  }
+
+  const nextRunAt = advanceNextRunAt(
+    dueDate,
+    schedule.frequency,
+    schedule.interval_days,
+  );
+  const reachedMaxRuns =
+    schedule.max_runs !== null &&
+    schedule.max_runs !== undefined &&
+    schedule.run_count + 1 >= schedule.max_runs;
+  const reachedEndDate =
+    schedule.ends_at !== null &&
+    schedule.ends_at !== undefined &&
+    nextRunAt.getTime() > new Date(schedule.ends_at).getTime();
+
+  await supabase
+    .from(schedulesTable)
+    .update({
+      last_run_at: dueDate.toISOString(),
+      next_run_at: nextRunAt.toISOString(),
+      run_count: schedule.run_count + 1,
+      status: reachedMaxRuns || reachedEndDate ? "completed" : schedule.status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", scheduleId);
 }
 
 export async function createDueExecutionForSchedule(
@@ -76,38 +122,6 @@ export async function createDueExecutionForSchedule(
     throw new Error(readSupabaseError(inserted.error));
   }
 
-  const nextRunAt = advanceNextRunAt(
-    dueAt,
-    schedule.frequency,
-    schedule.interval_days,
-  );
-  const reachedMaxRuns =
-    schedule.max_runs !== null &&
-    schedule.max_runs !== undefined &&
-    schedule.run_count + 1 >= schedule.max_runs;
-  const reachedEndDate =
-    schedule.ends_at !== null &&
-    schedule.ends_at !== undefined &&
-    nextRunAt.getTime() > new Date(schedule.ends_at).getTime();
-  const updates = {
-    last_run_at: dueAt.toISOString(),
-    next_run_at: nextRunAt.toISOString(),
-    run_count: schedule.run_count + 1,
-    status: reachedMaxRuns || reachedEndDate ? "completed" : schedule.status,
-    updated_at: new Date().toISOString(),
-  };
-
-  const mutation = await supabase
-    .from(schedulesTable)
-    .update(updates)
-    .eq("id", schedule.id)
-    .select("*")
-    .single();
-
-  if (mutation.error || !mutation.data) {
-    throw new Error(readSupabaseError(mutation.error));
-  }
-
   return inserted.data;
 }
 
@@ -137,6 +151,63 @@ export async function createManualExecutionForSchedule(
   return inserted.data;
 }
 
+/**
+ * Queue a due execution only.
+ * Settlement is done by the owner's connected wallet in the SwiftRecurepay hub
+ * (no server private key required). Optional operator pull remains available via
+ * processAutopayExecutions when env operator keys are configured.
+ */
+async function processScheduleDueRun(schedule: RecurringScheduleRecord) {
+  const execution = await createDueExecutionForSchedule(schedule);
+  return { autopay: null, execution };
+}
+
+export async function processSingleDueSchedule(
+  schedule: RecurringScheduleRecord,
+) {
+  if (schedule.status !== "active") {
+    return null;
+  }
+
+  const now = Date.now();
+  const nextRunAt = new Date(schedule.next_run_at).getTime();
+
+  if (nextRunAt > now) {
+    return null;
+  }
+
+  return processScheduleDueRun(schedule);
+}
+
+async function processDueScheduleRows(schedules: RecurringScheduleRecord[]) {
+  const created = [];
+  const errors: Array<{ scheduleId: string; message: string }> = [];
+
+  for (const schedule of schedules) {
+    try {
+      const result = await processScheduleDueRun(schedule);
+      created.push(result.execution);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not process recurring schedule.";
+
+      errors.push({
+        message,
+        scheduleId: schedule.id,
+      });
+    }
+  }
+
+  return {
+    createdCount: created.length,
+    errors,
+    executions: created,
+    scannedCount: schedules.length,
+  };
+}
+
 export async function processDueRecurringSchedules(limit = 50) {
   const supabase = createSupabaseAdminClient();
   const now = new Date().toISOString();
@@ -152,30 +223,28 @@ export async function processDueRecurringSchedules(limit = 50) {
     throw new Error(readSupabaseError(due.error));
   }
 
-  const created = [];
+  return processDueScheduleRows((due.data ?? []) as RecurringScheduleRecord[]);
+}
 
-  for (const schedule of due.data ?? []) {
-    try {
-      const typedSchedule = schedule as RecurringScheduleRecord;
-      const execution = await createDueExecutionForSchedule(typedSchedule);
-      created.push(execution);
+/** Queue + settle due schedules for one owner (authenticated process API). */
+export async function processDueRecurringSchedulesForOwner(
+  ownerWallet: string,
+  limit = 50,
+) {
+  const supabase = createSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const due = await supabase
+    .from(schedulesTable)
+    .select("*")
+    .eq("owner_wallet", ownerWallet.toLowerCase())
+    .eq("status", "active")
+    .lte("next_run_at", now)
+    .order("next_run_at", { ascending: true })
+    .limit(limit);
 
-      if (canAutopaySchedule(typedSchedule)) {
-        await settleAutopayExecution(
-          execution.id,
-          execution.owner_wallet,
-          typedSchedule,
-          execution,
-        );
-      }
-    } catch {
-      continue;
-    }
+  if (due.error) {
+    throw new Error(readSupabaseError(due.error));
   }
 
-  return {
-    createdCount: created.length,
-    executions: created,
-    scannedCount: due.data?.length ?? 0,
-  };
+  return processDueScheduleRows((due.data ?? []) as RecurringScheduleRecord[]);
 }

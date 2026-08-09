@@ -5,9 +5,11 @@ import {
   CalendarClock,
   LayoutDashboard,
   LockKeyhole,
+  PiggyBank,
   RefreshCw,
   Send,
   Settings,
+  TrendingUp,
   Users,
   Zap,
   type LucideIcon,
@@ -19,6 +21,8 @@ import { cn } from "@/lib/utils";
 
 export const platformNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/save", label: "Swift+Save", icon: PiggyBank },
+  { href: "/earn", label: "Earn", icon: TrendingUp },
   { href: "/swap", label: "Swap", icon: RefreshCw },
   { href: "/swiftBatch", label: "SwiftBatch", icon: Users },
   { href: "/swiftRecurepay", label: "SwiftRecurepay", icon: CalendarClock },

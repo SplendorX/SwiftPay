@@ -47,3 +47,4 @@ agent-tools/
 mcps/
 terminals/
 apps/web/terminals/
+.vercel

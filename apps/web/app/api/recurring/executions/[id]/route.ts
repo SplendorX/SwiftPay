@@ -4,6 +4,7 @@ import {
   assertRecurringAccess,
   normalizeOwnerWallet,
 } from "@/lib/recurring-auth";
+import { advanceScheduleAfterConfirmedRun } from "@/lib/recurring-service";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
@@ -109,6 +110,13 @@ export async function PATCH(
 
     if (mutation.error || !mutation.data) {
       return jsonError(readSupabaseError(mutation.error), 500);
+    }
+
+    if (body.status === "confirmed") {
+      await advanceScheduleAfterConfirmedRun(
+        mutation.data.schedule_id,
+        mutation.data.due_at,
+      );
     }
 
     return NextResponse.json({ execution: mutation.data });

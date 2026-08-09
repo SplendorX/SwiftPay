@@ -36,14 +36,35 @@ function removePlatformAccessCookie() {
   document.cookie = `${platformAccessCookieName}=; Path=/; Max-Age=0; SameSite=Lax${getSecureCookieAttribute()}`;
 }
 
-export function markPlatformProfileConnected() {
+function hasPlatformAccessCookie() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return document.cookie
+    .split(";")
+    .some((part) => part.trim().startsWith(`${platformAccessCookieName}=`));
+}
+
+/** Refresh the access cookie without broadcasting (safe inside event listeners). */
+export function ensurePlatformAccessCookie() {
   writePlatformAccessCookie();
-  notifyPlatformAccessChanged();
+}
+
+export function markPlatformProfileConnected() {
+  const alreadyMarked = hasPlatformAccessCookie();
+  writePlatformAccessCookie();
+  if (!alreadyMarked) {
+    notifyPlatformAccessChanged();
+  }
 }
 
 export function clearPlatformProfileConnected() {
+  const hadCookie = hasPlatformAccessCookie();
   removePlatformAccessCookie();
-  notifyPlatformAccessChanged();
+  if (hadCookie) {
+    notifyPlatformAccessChanged();
+  }
 }
 
 export function readActivatedExternalProfile() {
@@ -59,12 +80,17 @@ export function writeActivatedExternalProfile(address: string) {
     return;
   }
 
-  window.localStorage.setItem(
-    activatedExternalProfileKey,
-    address.toLowerCase(),
-  );
+  const next = address.toLowerCase();
+  const previous = window.localStorage.getItem(activatedExternalProfileKey);
+  const alreadyCookie = hasPlatformAccessCookie();
+
+  window.localStorage.setItem(activatedExternalProfileKey, next);
   writePlatformAccessCookie();
-  notifyPlatformAccessChanged();
+
+  // Avoid event storms when nothing meaningful changed.
+  if (previous !== next || !alreadyCookie) {
+    notifyPlatformAccessChanged();
+  }
 }
 
 export function clearActivatedExternalProfile() {
@@ -72,7 +98,15 @@ export function clearActivatedExternalProfile() {
     return;
   }
 
+  const hadProfile = Boolean(
+    window.localStorage.getItem(activatedExternalProfileKey),
+  );
+  const hadCookie = hasPlatformAccessCookie();
+
   window.localStorage.removeItem(activatedExternalProfileKey);
   removePlatformAccessCookie();
-  notifyPlatformAccessChanged();
+
+  if (hadProfile || hadCookie) {
+    notifyPlatformAccessChanged();
+  }
 }

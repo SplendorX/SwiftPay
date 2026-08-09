@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { CommandPaletteTrigger } from "@/components/command-palette";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { NotificationsBell } from "@/components/notifications-bell";
 import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export function AppHeader({ actions, className }: AppHeaderProps) {
 
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           <CommandPaletteTrigger />
+          <NotificationsBell />
           <ThemeToggle />
           {actions}
           <PlatformNavDrawer />

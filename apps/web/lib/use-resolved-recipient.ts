@@ -34,10 +34,13 @@ export function useResolvedRecipient(input: string) {
     }
 
     if (isAddress(trimmed)) {
-      setResolvedAddress(getAddress(trimmed).toLowerCase());
-      setResolvedUsername(null);
-      setError(null);
-      setIsResolving(false);
+      const normalized = getAddress(trimmed).toLowerCase();
+      setResolvedAddress((current) =>
+        current === normalized ? current : normalized,
+      );
+      setResolvedUsername((current) => (current === null ? current : null));
+      setError((current) => (current === null ? current : null));
+      setIsResolving((current) => (current === false ? current : false));
       return;
     }
 

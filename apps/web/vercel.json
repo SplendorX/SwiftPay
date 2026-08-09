@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/recurring",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/earn",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/save",
+      "schedule": "0 14 * * *"
     }
   ]
 }

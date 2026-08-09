@@ -62,6 +62,7 @@ import {
  erc20Abi,
  privacyEscrowAbi,
  privacyEscrowAddress,
+ privacyEscrowFeeBasisPoints,
 } from "@/lib/contracts";
 import {
  arcTestnetTokens,
@@ -73,6 +74,8 @@ import { arcTestnet } from "@/lib/wagmi";
 const paymentStorageKey = "swiftpay.privacy.payments";
 const payrollStorageKey = "swiftpay.privacy.payroll-folders";
 const codePrefix = "privswiftpay:";
+const feeBasisPointsDenominator = BigInt(10_000);
+const feeBasisPoints = BigInt(privacyEscrowFeeBasisPoints);
 const escrowAddress =
  privacyEscrowAddress && isAddress(privacyEscrowAddress)
  ? (privacyEscrowAddress as Address)
@@ -740,6 +743,7 @@ export function PrivSwiftPayContent({
  feature?: PrivSwiftPayFeature;
 }) {
  const circleSdkRef = useRef<W3SSdk | null>(null);
+ const claimCodeFromUrlApplied = useRef(false);
  const {
  address: accountAddress,
  isConnected: isAccountConnected,
@@ -1020,7 +1024,9 @@ export function PrivSwiftPayContent({
 
  async function requireTokenBalance(token: ArcTokenSymbol, amount: bigint) {
  if (!(await hasEnoughTokenBalance(token, amount))) {
- throw new Error(`Insufficient ${token} balance to fund this claim code.`);
+ throw new Error(
+ `Insufficient ${token} balance to fund this claim code (includes ${privacyEscrowFeeBasisPoints / 100}% platform fee).`,
+ );
  }
  }
 
@@ -1390,6 +1396,34 @@ export function PrivSwiftPayContent({
  setIsMounted(true);
  }, []);
 
+ // Prefill claim form when opened from a notification deep link (?code=...).
+ useEffect(() => {
+ if (feature !== "claim" || claimCodeFromUrlApplied.current) {
+ return;
+ }
+ if (typeof window === "undefined") {
+ return;
+ }
+
+ const code = new URLSearchParams(window.location.search).get("code")?.trim();
+ if (!code) {
+ return;
+ }
+
+ claimCodeFromUrlApplied.current = true;
+ setClaimCode(code);
+ setClaimError(null);
+ try {
+ const payload = parsePrivacyCode(code);
+ setClaimPayload(payload);
+ setClaimStatus("Claim code loaded from notification");
+ } catch (error) {
+ setClaimPayload(null);
+ setClaimError(getErrorMessage(error));
+ setClaimStatus("Invalid claim code from link");
+ }
+ }, [feature]);
+
  useEffect(() => {
  setIsStorageReady(false);
  setGeneratedCode("");
@@ -1590,6 +1624,16 @@ export function PrivSwiftPayContent({
  }
  }
 
+ /** Platform fee units for a single deposit (matches on-chain bps math). */
+ function getPlatformFeeUnits(amountUnits: bigint) {
+ return (amountUnits * feeBasisPoints) / feeBasisPointsDenominator;
+ }
+
+ /** Total debit = claim amount + 1% platform fee. */
+ function getDepositDebitUnits(amountUnits: bigint) {
+ return amountUnits + getPlatformFeeUnits(amountUnits);
+ }
+
  async function executeCircleChallenge(
  challengeId: string,
  label: string,
@@ -1764,11 +1808,12 @@ export function PrivSwiftPayContent({
  async function fundSinglePayment(payload: PrivacyCodePayload) {
  const contractAddress = requireEscrowAddress();
  const amountUnits = getPaymentAmountUnits(payload.amount, payload.token);
+ const debitUnits = getDepositDebitUnits(amountUnits);
  const tokenAddress = arcTestnetTokens[payload.token].address;
 
  await assertEscrowContractCompatible();
- await requireTokenBalance(payload.token, amountUnits);
- await approveEscrow(payload.token, amountUnits);
+ await requireTokenBalance(payload.token, debitUnits);
+ await approveEscrow(payload.token, debitUnits);
  setSendStatus("Check escrow funding");
  await ensurePaymentCanBeFunded(payload);
 
@@ -1836,12 +1881,15 @@ export function PrivSwiftPayContent({
 
  await assertEscrowContractCompatible();
 
- const totalsByToken = payloads.reduce(
+ // Debit per token = sum of claim amounts + per-payment platform fees
+ // (matches contract fee math: fee charged on each depositPayment).
+ const debitsByToken = payloads.reduce(
  (totals, payload) => {
- totals[payload.token] += getPaymentAmountUnits(
+ const amountUnits = getPaymentAmountUnits(
  payload.amount,
  payload.token,
  );
+ totals[payload.token] += getDepositDebitUnits(amountUnits);
  return totals;
  },
  { EURC: BigInt(0), USDC: BigInt(0) } satisfies Record<
@@ -1851,9 +1899,9 @@ export function PrivSwiftPayContent({
  );
 
  for (const token of arcTokenSymbols) {
- if (totalsByToken[token] > BigInt(0)) {
- await requireTokenBalance(token, totalsByToken[token]);
- await approveEscrow(token, totalsByToken[token], setPayrollStatus);
+ if (debitsByToken[token] > BigInt(0)) {
+ await requireTokenBalance(token, debitsByToken[token]);
+ await approveEscrow(token, debitsByToken[token], setPayrollStatus);
  }
  }
 
@@ -1999,6 +2047,63 @@ export function PrivSwiftPayContent({
  window.setTimeout(() => setCopiedCodeId(null), 1600);
  }
 
+ /** Deliver claim code to the receiver's in-app notifications (retries briefly). */
+ async function notifyReceiverOfClaim(
+ code: string,
+ relatedTxHash?: string,
+ onStatus?: (value: string) => void,
+ ): Promise<{ ok: boolean; error?: string }> {
+ const maxAttempts = 5;
+ let lastError = "notify failed";
+
+ for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+ try {
+ onStatus?.(
+ attempt === 0
+ ? "Sending claim code to receiver"
+ : `Retrying receiver notification (${attempt + 1}/${maxAttempts})`,
+ );
+ const res = await fetch("/api/privswiftpay/notify-claim", {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({
+ claimCode: code,
+ relatedTxHash: relatedTxHash ?? null,
+ }),
+ });
+ const json = (await res.json().catch(() => ({}))) as {
+ message?: string;
+ alreadyNotified?: boolean;
+ ok?: boolean;
+ notificationId?: string | null;
+ };
+ if (res.ok) {
+ return { ok: true };
+ }
+ lastError = json.message ?? `notify failed (${res.status})`;
+ // Retry when chain may still be catching up.
+ if (
+ !/not funded|not configured|Could not read escrow|Could not store/i.test(
+ lastError,
+ ) &&
+ res.status !== 500
+ ) {
+ break;
+ }
+ } catch (error) {
+ lastError =
+ error instanceof Error ? error.message : "notify failed";
+ }
+
+ if (attempt < maxAttempts - 1) {
+ await wait(1_500 * (attempt + 1));
+ }
+ }
+
+ console.warn("[privswiftpay-notify]", lastError);
+ return { ok: false, error: lastError };
+ }
+
  async function handleGeneratePaymentCode() {
  setSendError(null);
  setGeneratedCode("");
@@ -2022,7 +2127,20 @@ export function PrivSwiftPayContent({
  ? `${arcTestnet.blockExplorers.default.url}/tx/${fundingResult.txHash}`
  : "",
  );
- setSendStatus("Funded claim code ready");
+
+ const notifyResult = await notifyReceiverOfClaim(
+ result.code,
+ fundingResult.txHash,
+ setSendStatus,
+ );
+ if (notifyResult.ok) {
+ setSendStatus("Funded — claim code sent to receiver");
+ } else {
+ setSendStatus("Funded — claim code ready");
+ setSendError(
+ `Funded on-chain, but receiver notification failed: ${notifyResult.error ?? "unknown error"}. Share the claim code manually for now.`,
+ );
+ }
  } catch (error) {
  setSendError(getErrorMessage(error));
  setSendStatus("Ready");
@@ -2197,13 +2315,33 @@ export function PrivSwiftPayContent({
  savePaymentRecord(record.code, record.payload);
  }
 
+ setPayrollStatus("Sending claim codes to receivers");
+ const notifyResults = await Promise.all(
+ generatedCodes.map((record) =>
+ notifyReceiverOfClaim(record.code, fundingResult.txHash),
+ ),
+ );
+ const notifiedCount = notifyResults.filter((r) => r.ok).length;
+ const firstError = notifyResults.find((r) => !r.ok)?.error;
+
  setPayrollCodes(generatedCodes);
  setPayrollExplorerUrl(
  fundingResult.txHash
  ? `${arcTestnet.blockExplorers.default.url}/tx/${fundingResult.txHash}`
  : "",
  );
- setPayrollStatus(`${generatedCodes.length} payroll code(s) funded`);
+ setPayrollStatus(
+ notifiedCount === generatedCodes.length
+ ? `${generatedCodes.length} payroll code(s) funded and sent to receivers`
+ : `${generatedCodes.length} code(s) funded · ${notifiedCount} receiver notification(s) sent`,
+ );
+ if (notifiedCount < generatedCodes.length) {
+ setPayrollError(
+ firstError
+ ? `Some receiver notifications failed: ${firstError}`
+ : "Some receiver notifications failed. Share claim codes from the list below.",
+ );
+ }
  } catch (error) {
  setPayrollError(getErrorMessage(error));
  setPayrollStatus(activeFolder.name);
@@ -2358,6 +2496,7 @@ export function PrivSwiftPayContent({
  >
  <PrivacyHeroSection />
 
+
  <nav
  aria-label="privSwiftPay features"
  className="flex flex-wrap gap-2 rounded-xl border border-border bg-card/90 p-1 shadow-sm"
@@ -2395,6 +2534,10 @@ export function PrivSwiftPayContent({
  </h1>
  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
  Build a receiver-bound payment code for a privacy-pool claim.
+ After funding, the receiver gets an in-app notification with the
+ claim code and payment details. A{" "}
+ {privacyEscrowFeeBasisPoints / 100}% platform fee is charged on
+ deposit (receiver still gets the full claim amount).
  </p>
  </div>
  <div className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm">
@@ -2437,6 +2580,13 @@ export function PrivSwiftPayContent({
  value={paymentToken}
  />
  </div>
+
+ {isPositiveAmount(paymentAmount) ? (
+ <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
+ Platform fee ({privacyEscrowFeeBasisPoints / 100}%): charged on
+ deposit in addition to the claim amount.
+ </p>
+ ) : null}
 
  <label className="grid gap-2">
  <span className="text-sm font-semibold text-foreground">Note</span>
@@ -2518,6 +2668,10 @@ export function PrivSwiftPayContent({
  </div>
  <p className="max-h-28 overflow-y-auto break-all rounded-lg bg-muted px-3 py-3 font-mono text-xs font-bold leading-5 text-foreground">
  {generatedCode}
+ </p>
+ <p className="mt-2 text-xs leading-5 text-muted-foreground">
+ The receiver also gets this claim code in their notifications bell
+ when they connect with the destination wallet.
  </p>
  </div>
  ) : null}
@@ -2646,7 +2800,9 @@ export function PrivSwiftPayContent({
  </h2>
  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
  Save employee groups and generate receiver-bound claim codes in
- one batch.
+ one batch. A {privacyEscrowFeeBasisPoints / 100}% platform fee is
+ charged on each deposit (employees still receive the full claim
+ amount).
  </p>
  </div>
  <div className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm">

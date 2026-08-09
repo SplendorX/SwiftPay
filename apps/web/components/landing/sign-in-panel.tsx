@@ -36,6 +36,8 @@ export function SignInPanel() {
         </h2>
         <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
           Connect an external wallet or continue with Google for a Circle wallet.
+          External wallets will be asked to sign a one-time message to authorize
+          this device for notifications and secure actions.
         </p>
       </div>
 
@@ -45,7 +47,8 @@ export function SignInPanel() {
           <p className="text-sm font-semibold">External wallet</p>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          MetaMask, WalletConnect, and other Arc-compatible wallets.
+          MetaMask, WalletConnect, and other Arc-compatible wallets. You will
+          sign a short message after connecting to authorize the session.
         </p>
         <div className="mt-3">
           <WalletConnectButton

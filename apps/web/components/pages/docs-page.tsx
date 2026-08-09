@@ -44,6 +44,12 @@ const productAreas: Array<{
     title: "Dashboard",
   },
   {
+    body: "Non-interest savings pockets and Spend&Save. No APY — just segregated stablecoin savings.",
+    href: "/save",
+    icon: Landmark,
+    title: "Swift+Save",
+  },
+  {
     body: "Build a payment request URL with recipient, amount, token, and optional memo fields.",
     href: "/pay",
     icon: FileText,
@@ -74,6 +80,7 @@ const securityNotes = [
   "Private payment claim codes are scoped to the intended receiver wallet.",
   "Recent private-send and payroll records are stored per active wallet profile.",
   "ArcScan links are used for transaction verification and receipt context.",
+  "Swift+Save pocket balances update only after on-chain confirmation; Spend&Save is enforced server-side.",
 ];
 
 const environmentRows = [

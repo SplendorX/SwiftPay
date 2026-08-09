@@ -193,3 +193,29 @@ export async function runRecurringScheduleNow(
 
   return payload.execution;
 }
+
+/** Queue due runs and settle autopay for this owner (no cron wait). */
+export async function processRecurringDue(context: RecurringRequestContext) {
+  const response = await fetch("/api/recurring/process", {
+    body: JSON.stringify(context),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+  return parseResponse<{
+    autopay: {
+      attemptedCount: number;
+      confirmedCount: number;
+      errors: Array<{ executionId: string; message: string }>;
+      scannedCount: number;
+    };
+    due: {
+      createdCount: number;
+      errors: Array<{ scheduleId: string; message: string }>;
+      scannedCount: number;
+    };
+    ok: boolean;
+  }>(response);
+}

@@ -11,6 +11,7 @@ import {
   normalizeRecurringAmount,
   type RecurringWalletMode,
 } from "@/lib/recurring-utils";
+import { processSingleDueSchedule } from "@/lib/recurring-service";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
@@ -219,10 +220,10 @@ export async function POST(request: NextRequest) {
     return jsonError("End date must be after the start date.", 400);
   }
 
-  const autopayEnabled =
-    body.autopayEnabled === true && walletMode === "external";
+  // Client-wallet autopay works for external and Circle — no operator key required.
+  const autopayEnabled = body.autopayEnabled === true;
 
-  const schedule = {
+  const schedulePayload = {
     amount: amount.amount,
     amount_units: amount.amount_units,
     autopay_enabled: autopayEnabled,
@@ -248,7 +249,7 @@ export async function POST(request: NextRequest) {
     const supabase = createSupabaseAdminClient();
     const mutation = await supabase
       .from(schedulesTable)
-      .insert(schedule)
+      .insert(schedulePayload)
       .select("*")
       .single();
 
@@ -256,7 +257,18 @@ export async function POST(request: NextRequest) {
       return jsonError(readSupabaseError(mutation.error), 500);
     }
 
-    return NextResponse.json({ schedule: mutation.data }, { status: 201 });
+    const createdSchedule = mutation.data;
+    let initialRun = null;
+
+    if (new Date(createdSchedule.next_run_at).getTime() <= Date.now()) {
+      try {
+        initialRun = await processSingleDueSchedule(createdSchedule);
+      } catch {
+        initialRun = null;
+      }
+    }
+
+    return NextResponse.json({ initialRun, schedule: createdSchedule }, { status: 201 });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Schedule could not be created.";

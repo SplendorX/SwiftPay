@@ -27,15 +27,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [dueResult, autopayResult] = await Promise.all([
-      processDueRecurringSchedules(),
-      processAutopayExecutions(),
-    ]);
+    const dueResult = await processDueRecurringSchedules();
+    const autopayResult = await processAutopayExecutions();
 
     return NextResponse.json({
       autopayAttemptedCount: autopayResult.attemptedCount,
       autopayConfirmedCount: autopayResult.confirmedCount,
+      autopayErrors: autopayResult.errors,
       createdCount: dueResult.createdCount,
+      dueErrors: dueResult.errors,
       scannedCount: dueResult.scannedCount,
       status: "ok",
     });
