@@ -82,9 +82,6 @@ export function buildPrivSwiftPayClaimNotificationCopy(input: {
 }) {
   const fromLabel = shortenAddress(input.sender);
   const purpose = shortPaymentPurpose(input.note);
-  const txLine = input.depositTxHash
-    ? `Deposit tx: ${input.depositTxHash}`
-    : "";
 
   const title = purpose
     ? `Claim $${input.amount} ${input.token} · ${purpose}`
@@ -95,7 +92,6 @@ export function buildPrivSwiftPayClaimNotificationCopy(input: {
     purpose ? purpose : "",
     `Open PrivSwiftPay → Claim, or use Copy claim code below.`,
     `PAYMENT_ID:${input.paymentId.toLowerCase()}`,
-    txLine,
     `CLAIM_CODE:${input.claimCode.trim()}`,
   ]
     .filter(Boolean)

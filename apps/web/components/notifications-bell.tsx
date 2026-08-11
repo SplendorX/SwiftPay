@@ -114,6 +114,7 @@ function displayBody(item: SavingsNotificationRecord) {
     .split("\n")
     .filter((line) => !/^CLAIM_CODE:/i.test(line.trim()))
     .filter((line) => !/^PAYMENT_ID:/i.test(line.trim()))
+    .filter((line) => !/^Deposit tx:/i.test(line.trim()))
     .filter((line) => !/^PAYMENT_REQUEST_ID:/i.test(line.trim()))
     .filter((line) => !/^PAYMENT_REQUEST_LINK:/i.test(line.trim()))
     .join(" ")
@@ -292,19 +293,24 @@ export function NotificationsBell({ className }: { className?: string }) {
       const next = json.notifications ?? [];
       const nextUnread = json.unreadCount ?? 0;
 
-      // Toast newly discovered receive / claim notifications (after first load).
+      // Toast newly discovered receive / claim / request notifications (after first load).
       if (hasLoadedOnce.current) {
         for (const item of next) {
+          const isClaim = isClaimNotification(item);
+          const isRequest = isPaymentRequestNotification(item);
+          const isReceive =
+            item.kind === "payment_received" && !isClaim && !isRequest;
+
           if (
-            (item.kind === "payment_received" ||
-              item.kind === "privswiftpay_claim" ||
-              isClaimNotification(item)) &&
+            (isReceive || isClaim || isRequest) &&
             !item.read_at &&
             !knownIdsRef.current.has(item.id)
           ) {
             const claimCode = getClaimCodeFromNotification(item);
+            const requestHref = isRequest ? paymentRequestHref(item) : null;
             toast.success(item.title, {
-              description: item.body,
+              description:
+                isClaim || isRequest ? displayBody(item) : item.body,
               action: claimCode
                 ? {
                     label: "Claim",
@@ -312,6 +318,13 @@ export function NotificationsBell({ className }: { className?: string }) {
                       window.location.href = claimPageHref(claimCode);
                     },
                   }
+                : requestHref
+                  ? {
+                      label: "Open",
+                      onClick: () => {
+                        window.location.href = requestHref;
+                      },
+                    }
                 : undefined,
             });
           }

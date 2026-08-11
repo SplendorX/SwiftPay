@@ -333,8 +333,6 @@ export async function createPaymentRequestNotification(input: {
   const body = [
     copy.body,
     input.note ? `Note: ${input.note}` : null,
-    `PAYMENT_REQUEST_ID:${input.requestId}`,
-    `PAYMENT_REQUEST_LINK:${input.requestLink}`,
   ]
     .filter(Boolean)
     .join("\n");
