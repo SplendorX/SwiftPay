@@ -5,11 +5,15 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpen,
+  CalendarClock,
+  ChevronDown,
   CheckCircle2,
   CircleDollarSign,
   Globe2,
   Layers,
   LockKeyhole,
+  PiggyBank,
+  RefreshCw,
   ReceiptText,
   ShieldCheck,
   Sparkles,
@@ -31,16 +35,28 @@ import { Button } from "@/components/ui/button";
 
 const productFlows = [
   {
-    body: "Recipient, amount, review, and confirmation with live fee estimates.",
+    body: "Portfolio balance, interactive value history, direct sends, beneficiaries, receipts, and activity.",
     href: "/dashboard",
     icon: Wallet,
-    title: "Send payments",
+    title: "Dashboard",
   },
   {
     body: "Savings pockets and Spend&Save — no interest, just structured saving.",
     href: "/save",
-    icon: Wallet,
+    icon: PiggyBank,
     title: "Swift+Save",
+  },
+  {
+    body: "Vault performance, earnings context, and Auto-Save controls for supported balances.",
+    href: "/earn",
+    icon: TrendingUp,
+    title: "Earn",
+  },
+  {
+    body: "Swap supported stablecoin balances with Circle-powered routes on Arc Testnet.",
+    href: "/swap",
+    icon: RefreshCw,
+    title: "Swap",
   },
   {
     body: "CSV upload, validation, and settlement for up to 500 recipients.",
@@ -53,6 +69,12 @@ const productFlows = [
     href: "/pay",
     icon: ReceiptText,
     title: "Payment requests",
+  },
+  {
+    body: "Schedule recurring payments, monitor upcoming runs, and execute due settlements.",
+    href: "/swiftRecurepay",
+    icon: CalendarClock,
+    title: "SwiftRecurepay",
   },
   {
     body: "Privacy-first claim codes with receiver-bound settlement on Arc.",
@@ -77,6 +99,44 @@ const demos = [
     description: "Generate links, QR codes, and track request status from a collection hub.",
     stat: "Real-time status",
     title: "Payment requests",
+  },
+  {
+    description: "Recurring schedules, private claim codes, and savings rules share the same wallet profile.",
+    stat: "Profile scoped",
+    title: "Automation suite",
+  },
+];
+
+const faqItems = [
+  {
+    answer:
+      "Use the dashboard for portfolio value, token balances, direct sends, beneficiaries, transaction receipts, and wallet activity. The send panel is organized as a step-by-step payment flow.",
+    question: "What is on the dashboard?",
+  },
+  {
+    answer:
+      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, SwiftBatch, SwiftRecurepay, Payment requests, PrivSwiftPay, Docs, Roadmap, and Settings. The main product workflows are linked directly from the product section.",
+    question: "Which pages are available?",
+  },
+  {
+    answer:
+      "Swift+Save creates non-interest savings pockets and Spend&Save rules. Earn is separate and shows vault performance, earnings context, and Auto-Save controls where supported.",
+    question: "How are Swift+Save and Earn different?",
+  },
+  {
+    answer:
+      "Yes. Payment requests create links and QR codes, SwiftBatch handles CSV payouts up to 500 recipients, SwiftRecurepay manages recurring schedules, and PrivSwiftPay creates receiver-bound claim-code settlement flows.",
+    question: "Can I request, batch, schedule, or send privately?",
+  },
+  {
+    answer:
+      "Sign in with a Circle Google wallet or connect an external wallet. Settings lets users edit their wallet profile, username, and profile photo from their local device.",
+    question: "How do users manage their wallet profile?",
+  },
+  {
+    answer:
+      "The app is built around Arc Testnet with USDC-native gas and stablecoin workflows such as USDC and EURC. Transactions expose ArcScan context where available.",
+    question: "What network and assets does SwiftPay use?",
   },
 ];
 
@@ -192,7 +252,7 @@ export function LandingPage() {
             visualizations — the way modern fintech products communicate trust.
           </p>
         </div>
-        <Stagger className="grid gap-3 md:grid-cols-3">
+        <Stagger className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {demos.map((demo) => (
             <StaggerItem key={demo.title}>
               <article className="marketing-value-card h-full">
@@ -276,6 +336,30 @@ export function LandingPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="marketing-section" id="faq">
+        <div className="marketing-section-header">
+          <p className="section-eyebrow">FAQ</p>
+          <h2 className="section-title">Common SwiftPay questions.</h2>
+          <p className="section-copy">
+            A current map of the dashboard, savings, earn, swap, request,
+            recurring, batch, private-send, and wallet profile workflows.
+          </p>
+        </div>
+        <Stagger className="marketing-faq-grid">
+          {faqItems.map((item) => (
+            <StaggerItem key={item.question}>
+              <details className="marketing-faq-item">
+                <summary>
+                  <span>{item.question}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0" />
+                </summary>
+                <p>{item.answer}</p>
+              </details>
+            </StaggerItem>
+          ))}
+        </Stagger>
       </section>
 
       <section className="marketing-cta">

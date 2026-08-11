@@ -63,14 +63,6 @@ function isValidRedirectUri(value: string) {
 
 const googleProvider = "Google" as Parameters<W3SSdk["performLogin"]>[0];
 
-function shortAddress(value?: string) {
-  if (!value) {
-    return "Pending";
-  }
-
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
-
 function getSupportedTokenSymbol(value?: string): ArcTokenSymbol | undefined {
   const symbol = value?.toUpperCase();
 
@@ -277,9 +269,13 @@ async function callCircleWalletApi<T>(
 
 type CircleGoogleLoginProps = {
   embedded?: boolean;
+  showRefreshWallet?: boolean;
 };
 
-export function CircleGoogleLogin({ embedded = false }: CircleGoogleLoginProps) {
+export function CircleGoogleLogin({
+  embedded = false,
+  showRefreshWallet = true,
+}: CircleGoogleLoginProps) {
   const sdkRef = useRef<W3SSdk | null>(null);
   const setupCompletionStartedRef = useRef(false);
   const envAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
@@ -289,7 +285,7 @@ export function CircleGoogleLogin({ embedded = false }: CircleGoogleLoginProps) 
     process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI?.trim() ?? "";
   const [resolvedAppId, setResolvedAppId] = useState(envAppId);
   const [appConfigChecked, setAppConfigChecked] = useState(false);
-  const [appConfigStatus, setAppConfigStatus] = useState<
+  const [, setAppConfigStatus] = useState<
     "checking" | "mismatch" | "unavailable" | "verified"
   >("checking");
   const [sdkReady, setSdkReady] = useState(false);
@@ -301,7 +297,7 @@ export function CircleGoogleLogin({ embedded = false }: CircleGoogleLoginProps) 
   );
   const [wallets, setWallets] = useState<CircleWallet[]>([]);
   const [balances, setBalances] = useState<CircleTokenBalance[]>([]);
-  const [status, setStatus] = useState("Circle wallet ready");
+  const [, setStatus] = useState("Circle wallet ready");
   const [error, setError] = useState<string | null>(null);
   const [oauthDiagnostic, setOauthDiagnostic] =
     useState<GoogleOAuthDiagnostic | null>(null);
@@ -309,17 +305,6 @@ export function CircleGoogleLogin({ embedded = false }: CircleGoogleLoginProps) 
   const appId = resolvedAppId || envAppId;
   const primaryWallet = wallets[0];
   const isConfigured = Boolean(appId && googleClientId);
-  const hasAppIdMismatch = Boolean(
-    envAppId && resolvedAppId && envAppId !== resolvedAppId,
-  );
-  const appConfigLabel =
-    appConfigStatus === "checking"
-      ? "Checking"
-      : appConfigStatus === "verified"
-        ? "API key verified"
-        : appConfigStatus === "mismatch"
-          ? "Using API key App ID"
-          : "Env fallback";
   const redirectUri = useMemo(() => {
     if (configuredRedirectUri) {
       return configuredRedirectUri;
@@ -945,40 +930,6 @@ export function CircleGoogleLogin({ embedded = false }: CircleGoogleLoginProps) 
         </>
       )}
 
-      <div className="rounded-lg border border-border bg-muted/40 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-muted-foreground">Status</span>
-          <span className="text-right text-sm font-semibold text-foreground">
-            {status}
-          </span>
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-muted-foreground">Wallet</span>
-          <span className="font-mono text-xs font-semibold text-foreground">
-            {shortAddress(primaryWallet?.address)}
-          </span>
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-muted-foreground">Chain</span>
-          <span className="text-sm font-semibold text-foreground">
-            {primaryWallet?.blockchain ?? "ARC-TESTNET"}
-          </span>
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-muted-foreground">Circle App</span>
-          <span className="text-right text-sm font-semibold text-foreground">
-            {appConfigLabel}
-          </span>
-        </div>
-      </div>
-
-      {hasAppIdMismatch ? (
-        <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-800 dark:text-amber-200">
-          NEXT_PUBLIC_CIRCLE_APP_ID does not match this API key. The login flow
-          is using the App ID returned by Circle for CIRCLE_API_KEY.
-        </div>
-      ) : null}
-
       {balances.length > 0 ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {balances.slice(0, 2).map((balance, index) => (
@@ -1027,15 +978,17 @@ export function CircleGoogleLogin({ embedded = false }: CircleGoogleLoginProps) 
 
       <div className={embedded ? "grid gap-2" : "mt-5 grid gap-2"}>
         {primaryAction}
-        <button
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!loginResult?.userToken || isBusy}
-          onClick={() => void loadWallets()}
-          type="button"
-        >
-          <RefreshCw className={`h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
-          Refresh wallet
-        </button>
+        {showRefreshWallet ? (
+          <button
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!loginResult?.userToken || isBusy}
+            onClick={() => void loadWallets()}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
+            Refresh wallet
+          </button>
+        ) : null}
       </div>
     </Shell>
   );

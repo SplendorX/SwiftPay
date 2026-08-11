@@ -16,13 +16,13 @@ import {
   RefreshCw,
   Share2,
   UserPlus,
-  Users,
   Wallet,
   X,
-  Zap,
 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   useAccount,
@@ -44,9 +44,7 @@ import {
   type Hash,
 } from "viem";
 
-import { AnimatedCounter } from "@/components/design/motion";
 import { TokenSelect } from "@/components/design/token-select";
-import { KpiCard } from "@/components/design/kpi-card";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { SendPaymentWizard } from "@/components/dashboard/send-payment-wizard";
 import { DashboardEarnSummary } from "@/components/earn/dashboard-earn-summary";
@@ -66,6 +64,10 @@ import {
   type ProfileRecord,
 } from "@/lib/profile";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
+import {
+  fetchWalletSessionForAddress,
+  signInWalletSession,
+} from "@/lib/wallet-auth-client";
 import {
   getArcScanHistoryUrls,
   normalizeArcScanTokenTransfers,
@@ -191,6 +193,490 @@ function formatTransferTime(value: string | null) {
     minute: "2-digit",
     month: "short",
   }).format(new Date(value));
+}
+
+type PortfolioChartPoint = {
+  dateKey: string;
+  delta: number;
+  label: string;
+  value: number;
+};
+
+function formatUsdValue(value: number | undefined | null) {
+  if (value === undefined || value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    currency: "USD",
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: "currency",
+  }).format(value);
+}
+
+function formatSignedUsdValue(value: number | undefined | null) {
+  if (value === undefined || value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  if (value === 0) {
+    return formatUsdValue(0);
+  }
+
+  return `${value > 0 ? "+" : "-"}${formatUsdValue(Math.abs(value))}`;
+}
+
+function formatPortfolioDateLabel(dateKey: string) {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+
+  if (!Number.isFinite(date.getTime())) {
+    return "Indexed";
+  }
+
+  if (dateKey === new Date().toISOString().slice(0, 10)) {
+    return "Today";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+function shiftPortfolioDateKey(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDashboardGreetingName(username: string) {
+  const normalized = username.trim().replace(/^@+/, "");
+  const compact = normalized.replace(/[_-]+/g, " ");
+
+  return compact
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function getTransferDateKey(timestamp: string | null) {
+  if (!timestamp) {
+    return null;
+  }
+
+  const date = new Date(timestamp);
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+}
+
+function getStablecoinUsdValue(amount: bigint | undefined, decimals: number) {
+  if (amount === undefined) {
+    return undefined;
+  }
+
+  const value = Number(formatUnits(amount, decimals));
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function getTransferUsdDelta(transfer: WalletTransfer) {
+  const amount = Number(transfer.amount);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 0;
+  }
+
+  return transfer.direction === "in" ? amount : -amount;
+}
+
+function buildPortfolioChartPoints(input: {
+  currentValue: number | undefined;
+  transfers: WalletTransfer[];
+}): PortfolioChartPoint[] {
+  if (
+    input.currentValue === undefined ||
+    !Number.isFinite(input.currentValue)
+  ) {
+    return [];
+  }
+
+  const currentValue = Math.max(0, input.currentValue);
+  const dailyDeltas = new Map<string, number>();
+
+  for (const transfer of input.transfers) {
+    const dateKey = getTransferDateKey(transfer.timestamp);
+    const delta = getTransferUsdDelta(transfer);
+
+    if (!dateKey || delta === 0) {
+      continue;
+    }
+
+    dailyDeltas.set(dateKey, (dailyDeltas.get(dateKey) ?? 0) + delta);
+  }
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const dates = [...dailyDeltas.keys()].sort();
+
+  if (dates.length === 0) {
+    const startKey = shiftPortfolioDateKey(todayKey, -6);
+
+    return [
+      {
+        dateKey: startKey,
+        delta: 0,
+        label: formatPortfolioDateLabel(startKey),
+        value: currentValue,
+      },
+      {
+        dateKey: todayKey,
+        delta: 0,
+        label: "Today",
+        value: currentValue,
+      },
+    ];
+  }
+
+  const indexedDelta = [...dailyDeltas.values()].reduce(
+    (total, delta) => total + delta,
+    0,
+  );
+  let runningValue = currentValue - indexedDelta;
+  const firstDateKey = dates[0] ?? todayKey;
+  const points: PortfolioChartPoint[] = [
+    {
+      dateKey: shiftPortfolioDateKey(firstDateKey, -1),
+      delta: 0,
+      label: formatPortfolioDateLabel(shiftPortfolioDateKey(firstDateKey, -1)),
+      value: Math.max(0, runningValue),
+    },
+  ];
+
+  for (const dateKey of dates) {
+    const delta = dailyDeltas.get(dateKey) ?? 0;
+    runningValue += delta;
+    points.push({
+      dateKey,
+      delta,
+      label: formatPortfolioDateLabel(dateKey),
+      value: Math.max(0, runningValue),
+    });
+  }
+
+  const latestPoint = points[points.length - 1];
+
+  if (latestPoint?.dateKey === todayKey) {
+    points[points.length - 1] = {
+      ...latestPoint,
+      label: "Today",
+      value: currentValue,
+    };
+  } else if (latestPoint) {
+    points.push({
+      dateKey: todayKey,
+      delta: currentValue - latestPoint.value,
+      label: "Today",
+      value: currentValue,
+    });
+  }
+
+  return points.slice(-12);
+}
+
+function toChartNumber(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function buildSmoothChartPath(points: { x: number; y: number }[]) {
+  if (points.length === 0) {
+    return "";
+  }
+
+  const firstPoint = points[0];
+  let path = `M ${toChartNumber(firstPoint.x)} ${toChartNumber(firstPoint.y)}`;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const previousPoint = points[index - 1] ?? firstPoint;
+    const point = points[index] ?? previousPoint;
+    const midX = (previousPoint.x + point.x) / 2;
+    path += ` C ${toChartNumber(midX)} ${toChartNumber(previousPoint.y)}, ${toChartNumber(midX)} ${toChartNumber(point.y)}, ${toChartNumber(point.x)} ${toChartNumber(point.y)}`;
+  }
+
+  return path;
+}
+
+function PortfolioValueBoard({
+  addressLabel,
+  changeLabel,
+  currentValue,
+  historyLabel,
+  isConnected,
+  isLoading,
+  points,
+}: {
+  addressLabel: string;
+  changeLabel: string;
+  currentValue: number | undefined;
+  historyLabel: string;
+  isConnected: boolean;
+  isLoading: boolean;
+  points: PortfolioChartPoint[];
+}) {
+  const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
+  const chartPoints =
+    points.length >= 2
+      ? points
+      : [
+          { dateKey: "start", delta: 0, label: "Start", value: 0 },
+          { dateKey: "today", delta: 0, label: "Today", value: 0 },
+        ];
+  const latestPoint = points[points.length - 1];
+  const values = chartPoints.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const isFlatSeries = maxValue === minValue;
+  const range = maxValue - minValue || 1;
+  const width = 640;
+  const height = 190;
+  const paddingX = 10;
+  const paddingTop = 18;
+  const paddingBottom = 28;
+  const chartHeight = height - paddingTop - paddingBottom;
+  const coordinates = chartPoints.map((point, index) => {
+    const x =
+      paddingX +
+      (index / Math.max(chartPoints.length - 1, 1)) * (width - paddingX * 2);
+    const y = isFlatSeries
+      ? paddingTop + chartHeight * 0.48
+      : paddingTop + ((maxValue - point.value) / range) * chartHeight;
+
+    return { x, y };
+  });
+  const linePath = buildSmoothChartPath(coordinates);
+  const firstCoordinate = coordinates[0];
+  const lastCoordinate = coordinates[coordinates.length - 1];
+  const activeIndex = Math.min(
+    activePointIndex ?? Math.max(coordinates.length - 1, 0),
+    Math.max(coordinates.length - 1, 0),
+  );
+  const activeCoordinate = coordinates[activeIndex];
+  const activePoint = chartPoints[activeIndex];
+  const activeTooltipLeft = activeCoordinate
+    ? `${Math.min(92, Math.max(8, (activeCoordinate.x / width) * 100))}%`
+    : "50%";
+  const areaPath =
+    linePath && firstCoordinate && lastCoordinate
+      ? `${linePath} L ${toChartNumber(lastCoordinate.x)} ${height - paddingBottom} L ${toChartNumber(firstCoordinate.x)} ${height - paddingBottom} Z`
+      : "";
+  const valueLabel = !isConnected
+    ? "Connect wallet"
+    : isLoading
+      ? "Loading"
+      : formatUsdValue(currentValue);
+
+  function handleChartPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const relativeX = Math.min(
+      Math.max(event.clientX - bounds.left, 0),
+      bounds.width,
+    );
+    const chartX = (relativeX / Math.max(bounds.width, 1)) * width;
+    const nearestIndex = coordinates.reduce((nearest, coordinate, index) => {
+      const nearestCoordinate = coordinates[nearest] ?? coordinate;
+      return Math.abs(coordinate.x - chartX) <
+        Math.abs(nearestCoordinate.x - chartX)
+        ? index
+        : nearest;
+    }, 0);
+
+    setActivePointIndex(nearestIndex);
+  }
+
+  return (
+    <article className="portfolio-value-board relative overflow-hidden border border-border bg-[linear-gradient(115deg,#f7f3ff_0%,#eff9fb_58%,#d9f8fb_100%)] p-4 shadow-sm dark:bg-[linear-gradient(115deg,rgba(20,18,32,0.95)_0%,rgba(13,31,36,0.95)_58%,rgba(10,47,52,0.95)_100%)] sm:p-5">
+      <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <CircleDollarSign className="h-4 w-4 text-cyan-600" />
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              Portfolio value
+            </p>
+          </div>
+          <p className="mt-2 font-heading text-4xl font-semibold tracking-normal text-foreground sm:text-5xl">
+            {valueLabel}
+          </p>
+          <p className="mt-2 text-sm font-semibold text-muted-foreground">
+            {isConnected ? `Live USD · ${addressLabel}` : "Connect wallet to load live USD"}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <span className="soft-pill soft-pill-live">Arc Testnet live</span>
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${
+              changeLabel.startsWith("+")
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+                : changeLabel.startsWith("-")
+                  ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
+                  : "border-border bg-background/70 text-muted-foreground"
+            }`}
+          >
+            {changeLabel}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="relative z-10 mt-5 h-52 cursor-crosshair touch-none sm:h-56"
+        onPointerLeave={() => setActivePointIndex(null)}
+        onPointerMove={handleChartPointerMove}
+      >
+        <svg
+          aria-label={historyLabel}
+          className="h-full w-full"
+          preserveAspectRatio="none"
+          role="img"
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <defs>
+            <linearGradient id="portfolioAreaGradient" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#00d3dc" stopOpacity="0.34" />
+              <stop offset="100%" stopColor="#00d3dc" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+          {activeCoordinate ? (
+            <line
+              stroke="rgba(15,23,42,0.24)"
+              strokeDasharray="4 5"
+              strokeWidth="1.4"
+              x1={toChartNumber(activeCoordinate.x)}
+              x2={toChartNumber(activeCoordinate.x)}
+              y1={paddingTop}
+              y2={height - paddingBottom}
+            />
+          ) : null}
+          {areaPath ? <path d={areaPath} fill="url(#portfolioAreaGradient)" /> : null}
+          {linePath ? (
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#00d3dc"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="3"
+            />
+          ) : null}
+          {activeCoordinate ? (
+            <circle
+              cx={toChartNumber(activeCoordinate.x)}
+              cy={toChartNumber(activeCoordinate.y)}
+              fill="#00d3dc"
+              r="6"
+              stroke="white"
+              strokeWidth="2.5"
+            />
+          ) : null}
+        </svg>
+
+        <div
+          className="pointer-events-none absolute bottom-12 hidden -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs shadow-xl sm:block"
+          style={{ left: activeTooltipLeft }}
+        >
+          <p className="font-bold text-slate-400">
+            {activePoint?.label ?? latestPoint?.label ?? "Today"}
+          </p>
+          <p className="mt-1 font-black text-cyan-300">
+            Value: {activePoint ? formatUsdValue(activePoint.value) : "—"}
+          </p>
+          <p className="mt-1 font-semibold text-slate-400">
+            Change: {activePoint ? formatSignedUsdValue(activePoint.delta) : "—"}
+          </p>
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between text-xs font-bold text-muted-foreground">
+          <span>{chartPoints[0]?.label ?? "Start"}</span>
+          <span>{historyLabel}</span>
+          <span>{latestPoint?.label ?? "Today"}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+type ActivityDropdownOption<T extends string> = {
+  label: string;
+  value: T;
+};
+
+function ActivityFilterDropdown<T extends string>({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: T) => void;
+  options: ActivityDropdownOption<T>[];
+  value: T;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-semibold text-muted">{label}</span>
+      <div
+        className="relative min-w-40"
+        onBlur={(event) => {
+          const nextTarget = event.relatedTarget as Node | null;
+
+          if (!event.currentTarget.contains(nextTarget)) {
+            setOpen(false);
+          }
+        }}
+      >
+        <button
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className="inline-flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 text-left text-sm font-semibold text-ink shadow-sm transition hover:border-swift-600/40 focus:outline-none focus:ring-2 focus:ring-swift-600/15"
+          onClick={() => setOpen((current) => !current)}
+          type="button"
+        >
+          <span>{selected?.label ?? "All"}</span>
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-muted transition ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+        {open ? (
+          <div
+            className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 overflow-hidden rounded-lg border border-border bg-card shadow-[0_18px_40px_-22px_rgba(15,23,42,0.28)]"
+            role="listbox"
+          >
+            {options.map((option) => (
+              <button
+                aria-selected={option.value === value}
+                className={`flex w-full items-center px-4 py-3 text-left text-sm font-semibold transition hover:bg-swift-600/10 hover:text-swift-700 focus:bg-swift-600/10 focus:text-swift-700 focus:outline-none ${
+                  option.value === value
+                    ? "bg-swift-600/10 text-swift-700"
+                    : "text-ink"
+                }`}
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                role="option"
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </label>
+  );
 }
 
 function getCounterpartyLabel(transfer: WalletTransfer) {
@@ -442,6 +928,8 @@ function buildReceiptJpegDataUrl(
 }
 
 function DashboardContent() {
+  const searchParams = useSearchParams();
+  const dashboardPrefillQuery = searchParams.toString();
   const circleSdkRef = useRef<W3SSdk | null>(null);
   const {
     address: accountAddress,
@@ -514,6 +1002,12 @@ function DashboardContent() {
   const [isSwapEstimating, setIsSwapEstimating] = useState(false);
   const [isSwapPending, setIsSwapPending] = useState(false);
   const [walletTransfers, setWalletTransfers] = useState<WalletTransfer[]>([]);
+  const [activityTypeFilter, setActivityTypeFilter] = useState<
+    "all" | "in" | "out"
+  >("all");
+  const [activityTokenFilter, setActivityTokenFilter] = useState<
+    "all" | ArcTokenSymbol
+  >("all");
   const [receiptTransfer, setReceiptTransfer] = useState<WalletTransfer | null>(
     null,
   );
@@ -628,6 +1122,52 @@ function DashboardContent() {
     EURC: typeof rawEurcBalance === "bigint" ? rawEurcBalance : undefined,
     USDC: typeof rawUsdcBalance === "bigint" ? rawUsdcBalance : undefined,
   } satisfies Record<ArcTokenSymbol, bigint | undefined>;
+
+  const portfolioValue = useMemo(() => {
+    if (!isConnected) {
+      return undefined;
+    }
+
+    const usdcValue = getStablecoinUsdValue(
+      tokenBalances.USDC,
+      arcTestnetTokens.USDC.decimals,
+    );
+    const eurcValue = getStablecoinUsdValue(
+      tokenBalances.EURC,
+      arcTestnetTokens.EURC.decimals,
+    );
+
+    if (usdcValue === undefined || eurcValue === undefined) {
+      return undefined;
+    }
+
+    return usdcValue + eurcValue;
+  }, [isConnected, tokenBalances.EURC, tokenBalances.USDC]);
+  const portfolioChartPoints = useMemo(
+    () =>
+      buildPortfolioChartPoints({
+        currentValue: portfolioValue,
+        transfers: walletTransfers,
+      }),
+    [portfolioValue, walletTransfers],
+  );
+  const previousPortfolioPoint =
+    portfolioChartPoints.length > 1
+      ? portfolioChartPoints[portfolioChartPoints.length - 2]
+      : undefined;
+  const portfolioChangeValue =
+    portfolioValue !== undefined && previousPortfolioPoint
+      ? portfolioValue - previousPortfolioPoint.value
+      : undefined;
+  const portfolioChangeLabel =
+    portfolioChangeValue === undefined
+      ? "Indexed by ArcScan"
+      : `${formatSignedUsdValue(portfolioChangeValue)} since ${previousPortfolioPoint?.label ?? "last point"}`;
+  const portfolioHistoryLabel =
+    walletTransfers.some((transfer) => getTransferDateKey(transfer.timestamp))
+      ? "Indexed daily shifts"
+      : "No indexed changes";
+  const isPortfolioLoading = Boolean(isConnected && portfolioValue === undefined);
 
   const selectedTokenBalance = tokenBalances[selectedToken];
   const nativeBalanceText = nativeBalance
@@ -946,7 +1486,7 @@ function DashboardContent() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(dashboardPrefillQuery);
     const requestedRecipient = params.get("recipient") ?? params.get("to");
     const requestedUsername = params.get("username");
     const requestedAmount = params.get("amount");
@@ -990,7 +1530,7 @@ function DashboardContent() {
     ) {
       setPaymentNarration("Payment request link");
     }
-  }, []);
+  }, [dashboardPrefillQuery]);
 
   useEffect(() => {
     if (!address) {
@@ -1338,13 +1878,6 @@ function DashboardContent() {
       setIsAuthLoading(true);
 
       try {
-        const { fetchWalletSessionForAddress } = await import(
-          "@/lib/wallet-auth-client"
-        );
-        if (controller.signal.aborted) {
-          return;
-        }
-
         const session = await fetchWalletSessionForAddress(connectedAddress);
         if (controller.signal.aborted) {
           return;
@@ -1491,51 +2024,13 @@ function DashboardContent() {
       setIsAuthLoading(true);
 
       const ownerWallet = getAddress(address);
-      const challengeResponse = await fetch("/api/auth/wallet", {
-        body: JSON.stringify({
-          action: "challenge",
-          connectorName: connector?.name,
-          ownerWallet,
-        }),
-        headers: {
-          "content-type": "application/json",
-        },
-        method: "POST",
+      const session = await signInWalletSession({
+        connectorName: connector?.name,
+        ownerWallet,
+        signMessage: (message) => signMessageAsync({ message }),
       });
-      const challengePayload = (await challengeResponse.json()) as {
-        message?: string;
-        signingMessage?: string;
-      };
 
-      if (!challengeResponse.ok || !challengePayload.signingMessage) {
-        throw new Error(
-          challengePayload.message ?? "Wallet sign-in could not start.",
-        );
-      }
-
-      const signature = await signMessageAsync({
-        message: challengePayload.signingMessage,
-      });
-      const verifyResponse = await fetch("/api/auth/wallet", {
-        body: JSON.stringify({
-          action: "verify",
-          signature,
-        }),
-        headers: {
-          "content-type": "application/json",
-        },
-        method: "POST",
-      });
-      const verifyPayload = (await verifyResponse.json()) as {
-        message?: string;
-        ownerWallet?: string;
-      };
-
-      if (!verifyResponse.ok || !verifyPayload.ownerWallet) {
-        throw new Error(verifyPayload.message ?? "Wallet sign-in failed.");
-      }
-
-      setAuthWallet(verifyPayload.ownerWallet);
+      setAuthWallet(session.ownerWallet ?? ownerWallet);
       setBeneficiaryStatus("Wallet session ready");
     } catch (error) {
       setBeneficiaryError(getErrorMessage(error));
@@ -2162,6 +2657,23 @@ function DashboardContent() {
   const eurcDisplay = isConnected
     ? formatTokenAmount(tokenBalances.EURC, arcTestnetTokens.EURC.decimals, "EURC")
     : "—";
+  const filteredWalletTransfers = useMemo(
+    () =>
+      walletTransfers.filter((transfer) => {
+        const typeMatches =
+          activityTypeFilter === "all" ||
+          transfer.direction === activityTypeFilter;
+        const tokenMatches =
+          activityTokenFilter === "all" ||
+          transfer.symbol === activityTokenFilter;
+
+        return typeMatches && tokenMatches;
+      }),
+    [activityTokenFilter, activityTypeFilter, walletTransfers],
+  );
+  const dashboardGreetingName = walletProfile?.username
+    ? formatDashboardGreetingName(walletProfile.username)
+    : null;
 
   return (
     <PlatformChrome
@@ -2189,13 +2701,15 @@ function DashboardContent() {
       subtitle="Financial command center"
       title="Dashboard"
     >
-        <section className="section-panel">
-          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <section className="section-panel" id="balances">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="section-eyebrow">Welcome back</p>
-              <h1 className="section-title">Your financial command center</h1>
+              <p className="text-base font-black tracking-normal text-swift-700 dark:text-lavender-300 sm:text-lg">
+                Welcome back{dashboardGreetingName ? `, ${dashboardGreetingName}` : ""}
+              </p>
+              <h1 className="section-title">Your funds, ready</h1>
               <p className="section-copy">
-                Balances, payments, and settlement activity on Arc Testnet.
+                Live portfolio, token balances, and settlement activity on Arc Testnet.
               </p>
             </div>
             <p className="font-mono text-xs text-muted-foreground">
@@ -2203,52 +2717,17 @@ function DashboardContent() {
             </p>
           </div>
 
-          <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard
-              change={isConnected ? "Available now" : "Connect wallet"}
-              changeTone={isConnected ? "positive" : "neutral"}
-              icon={Wallet}
-              label="Current balance"
-              value={<AnimatedCounter value={usdcDisplay} />}
-            />
-            <KpiCard
-              change="EURC rail"
-              icon={CircleDollarSign}
-              label="EURC balance"
-              value={<AnimatedCounter value={eurcDisplay} />}
-            />
-            <KpiCard
-              change={isEmbeddedWalletMode ? "Circle wallet" : "External wallet"}
-              icon={Users}
-              label="Wallet mode"
-              value={isEmbeddedWalletMode ? "Circle" : "External"}
-            />
-            <KpiCard
-              change="Arc Testnet"
-              icon={Zap}
-              label="Network funds"
-              value={<AnimatedCounter value={nativeBalanceText} />}
-            />
-          </div>
-
-          <DashboardEarnSummary
-            availableUsdc={
-              typeof rawUsdcBalance === "bigint" ? rawUsdcBalance : undefined
-            }
+          <PortfolioValueBoard
+            addressLabel={shortenAddress(walletAddress)}
+            changeLabel={portfolioChangeLabel}
+            currentValue={portfolioValue}
+            historyLabel={portfolioHistoryLabel}
+            isConnected={isConnected}
+            isLoading={isPortfolioLoading}
+            points={portfolioChartPoints}
           />
 
-          <QuickActions className="mb-2" />
-        </section>
-
-        <section className="glass-panel p-4 sm:p-5" id="balances">
-          <div className="mb-5">
-            <p className="section-eyebrow">Balances</p>
-            <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-              Your funds, ready
-            </h2>
-          </div>
-
-          <div className="grid gap-3 lg:grid-cols-3">
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
             {(["USDC", "EURC"] as const).map((symbol) => {
               const token = arcTestnetTokens[symbol];
               const balance = tokenBalances[symbol];
@@ -2353,8 +2832,19 @@ function DashboardContent() {
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_30rem]" id="send">
-          <div className="glass-panel p-4 sm:p-5">
+        <DashboardEarnSummary
+          availableUsdc={
+            typeof rawUsdcBalance === "bigint" ? rawUsdcBalance : undefined
+          }
+        />
+
+        <QuickActions className="mb-2" />
+
+        <section
+          className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_30rem]"
+          id="send"
+        >
+          <div className="glass-panel self-start p-4 sm:p-5">
             <SendPaymentWizard
               address={address}
               authWallet={authWallet}
@@ -2471,141 +2961,138 @@ function DashboardContent() {
               </div>
             </div>
 
-            <div
-              className="surface-panel min-h-0 p-4 sm:p-5"
-              id="activity"
-            >
-              <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
-                <div className="min-w-0">
-                  <p className="eyebrow">Activity</p>
-                  <h2 className="mt-3 font-heading text-xl font-semibold tracking-normal text-ink sm:text-2xl">
-                    Wallet transactions
-                  </h2>
-                </div>
-                <ReceiptText className="h-5 w-5 shrink-0 text-swift-600" />
-              </div>
+          </div>
+        </section>
 
-              <div className="grid max-h-[20rem] gap-3 overflow-y-auto overscroll-contain pr-1 sm:max-h-[24rem] lg:max-h-[27rem]">
-                {!isConnected ? (
-                  <div className="rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
-                    Connect a wallet to load transactions.
-                  </div>
-                ) : isTransfersLoading ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading wallet transactions
-                  </div>
-                ) : transfersError ? (
-                  <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-400">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span className="min-w-0 break-words">
-                      {transfersError}
-                    </span>
-                  </div>
-                ) : walletTransfers.length === 0 ? (
-                  <div className="rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
-                    No recent USDC or EURC transfers found.
-                  </div>
-                ) : (
-                  walletTransfers.map((transfer) => (
-                    <article
-                      className="grid gap-3 rounded-lg border border-border bg-card px-3 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600/45 hover:shadow-[0_10px_22px_rgba(66,17,143,0.08)] sm:grid-cols-[minmax(0,1fr)_auto] sm:px-4"
-                      key={`${transfer.hash}-${transfer.symbol}-${transfer.direction}-${transfer.logIndex}`}
-                    >
-                      <div className="min-w-0">
-                        <p className="inline-flex max-w-full items-center gap-1.5 truncate text-sm font-bold text-ink">
-                          <TokenIcon
-                            className="h-4 w-4 shrink-0 rounded-full"
-                            symbol={transfer.symbol}
-                          />
-                          <span className="truncate">
-                            {transfer.direction === "out" ? "Sent" : "Received"}{" "}
-                            {transfer.symbol}
-                          </span>
-                        </p>
-                        <p className="truncate text-xs font-medium text-muted">
-                          {transfer.direction === "out" ? "To" : "From"}{" "}
-                          {getCounterpartyLabel(transfer)} -{" "}
-                          {formatTransferTime(transfer.timestamp)}
-                        </p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <button
-                            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground transition hover:border-swift-600 hover:text-swift-700"
-                            onClick={() => setReceiptTransfer(transfer)}
-                            type="button"
-                          >
-                            <ReceiptText className="h-3.5 w-3.5" />
-                            Receipt
-                          </button>
-                          <button
-                            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground transition hover:border-swift-600 hover:text-swift-700"
-                            onClick={() => downloadReceipt(transfer)}
-                            type="button"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            JPEG
-                          </button>
-                          <button
-                            className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground transition hover:border-swift-600 hover:text-swift-700"
-                            onClick={() => void shareReceipt(transfer)}
-                            type="button"
-                          >
-                            <Share2 className="h-3.5 w-3.5" />
-                            Share
-                          </button>
-                          <a
-                            className="inline-flex h-8 items-center justify-center gap-1 rounded-md bg-muted px-2 text-xs font-bold text-swift-700 transition hover:bg-swift-700 hover:text-white"
-                            href={`${arcTestnet.blockExplorers.default.url}/tx/${transfer.hash}`}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            ArcScan
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        </div>
-                      </div>
-                      <div className="flex min-w-0 items-center justify-between gap-3 sm:block sm:text-right">
-                        <p
-                          className={`min-w-0 truncate text-sm font-bold ${
-                            transfer.direction === "out"
-                              ? "text-rose-600"
-                              : "text-emerald-700"
-                          }`}
-                        >
-                          <span className="inline-flex items-center justify-end gap-1.5">
-                            <TokenIcon
-                              className="h-4 w-4 shrink-0 rounded-full"
-                              symbol={transfer.symbol}
-                            />
-                            <span>
-                              {transfer.direction === "out" ? "-" : "+"}
-                              {formatDisplayAmount(transfer.amount)}{" "}
-                              {transfer.symbol}
-                            </span>
-                          </span>
-                        </p>
-                        <p className="shrink-0 text-xs font-bold text-muted">
-                          Block {transfer.blockNumber}
-                        </p>
-                      </div>
-                    </article>
-                  ))
-                )}
-              </div>
-
-              <div className="mt-5 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-muted">Gas balance: {nativeBalanceText}</span>
-                <a
-                  className="inline-flex items-center gap-2 font-bold text-swift-700 transition hover:text-swift-600"
-                  href={walletExplorerUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Wallet on ArcScan
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </div>
+        <section className="surface-panel p-4 sm:p-5" id="activity">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="eyebrow">Activity</p>
+              <h2 className="mt-3 font-heading text-xl font-semibold tracking-normal text-ink sm:text-2xl">
+                Wallet transactions
+              </h2>
             </div>
+            <ReceiptText className="h-5 w-5 shrink-0 text-swift-600" />
+          </div>
+
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ActivityFilterDropdown
+                label="Type"
+                onChange={setActivityTypeFilter}
+                options={[
+                  { label: "All types", value: "all" },
+                  { label: "Send", value: "out" },
+                  { label: "Receive", value: "in" },
+                ]}
+                value={activityTypeFilter}
+              />
+
+              <ActivityFilterDropdown
+                label="Token"
+                onChange={setActivityTokenFilter}
+                options={[
+                  { label: "All tokens", value: "all" },
+                  { label: "USDC", value: "USDC" },
+                  { label: "EURC", value: "EURC" },
+                ]}
+                value={activityTokenFilter}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <ReceiptText className="h-4 w-4 shrink-0 text-swift-600" />
+              <span>
+                {filteredWalletTransfers.length} of {walletTransfers.length}{" "}
+                transactions
+              </span>
+            </div>
+          </div>
+
+          <div className="grid max-h-[30rem] gap-3 overflow-y-auto overscroll-contain pr-1">
+            {!isConnected ? (
+              <div className="rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
+                Connect a wallet to load transactions.
+              </div>
+            ) : isTransfersLoading ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading wallet transactions
+              </div>
+            ) : transfersError ? (
+              <div className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-700 dark:text-rose-400">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="min-w-0 break-words">{transfersError}</span>
+              </div>
+            ) : walletTransfers.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
+                No recent USDC or EURC transfers found.
+              </div>
+            ) : filteredWalletTransfers.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
+                No transactions match these filters.
+              </div>
+            ) : (
+              filteredWalletTransfers.map((transfer) => (
+                <article
+                  className="grid gap-3 rounded-lg border border-border bg-card px-4 py-4 shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600/45 hover:shadow-[0_10px_22px_rgba(66,17,143,0.08)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                  key={`${transfer.hash}-${transfer.symbol}-${transfer.direction}-${transfer.logIndex}`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted">
+                        {transfer.direction === "out" ? "Send" : "Receive"}
+                      </span>
+                      <span className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600">
+                        Confirmed
+                      </span>
+                    </div>
+                    <p className="mt-2 truncate text-base font-semibold text-ink">
+                      {transfer.direction === "out" ? "-" : "+"}
+                      {formatDisplayAmount(transfer.amount)} {transfer.symbol} ·{" "}
+                      {transfer.direction === "out" ? "to" : "from"}{" "}
+                      {getCounterpartyLabel(transfer)}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-muted">
+                      {formatTransferTime(transfer.timestamp)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <button
+                      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:border-swift-600 hover:text-swift-700"
+                      onClick={() => setReceiptTransfer(transfer)}
+                      type="button"
+                    >
+                      <ReceiptText className="h-3.5 w-3.5" />
+                      Receipt
+                    </button>
+                    <a
+                      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-muted px-3 text-sm font-bold text-swift-700 transition hover:bg-swift-700 hover:text-white"
+                      href={`${arcTestnet.blockExplorers.default.url}/tx/${transfer.hash}`}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Explorer
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+
+          <div className="mt-5 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-muted">Gas balance: {nativeBalanceText}</span>
+            <a
+              className="inline-flex items-center gap-2 font-bold text-swift-700 transition hover:text-swift-600"
+              href={walletExplorerUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Wallet on ArcScan
+              <ExternalLink className="h-4 w-4" />
+            </a>
           </div>
         </section>
       {receiptTransfer ? (

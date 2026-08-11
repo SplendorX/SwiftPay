@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Copy,
   LogOut,
-  Mail,
   UserCircle,
   Wallet,
 } from "lucide-react";
@@ -83,6 +82,57 @@ function GoogleLogo({ className = "h-4 w-4" }: { className?: string }) {
         fill="#EA4335"
       />
     </svg>
+  );
+}
+
+function getProfileInitials(value?: string | null) {
+  const normalized = value?.replace(/^@+/, "").replace(/[_-]+/g, " ").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
+function ProfileAvatar({
+  avatarUrl,
+  fallbackLabel,
+  size = "md",
+}: {
+  avatarUrl?: string | null;
+  fallbackLabel?: string | null;
+  size?: "lg" | "md";
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = getProfileInitials(fallbackLabel);
+  const sizeClass = size === "lg" ? "h-12 w-12" : "h-7 w-7";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
+  return (
+    <span
+      className={`inline-flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full border border-swift-600/20 bg-gradient-to-br from-swift-600 to-lavender-500 text-xs font-black text-white shadow-sm`}
+    >
+      {avatarUrl && !imageFailed ? (
+        <img
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+          src={avatarUrl}
+        />
+      ) : initials ? (
+        <span>{initials}</span>
+      ) : (
+        <UserCircle className={size === "lg" ? "h-6 w-6" : "h-4 w-4"} />
+      )}
+    </span>
   );
 }
 
@@ -425,7 +475,10 @@ export function ProfileMenu({
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
-        <UserCircle className="h-4 w-4 shrink-0" />
+        <ProfileAvatar
+          avatarUrl={profile?.avatar_url}
+          fallbackLabel={profile?.username ?? profilePrimaryLabel}
+        />
         <span className="hidden min-w-0 truncate sm:inline">{buttonLabel}</span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/75" />
       </button>
@@ -437,13 +490,11 @@ export function ProfileMenu({
         >
           <div className="rounded-lg border border-border bg-muted px-3 py-3">
             <div className="flex items-start gap-3">
-              <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-card text-primary shadow-sm">
-                {activeLogin ? (
-                  <Mail className="h-4 w-4" />
-                ) : (
-                  <Wallet className="h-4 w-4" />
-                )}
-              </div>
+              <ProfileAvatar
+                avatarUrl={profile?.avatar_url}
+                fallbackLabel={profile?.username ?? profilePrimaryLabel}
+                size="lg"
+              />
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-muted">
                   {profileProviderLabel}

@@ -8,7 +8,6 @@ import {
   CircleDollarSign,
   Clock3,
   Globe2,
-  Landmark,
   Sparkles,
   Zap,
   type LucideIcon,
@@ -34,14 +33,6 @@ const roadmapTracks: Array<{
   title: string;
 }> = [
   {
-    body: "Make everyday stablecoin movement feel as simple as a fintech account balance.",
-    icon: Zap,
-    items: ["Send and swap flows", "Payment request links", "SwiftRecurepay recurring payments", "Privacy payments and bulk payments"],
-    phase: "Phase 01",
-    status: "completed",
-    title: "Core Money Movement",
-  },
-  {
     body: "Reduce onboarding friction while giving users stronger account controls.",
     icon: CheckCircle2,
     items: [
@@ -50,42 +41,94 @@ const roadmapTracks: Array<{
       "Profile updates and usernames",
       "Username transactions",
       "Session and device management",
+      "Wallet authorization on sign-in",
     ],
-    phase: "Phase 02",
+    phase: "Phase 01",
     status: "completed",
     title: "Identity And Wallet Access",
   },
   {
-    body: "Expand SwiftPay from single-network payments into broader liquidity and routing.",
-    icon: Globe2,
-    items: ["Liquidity pool", "Multi-chain support", "Cross-chain bridging", "Gateway infrastructure"],
-    phase: "Phase 03",
-    status: "upcoming",
-    title: "Liquidity And Network Expansion",
+    body: "Make everyday stablecoin movement feel as simple as a fintech account balance.",
+    icon: Zap,
+    items: [
+      "Send and swap flows",
+      "Payment request links",
+      "SwiftRecurepay recurring payments",
+      "PrivSwiftPay claim codes and payroll",
+      "SwiftBatch bulk payments",
+    ],
+    phase: "Phase 02",
+    status: "completed",
+    title: "Core Money Movement",
   },
   {
-    body: "Add savings, rewards, and retention loops around stablecoin balances.",
+    body: "Let users set money aside without interest complexity — pockets, targets, and auto-save.",
     icon: CircleDollarSign,
-    items: ["Stable savings account", "Auto-yield stablecoin vaults", "Staking rewards", "Cashback rewards", "Referral system"],
+    items: [
+      "Swift+Save pockets (deposit / withdraw)",
+      "Spend&Save after payments",
+      "Target caps and refunds",
+      "In-app notifications and payment received alerts",
+      "PrivSwiftPay claim codes delivered to receivers",
+    ],
+    phase: "Phase 03",
+    status: "completed",
+    title: "Savings And Spend&Save",
+  },
+  {
+    body: "Optional yield on idle USDC through vaults and auto-save into Earn.",
+    icon: Sparkles,
+    items: [
+      "SwiftPay Earn vault (ERC-4626)",
+      "Aave USDC yield strategy",
+      "Earn Auto-Save rules",
+      "Performance and APY views",
+      "Admin earn controls",
+    ],
     phase: "Phase 04",
+    status: "in-progress",
+    title: "Earn And Yield Vaults",
+  },
+  {
+    body: "Add retention loops around balances — rewards, staking, and growth loops.",
+    icon: CircleDollarSign,
+    items: [
+      "Staking rewards",
+      "Cashback rewards",
+      "Referral system",
+      "Loyalty and retention campaigns",
+    ],
+    phase: "Phase 05",
     status: "upcoming",
-    title: "Yield, Rewards, And Growth",
+    title: "Rewards And Growth",
   },
   {
     body: "Move from payment tools to guided financial automation.",
     icon: Bot,
-    items: ["AI spending insights", "Smart budgeting assistant", "Natural language payments", "AI payment agent"],
-    phase: "Phase 05",
+    items: [
+      "AI spending insights",
+      "Smart budgeting assistant",
+      "Natural language payments",
+      "AI payment agent",
+    ],
+    phase: "Phase 06",
     status: "upcoming",
     title: "AI Finance Assistant",
   },
   {
-    body: "Connect onchain balances back into local financial rails and advanced markets.",
-    icon: Landmark,
-    items: ["Local bank withdrawals", "Prediction markets"],
-    phase: "Phase 06",
+    body: "Expand beyond a single network and connect onchain balances to broader rails.",
+    icon: Globe2,
+    items: [
+      "Liquidity pool",
+      "Multi-chain support",
+      "Cross-chain bridging",
+      "Gateway infrastructure",
+      "Local bank withdrawals",
+      "Prediction markets",
+    ],
+    phase: "Phase 07",
     status: "upcoming",
-    title: "Fiat Rails And Advanced Products",
+    title: "Liquidity, Multi-Chain, And Fiat Rails",
   },
 ];
 
@@ -173,9 +216,9 @@ export function RoadmapPageContent() {
               Building financial infrastructure, phase by phase.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-              From core money movement to identity, liquidity, AI automation,
-              and fiat rails — a product timeline for teams shipping real
-              payment workflows.
+              From core money movement and identity through savings, earn,
+              rewards, AI automation, then multi-chain and fiat rails — a
+              product timeline for teams shipping real payment workflows.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Button asChild>
@@ -192,8 +235,8 @@ export function RoadmapPageContent() {
 
           <div className="mt-5 grid gap-2 lg:mt-0">
             {[
-              { label: "Tracks", value: "6" },
-              { label: "Feature bets", value: "24" },
+              { label: "Tracks", value: "7" },
+              { label: "Feature bets", value: "32" },
               { label: "Focus", value: "SwiftPay OS" },
             ].map((stat) => (
               <Card className="feature-card" key={stat.label}>

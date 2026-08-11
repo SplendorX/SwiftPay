@@ -6,6 +6,12 @@ export type WalletSessionStatus = {
   ownerWallet?: string;
 };
 
+const walletSignInRequests = new Map<string, Promise<WalletSessionStatus>>();
+
+function walletSignInRequestKey(ownerWallet: string) {
+  return ownerWallet.toLowerCase();
+}
+
 /** Fired on window when the server wallet session cookie is cleared or replaced. */
 export const walletSessionChangedEventName = "swiftpay:wallet-session-changed";
 
@@ -90,9 +96,41 @@ export async function signInWalletSession(input: {
   ownerWallet: string;
   signMessage: (message: string) => Promise<string>;
 }) {
+  const key = walletSignInRequestKey(input.ownerWallet);
+  const pendingRequest = walletSignInRequests.get(key);
+
+  if (pendingRequest) {
+    return pendingRequest;
+  }
+
+  const request = signInWalletSessionOnce(input);
+  walletSignInRequests.set(key, request);
+
+  try {
+    return await request;
+  } finally {
+    if (walletSignInRequests.get(key) === request) {
+      walletSignInRequests.delete(key);
+    }
+  }
+}
+
+async function signInWalletSessionOnce(input: {
+  connectorName?: string;
+  ownerWallet: string;
+  signMessage: (message: string) => Promise<string>;
+}) {
   // Drop any previous wallet session before starting a new challenge.
   try {
     const existing = await fetchWalletSession();
+    if (
+      existing.authenticated &&
+      existing.ownerWallet &&
+      existing.ownerWallet.toLowerCase() === input.ownerWallet.toLowerCase()
+    ) {
+      return existing;
+    }
+
     if (
       existing.authenticated &&
       existing.ownerWallet &&

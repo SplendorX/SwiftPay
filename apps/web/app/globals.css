@@ -46,6 +46,9 @@
   --chart-4: oklch(0.72 0.16 85);
   --chart-5: oklch(0.65 0.2 330);
   --radius: 0.625rem;
+  --swift-panel-radius: 1.6rem;
+  --swift-card-radius: 1.45rem;
+  --swift-control-radius: 1rem;
   --sidebar: oklch(0.995 0.002 285);
   --sidebar-foreground: oklch(0.2 0.02 285);
   --sidebar-primary: oklch(0.52 0.22 292);
@@ -134,11 +137,11 @@ html[data-theme="dark"] {
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-sm: calc(var(--swift-control-radius) * 0.65);
+  --radius-md: calc(var(--swift-control-radius) * 0.85);
+  --radius-lg: var(--swift-card-radius);
+  --radius-xl: var(--swift-card-radius);
+  --radius-2xl: var(--swift-panel-radius);
 }
 
 * {
@@ -182,14 +185,14 @@ button {
 .surface-panel,
 .glass-panel {
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) + 2px);
+  border-radius: var(--swift-panel-radius);
   background: var(--card);
   box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 4%, transparent);
 }
 
 .surface-card {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   background: var(--card);
 }
 
@@ -232,7 +235,7 @@ button {
 
 .field-shell {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--swift-control-radius);
   background: var(--background);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
@@ -340,10 +343,14 @@ html.dark .platform-wordmark-swift,
 }
 
 .section-panel {
-  border-radius: calc(var(--radius) + 4px);
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.25rem;
+}
+
+.portfolio-value-board {
+  border-radius: var(--swift-panel-radius);
 }
 
 @media (min-width: 640px) {
@@ -364,6 +371,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .feature-card {
+  border-radius: var(--swift-card-radius);
   border-color: var(--border);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -374,7 +382,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .kpi-card {
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1rem 1.125rem;
@@ -467,7 +475,7 @@ html.dark .platform-wordmark-swift,
   align-items: flex-start;
   justify-content: center;
   gap: 0.375rem;
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 0.75rem 0.875rem;
@@ -487,7 +495,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .privacy-hero {
-  border-radius: calc(var(--radius) + 4px);
+  border-radius: var(--swift-panel-radius);
   border: 1px solid color-mix(in oklch, var(--primary) 20%, var(--border));
   background:
     radial-gradient(ellipse 70% 50% at 0% 0%, color-mix(in oklch, var(--primary) 8%, transparent), transparent),
@@ -498,7 +506,7 @@ html.dark .platform-wordmark-swift,
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 0.75rem 1rem;
@@ -534,7 +542,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .activity-feed {
-  border-radius: calc(var(--radius) + 2px);
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 0.875rem;
@@ -545,7 +553,7 @@ html.dark .platform-wordmark-swift,
   align-items: center;
   justify-content: space-between;
   gap: 0.625rem;
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--background);
   padding: 0.5rem 0.625rem;
@@ -603,7 +611,105 @@ html.dark .platform-wordmark-swift,
 }
 
 .send-wizard-body {
-  min-height: 12rem;
+  display: grid;
+}
+
+select {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+select.field-shell,
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--foreground) 50%),
+    linear-gradient(135deg, var(--foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) 50%,
+    calc(100% - 0.7rem) 50%;
+  background-repeat: no-repeat;
+  background-size: 0.32rem 0.32rem, 0.32rem 0.32rem;
+  padding-right: 2.5rem;
+}
+
+select option,
+select.field-shell option {
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+select.field-shell:focus,
+select:focus {
+  border-color: color-mix(in oklch, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+  outline: none;
+}
+
+.activity-filter-select {
+  position: relative;
+  min-width: 10rem;
+}
+
+.activity-filter-trigger {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: var(--swift-control-radius);
+  border: 1px solid var(--border);
+  background: var(--background);
+  padding: 0 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.activity-filter-trigger[aria-expanded="true"],
+.activity-filter-trigger:focus-visible {
+  border-color: color-mix(in oklch, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+  outline: none;
+}
+
+.activity-filter-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  border-radius: var(--swift-control-radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 18px 40px -22px color-mix(in oklch, var(--foreground) 28%, transparent);
+}
+
+.activity-filter-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.activity-filter-option:hover,
+.activity-filter-option:focus-visible,
+.activity-filter-option[aria-selected="true"] {
+  background: color-mix(in oklch, var(--primary) 10%, var(--muted));
+  color: var(--primary);
+  outline: none;
 }
 
 .payment-route-viz {
@@ -912,7 +1018,7 @@ html.dark .platform-wordmark-swift,
   display: flex;
   min-height: 11rem;
   flex-direction: column;
-  border-radius: calc(var(--radius) + 2px);
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.25rem;
@@ -947,15 +1053,63 @@ html.dark .platform-wordmark-swift,
 }
 
 .marketing-value-card {
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1rem;
 }
 
+.marketing-faq-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.marketing-faq-item {
+  overflow: hidden;
+  border-radius: var(--swift-panel-radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.marketing-faq-item summary {
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem 1.5rem;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.marketing-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.marketing-faq-item summary svg {
+  color: var(--muted-foreground);
+  transition: transform 0.18s ease;
+}
+
+.marketing-faq-item[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.marketing-faq-item p {
+  margin: 0;
+  border-top: 1px solid var(--border);
+  padding: 1rem 1.5rem 1.35rem;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+
 .marketing-cta {
   margin-top: 1.5rem;
-  border-radius: calc(var(--radius) + 6px);
+  border-radius: var(--swift-panel-radius);
   background: linear-gradient(135deg, #3b0764 0%, #5b21b6 40%, #7c3aed 100%);
   box-shadow: 0 20px 50px -20px color-mix(in oklch, var(--primary) 45%, transparent);
 }
@@ -1093,7 +1247,7 @@ html.dark .platform-wordmark-swift,
   min-width: 0;
   align-items: center;
   gap: 0.625rem;
-  border-radius: calc(var(--radius) + 2px);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: color-mix(in oklch, var(--card) 92%, var(--chart-2) 4%);
   padding: 0.625rem 0.75rem;
@@ -1145,7 +1299,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .preview-panel {
-  border-radius: calc(var(--radius) + 6px);
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   box-shadow:
@@ -1185,7 +1339,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .preview-metric {
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--background);
   padding: 0.625rem 0.75rem;
@@ -1194,7 +1348,7 @@ html.dark .platform-wordmark-swift,
 .preview-chart {
   margin-top: 0.625rem;
   height: 4.5rem;
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--background);
   overflow: hidden;
@@ -1226,7 +1380,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .sign-in-panel {
-  border-radius: calc(var(--radius) + 4px);
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.25rem;
@@ -1244,7 +1398,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .sign-in-option {
-  border-radius: var(--radius);
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--background);
   padding: 1rem;
@@ -1467,7 +1621,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .confidential-aurora-card {
-  border-radius: calc(var(--radius) + 6px);
+  border-radius: var(--swift-panel-radius);
   border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
   background:
     radial-gradient(ellipse 80% 60% at 10% 0%, color-mix(in oklch, var(--primary) 22%, transparent), transparent),
@@ -1535,7 +1689,7 @@ html.dark .platform-wordmark-swift,
   display: flex;
   gap: 0.75rem;
   align-items: flex-start;
-  border-radius: 1rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   padding: 1rem 1.15rem;
   background: var(--card);
@@ -1641,7 +1795,7 @@ html.dark .platform-wordmark-swift,
 .earn-performance-card,
 .earn-transparency,
 .earn-risks {
-  border-radius: 1.15rem;
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.25rem 1.35rem;
@@ -1875,7 +2029,7 @@ html.dark .platform-wordmark-swift,
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  border-radius: 0.9rem;
+  border-radius: var(--swift-card-radius);
   border: 1px dashed var(--border);
   padding: 1rem;
   color: var(--muted-foreground);
@@ -1892,7 +2046,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .earn-autosave-card {
-  border-radius: 1.15rem;
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.25rem 1.35rem;
@@ -1932,7 +2086,7 @@ html.dark .platform-wordmark-swift,
   align-items: flex-start;
   margin-top: 0.5rem;
   padding: 0.85rem;
-  border-radius: 0.85rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border));
   background: color-mix(in oklch, var(--primary) 6%, var(--card));
 }
@@ -1973,7 +2127,7 @@ html.dark .platform-wordmark-swift,
 }
 
 .earn-admin-auth {
-  border-radius: 1rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1rem 1.15rem;
@@ -1989,7 +2143,7 @@ html.dark .platform-wordmark-swift,
 
 /* Earn transactions */
 .earn-tx-card {
-  border-radius: 1.15rem;
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.25rem 1.35rem;
@@ -2044,7 +2198,7 @@ html.dark .platform-wordmark-swift,
   gap: 0.35rem;
   margin-top: 1.25rem;
   padding: 1.5rem 1rem;
-  border-radius: 0.85rem;
+  border-radius: var(--swift-card-radius);
   border: 1px dashed var(--border);
   color: var(--muted-foreground);
   font-size: 0.9rem;
@@ -2064,7 +2218,7 @@ html.dark .platform-wordmark-swift,
   display: flex;
   gap: 0.75rem;
   align-items: flex-start;
-  border-radius: 0.85rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: color-mix(in oklch, var(--background) 70%, var(--card));
   padding: 0.85rem 0.95rem;
@@ -2220,7 +2374,7 @@ html[data-theme="dark"] .earn-earned-positive {
   gap: 0.75rem;
   margin-top: 1rem;
   padding: 0.85rem 1rem;
-  border-radius: 0.85rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
   background: color-mix(in oklch, var(--muted) 35%, transparent);
 }
@@ -2270,7 +2424,7 @@ html[data-theme="dark"] .earn-balance-earned {
 .earn-form-preview {
   margin: 0.65rem 0 0.85rem;
   padding: 0.75rem 0.85rem;
-  border-radius: 0.75rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid var(--border);
   background: color-mix(in oklch, var(--muted) 25%, transparent);
   display: grid;
@@ -2294,7 +2448,7 @@ html[data-theme="dark"] .earn-balance-earned {
 }
 
 .earn-chart-card {
-  border-radius: 1.15rem;
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.15rem 1.25rem 1rem;
@@ -2321,7 +2475,7 @@ html[data-theme="dark"] .earn-balance-earned {
   margin-top: 1rem;
   padding: 2rem 1rem;
   text-align: center;
-  border-radius: 0.85rem;
+  border-radius: var(--swift-card-radius);
   border: 1px dashed var(--border);
   background: color-mix(in oklch, var(--muted) 20%, transparent);
 }
@@ -2380,7 +2534,7 @@ html[data-theme="dark"] .earn-balance-earned {
 }
 
 .earn-dashboard-summary {
-  border-radius: 1.15rem;
+  border-radius: var(--swift-panel-radius);
   border: 1px solid var(--border);
   background: var(--card);
   padding: 1.15rem 1.25rem;
@@ -2409,7 +2563,7 @@ html[data-theme="dark"] .earn-balance-earned {
 }
 
 .earn-dashboard-stat {
-  border-radius: 0.85rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid color-mix(in oklch, var(--border) 90%, transparent);
   padding: 0.85rem 1rem;
   background: color-mix(in oklch, var(--muted) 22%, transparent);
@@ -2440,7 +2594,7 @@ html[data-theme="dark"] .earn-balance-earned {
   display: flex;
   gap: 0.65rem;
   align-items: flex-start;
-  border-radius: 0.85rem;
+  border-radius: var(--swift-card-radius);
   border: 1px solid color-mix(in oklch, oklch(0.75 0.15 85) 50%, var(--border));
   background: color-mix(in oklch, oklch(0.75 0.15 85) 12%, var(--card));
   padding: 0.85rem 1rem;

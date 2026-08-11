@@ -1,5 +1,7 @@
 "use client";
 
+import { StyledSelect } from "@/components/ui/styled-select";
+
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   CalendarClock,
@@ -1240,19 +1242,16 @@ export function SwiftRecurepayHub() {
 
             <label className="grid gap-2">
               <span className="text-sm font-semibold">Frequency</span>
-              <select
-                className="field-shell h-11 bg-background px-3 text-sm font-semibold outline-none"
-                onChange={(event) =>
-                  setFrequency(event.target.value as RecurringFrequency)
-                }
+              <StyledSelect
+                ariaLabel="Select recurring payment frequency"
+                className="w-full"
+                onChange={setFrequency}
+                options={recurringFrequencies.map((option) => ({
+                  label: formatFrequencyLabel(option),
+                  value: option,
+                }))}
                 value={frequency}
-              >
-                {recurringFrequencies.map((option) => (
-                  <option key={option} value={option}>
-                    {formatFrequencyLabel(option)}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             {frequency === "custom" ? (

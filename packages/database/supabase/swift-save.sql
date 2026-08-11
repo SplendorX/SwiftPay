@@ -199,6 +199,7 @@ create table if not exists public.savings_notifications (
       'spend_save_disabled',
       'reconciliation_alert',
       'payment_received',
+      'payment_request',
       'privswiftpay_claim'
     )
   )
@@ -224,6 +225,7 @@ alter table public.savings_notifications
       'spend_save_disabled',
       'reconciliation_alert',
       'payment_received',
+      'payment_request',
       'privswiftpay_claim'
     )
   );

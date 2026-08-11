@@ -1,5 +1,7 @@
 "use client";
 
+import { StyledSelect } from "@/components/ui/styled-select";
+
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -95,6 +97,10 @@ export function PaymentCollectionHub({
   const [expiresInHours, setExpiresInHours] = useState("24");
   const [copied, setCopied] = useState<"address" | "link" | null>(null);
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
+  const [shareUsername, setShareUsername] = useState("");
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
 
   const {
     displayLabel: recipientDisplayLabel,
@@ -229,6 +235,71 @@ export function PaymentCollectionHub({
     }
   }
 
+  async function sendRequestNotification() {
+    if (!requestLink) {
+      setShareError("Generate a payment request link first.");
+      setShareStatus(null);
+      return;
+    }
+
+    const recipientUsername = shareUsername.trim().replace(/^@+/, "");
+
+    if (!recipientUsername) {
+      setShareError("Enter a SwiftPay username.");
+      setShareStatus(null);
+      return;
+    }
+
+    setIsSendingNotification(true);
+    setShareError(null);
+    setShareStatus(null);
+
+    try {
+      const response = await fetch("/api/payment-requests/notify", {
+        body: JSON.stringify({
+          amount: trimmedAmount,
+          expiresInHours,
+          fromLabel: resolvedRecipientUsername
+            ? formatUsernameLabel(resolvedRecipientUsername)
+            : trimmedWalletAddress,
+          note: trimmedNote,
+          recipientUsername,
+          requestLink,
+          token,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+        recipientUsername?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.message ?? "Payment request notification failed.",
+        );
+      }
+
+      setShareStatus(
+        `Request sent to ${formatUsernameLabel(
+          payload?.recipientUsername ?? recipientUsername,
+        )}.`,
+      );
+      setShareUsername("");
+    } catch (error) {
+      setShareError(
+        error instanceof Error
+          ? error.message
+          : "Payment request notification failed.",
+      );
+    } finally {
+      setIsSendingNotification(false);
+    }
+  }
+
   const activeCount = savedRequests.filter((r) => r.status === "active").length;
   const recipientSummary = resolvedRecipientUsername
     ? formatUsernameLabel(resolvedRecipientUsername)
@@ -322,16 +393,18 @@ export function PaymentCollectionHub({
               />
               <label className="grid gap-2">
                 <span className="text-sm font-semibold">Expires</span>
-                <select
-                  className="field-shell h-11 bg-background px-3 text-sm font-semibold outline-none"
-                  onChange={(event) => setExpiresInHours(event.target.value)}
+                <StyledSelect
+                  ariaLabel="Select payment request expiration"
+                  className="w-full"
+                  onChange={setExpiresInHours}
+                  options={[
+                    { label: "1 hour", value: "1" },
+                    { label: "24 hours", value: "24" },
+                    { label: "3 days", value: "72" },
+                    { label: "7 days", value: "168" },
+                  ]}
                   value={expiresInHours}
-                >
-                  <option value="1">1 hour</option>
-                  <option value="24">24 hours</option>
-                  <option value="72">3 days</option>
-                  <option value="168">7 days</option>
-                </select>
+                />
               </label>
             </div>
 
@@ -376,6 +449,62 @@ export function PaymentCollectionHub({
                   </Button>
                 ) : null}
               </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-3">
+                <p className="text-sm font-semibold">Send in-app request</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Share this generated link to any SwiftPay username. They will
+                  receive it in their notification bell.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="field-shell flex h-11 min-w-0 flex-1 items-center gap-2 px-3">
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    @
+                  </span>
+                  <Input
+                    autoComplete="off"
+                    className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
+                    onChange={(event) => {
+                      setShareUsername(
+                        event.target.value.toLowerCase().replace(/\s/g, ""),
+                      );
+                      setShareError(null);
+                      setShareStatus(null);
+                    }}
+                    placeholder="username"
+                    spellCheck={false}
+                    value={shareUsername}
+                  />
+                </div>
+                <Button
+                  className="h-11 shrink-0"
+                  disabled={
+                    !requestLink ||
+                    !shareUsername.trim() ||
+                    isSendingNotification
+                  }
+                  onClick={() => void sendRequestNotification()}
+                  type="button"
+                >
+                  {isSendingNotification ? (
+                    <Clock3 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Share2 className="h-4 w-4" />
+                  )}
+                  Send request
+                </Button>
+              </div>
+              {shareError ? (
+                <p className="mt-2 text-sm text-destructive">{shareError}</p>
+              ) : null}
+              {shareStatus ? (
+                <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+                  {shareStatus}
+                </p>
+              ) : null}
             </div>
           </div>
         </section>

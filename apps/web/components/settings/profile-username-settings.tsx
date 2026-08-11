@@ -1,7 +1,15 @@
 "use client";
 
-import { AtSign, CheckCircle2, Copy, Loader2, Save } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  CheckCircle2,
+  Copy,
+  ImageIcon,
+  Loader2,
+  Save,
+  Upload,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useAccount } from "wagmi";
 
 import { Button } from "@/components/ui/button";
@@ -43,6 +51,106 @@ function resolveExternalWalletAddress(
   return normalizedActivated || normalizedConnected;
 }
 
+const acceptedAvatarMimeTypes = ["image/jpeg", "image/png", "image/webp"];
+const avatarAcceptedFileTypes = acceptedAvatarMimeTypes.join(",");
+const maxAvatarUploadBytes = 5 * 1024 * 1024;
+const avatarCanvasSize = 384;
+const maxAvatarDataUrlLength = 500_000;
+
+function validateAvatarFile(file: File) {
+  if (!acceptedAvatarMimeTypes.includes(file.type)) {
+    return "Profile picture must be a JPG, PNG, or WebP image.";
+  }
+
+  if (file.size > maxAvatarUploadBytes) {
+    return "Profile picture must be 5 MB or smaller.";
+  }
+
+  return null;
+}
+
+function loadImageFromObjectUrl(objectUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = () =>
+      reject(new Error("Profile picture could not be opened."));
+    image.src = objectUrl;
+  });
+}
+
+async function resizeAvatarFile(file: File) {
+  const validationError = validateAvatarFile(file);
+
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageFromObjectUrl(objectUrl);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const sourceSize = Math.min(sourceWidth, sourceHeight);
+
+    if (!sourceWidth || !sourceHeight || !sourceSize) {
+      throw new Error("Profile picture could not be opened.");
+    }
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Profile picture could not be processed.");
+    }
+
+    canvas.width = avatarCanvasSize;
+    canvas.height = avatarCanvasSize;
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, avatarCanvasSize, avatarCanvasSize);
+    context.drawImage(
+      image,
+      (sourceWidth - sourceSize) / 2,
+      (sourceHeight - sourceSize) / 2,
+      sourceSize,
+      sourceSize,
+      0,
+      0,
+      avatarCanvasSize,
+      avatarCanvasSize,
+    );
+
+    for (const quality of [0.86, 0.76, 0.66, 0.56]) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+
+      if (dataUrl.length <= maxAvatarDataUrlLength) {
+        return dataUrl;
+      }
+    }
+
+    throw new Error("Profile picture is too large. Upload a smaller image.");
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function getAvatarInitials(profile: ProfileRecord | null, fallback: string) {
+  const label = profile?.username || profile?.display_name || fallback;
+  const normalized = label.replace(/^@+/, "").replace(/[_-]+/g, " ").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+}
+
 type ProfileUsernameSettingsProps = {
   embedded?: boolean;
 };
@@ -55,7 +163,11 @@ export function ProfileUsernameSettings({
   const [activatedExternalProfile, setActivatedExternalProfile] = useState("");
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [usernameInput, setUsernameInput] = useState("");
+  const [avatarImageInput, setAvatarImageInput] = useState("");
+  const [avatarFileName, setAvatarFileName] = useState("");
+  const [avatarPreviewFailed, setAvatarPreviewFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAvatarProcessing, setIsAvatarProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copiedUsername, setCopiedUsername] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +271,8 @@ export function ProfileUsernameSettings({
         if (!cancelled) {
           setProfile(null);
           setUsernameInput("");
+          setAvatarImageInput("");
+          setAvatarFileName("");
           setIsLoading(false);
         }
         return;
@@ -182,6 +296,9 @@ export function ProfileUsernameSettings({
         if (!cancelled && nextProfile) {
           setProfile(nextProfile);
           setUsernameInput(nextProfile.username);
+          setAvatarImageInput(nextProfile.avatar_url ?? "");
+          setAvatarFileName("");
+          setAvatarPreviewFailed(false);
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -221,6 +338,9 @@ export function ProfileUsernameSettings({
       ) {
         setProfile(updatedProfile);
         setUsernameInput(updatedProfile.username);
+        setAvatarImageInput(updatedProfile.avatar_url ?? "");
+        setAvatarFileName("");
+        setAvatarPreviewFailed(false);
       }
     }
 
@@ -251,6 +371,38 @@ export function ProfileUsernameSettings({
     }
   }
 
+  async function handleAvatarFileChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setIsAvatarProcessing(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const dataUrl = await resizeAvatarFile(file);
+
+      setAvatarImageInput(dataUrl);
+      setAvatarFileName(file.name);
+      setAvatarPreviewFailed(false);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Profile picture could not be processed.",
+      );
+    } finally {
+      input.value = "";
+      setIsAvatarProcessing(false);
+    }
+  }
+
   async function handleSave() {
     if (!activeWalletAddress) {
       setError("Connect a wallet profile before saving a username.");
@@ -271,6 +423,7 @@ export function ProfileUsernameSettings({
 
     try {
       const updatedProfile = await updateProfileUsername({
+        avatarUrl: avatarImageInput.trim() || null,
         circleSocialUuid: circleIdentity.socialUserUUID,
         username: usernameInput,
         walletAddress: activeWalletAddress,
@@ -278,12 +431,15 @@ export function ProfileUsernameSettings({
 
       setProfile(updatedProfile);
       setUsernameInput(updatedProfile.username);
-      setSuccess("Username updated.");
+      setAvatarImageInput(updatedProfile.avatar_url ?? "");
+      setAvatarFileName("");
+      setAvatarPreviewFailed(false);
+      setSuccess("Profile updated.");
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Username could not be updated.",
+          : "Profile could not be updated.",
       );
     } finally {
       setIsSaving(false);
@@ -295,6 +451,13 @@ export function ProfileUsernameSettings({
     : activeWalletAddress
       ? `${activeWalletAddress.slice(0, 6)}...${activeWalletAddress.slice(-4)}`
       : "No wallet profile";
+  const avatarImage = avatarImageInput.trim();
+  const avatarInitials = getAvatarInitials(profile, profileLabel);
+  const profileChanged = Boolean(
+    profile &&
+      (usernameInput !== profile.username ||
+        avatarImage !== (profile.avatar_url ?? "")),
+  );
 
   const content = (
     <>
@@ -310,6 +473,87 @@ export function ProfileUsernameSettings({
         </div>
       ) : activeWalletAddress ? (
         <div className="mt-4 space-y-3">
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-3">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background text-primary shadow-sm">
+                  {avatarImage && !avatarPreviewFailed ? (
+                    <img
+                      alt="Profile preview"
+                      className="h-full w-full object-cover"
+                      onError={() => setAvatarPreviewFailed(true)}
+                      src={avatarImage}
+                    />
+                  ) : avatarInitials ? (
+                    <span className="text-lg font-black">{avatarInitials}</span>
+                  ) : (
+                    <ImageIcon className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Profile picture
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Upload a photo from your device.
+                  </p>
+                  {avatarFileName ? (
+                    <p className="mt-1 max-w-[14rem] truncate text-xs text-muted-foreground">
+                      {avatarFileName}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              {avatarImage ? (
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:text-primary sm:ml-auto"
+                  onClick={() => {
+                    setAvatarImageInput("");
+                    setAvatarFileName("");
+                    setAvatarPreviewFailed(false);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  type="button"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-3">
+              <input
+                accept={avatarAcceptedFileTypes}
+                className="sr-only"
+                disabled={isAvatarProcessing || isSaving}
+                id="profile-avatar-file"
+                onChange={(event) => void handleAvatarFileChange(event)}
+                type="file"
+              />
+              <label
+                aria-disabled={isAvatarProcessing || isSaving}
+                className={`inline-flex h-9 cursor-pointer items-center justify-center gap-1 rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:text-primary ${
+                  isAvatarProcessing || isSaving
+                    ? "pointer-events-none opacity-60"
+                    : ""
+                }`}
+                htmlFor="profile-avatar-file"
+              >
+                {isAvatarProcessing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                {isAvatarProcessing
+                  ? "Processing..."
+                  : avatarImage
+                    ? "Change photo"
+                    : "Upload photo"}
+              </label>
+            </div>
+          </div>
+
           <div>
             <label
               className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"
@@ -342,8 +586,9 @@ export function ProfileUsernameSettings({
                 className="h-11 shrink-0"
                 disabled={
                   isSaving ||
+                  isAvatarProcessing ||
                   !usernameInput ||
-                  usernameInput === profile?.username
+                  !profileChanged
                 }
                 onClick={() => void handleSave()}
                 type="button"
@@ -353,7 +598,7 @@ export function ProfileUsernameSettings({
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                Save username
+                Save profile
               </Button>
             </div>
           </div>
@@ -368,7 +613,7 @@ export function ProfileUsernameSettings({
               </p>
               <button
                 aria-label="Copy username"
-                className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:text-primary"
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:text-primary"
                 onClick={() => void copyUsername(profile.username)}
                 type="button"
               >
@@ -406,13 +651,13 @@ export function ProfileUsernameSettings({
     <section className="rounded-lg border border-border bg-card px-4 py-4 shadow-sm sm:px-5 sm:py-5">
       <div className="flex items-start gap-3">
         <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-primary">
-          <AtSign className="h-4 w-4" />
+          <ImageIcon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold">Username</h3>
+          <h3 className="text-sm font-semibold">Wallet profile</h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Choose how other SwiftPay users see you. New wallet and Google
-            profiles start with an auto-generated username you can change here.
+            profiles start with defaults you can change here.
           </p>
           {content}
         </div>

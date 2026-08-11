@@ -3,16 +3,21 @@ create table if not exists public.profiles (
   username text not null,
   circle_social_uuid text,
   display_name text,
+  avatar_url text,
   auth_provider text not null default 'external',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.profiles
+  add column if not exists avatar_url text;
+
+alter table public.profiles
   alter column wallet_address type text using wallet_address::text,
   alter column username type text using username::text,
   alter column circle_social_uuid type text using circle_social_uuid::text,
   alter column display_name type text using display_name::text,
+  alter column avatar_url type text using avatar_url::text,
   alter column auth_provider type text using auth_provider::text;
 
 alter table public.profiles

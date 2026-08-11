@@ -26,10 +26,21 @@ type EnsureProfileBody = {
 };
 
 type UpdateProfileBody = {
+  avatarUrl?: unknown;
   circleSocialUuid?: unknown;
   username?: unknown;
   walletAddress?: unknown;
 };
+
+const profileSelect =
+  "wallet_address,username,circle_social_uuid,display_name,avatar_url,auth_provider,created_at,updated_at";
+const maxAvatarDataUrlLength = 500_000;
+const maxAvatarUrlLength = 500;
+const allowedAvatarDataMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ message }, { status });
@@ -77,6 +88,60 @@ function normalizeCircleSocialUuid(value: unknown) {
   }
 
   return socialUuid;
+}
+
+function normalizeAvatarUrl(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error("Profile picture must be a valid image.");
+  }
+
+  const avatarUrl = value.trim();
+
+  if (!avatarUrl) {
+    return null;
+  }
+
+  if (avatarUrl.startsWith("data:")) {
+    if (avatarUrl.length > maxAvatarDataUrlLength) {
+      throw new Error("Profile picture is too large. Upload a smaller image.");
+    }
+
+    const match = avatarUrl.match(
+      /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/,
+    );
+
+    if (!match || !allowedAvatarDataMimeTypes.has(match[1])) {
+      throw new Error("Profile picture must be a JPG, PNG, or WebP image.");
+    }
+
+    return avatarUrl;
+  }
+
+  if (avatarUrl.length > maxAvatarUrlLength) {
+    throw new Error("Profile picture URL must be 500 characters or fewer.");
+  }
+
+  let url: URL;
+
+  try {
+    url = new URL(avatarUrl);
+  } catch {
+    throw new Error("Profile picture must be a valid image.");
+  }
+
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("Profile picture must use an http or https URL.");
+  }
+
+  return avatarUrl;
 }
 
 function readSupabaseError(error: { code?: string; message?: string } | null) {
@@ -217,9 +282,7 @@ export async function GET(request: NextRequest) {
 
       const { data, error } = await supabase
         .from(profilesTable)
-        .select(
-          "wallet_address,username,circle_social_uuid,display_name,auth_provider,created_at,updated_at",
-        )
+        .select(profileSelect)
         .ilike("username", username)
         .limit(1)
         .maybeSingle();
@@ -237,9 +300,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from(profilesTable)
-      .select(
-        "wallet_address,username,circle_social_uuid,display_name,auth_provider,created_at,updated_at",
-      )
+      .select(profileSelect)
       .eq("wallet_address", walletAddress!)
       .maybeSingle();
 
@@ -283,9 +344,7 @@ export async function POST(request: NextRequest) {
     const supabase = createSupabaseAdminClient();
     const existing = await supabase
       .from(profilesTable)
-      .select(
-        "wallet_address,username,circle_social_uuid,display_name,auth_provider,created_at,updated_at",
-      )
+      .select(profileSelect)
       .eq("wallet_address", walletAddress)
       .maybeSingle();
 
@@ -314,9 +373,7 @@ export async function POST(request: NextRequest) {
           .from(profilesTable)
           .update(updates)
           .eq("wallet_address", walletAddress)
-          .select(
-            "wallet_address,username,circle_social_uuid,display_name,auth_provider,created_at,updated_at",
-          )
+          .select(profileSelect)
           .single();
 
         if (mutation.error) {
@@ -341,9 +398,7 @@ export async function POST(request: NextRequest) {
     const mutation = await supabase
       .from(profilesTable)
       .insert(profile)
-      .select(
-        "wallet_address,username,circle_social_uuid,display_name,auth_provider,created_at,updated_at",
-      )
+      .select(profileSelect)
       .single();
 
     if (mutation.error) {
@@ -374,6 +429,18 @@ export async function PATCH(request: NextRequest) {
   );
   const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
   const validationError = validateUsername(username);
+  let avatarUrl: string | null | undefined;
+
+  try {
+    avatarUrl = normalizeAvatarUrl(body.avatarUrl);
+  } catch (error) {
+    return jsonError(
+      error instanceof Error
+        ? error.message
+        : "Profile picture must be a valid image.",
+      400,
+    );
+  }
 
   if (!walletAddress) {
     return jsonError("A valid wallet address is required.", 400);
@@ -397,16 +464,20 @@ export async function PATCH(request: NextRequest) {
     }
 
     const supabase = createSupabaseAdminClient();
+    const updates: Record<string, string | null> = {
+      updated_at: new Date().toISOString(),
+      username,
+    };
+
+    if (avatarUrl !== undefined) {
+      updates.avatar_url = avatarUrl;
+    }
+
     const mutation = await supabase
       .from(profilesTable)
-      .update({
-        updated_at: new Date().toISOString(),
-        username,
-      })
+      .update(updates)
       .eq("wallet_address", walletAddress)
-      .select(
-        "wallet_address,username,circle_social_uuid,display_name,auth_provider,created_at,updated_at",
-      )
+      .select(profileSelect)
       .single();
 
     if (mutation.error) {

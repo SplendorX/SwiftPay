@@ -19,7 +19,7 @@ const settingsSections = [
     title: "Wallet-scoped storage",
   },
   {
-    body: "Set your public username and switch between Circle and external wallet sessions from the account menu.",
+    body: "Set your public username and profile picture, then switch between Circle and external wallet sessions from the account menu.",
     collapsible: true,
     icon: Wallet,
     sectionId: "wallet-profile",

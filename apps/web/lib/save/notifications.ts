@@ -15,6 +15,7 @@ export type SavingsNotificationKind =
   | "spend_save_disabled"
   | "reconciliation_alert"
   | "payment_received"
+  | "payment_request"
   | "privswiftpay_claim";
 
 export type SavingsNotificationRecord = {
@@ -110,6 +111,17 @@ export function copyPaymentReceived(
   return {
     title: "Money received",
     body: `You received $${amount} ${currency} from ${fromLabel}.`,
+  };
+}
+
+export function copyPaymentRequest(
+  amount: string,
+  currency: string,
+  fromLabel: string,
+) {
+  return {
+    title: "Payment request",
+    body: `${fromLabel} requested $${amount} ${currency}. Open the request to review and pay.`,
   };
 }
 
@@ -306,6 +318,47 @@ export async function createIncomingPaymentNotification(input: {
   });
 }
 
+export async function createPaymentRequestNotification(input: {
+  amount: string;
+  expiresInHours?: number | null;
+  fromLabel: string;
+  metadata?: Record<string, unknown>;
+  note?: string | null;
+  ownerWallet: string;
+  requestId: string;
+  requestLink: string;
+  token: ArcTokenSymbol;
+}) {
+  const copy = copyPaymentRequest(input.amount, input.token, input.fromLabel);
+  const body = [
+    copy.body,
+    input.note ? `Note: ${input.note}` : null,
+    `PAYMENT_REQUEST_ID:${input.requestId}`,
+    `PAYMENT_REQUEST_LINK:${input.requestLink}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return createSavingsNotificationResult({
+    body,
+    fallbackKind: "payment_received",
+    kind: "payment_request",
+    metadata: {
+      ...(input.metadata ?? {}),
+      amount: input.amount,
+      expiresInHours: input.expiresInHours ?? null,
+      fromLabel: input.fromLabel,
+      note: input.note ?? null,
+      requestId: input.requestId,
+      requestLink: input.requestLink,
+      token: input.token,
+      type: "payment_request",
+    },
+    ownerWallet: input.ownerWallet,
+    title: copy.title,
+  });
+}
+
 /**
  * Extract a PrivSwiftPay claim code from notification metadata or body.
  * Body format used when the DB has no metadata column:
@@ -347,6 +400,24 @@ export function isPrivSwiftPayClaimNotification(
     }
   }
   return /CLAIM_CODE:privswiftpay:/i.test(item.body ?? "");
+}
+
+export function isPaymentRequestNotification(
+  item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
+): boolean {
+  if (item.kind === "payment_request") {
+    return true;
+  }
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    if ((meta as Record<string, unknown>).type === "payment_request") {
+      return true;
+    }
+    if ((meta as Record<string, unknown>).requestLink) {
+      return true;
+    }
+  }
+  return /PAYMENT_REQUEST_ID:/i.test(item.body ?? "");
 }
 
 /** Dedupe helper when related_tx_hash column is missing. */
