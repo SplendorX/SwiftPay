@@ -16,6 +16,7 @@ export type SavingsNotificationKind =
   | "reconciliation_alert"
   | "payment_received"
   | "payment_request"
+  | "payment_request_declined"
   | "privswiftpay_claim";
 
 export type SavingsNotificationRecord = {
@@ -121,7 +122,18 @@ export function copyPaymentRequest(
 ) {
   return {
     title: "Payment request",
-    body: `${fromLabel} requested $${amount} ${currency}. Open the request to review and pay.`,
+    body: `${fromLabel} requested $${amount} ${currency}.`,
+  };
+}
+
+export function copyPaymentRequestDeclined(
+  amount: string,
+  currency: string,
+  declinedByLabel: string,
+) {
+  return {
+    title: "Request declined",
+    body: `${declinedByLabel} declined your $${amount} ${currency} request.`,
   };
 }
 
@@ -322,6 +334,8 @@ export async function createPaymentRequestNotification(input: {
   amount: string;
   expiresInHours?: number | null;
   fromLabel: string;
+  fromUsername?: string | null;
+  fromWallet: string;
   metadata?: Record<string, unknown>;
   note?: string | null;
   ownerWallet: string;
@@ -333,6 +347,10 @@ export async function createPaymentRequestNotification(input: {
   const body = [
     copy.body,
     input.note ? `Note: ${input.note}` : null,
+    `PAYMENT_REQUEST_ID:${input.requestId}`,
+    `PAYMENT_REQUEST_LINK:${input.requestLink}`,
+    `FROM_WALLET:${input.fromWallet.toLowerCase()}`,
+    input.fromUsername ? `FROM_USERNAME:${input.fromUsername}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -346,15 +364,156 @@ export async function createPaymentRequestNotification(input: {
       amount: input.amount,
       expiresInHours: input.expiresInHours ?? null,
       fromLabel: input.fromLabel,
+      fromUsername: input.fromUsername ?? null,
+      fromWallet: input.fromWallet.toLowerCase(),
       note: input.note ?? null,
       requestId: input.requestId,
       requestLink: input.requestLink,
+      status: "pending",
       token: input.token,
       type: "payment_request",
     },
     ownerWallet: input.ownerWallet,
+    relatedTxHash: input.requestId,
     title: copy.title,
   });
+}
+
+export async function createPaymentRequestDeclinedNotification(input: {
+  amount: string;
+  declinedByLabel: string;
+  declinedByUsername?: string | null;
+  declinedByWallet: string;
+  ownerWallet: string;
+  requestId: string;
+  token: ArcTokenSymbol;
+}) {
+  const copy = copyPaymentRequestDeclined(
+    input.amount,
+    input.token,
+    input.declinedByLabel,
+  );
+  const body = [
+    copy.body,
+    `DECLINED_REQUEST_ID:${input.requestId}`,
+    `DECLINED_BY:${input.declinedByWallet.toLowerCase()}`,
+    input.declinedByUsername
+      ? `DECLINED_BY_USERNAME:${input.declinedByUsername}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return createSavingsNotificationResult({
+    body,
+    fallbackKind: "payment_received",
+    kind: "payment_request_declined",
+    metadata: {
+      amount: input.amount,
+      declinedByLabel: input.declinedByLabel,
+      declinedByUsername: input.declinedByUsername ?? null,
+      declinedByWallet: input.declinedByWallet.toLowerCase(),
+      requestId: input.requestId,
+      token: input.token,
+      type: "payment_request_declined",
+    },
+    ownerWallet: input.ownerWallet,
+    title: copy.title,
+  });
+}
+
+export async function getSavingsNotificationById(
+  ownerWallet: string,
+  id: string,
+) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from(notificationsTable)
+    .select("*")
+    .eq("id", id)
+    .eq("owner_wallet", ownerWallet.toLowerCase())
+    .maybeSingle();
+
+  if (error) {
+    if (
+      error.message.toLowerCase().includes("does not exist") ||
+      error.message.toLowerCase().includes("permission denied")
+    ) {
+      return null;
+    }
+    throw new Error(error.message);
+  }
+
+  return (data as SavingsNotificationRecord | null) ?? null;
+}
+
+export async function markPaymentRequestNotificationDeclined(input: {
+  id: string;
+  ownerWallet: string;
+}) {
+  const existing = await getSavingsNotificationById(input.ownerWallet, input.id);
+  if (!existing) {
+    return { record: null, error: "Payment request was not found." };
+  }
+
+  const metadata = {
+    ...((existing.metadata && typeof existing.metadata === "object"
+      ? existing.metadata
+      : {}) as Record<string, unknown>),
+    declinedAt: new Date().toISOString(),
+    status: "declined",
+  };
+  const body = existing.body.includes("DECLINED:1")
+    ? existing.body
+    : `${existing.body}\nDECLINED:1`;
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from(notificationsTable)
+      .update({
+        body,
+        metadata,
+        read_at: existing.read_at ?? new Date().toISOString(),
+      })
+      .eq("id", input.id)
+      .eq("owner_wallet", input.ownerWallet.toLowerCase())
+      .select("*")
+      .maybeSingle();
+
+    if (!error) {
+      return { record: data as SavingsNotificationRecord, error: undefined };
+    }
+
+    if (missingColumnFromError(error.message ?? "") === "metadata") {
+      const fallback = await supabase
+        .from(notificationsTable)
+        .update({
+          body,
+          read_at: existing.read_at ?? new Date().toISOString(),
+        })
+        .eq("id", input.id)
+        .eq("owner_wallet", input.ownerWallet.toLowerCase())
+        .select("*")
+        .maybeSingle();
+
+      if (!fallback.error) {
+        return {
+          record: fallback.data as SavingsNotificationRecord,
+          error: undefined,
+        };
+      }
+
+      return { record: null, error: fallback.error.message };
+    }
+
+    return { record: null, error: error.message };
+  } catch (error) {
+    return {
+      record: null,
+      error: error instanceof Error ? error.message : "Decline failed.",
+    };
+  }
 }
 
 /**
@@ -403,11 +562,17 @@ export function isPrivSwiftPayClaimNotification(
 export function isPaymentRequestNotification(
   item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
 ): boolean {
+  if (item.kind === "payment_request_declined") {
+    return false;
+  }
   if (item.kind === "payment_request") {
     return true;
   }
   const meta = item.metadata;
   if (meta && typeof meta === "object") {
+    if ((meta as Record<string, unknown>).type === "payment_request_declined") {
+      return false;
+    }
     if ((meta as Record<string, unknown>).type === "payment_request") {
       return true;
     }
@@ -416,6 +581,277 @@ export function isPaymentRequestNotification(
     }
   }
   return /PAYMENT_REQUEST_ID:/i.test(item.body ?? "");
+}
+
+export function isPaymentRequestDeclinedNotification(
+  item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
+): boolean {
+  if (item.kind === "payment_request_declined") {
+    return true;
+  }
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    if ((meta as Record<string, unknown>).type === "payment_request_declined") {
+      return true;
+    }
+  }
+  return /DECLINED_REQUEST_ID:/i.test(item.body ?? "");
+}
+
+export function isPaymentRequestMarkedDeclined(
+  item: Pick<SavingsNotificationRecord, "body" | "metadata">,
+): boolean {
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    if ((meta as Record<string, unknown>).status === "declined") {
+      return true;
+    }
+  }
+  return /(?:^|\n)DECLINED:1(?:\n|$)/i.test(item.body ?? "");
+}
+
+export function isPaymentRequestMarkedPaid(
+  item: Pick<SavingsNotificationRecord, "body" | "metadata">,
+): boolean {
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    if ((meta as Record<string, unknown>).status === "paid") {
+      return true;
+    }
+  }
+  return /(?:^|\n)PAID:1(?:\n|$)/i.test(item.body ?? "");
+}
+
+export type PaymentRequestLifecycle = "pending" | "paid" | "declined";
+
+export function getPaymentRequestLifecycle(
+  item: Pick<SavingsNotificationRecord, "body" | "metadata">,
+): PaymentRequestLifecycle {
+  if (isPaymentRequestMarkedPaid(item)) {
+    return "paid";
+  }
+  if (isPaymentRequestMarkedDeclined(item)) {
+    return "declined";
+  }
+  return "pending";
+}
+
+export async function findPaymentRequestNotificationsByRequestId(
+  requestId: string,
+) {
+  const id = requestId.trim();
+  if (!id) {
+    return [] as SavingsNotificationRecord[];
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const byMeta = await supabase
+      .from(notificationsTable)
+      .select("*")
+      .eq("metadata->>requestId", id)
+      .limit(20);
+
+    if (!byMeta.error && (byMeta.data?.length ?? 0) > 0) {
+      return byMeta.data as SavingsNotificationRecord[];
+    }
+
+    const byRelated = await supabase
+      .from(notificationsTable)
+      .select("*")
+      .eq("related_tx_hash", id.toLowerCase())
+      .limit(20);
+
+    if (!byRelated.error && (byRelated.data?.length ?? 0) > 0) {
+      return byRelated.data as SavingsNotificationRecord[];
+    }
+
+    const byBody = await supabase
+      .from(notificationsTable)
+      .select("*")
+      .ilike("body", `%PAYMENT_REQUEST_ID:${id}%`)
+      .limit(20);
+
+    if (byBody.error || !byBody.data) {
+      return [] as SavingsNotificationRecord[];
+    }
+
+    return byBody.data as SavingsNotificationRecord[];
+  } catch {
+    return [] as SavingsNotificationRecord[];
+  }
+}
+
+export async function readPaymentRequestLifecycle(requestId: string) {
+  const rows = await findPaymentRequestNotificationsByRequestId(requestId);
+  if (rows.some((row) => getPaymentRequestLifecycle(row) === "paid")) {
+    return "paid" as const;
+  }
+  if (rows.some((row) => getPaymentRequestLifecycle(row) === "declined")) {
+    return "declined" as const;
+  }
+  if (rows.length > 0) {
+    return "pending" as const;
+  }
+  return "unknown" as const;
+}
+
+async function updatePaymentRequestRowStatus(input: {
+  bodyMarker: "PAID:1" | "DECLINED:1";
+  extraMetadata?: Record<string, unknown>;
+  record: SavingsNotificationRecord;
+  status: "paid" | "declined";
+}) {
+  const metadata = {
+    ...((input.record.metadata && typeof input.record.metadata === "object"
+      ? input.record.metadata
+      : {}) as Record<string, unknown>),
+    ...(input.extraMetadata ?? {}),
+    status: input.status,
+  };
+  const body = input.record.body.includes(input.bodyMarker)
+    ? input.record.body
+    : `${input.record.body}\n${input.bodyMarker}`;
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from(notificationsTable)
+    .update({
+      body,
+      metadata,
+      read_at: input.record.read_at ?? new Date().toISOString(),
+    })
+    .eq("id", input.record.id)
+    .select("*")
+    .maybeSingle();
+
+  if (!error) {
+    return data as SavingsNotificationRecord;
+  }
+
+  if (missingColumnFromError(error.message ?? "") === "metadata") {
+    const fallback = await supabase
+      .from(notificationsTable)
+      .update({
+        body,
+        read_at: input.record.read_at ?? new Date().toISOString(),
+      })
+      .eq("id", input.record.id)
+      .select("*")
+      .maybeSingle();
+
+    if (!fallback.error) {
+      return fallback.data as SavingsNotificationRecord;
+    }
+  }
+
+  throw new Error(error.message);
+}
+
+export async function markPaymentRequestLifecycle(input: {
+  ownerWallet?: string;
+  paidTxHash?: string | null;
+  requestId: string;
+  status: "paid" | "declined";
+}) {
+  const existing = await findPaymentRequestNotificationsByRequestId(
+    input.requestId,
+  );
+  const anyPaid = existing.some(
+    (row) => getPaymentRequestLifecycle(row) === "paid",
+  );
+  if (anyPaid) {
+    return { alreadyResolved: true, status: "paid" as const };
+  }
+
+  const pending = existing.filter(
+    (row) => getPaymentRequestLifecycle(row) === "pending",
+  );
+  if (existing.length > 0 && pending.length === 0) {
+    return { alreadyResolved: true, status: "declined" as const };
+  }
+
+  const extraMetadata =
+    input.status === "paid"
+      ? {
+          paidAt: new Date().toISOString(),
+          paidTxHash: input.paidTxHash ?? null,
+        }
+      : { declinedAt: new Date().toISOString() };
+
+  if (pending.length > 0) {
+    for (const record of pending) {
+      await updatePaymentRequestRowStatus({
+        bodyMarker: input.status === "paid" ? "PAID:1" : "DECLINED:1",
+        extraMetadata,
+        record,
+        status: input.status,
+      });
+    }
+    return { alreadyResolved: false, status: input.status };
+  }
+
+  if (input.status === "declined") {
+    return { alreadyResolved: false, status: "unknown" as const };
+  }
+
+  if (!input.ownerWallet) {
+    return { alreadyResolved: false, status: "unknown" as const };
+  }
+
+  const created = await createSavingsNotificationResult({
+    body: [
+      "This payment request has been paid.",
+      `PAYMENT_REQUEST_ID:${input.requestId}`,
+      "PAID:1",
+    ].join("\n"),
+    fallbackKind: "payment_received",
+    kind: "payment_request",
+    metadata: {
+      paidAt: new Date().toISOString(),
+      paidTxHash: input.paidTxHash ?? null,
+      requestId: input.requestId,
+      status: "paid",
+      type: "payment_request",
+    },
+    ownerWallet: input.ownerWallet,
+    relatedTxHash: input.requestId,
+    title: "Request paid",
+  });
+
+  return {
+    alreadyResolved: Boolean(created.alreadyExists),
+    status: "paid" as const,
+  };
+}
+
+export function extractPaymentRequestSenderWallet(
+  item: Pick<SavingsNotificationRecord, "body" | "metadata">,
+): string | null {
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    const fromWallet = (meta as Record<string, unknown>).fromWallet;
+    if (typeof fromWallet === "string" && fromWallet.trim()) {
+      return fromWallet.trim().toLowerCase();
+    }
+  }
+
+  const match = item.body?.match(/FROM_WALLET:(0x[a-fA-F0-9]{40})/i);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+export function extractPaymentRequestId(
+  item: Pick<SavingsNotificationRecord, "body" | "metadata">,
+): string | null {
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    const requestId = (meta as Record<string, unknown>).requestId;
+    if (typeof requestId === "string" && requestId.trim()) {
+      return requestId.trim();
+    }
+  }
+
+  return item.body?.match(/PAYMENT_REQUEST_ID:(\S+)/i)?.[1] ?? null;
 }
 
 /** Dedupe helper when related_tx_hash column is missing. */

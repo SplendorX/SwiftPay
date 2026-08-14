@@ -13,6 +13,7 @@ import {
 } from "@/lib/recurring-utils";
 import { processSingleDueSchedule } from "@/lib/recurring-service";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
+import { recordTractionEvent } from "@/lib/traction/service";
 
 export const runtime = "nodejs";
 
@@ -258,6 +259,23 @@ export async function POST(request: NextRequest) {
     }
 
     const createdSchedule = mutation.data;
+    void recordTractionEvent({
+      amount: createdSchedule.amount,
+      circleSocialUuid:
+        typeof body.circleSocialUuid === "string"
+          ? body.circleSocialUuid
+          : undefined,
+      currency: createdSchedule.token_symbol,
+      eventType: "recurring_schedule_created",
+      metadata: {
+        autopayEnabled: createdSchedule.autopay_enabled,
+        frequency: createdSchedule.frequency,
+        scheduleId: createdSchedule.id,
+        walletMode: createdSchedule.wallet_mode,
+      },
+      source: "recurring",
+      walletAddress: ownerWallet,
+    }).catch(() => undefined);
     let initialRun = null;
 
     if (new Date(createdSchedule.next_run_at).getTime() <= Date.now()) {

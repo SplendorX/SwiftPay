@@ -19,10 +19,12 @@ export function AppHeader({ actions, className }: AppHeaderProps) {
   return (
     <header className={cn("app-topbar", className)}>
       <div className="app-topbar-inner">
-        <SidebarToggle />
+        <div className="app-sidebar-toggle">
+          <SidebarToggle />
+        </div>
         <SidebarBrand />
 
-        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
           <CommandPaletteTrigger />
           <NotificationsBell />
           <ThemeToggle />

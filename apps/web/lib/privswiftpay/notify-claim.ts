@@ -84,13 +84,12 @@ export function buildPrivSwiftPayClaimNotificationCopy(input: {
   const purpose = shortPaymentPurpose(input.note);
 
   const title = purpose
-    ? `Claim $${input.amount} ${input.token} · ${purpose}`
-    : `Claim $${input.amount} ${input.token}`;
+    ? `${input.amount} ${input.token} ready to claim · ${purpose}`
+    : `${input.amount} ${input.token} ready to claim`;
   // CLAIM_CODE: prefix is parsed by the notifications bell.
   const body = [
     `You received $${input.amount} ${input.token} from ${fromLabel}.`,
     purpose ? purpose : "",
-    `Open PrivSwiftPay → Claim, or use Copy claim code below.`,
     `PAYMENT_ID:${input.paymentId.toLowerCase()}`,
     `CLAIM_CODE:${input.claimCode.trim()}`,
   ]

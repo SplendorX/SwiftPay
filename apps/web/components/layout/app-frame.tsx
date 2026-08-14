@@ -23,7 +23,7 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
       <aside
         aria-hidden={retracted}
         className={cn(
-          "app-sidebar hidden lg:flex",
+          "app-sidebar",
           collapsed && !retracted && "app-sidebar-collapsed",
           retracted && "app-sidebar-retracted",
         )}

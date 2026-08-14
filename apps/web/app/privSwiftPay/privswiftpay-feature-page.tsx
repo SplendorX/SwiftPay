@@ -49,6 +49,8 @@ import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
+import { formatUsernameLabel } from "@/lib/profile";
+import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 import {
  callCircleWalletApi,
  type CircleClientErrorPayload,
@@ -73,6 +75,7 @@ import { arcTestnet } from "@/lib/wagmi";
 
 const paymentStorageKey = "swiftpay.privacy.payments";
 const payrollStorageKey = "swiftpay.privacy.payroll-folders";
+const claimedIdsStorageKey = "swiftpay.privacy.claimed-ids";
 const codePrefix = "privswiftpay:";
 const feeBasisPointsDenominator = BigInt(10_000);
 const feeBasisPoints = BigInt(privacyEscrowFeeBasisPoints);
@@ -710,6 +713,38 @@ function buildWalletStorageKey(
  return `${baseKey}.${walletKind}.${walletAddress.toLowerCase()}`;
 }
 
+function readClaimedPaymentIds(): string[] {
+ if (typeof window === "undefined") {
+ return [];
+ }
+
+ try {
+ const rawValue = window.localStorage.getItem(claimedIdsStorageKey);
+ const parsed = rawValue ? (JSON.parse(rawValue) as unknown) : [];
+ return Array.isArray(parsed)
+ ? parsed.filter((value): value is string => typeof value === "string")
+ : [];
+ } catch {
+ return [];
+ }
+}
+
+function rememberClaimedPaymentId(paymentId: string) {
+ const normalized = paymentId.toLowerCase();
+ const next = [
+ normalized,
+ ...readClaimedPaymentIds().filter((id) => id.toLowerCase() !== normalized),
+ ].slice(0, 80);
+
+ writeStoredArray(claimedIdsStorageKey, next);
+}
+
+function isRememberedClaimedPayment(paymentId: string) {
+ return readClaimedPaymentIds().some(
+ (id) => id.toLowerCase() === paymentId.toLowerCase(),
+ );
+}
+
 function markStoredSenderPaymentClaimed(payload: PrivacyCodePayload) {
  const senderAddress = getAddress(payload.sender);
  const walletKinds = ["circle", "external"] as const;
@@ -794,6 +829,14 @@ export function PrivSwiftPayContent({
  const [claimError, setClaimError] = useState<string | null>(null);
  const [claimExplorerUrl, setClaimExplorerUrl] = useState("");
  const [isClaiming, setIsClaiming] = useState(false);
+ const [claimRedeemed, setClaimRedeemed] = useState(false);
+ const {
+ error: privateSendRecipientError,
+ isResolving: isPrivateSendRecipientResolving,
+ isValid: isPrivateSendRecipientValid,
+ resolvedAddress: resolvedPrivateSendRecipient,
+ resolvedUsername: resolvedPrivateSendUsername,
+ } = useResolvedRecipient(recipientAddress);
 
  const externalAddress =
  isMounted && isAccountConnected ? accountAddress : undefined;
@@ -1413,16 +1456,58 @@ export function PrivSwiftPayContent({
  claimCodeFromUrlApplied.current = true;
  setClaimCode(code);
  setClaimError(null);
+ setClaimRedeemed(false);
  try {
  const payload = parsePrivacyCode(code);
  setClaimPayload(payload);
- setClaimStatus("Claim code loaded from notification");
+ setClaimStatus(
+ isRememberedClaimedPayment(payload.id)
+ ? "Already claimed"
+ : "Claim code loaded from notification",
+ );
+ if (isRememberedClaimedPayment(payload.id)) {
+ setClaimRedeemed(true);
+ }
  } catch (error) {
  setClaimPayload(null);
  setClaimError(getErrorMessage(error));
  setClaimStatus("Invalid claim code from link");
  }
  }, [feature]);
+
+ useEffect(() => {
+ if (feature !== "claim" || !claimPayload?.id || !isEscrowConfigured) {
+ return;
+ }
+
+ if (isRememberedClaimedPayment(claimPayload.id)) {
+ setClaimRedeemed(true);
+ setClaimStatus("Already claimed");
+ return;
+ }
+
+ let cancelled = false;
+
+ void (async () => {
+ try {
+ const claimed = await isPaymentClaimed(claimPayload);
+ if (cancelled || !claimed) {
+ return;
+ }
+
+ rememberClaimedPaymentId(claimPayload.id);
+ setClaimRedeemed(true);
+ setClaimStatus("Already claimed");
+ setClaimError("This claim code was already redeemed.");
+ } catch {
+ // Keep the code inspectable if RPC is briefly unavailable.
+ }
+ })();
+
+ return () => {
+ cancelled = true;
+ };
+ }, [claimPayload, feature, isEscrowConfigured]);
 
  useEffect(() => {
  setIsStorageReady(false);
@@ -2110,12 +2195,24 @@ export function PrivSwiftPayContent({
  setSendExplorerUrl("");
 
  try {
+ if (isPrivateSendRecipientResolving) {
+ throw new Error("Resolving receiver username…");
+ }
+
+ if (privateSendRecipientError) {
+ throw new Error(privateSendRecipientError);
+ }
+
+ if (!resolvedPrivateSendRecipient || !isAddress(resolvedPrivateSendRecipient)) {
+ throw new Error("Enter a valid receiver wallet or @username.");
+ }
+
  setIsGeneratingCode(true);
  setSendStatus("Creating and funding claim code");
  const result = await createPaymentCode({
  amount: paymentAmount,
  note: paymentNote,
- recipient: recipientAddress,
+ recipient: resolvedPrivateSendRecipient,
  token: paymentToken,
  });
  const fundingResult = await fundSinglePayment(result.payload);
@@ -2350,9 +2447,10 @@ export function PrivSwiftPayContent({
  }
  }
 
- function handleInspectClaimCode() {
+ async function handleInspectClaimCode() {
  setClaimError(null);
  setClaimPayload(null);
+ setClaimRedeemed(false);
 
  try {
  const payload = parsePrivacyCode(claimCode);
@@ -2369,6 +2467,24 @@ export function PrivSwiftPayContent({
  );
  setClaimStatus("Receiver wallet mismatch");
  return;
+ }
+
+ if (isRememberedClaimedPayment(payload.id)) {
+ setClaimRedeemed(true);
+ setClaimStatus("Already claimed");
+ setClaimError("This claim code was already redeemed.");
+ return;
+ }
+
+ if (isEscrowConfigured) {
+ const claimed = await isPaymentClaimed(payload);
+ if (claimed) {
+ rememberClaimedPaymentId(payload.id);
+ setClaimRedeemed(true);
+ setClaimStatus("Already claimed");
+ setClaimError("This claim code was already redeemed.");
+ return;
+ }
  }
 
  setClaimStatus("Receiver wallet matched");
@@ -2425,7 +2541,14 @@ export function PrivSwiftPayContent({
  setClaimExplorerUrl("");
 
  if (!claimPayload) {
- handleInspectClaimCode();
+ await handleInspectClaimCode();
+ return;
+ }
+
+ if (claimRedeemed || isRememberedClaimedPayment(claimPayload.id)) {
+ setClaimRedeemed(true);
+ setClaimStatus("Already claimed");
+ setClaimError("This claim code was already redeemed.");
  return;
  }
 
@@ -2445,7 +2568,18 @@ export function PrivSwiftPayContent({
 
  try {
  setIsClaiming(true);
+
+ if (isEscrowConfigured && (await isPaymentClaimed(claimPayload))) {
+ rememberClaimedPaymentId(claimPayload.id);
+ setClaimRedeemed(true);
+ setClaimStatus("Already claimed");
+ setClaimError("This claim code was already redeemed.");
+ return;
+ }
+
  const claimResult = await claimFundedPayment(claimPayload);
+ rememberClaimedPaymentId(claimPayload.id);
+ setClaimRedeemed(true);
  markStoredSenderPaymentClaimed(claimPayload);
  setPayments((currentPayments) =>
  currentPayments.map((payment) =>
@@ -2459,7 +2593,7 @@ export function PrivSwiftPayContent({
  ? `${arcTestnet.blockExplorers.default.url}/tx/${claimResult.txHash}`
  : "",
  );
- setClaimStatus("Claim transaction submitted");
+ setClaimStatus("Claimed");
  } catch (error) {
  setClaimError(getErrorMessage(error));
  setClaimStatus("Claim failed");
@@ -2549,17 +2683,27 @@ export function PrivSwiftPayContent({
  <div className="grid gap-4">
  <label className="grid gap-2">
  <span className="text-sm font-semibold text-foreground">
- Receiver wallet
+ Receiver wallet or @username
  </span>
  <div className="field-shell flex h-12 items-center gap-2 px-3">
  <Wallet className="h-4 w-4 text-swift-600" />
  <input
  className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground"
  onChange={(event) => setRecipientAddress(event.target.value)}
- placeholder="0x..."
+ placeholder="0x address or @username"
  value={recipientAddress}
  />
  </div>
+ {privateSendRecipientError ? (
+ <p className="text-sm text-destructive">{privateSendRecipientError}</p>
+ ) : isPrivateSendRecipientValid && resolvedPrivateSendUsername ? (
+ <p className="text-sm text-emerald-600 dark:text-emerald-400">
+ Resolved {formatUsernameLabel(resolvedPrivateSendUsername)} to{" "}
+ {shortenAddress(resolvedPrivateSendRecipient ?? "")}
+ </p>
+ ) : isPrivateSendRecipientResolving ? (
+ <p className="text-sm text-muted-foreground">Resolving username…</p>
+ ) : null}
  </label>
 
  <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
@@ -2617,7 +2761,13 @@ export function PrivSwiftPayContent({
 
  <button
  className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-swift-600 px-5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(66,17,143,0.26)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
- disabled={isTransactionBusy || !address || !isEscrowConfigured}
+ disabled={
+ isTransactionBusy ||
+ !address ||
+ !isEscrowConfigured ||
+ isPrivateSendRecipientResolving ||
+ !isPrivateSendRecipientValid
+ }
  onClick={handleGeneratePaymentCode}
  type="button"
  >
@@ -3123,7 +3273,14 @@ export function PrivSwiftPayContent({
  <div className="grid gap-4">
  <textarea
  className="min-h-40 resize-y rounded-lg border border-border bg-card px-3 py-3 font-mono text-xs font-bold leading-5 text-foreground outline-none transition placeholder:text-muted-foreground focus:border-swift-600 focus:bg-background focus:ring-2 focus:ring-swift-600/15"
- onChange={(event) => setClaimCode(event.target.value)}
+ onChange={(event) => {
+ setClaimCode(event.target.value);
+ setClaimRedeemed(false);
+ setClaimPayload(null);
+ setClaimError(null);
+ setClaimExplorerUrl("");
+ setClaimStatus("Waiting for claim code");
+ }}
  placeholder="Paste privSwiftPay claim code"
  value={claimCode}
  />
@@ -3146,7 +3303,12 @@ export function PrivSwiftPayContent({
  </button>
  <button
  className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-swift-600 px-5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(66,17,143,0.26)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
- disabled={!claimWalletMatches || !isEscrowConfigured || isTransactionBusy}
+ disabled={
+ !claimWalletMatches ||
+ !isEscrowConfigured ||
+ isTransactionBusy ||
+ claimRedeemed
+ }
  onClick={handleClaimCode}
  type="button"
  >
@@ -3155,7 +3317,9 @@ export function PrivSwiftPayContent({
  ) : (
  <ArrowRight className="h-4 w-4" />
  )}
- {!isEscrowConfigured
+ {claimRedeemed
+ ? "Already claimed"
+ : !isEscrowConfigured
  ? "Escrow missing"
  : isClaiming || isWritePending || isSwitchingChain
  ? "Claiming"

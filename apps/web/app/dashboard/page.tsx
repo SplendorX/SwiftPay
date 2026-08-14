@@ -56,6 +56,11 @@ import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { type BeneficiaryRecord } from "@/lib/beneficiaries";
+import {
+  completePaymentRequest,
+  fetchPaymentRequestStatus,
+  paymentRequestClosedMessage,
+} from "@/lib/payment-request-client";
 import { buildPaymentRequestUrl } from "@/lib/payment-request-url";
 import {
   ensureProfile,
@@ -96,6 +101,7 @@ import { quoteSpendSave } from "@/lib/save/client";
 import { isSwiftSaveVaultConfigured } from "@/lib/save/config";
 import { settleSpendSaveAfterPayment } from "@/lib/save/spend-save-browser";
 import { getSwapErrorMessage } from "@/lib/swap-errors";
+import { trackTractionEvent } from "@/lib/traction/client";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
 
@@ -930,6 +936,8 @@ function buildReceiptJpegDataUrl(
 function DashboardContent() {
   const searchParams = useSearchParams();
   const dashboardPrefillQuery = searchParams.toString();
+  const incomingRequestId =
+    new URLSearchParams(dashboardPrefillQuery).get("requestId")?.trim() || "";
   const circleSdkRef = useRef<W3SSdk | null>(null);
   const {
     address: accountAddress,
@@ -1025,6 +1033,9 @@ function DashboardContent() {
   );
   const [beneficiaryError, setBeneficiaryError] = useState<string | null>(null);
   const [walletProfile, setWalletProfile] = useState<ProfileRecord | null>(null);
+  const [incomingRequestStatus, setIncomingRequestStatus] = useState<
+    "pending" | "paid" | "declined" | "unknown" | null
+  >(null);
 
   const externalAddress =
     isMounted && isAccountConnected ? accountAddress : undefined;
@@ -1281,6 +1292,10 @@ function DashboardContent() {
                 ? `Insufficient ${swapTokenIn}`
                 : "Get quote";
   const swapButtonText = !swapEstimate ? "Get quote first" : "Swap now";
+  const incomingRequestClosedMessage = incomingRequestStatus
+    ? paymentRequestClosedMessage(incomingRequestStatus)
+    : null;
+  const isIncomingRequestClosed = Boolean(incomingRequestClosedMessage);
   const canSubmitPayment = Boolean(
     isConnected &&
       isArcNetwork &&
@@ -1290,7 +1305,8 @@ function DashboardContent() {
       hasEnoughTokenBalance &&
       !isCirclePaymentPending &&
       !isWritePending &&
-      !isConfirming,
+      !isConfirming &&
+      !isIncomingRequestClosed,
   );
   const canSaveBeneficiary = Boolean(
     isConnected &&
@@ -1301,7 +1317,11 @@ function DashboardContent() {
       trimmedBeneficiaryName &&
       !isBeneficiarySaving,
   );
-  const primaryButtonText = !isConnected
+  const primaryButtonText = incomingRequestStatus === "declined"
+    ? "Request declined"
+    : incomingRequestStatus === "paid"
+      ? "Request already paid"
+    : !isConnected
     ? "Connect wallet"
     : !isArcNetwork
       ? "Switch to Arc Testnet"
@@ -1383,6 +1403,24 @@ function DashboardContent() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!address) {
+      return;
+    }
+
+    trackTractionEvent({
+      chainId: arcTestnet.id,
+      circleSocialUuid:
+        getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
+      eventType: "dashboard_active",
+      metadata: {
+        mode: isEmbeddedWalletMode ? "circle" : "external",
+      },
+      source: "dashboard",
+      walletAddress: address,
+    });
+  }, [address, circleLogin, isEmbeddedWalletMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1531,6 +1569,64 @@ function DashboardContent() {
       setPaymentNarration("Payment request link");
     }
   }, [dashboardPrefillQuery]);
+
+  useEffect(() => {
+    if (!incomingRequestId) {
+      setIncomingRequestStatus(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIncomingRequestStatus("pending");
+
+    void fetchPaymentRequestStatus(incomingRequestId)
+      .then((result) => {
+        if (!cancelled) {
+          setIncomingRequestStatus(result.status);
+          const closed = paymentRequestClosedMessage(result.status);
+          if (closed) {
+            setPaymentError(closed);
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIncomingRequestStatus("unknown");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [incomingRequestId]);
+
+  async function settleIncomingPaymentRequest(txHash?: string | null) {
+    if (!incomingRequestId || !address) {
+      return;
+    }
+
+    try {
+      await completePaymentRequest({
+        circleSocialUuid:
+          getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
+        ownerWallet: address,
+        requestId: incomingRequestId,
+        txHash,
+      });
+      setIncomingRequestStatus("paid");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "This payment request is no longer open.";
+      if (/declined|already paid|no longer open/i.test(message)) {
+        setIncomingRequestStatus(
+          /declined/i.test(message) ? "declined" : "paid",
+        );
+        setPaymentError(message);
+      }
+    }
+  }
 
   useEffect(() => {
     if (!address) {
@@ -1733,6 +1829,22 @@ function DashboardContent() {
       const pocketLabel =
         liveQuote.pocket?.name ?? spendSaveQuote?.pocketName ?? "your pocket";
       const savedMsg = `$${settled.saveAmount} saved automatically to ${pocketLabel}.`;
+      trackTractionEvent({
+        amount: settled.saveAmount,
+        chainId: arcTestnet.id,
+        circleSocialUuid: social,
+        currency,
+        eventType: "savings_deposit_completed",
+        metadata: {
+          eventId: settled.eventId,
+          mode: useCircle ? "circle" : "external",
+          pocketName: pocketLabel,
+          transactionId: settled.transactionId,
+        },
+        source: "spend_save",
+        txHash: settled.savingsTxHash,
+        walletAddress: ownerWallet,
+      });
       setSpendSaveNotice(savedMsg);
       setPaymentStatus(`Payment successful. ${savedMsg}`);
       pendingSpendSavePayment.current = null;
@@ -1761,6 +1873,7 @@ function DashboardContent() {
       const paymentTx = transactionReceipt.transactionHash;
       if (paymentTx) {
         void runSpendSaveAfterConfirmedPayment(paymentTx);
+        void settleIncomingPaymentRequest(paymentTx);
       }
 
       return;
@@ -2106,6 +2219,14 @@ function DashboardContent() {
   }
 
   async function handleCirclePaymentAction() {
+    if (isIncomingRequestClosed) {
+      setPaymentError(
+        incomingRequestClosedMessage ??
+          "This payment request is no longer open.",
+      );
+      return;
+    }
+
     if (!circleLogin || !circleWallet?.id || !circleAddress) {
       setPaymentError("Circle wallet is not ready.");
       return;
@@ -2201,8 +2322,25 @@ function DashboardContent() {
         if (txHash) {
           setTransactionHash(txHash as Hash);
           setPaymentStatus(`${selectedToken} payment submitted`);
+          trackTractionEvent({
+            amount: paymentAmount.trim(),
+            chainId: arcTestnet.id,
+            circleSocialUuid:
+              getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
+            currency: selectedToken,
+            eventType: "payment_submitted",
+            metadata: {
+              mode: "circle",
+              recipient: destinationAddress,
+              transactionId,
+            },
+            source: "dashboard",
+            txHash,
+            walletAddress: circleAddress,
+          });
           // Receipt effect will also fire; runSpendSave is idempotent per hash.
           void runSpendSaveAfterConfirmedPayment(txHash);
+          void settleIncomingPaymentRequest(txHash);
         } else {
           setPaymentStatus(
             "Circle payment confirmed — waiting for transaction hash…",
@@ -2219,11 +2357,30 @@ function DashboardContent() {
               if (recovered) {
                 setTransactionHash(recovered as Hash);
                 setPaymentStatus(`${selectedToken} payment submitted`);
+                trackTractionEvent({
+                  amount: paymentAmount.trim(),
+                  chainId: arcTestnet.id,
+                  circleSocialUuid:
+                    getCircleLoginIdentity(circleLogin).socialUserUUID ??
+                    undefined,
+                  currency: selectedToken,
+                  eventType: "payment_submitted",
+                  metadata: {
+                    mode: "circle",
+                    recipient: destinationAddress,
+                    transactionId,
+                  },
+                  source: "dashboard",
+                  txHash: recovered,
+                  walletAddress: circleAddress,
+                });
                 await runSpendSaveAfterConfirmedPayment(recovered);
+                await settleIncomingPaymentRequest(recovered);
               } else {
                 setSpendSaveNotice(
                   "Payment sent. If Spend&Save is on, open Swift+Save if savings don’t appear within a minute.",
                 );
+                await settleIncomingPaymentRequest(null);
               }
             } catch (recoverError) {
               setSpendSaveNotice(
@@ -2237,6 +2394,20 @@ function DashboardContent() {
       setIsCirclePaymentPending(false);
       setPaymentError(getErrorMessage(error));
       setPaymentStatus("Circle transfer failed");
+      trackTractionEvent({
+        amount: paymentAmount.trim(),
+        chainId: arcTestnet.id,
+        circleSocialUuid:
+          getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
+        currency: selectedToken,
+        eventType: "payment_failed",
+        metadata: {
+          message: getErrorMessage(error),
+          mode: "circle",
+        },
+        source: "dashboard",
+        walletAddress: circleAddress,
+      });
       pendingSpendSavePayment.current = null;
     }
   }
@@ -2305,6 +2476,14 @@ function DashboardContent() {
     async function handlePaymentAction() {
     setPaymentError(null);
 
+    if (isIncomingRequestClosed) {
+      setPaymentError(
+        incomingRequestClosedMessage ??
+          "This payment request is no longer open.",
+      );
+      return;
+    }
+
     if (!isConnected || !address) {
       setPaymentError("Connect with Google or an external wallet before sending.");
       return;
@@ -2362,6 +2541,19 @@ function DashboardContent() {
       });
 
       setTransactionHash(hash);
+      trackTractionEvent({
+        amount: paymentAmount.trim(),
+        chainId: arcTestnet.id,
+        currency: selectedToken,
+        eventType: "payment_submitted",
+        metadata: {
+          mode: "external",
+          recipient: destinationAddress,
+        },
+        source: "dashboard",
+        txHash: hash,
+        walletAddress: address,
+      });
       setTransactionLabel(
         trimmedPaymentNarration
           ? `${trimmedPaymentNarration} to ${recipientLabel}`
@@ -2371,6 +2563,18 @@ function DashboardContent() {
     } catch (error) {
       pendingSpendSavePayment.current = null;
       setPaymentError(getErrorMessage(error));
+      trackTractionEvent({
+        amount: paymentAmount.trim(),
+        chainId: arcTestnet.id,
+        currency: selectedToken,
+        eventType: "payment_failed",
+        metadata: {
+          message: getErrorMessage(error),
+          mode: "external",
+        },
+        source: "dashboard",
+        walletAddress: address,
+      });
     }
   }
 
@@ -2554,6 +2758,26 @@ function DashboardContent() {
         result.explorerUrl ??
           `${arcTestnet.blockExplorers.default.url}/tx/${result.txHash}`,
       );
+      trackTractionEvent({
+        amount: swapAmount,
+        chainId: arcTestnet.id,
+        circleSocialUuid:
+          activeEmbeddedSwapWallet?.login
+            ? getCircleLoginIdentity(activeEmbeddedSwapWallet.login)
+                .socialUserUUID ?? undefined
+            : undefined,
+        currency: swapTokenIn,
+        eventType: "swap_submitted",
+        metadata: {
+          amountOut: result.amountOut,
+          mode: activeEmbeddedSwapWallet ? "circle" : "external",
+          tokenOut: swapTokenOut,
+        },
+        source: "dashboard_swap",
+        txHash: result.txHash,
+        walletAddress:
+          activeEmbeddedSwapWallet?.walletAddress ?? address ?? undefined,
+      });
       setSwapStatus(
         result.amountOut
           ? `Received ${result.amountOut} ${swapTokenOut}`
@@ -3009,7 +3233,7 @@ function DashboardContent() {
             </div>
           </div>
 
-          <div className="grid max-h-[30rem] gap-3 overflow-y-auto overscroll-contain pr-1">
+          <div className="dashboard-activity-list">
             {!isConnected ? (
               <div className="rounded-lg border border-border bg-muted px-4 py-4 text-sm font-semibold text-muted">
                 Connect a wallet to load transactions.

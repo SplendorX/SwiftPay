@@ -23,6 +23,7 @@ alter table public.savings_notifications
       'reconciliation_alert',
       'payment_received',
       'payment_request',
+      'payment_request_declined',
       'privswiftpay_claim'
     )
   );

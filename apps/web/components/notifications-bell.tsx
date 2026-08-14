@@ -2,6 +2,7 @@
 
 import {
   ArrowDownLeft,
+  Ban,
   Bell,
   CheckCheck,
   Copy,
@@ -24,8 +25,13 @@ import {
   readCircleWallets,
   type CircleLoginResult,
 } from "@/lib/circle-session";
+import { withPaymentRequestId } from "@/lib/payment-request-url";
 import {
   extractClaimCodeFromNotification,
+  extractPaymentRequestId,
+  isPaymentRequestDeclinedNotification,
+  isPaymentRequestMarkedDeclined,
+  isPaymentRequestMarkedPaid,
   isPaymentRequestNotification,
   isPrivSwiftPayClaimNotification,
   type SavingsNotificationRecord,
@@ -79,7 +85,6 @@ function getDepositTxHash(item: SavingsNotificationRecord) {
   if (typeof hash === "string" && /^0x[a-fA-F0-9]{64}$/i.test(hash)) {
     return hash;
   }
-  // Body may include "Deposit tx: 0x..." when metadata column is absent.
   const bodyTx = item.body?.match(/Deposit tx:\s*(0x[a-fA-F0-9]{64})/i);
   if (bodyTx?.[1]) {
     return bodyTx[1];
@@ -99,24 +104,40 @@ function claimSummaryFromBody(item: SavingsNotificationRecord) {
   if (typeof meta?.amount === "string" && typeof meta?.token === "string") {
     return `${meta.amount} ${meta.token} ready to claim`;
   }
-  const match = item.body?.match(
-    /You received \$([0-9.]+)\s+([A-Z]+)/i,
-  );
+  const match = item.body?.match(/You received \$([0-9.]+)\s+([A-Z]+)/i);
   if (match) {
     return `${match[1]} ${match[2]} ready to claim`;
   }
   return null;
 }
 
+function displayTitle(item: SavingsNotificationRecord) {
+  if (isClaimNotification(item)) {
+    return claimSummaryFromBody(item) ?? item.title;
+  }
+  return item.title;
+}
+
 function displayBody(item: SavingsNotificationRecord) {
-  // Hide raw action payload lines in the preview; actions expose copy/open.
   return (item.body ?? "")
+    .replace(/CLAIM_CODE:\S+/gi, "")
+    .replace(/PAYMENT_ID:\S+/gi, "")
+    .replace(/Deposit tx:\s*0x[a-fA-F0-9]{64}/gi, "")
+    .replace(/PAYMENT_REQUEST_ID:\S+/gi, "")
+    .replace(/PAYMENT_REQUEST_LINK:\S+/gi, "")
+    .replace(/FROM_WALLET:\S+/gi, "")
+    .replace(/FROM_USERNAME:\S+/gi, "")
+    .replace(/DECLINED_REQUEST_ID:\S+/gi, "")
+    .replace(/DECLINED_BY_USERNAME:\S+/gi, "")
+    .replace(/DECLINED_BY:\S+/gi, "")
+    .replace(/\bDECLINED:1\b/gi, "")
+    .replace(/\bPAID:1\b/gi, "")
+    .replace(/Open PrivSwiftPay[^\n.]*/gi, "")
+    .replace(/Copy claim code below\.?/gi, "")
     .split("\n")
-    .filter((line) => !/^CLAIM_CODE:/i.test(line.trim()))
-    .filter((line) => !/^PAYMENT_ID:/i.test(line.trim()))
-    .filter((line) => !/^Deposit tx:/i.test(line.trim()))
-    .filter((line) => !/^PAYMENT_REQUEST_ID:/i.test(line.trim()))
-    .filter((line) => !/^PAYMENT_REQUEST_LINK:/i.test(line.trim()))
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/ready to claim/i.test(line))
     .join(" ")
     .replace(/\s+/g, " ")
     .trim()
@@ -130,23 +151,30 @@ function claimPageHref(claimCode: string) {
 function paymentRequestHref(item: SavingsNotificationRecord) {
   const meta = getMeta(item);
   const link = meta?.requestLink;
+  const rawLink =
+    typeof link === "string" && link.trim()
+      ? link.trim()
+      : item.body?.match(/PAYMENT_REQUEST_LINK:(\S+)/i)?.[1];
 
-  if (typeof link !== "string" || !link.trim()) {
-    const bodyLink = item.body?.match(/PAYMENT_REQUEST_LINK:(\S+)/i)?.[1];
-
-    if (!bodyLink) {
-      return null;
-    }
-
-    return bodyLink.startsWith("/dashboard?") ? bodyLink : null;
+  if (!rawLink) {
+    return null;
   }
+
+  let href: string | null = null;
 
   try {
-    const url = new URL(link);
-    return `${url.pathname}${url.search}`;
+    const url = new URL(rawLink);
+    href = `${url.pathname}${url.search}`;
   } catch {
-    return link.startsWith("/dashboard?") ? link : null;
+    href = rawLink.startsWith("/dashboard?") ? rawLink : null;
   }
+
+  if (!href) {
+    return null;
+  }
+
+  const requestId = extractPaymentRequestId(item);
+  return requestId ? withPaymentRequestId(href, requestId) : href;
 }
 
 export function NotificationsBell({ className }: { className?: string }) {
@@ -157,6 +185,7 @@ export function NotificationsBell({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [marking, setMarking] = useState(false);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
   const [items, setItems] = useState<SavingsNotificationRecord[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [authHint, setAuthHint] = useState<string | null>(null);
@@ -180,7 +209,6 @@ export function NotificationsBell({ className }: { className?: string }) {
     };
   }, [refreshCircleState]);
 
-  // Prefer Circle wallet when signed in with Google; otherwise external wagmi wallet.
   const ownerWallet = useMemo(() => {
     if (circleLogin && circleWalletAddress) {
       return circleWalletAddress;
@@ -196,7 +224,6 @@ export function NotificationsBell({ className }: { className?: string }) {
     [circleLogin],
   );
 
-  // Track whether server session (external) or social path is ready.
   useEffect(() => {
     let cancelled = false;
 
@@ -279,8 +306,7 @@ export function NotificationsBell({ className }: { className?: string }) {
         setUnreadCount(0);
         if (res.status === 401) {
           setAuthHint(
-            json.message ??
-              "Authorize this wallet to load notifications.",
+            json.message ?? "Authorize this wallet to load notifications.",
           );
           setWalletAuthorized(false);
         }
@@ -293,24 +319,26 @@ export function NotificationsBell({ className }: { className?: string }) {
       const next = json.notifications ?? [];
       const nextUnread = json.unreadCount ?? 0;
 
-      // Toast newly discovered receive / claim / request notifications (after first load).
       if (hasLoadedOnce.current) {
         for (const item of next) {
           const isClaim = isClaimNotification(item);
           const isRequest = isPaymentRequestNotification(item);
+          const isDeclined = isPaymentRequestDeclinedNotification(item);
           const isReceive =
-            item.kind === "payment_received" && !isClaim && !isRequest;
+            item.kind === "payment_received" &&
+            !isClaim &&
+            !isRequest &&
+            !isDeclined;
 
           if (
-            (isReceive || isClaim || isRequest) &&
+            (isReceive || isClaim || isRequest || isDeclined) &&
             !item.read_at &&
             !knownIdsRef.current.has(item.id)
           ) {
             const claimCode = getClaimCodeFromNotification(item);
             const requestHref = isRequest ? paymentRequestHref(item) : null;
-            toast.success(item.title, {
-              description:
-                isClaim || isRequest ? displayBody(item) : item.body,
+            toast.success(displayTitle(item), {
+              description: displayBody(item),
               action: claimCode
                 ? {
                     label: "Claim",
@@ -325,7 +353,7 @@ export function NotificationsBell({ className }: { className?: string }) {
                         window.location.href = requestHref;
                       },
                     }
-                : undefined,
+                  : undefined,
             });
           }
         }
@@ -413,6 +441,66 @@ export function NotificationsBell({ className }: { className?: string }) {
     }
   }
 
+  async function declineRequest(item: SavingsNotificationRecord) {
+    if (!ownerWallet) return;
+
+    setDecliningId(item.id);
+    try {
+      const response = await fetch("/api/payment-requests/decline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          circleSocialUuid,
+          notificationId: item.id,
+          ownerWallet,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+        notification?: SavingsNotificationRecord;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Could not decline this request.");
+      }
+
+      const declinedAt = new Date().toISOString();
+      setItems((prev) =>
+        prev.map((current) =>
+          current.id === item.id
+            ? {
+                ...current,
+                ...(payload?.notification ?? {}),
+                metadata: {
+                  ...((current.metadata && typeof current.metadata === "object"
+                    ? current.metadata
+                    : {}) as Record<string, unknown>),
+                  status: "declined",
+                  declinedAt,
+                },
+                read_at: current.read_at ?? declinedAt,
+                body: current.body.includes("DECLINED:1")
+                  ? current.body
+                  : `${current.body}\nDECLINED:1`,
+              }
+            : current,
+        ),
+      );
+      toast.success("Request declined", {
+        description: "The sender will be notified.",
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not decline this request.",
+      );
+    } finally {
+      setDecliningId(null);
+    }
+  }
+
   function toggle() {
     setOpen((value) => {
       const next = !value;
@@ -431,13 +519,9 @@ export function NotificationsBell({ className }: { className?: string }) {
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label={
-          badge
-            ? `Notifications, ${unreadCount} unread`
-            : "Notifications"
+          badge ? `Notifications, ${unreadCount} unread` : "Notifications"
         }
-        className={cn(
-          "relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-background/70 text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-background hover:text-foreground",
-        )}
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-background/70 text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-background hover:text-foreground"
         onClick={toggle}
         type="button"
       >
@@ -451,9 +535,9 @@ export function NotificationsBell({ className }: { className?: string }) {
 
       {open ? (
         <div
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl ring-1 ring-foreground/5"
-          role="dialog"
           aria-label="Notifications"
+          className="notifications-popover"
+          role="dialog"
         >
           <div className="flex items-center justify-between gap-2 border-b border-border/80 px-3 py-2.5">
             <div>
@@ -480,7 +564,7 @@ export function NotificationsBell({ className }: { className?: string }) {
             ) : null}
           </div>
 
-          <div className="max-h-[min(22rem,60vh)] overflow-y-auto">
+          <div className="notifications-popover-list">
             {!hasIdentity ? (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 Connect a wallet or sign in with Google to see notifications.
@@ -512,22 +596,25 @@ export function NotificationsBell({ className }: { className?: string }) {
               <ul className="divide-y divide-border/70">
                 {items.map((item) => {
                   const unread = !item.read_at;
+                  const isDeclinedNotice =
+                    isPaymentRequestDeclinedNotification(item);
                   const isReceive =
                     item.kind === "payment_received" &&
                     !isClaimNotification(item) &&
-                    !isPaymentRequestNotification(item);
+                    !isPaymentRequestNotification(item) &&
+                    !isDeclinedNotice;
                   const isClaim = isClaimNotification(item);
                   const isRequest = isPaymentRequestNotification(item);
+                  const requestDeclined =
+                    isRequest && isPaymentRequestMarkedDeclined(item);
+                  const requestPaid =
+                    isRequest && isPaymentRequestMarkedPaid(item);
+                  const requestClosed = requestDeclined || requestPaid;
                   const claimCode = isClaim
                     ? getClaimCodeFromNotification(item)
                     : null;
                   const requestHref = isRequest ? paymentRequestHref(item) : null;
                   const txHash = getDepositTxHash(item);
-                  const meta = getMeta(item);
-                  const claimAmount =
-                    typeof meta?.amount === "string" ? meta.amount : null;
-                  const claimToken =
-                    typeof meta?.token === "string" ? meta.token : null;
 
                   return (
                     <li key={item.id}>
@@ -545,14 +632,16 @@ export function NotificationsBell({ className }: { className?: string }) {
                                 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                                 : isRequest
                                   ? "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
-                                  : isClaim
-                                  ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
-                                  : "bg-muted text-muted-foreground",
+                                  : isDeclinedNotice
+                                    ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                                    : isClaim
+                                      ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
+                                      : "bg-muted text-muted-foreground",
                             )}
                           >
                             {isReceive ? (
                               <ArrowDownLeft className="h-3.5 w-3.5" />
-                            ) : isRequest ? (
+                            ) : isRequest || isDeclinedNotice ? (
                               <ReceiptText className="h-3.5 w-3.5" />
                             ) : isClaim ? (
                               <LockKeyhole className="h-3.5 w-3.5" />
@@ -563,7 +652,7 @@ export function NotificationsBell({ className }: { className?: string }) {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
                               <p className="text-sm font-medium leading-snug">
-                                {item.title}
+                                {displayTitle(item)}
                                 {unread ? (
                                   <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle" />
                                 ) : null}
@@ -573,19 +662,8 @@ export function NotificationsBell({ className }: { className?: string }) {
                               </span>
                             </div>
                             <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                              {isClaim || isRequest
-                                ? displayBody(item)
-                                : item.body}
+                              {displayBody(item)}
                             </p>
-                            {isClaim && claimSummaryFromBody(item) ? (
-                              <p className="mt-1 text-xs font-semibold text-foreground">
-                                {claimSummaryFromBody(item)}
-                              </p>
-                            ) : isClaim && claimAmount && claimToken ? (
-                              <p className="mt-1 text-xs font-semibold text-foreground">
-                                {claimAmount} {claimToken} ready to claim
-                              </p>
-                            ) : null}
                             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
                               {item.pocket_id ? (
                                 <Link
@@ -605,7 +683,7 @@ export function NotificationsBell({ className }: { className?: string }) {
                                   Open dashboard
                                 </Link>
                               ) : null}
-                              {isRequest && requestHref ? (
+                              {isRequest && requestHref && !requestClosed ? (
                                 <Link
                                   className="text-[11px] font-medium text-primary hover:underline"
                                   href={requestHref}
@@ -614,17 +692,55 @@ export function NotificationsBell({ className }: { className?: string }) {
                                   Open request
                                 </Link>
                               ) : null}
+                              {isRequest && !requestClosed ? (
+                                <button
+                                  className="inline-flex items-center gap-0.5 text-[11px] font-medium text-rose-600 hover:underline dark:text-rose-400"
+                                  disabled={decliningId === item.id}
+                                  onClick={() => void declineRequest(item)}
+                                  type="button"
+                                >
+                                  {decliningId === item.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Ban className="h-3 w-3" />
+                                  )}
+                                  {decliningId === item.id
+                                    ? "Declining"
+                                    : "Decline"}
+                                </button>
+                              ) : null}
+                              {isRequest && requestDeclined ? (
+                                <span className="text-[11px] font-medium text-muted-foreground">
+                                  Declined
+                                </span>
+                              ) : null}
+                              {isRequest && requestPaid ? (
+                                <span className="text-[11px] font-medium text-muted-foreground">
+                                  Paid
+                                </span>
+                              ) : null}
                               {isClaim && claimCode ? (
                                 <>
                                   <button
-                                    className="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary hover:underline"
+                                    aria-label={
+                                      copiedId === item.id
+                                        ? "Claim code copied"
+                                        : "Copy claim code"
+                                    }
+                                    className="inline-flex h-5 w-5 items-center justify-center text-primary hover:text-foreground"
                                     onClick={() => void copyClaimCode(item)}
+                                    title={
+                                      copiedId === item.id
+                                        ? "Copied"
+                                        : "Copy claim code"
+                                    }
                                     type="button"
                                   >
-                                    <Copy className="h-3 w-3" />
-                                    {copiedId === item.id
-                                      ? "Copied"
-                                      : "Copy claim code"}
+                                    {copiedId === item.id ? (
+                                      <CheckCheck className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <Copy className="h-3.5 w-3.5" />
+                                    )}
                                   </button>
                                   <Link
                                     className="text-[11px] font-medium text-primary hover:underline"

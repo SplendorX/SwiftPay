@@ -1,9 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getAddress, isAddress } from "viem";
+
+import {
+  readPaymentRequestIdFromLink,
+  withPaymentRequestId,
+} from "@/lib/payment-request-url";
 import { normalizeUsername, validateUsername } from "@/lib/profile-utils";
 import {
   createPaymentRequestNotification,
   hasNotificationForPaymentId,
+  readPaymentRequestLifecycle,
 } from "@/lib/save/notifications";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
@@ -18,8 +25,11 @@ type NotifyPaymentRequestBody = {
   amount?: unknown;
   expiresInHours?: unknown;
   fromLabel?: unknown;
+  fromUsername?: unknown;
+  fromWallet?: unknown;
   note?: unknown;
   recipientUsername?: unknown;
+  requestId?: unknown;
   requestLink?: unknown;
   token?: unknown;
 };
@@ -78,6 +88,19 @@ function normalizeRequestLink(value: unknown) {
   }
 }
 
+function normalizeRequestId(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const requestId = value.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    requestId,
+  )
+    ? requestId
+    : null;
+}
+
 function normalizeExpiresInHours(value: unknown) {
   const numeric =
     typeof value === "number"
@@ -104,7 +127,15 @@ export async function POST(request: NextRequest) {
   const usernameError = validateUsername(recipientUsername);
   const amount = normalizeAmount(body.amount);
   const token = normalizeToken(body.token);
-  const requestLink = normalizeRequestLink(body.requestLink);
+  const requestLinkRaw = normalizeRequestLink(body.requestLink);
+  const fromWalletRaw =
+    typeof body.fromWallet === "string" ? body.fromWallet.trim() : "";
+  const fromWallet = isAddress(fromWalletRaw)
+    ? getAddress(fromWalletRaw).toLowerCase()
+    : null;
+  const fromUsername = normalizeUsername(
+    typeof body.fromUsername === "string" ? body.fromUsername : "",
+  );
 
   if (usernameError) {
     return jsonError(usernameError, 400);
@@ -118,8 +149,22 @@ export async function POST(request: NextRequest) {
     return jsonError("Select a supported request token.", 400);
   }
 
+  const requestId =
+    normalizeRequestId(body.requestId) ??
+    (requestLinkRaw
+      ? normalizeRequestId(readPaymentRequestIdFromLink(requestLinkRaw))
+      : null) ??
+    crypto.randomUUID();
+  const requestLink = requestLinkRaw
+    ? withPaymentRequestId(requestLinkRaw, requestId)
+    : null;
+
   if (!requestLink) {
     return jsonError("Generate a valid payment request link first.", 400);
+  }
+
+  if (!fromWallet) {
+    return jsonError("Connect a wallet before sending a payment request.", 400);
   }
 
   try {
@@ -139,8 +184,21 @@ export async function POST(request: NextRequest) {
       return jsonError("That SwiftPay username was not found.", 404);
     }
 
-    const requestId = crypto.randomUUID();
-    const fromLabel = normalizeText(body.fromLabel, 80) || "A SwiftPay user";
+    if (recipient.wallet_address.toLowerCase() === fromWallet) {
+      return jsonError("You cannot send a payment request to yourself.", 400);
+    }
+
+    const existingLifecycle = await readPaymentRequestLifecycle(requestId);
+    if (existingLifecycle === "paid" || existingLifecycle === "declined") {
+      return jsonError(
+        "This payment request is no longer open. Generate a new link.",
+        409,
+      );
+    }
+
+    const fromLabel =
+      normalizeText(body.fromLabel, 80) ||
+      (fromUsername ? `@${fromUsername}` : "A SwiftPay user");
     const note = normalizeText(body.note, maxNoteLength);
     const duplicate = await hasNotificationForPaymentId(
       recipient.wallet_address,
@@ -159,6 +217,8 @@ export async function POST(request: NextRequest) {
       amount,
       expiresInHours: normalizeExpiresInHours(body.expiresInHours),
       fromLabel,
+      fromUsername: fromUsername || null,
+      fromWallet,
       note,
       ownerWallet: recipient.wallet_address,
       requestId,

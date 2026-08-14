@@ -6,6 +6,7 @@ type BuildPaymentRequestUrlInput = {
   memo?: string;
   origin: string;
   path?: "/dashboard" | "/pay";
+  requestId?: string;
   token?: ArcTokenSymbol;
   username?: string;
   walletAddress?: string;
@@ -17,11 +18,16 @@ export function buildPaymentRequestUrl({
   memo,
   origin,
   path = "/dashboard",
+  requestId,
   token,
   username,
   walletAddress,
 }: BuildPaymentRequestUrlInput) {
   const requestUrl = new URL(path, origin);
+
+  if (requestId?.trim()) {
+    requestUrl.searchParams.set("requestId", requestId.trim());
+  }
 
   if (username) {
     requestUrl.searchParams.set("username", username);
@@ -56,4 +62,30 @@ export function buildPaymentRequestPath(
   );
 
   return `${url.pathname}${url.search}`;
+}
+
+export function withPaymentRequestId(link: string, requestId: string) {
+  const id = requestId.trim();
+  if (!id) {
+    return link;
+  }
+
+  try {
+    const url = new URL(link, "https://swiftpay.local");
+    url.searchParams.set("requestId", id);
+    if (link.startsWith("http://") || link.startsWith("https://")) {
+      return url.toString();
+    }
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return link;
+  }
+}
+
+export function readPaymentRequestIdFromLink(link: string) {
+  try {
+    return new URL(link, "https://swiftpay.local").searchParams.get("requestId");
+  } catch {
+    return null;
+  }
 }

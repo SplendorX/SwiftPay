@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import {
   useAccount,
   useReadContract,
@@ -48,7 +48,9 @@ import {
   type PortfolioChartPoint,
 } from "@/lib/earn/performance";
 import { arcTestnetTokens } from "@/lib/tokens";
+import { trackTractionEvent } from "@/lib/traction/client";
 import { cn } from "@/lib/utils";
+import { arcTestnet } from "@/lib/wagmi";
 
 const usdc = arcTestnetTokens.USDC;
 const zero = BigInt(0);
@@ -100,7 +102,9 @@ function EarnPageInner() {
     "deposit" | "withdraw" | null
   >(null);
   const [pendingTxAmountLabel, setPendingTxAmountLabel] = useState("");
+  const [pendingTxAmount, setPendingTxAmount] = useState("");
   const [rangeTab, setRangeTab] = useState<"24H" | "7D" | "30D" | "ALL">("ALL");
+  const trackedConfirmedEarnTxs = useRef(new Set<string>());
 
   const { writeContractAsync, isPending: isWriting } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
@@ -198,9 +202,37 @@ function EarnPageInner() {
       ];
     });
     if (isConfirmed) {
+      if (!trackedConfirmedEarnTxs.current.has(txHash)) {
+        trackedConfirmedEarnTxs.current.add(txHash);
+        trackTractionEvent({
+          amount: pendingTxAmount,
+          chainId: arcTestnet.id,
+          currency: "USDC",
+          eventType:
+            pendingTxType === "deposit"
+              ? "earn_deposit_completed"
+              : "earn_withdraw_completed",
+          metadata: {
+            mode,
+            vault,
+          },
+          source: "earn",
+          txHash,
+          walletAddress: address,
+        });
+      }
       setTxRefreshKey((k) => k + 1);
     }
-  }, [txHash, isConfirmed, pendingTxType, pendingTxAmountLabel]);
+  }, [
+    txHash,
+    isConfirmed,
+    pendingTxType,
+    pendingTxAmountLabel,
+    pendingTxAmount,
+    mode,
+    vault,
+    address,
+  ]);
 
   const { data: walletUsdc } = useReadContract({
     address: usdc.address,
@@ -384,6 +416,7 @@ function EarnPageInner() {
       });
       setPendingTxType("deposit");
       setPendingTxAmountLabel(amountLabel);
+      setPendingTxAmount(formatUnits(amount, usdc.decimals));
       setTxHash(hash);
       setDepositInput("");
       await refetchShares();
@@ -425,6 +458,7 @@ function EarnPageInner() {
       });
       setPendingTxType("withdraw");
       setPendingTxAmountLabel(amountLabel);
+      setPendingTxAmount(formatUnits(amount, usdc.decimals));
       setTxHash(hash);
       setWithdrawInput("");
       await refetchShares();

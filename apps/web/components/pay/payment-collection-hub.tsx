@@ -5,10 +5,12 @@ import { StyledSelect } from "@/components/ui/styled-select";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  AtSign,
   CheckCircle2,
   Clock3,
   Copy,
   Link2,
+  Lock,
   MessageSquareText,
   QrCode,
   ReceiptText,
@@ -31,9 +33,14 @@ import {
   buildPaymentRequestPath,
   buildPaymentRequestUrl,
 } from "@/lib/payment-request-url";
-import { formatUsernameLabel } from "@/lib/profile";
+import { fetchProfile, formatUsernameLabel } from "@/lib/profile";
+import { normalizeUsername, validateUsername } from "@/lib/profile-utils";
+import {
+  readRequestUsernameHistory,
+  rememberRequestedUsername,
+} from "@/lib/request-username-history";
 import type { ArcTokenSymbol } from "@/lib/tokens";
-import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { arcTestnet } from "@/lib/wagmi";
 
 const requestsStorageKey = "swiftpay.payment.requests";
@@ -45,6 +52,7 @@ type SavedRequest = {
   id: string;
   link: string;
   note: string;
+  sentToUsername?: string;
   status: "active" | "expired";
   token: ArcTokenSymbol;
   username?: string;
@@ -62,6 +70,14 @@ type PaymentCollectionHubProps = {
 function isPositiveAmount(value: string) {
   const amount = Number(value);
   return Number.isFinite(amount) && amount > 0;
+}
+
+function shortenWallet(value: string) {
+  if (!isAddress(value)) {
+    return value;
+  }
+
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }
 
 function readSavedRequests(): SavedRequest[] {
@@ -83,43 +99,40 @@ export function PaymentCollectionHub({
   initialNote,
   initialToken,
   initialUsername = "",
-  initialWalletAddress,
 }: PaymentCollectionHubProps) {
+  const { address: connectedWallet, isConnected, source } = usePlatformWallet();
   const [origin, setOrigin] = useState("");
-  const [walletAddress, setWalletAddress] = useState(
-    initialUsername
-      ? formatUsernameLabel(initialUsername)
-      : initialWalletAddress,
+  const [requesterUsername, setRequesterUsername] = useState<string | null>(
+    null,
   );
+  const [shareUsername, setShareUsername] = useState(
+    initialUsername ? normalizeUsername(initialUsername) : "",
+  );
+  const [usernameHistory, setUsernameHistory] = useState<string[]>([]);
   const [amount, setAmount] = useState(initialAmount);
   const [note, setNote] = useState(initialNote);
   const [token, setToken] = useState<ArcTokenSymbol>(initialToken);
   const [expiresInHours, setExpiresInHours] = useState("24");
   const [copied, setCopied] = useState<"address" | "link" | null>(null);
   const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([]);
-  const [shareUsername, setShareUsername] = useState("");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [requestId, setRequestId] = useState("");
 
-  const {
-    displayLabel: recipientDisplayLabel,
-    error: recipientResolveError,
-    isResolving: isRecipientResolving,
-    isValid: isRecipientValid,
-    resolvedAddress: resolvedRecipientAddress,
-    resolvedUsername: resolvedRecipientUsername,
-  } = useResolvedRecipient(walletAddress);
-
-  const trimmedWalletAddress = resolvedRecipientAddress ?? walletAddress.trim();
+  const trimmedWalletAddress = connectedWallet ?? "";
   const trimmedAmount = amount.trim();
   const trimmedNote = note.trim();
   const isWalletValid = Boolean(
-    resolvedRecipientAddress && isAddress(resolvedRecipientAddress),
+    trimmedWalletAddress && isAddress(trimmedWalletAddress),
   );
   const isAmountValid = isPositiveAmount(trimmedAmount);
+  const normalizedShareUsername = normalizeUsername(shareUsername);
+  const shareUsernameError = normalizedShareUsername
+    ? validateUsername(normalizedShareUsername)
+    : "Enter a SwiftPay username.";
   const canGenerateLink = Boolean(
-    origin && isWalletValid && isAmountValid && !isRecipientResolving,
+    origin && isWalletValid && isAmountValid && isConnected,
   );
 
   const requestLink = useMemo(() => {
@@ -130,16 +143,16 @@ export function PaymentCollectionHub({
       memo: trimmedNote,
       origin,
       path: "/dashboard",
+      requestId,
       token,
-      username: resolvedRecipientUsername ?? undefined,
-      walletAddress: resolvedRecipientUsername
-        ? undefined
-        : trimmedWalletAddress,
+      username: requesterUsername ?? undefined,
+      walletAddress: requesterUsername ? undefined : trimmedWalletAddress,
     });
   }, [
     canGenerateLink,
     origin,
-    resolvedRecipientUsername,
+    requestId,
+    requesterUsername,
     token,
     trimmedAmount,
     trimmedNote,
@@ -151,9 +164,10 @@ export function PaymentCollectionHub({
       amount: isAmountValid ? trimmedAmount : undefined,
       memo: trimmedNote,
       path: "/dashboard",
+      requestId: requestId || undefined,
       token,
-      username: resolvedRecipientUsername ?? undefined,
-      walletAddress: resolvedRecipientUsername
+      username: requesterUsername ?? undefined,
+      walletAddress: requesterUsername
         ? undefined
         : isWalletValid
           ? trimmedWalletAddress
@@ -162,7 +176,7 @@ export function PaymentCollectionHub({
   }, [
     isAmountValid,
     isWalletValid,
-    resolvedRecipientUsername,
+    requesterUsername,
     token,
     trimmedAmount,
     trimmedNote,
@@ -172,12 +186,66 @@ export function PaymentCollectionHub({
   useEffect(() => {
     setOrigin(window.location.origin);
     setSavedRequests(readSavedRequests());
+    setUsernameHistory(readRequestUsernameHistory());
+    setRequestId(crypto.randomUUID());
   }, []);
 
   useEffect(() => {
+    if (!canGenerateLink) {
+      return;
+    }
+    setRequestId(crypto.randomUUID());
+  }, [
+    canGenerateLink,
+    token,
+    trimmedAmount,
+    trimmedNote,
+    trimmedWalletAddress,
+  ]);
+
+  useEffect(() => {
+    if (!requestLink || !canGenerateLink) {
+      return;
+    }
+
+    persistGeneratedRequest();
+    // Persist the generated pay-to-self link once it becomes valid.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canGenerateLink, requestLink]);
+
+  useEffect(() => {
+    if (!connectedWallet) {
+      setRequesterUsername(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchProfile(connectedWallet)
+      .then((profile) => {
+        if (!cancelled) {
+          setRequesterUsername(profile?.username ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRequesterUsername(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectedWallet]);
+
+  function persistGeneratedRequest(sentToUsername?: string) {
     if (!requestLink || !canGenerateLink) return;
 
-    const existing = readSavedRequests().find((item) => item.link === requestLink);
+    const existing = readSavedRequests().find(
+      (item) =>
+        item.link === requestLink &&
+        (item.sentToUsername ?? "") === (sentToUsername ?? ""),
+    );
     if (existing) return;
 
     const nextRequest: SavedRequest = {
@@ -187,25 +255,17 @@ export function PaymentCollectionHub({
       id: crypto.randomUUID(),
       link: requestLink,
       note: trimmedNote,
+      sentToUsername,
       status: "active",
       token,
-      username: resolvedRecipientUsername ?? undefined,
+      username: requesterUsername ?? undefined,
       wallet: trimmedWalletAddress,
     };
 
     const next = [nextRequest, ...readSavedRequests()].slice(0, 12);
     writeSavedRequests(next);
     setSavedRequests(next);
-  }, [
-    canGenerateLink,
-    expiresInHours,
-    requestLink,
-    resolvedRecipientUsername,
-    token,
-    trimmedAmount,
-    trimmedNote,
-    trimmedWalletAddress,
-  ]);
+  }
 
   async function copyValue(value: string, type: "address" | "link") {
     if (!value) return;
@@ -235,17 +295,27 @@ export function PaymentCollectionHub({
     }
   }
 
+  function applyHistoryUsername(username: string) {
+    setShareUsername(normalizeUsername(username));
+    setShareError(null);
+    setShareStatus(null);
+  }
+
   async function sendRequestNotification() {
-    if (!requestLink) {
-      setShareError("Generate a payment request link first.");
+    if (!isConnected || !trimmedWalletAddress) {
+      setShareError("Connect a wallet to send a payment request.");
       setShareStatus(null);
       return;
     }
 
-    const recipientUsername = shareUsername.trim().replace(/^@+/, "");
+    if (!requestLink) {
+      setShareError("Enter a valid amount to generate this request.");
+      setShareStatus(null);
+      return;
+    }
 
-    if (!recipientUsername) {
-      setShareError("Enter a SwiftPay username.");
+    if (shareUsernameError) {
+      setShareError(shareUsernameError);
       setShareStatus(null);
       return;
     }
@@ -259,11 +329,14 @@ export function PaymentCollectionHub({
         body: JSON.stringify({
           amount: trimmedAmount,
           expiresInHours,
-          fromLabel: resolvedRecipientUsername
-            ? formatUsernameLabel(resolvedRecipientUsername)
-            : trimmedWalletAddress,
+          fromLabel: requesterUsername
+            ? formatUsernameLabel(requesterUsername)
+            : shortenWallet(trimmedWalletAddress),
+          fromUsername: requesterUsername ?? undefined,
+          fromWallet: trimmedWalletAddress,
           note: trimmedNote,
-          recipientUsername,
+          recipientUsername: normalizedShareUsername,
+          requestId,
           requestLink,
           token,
         }),
@@ -283,12 +356,14 @@ export function PaymentCollectionHub({
         );
       }
 
+      const savedUsername =
+        payload?.recipientUsername ?? normalizedShareUsername;
+      setUsernameHistory(rememberRequestedUsername(savedUsername));
+      persistGeneratedRequest(savedUsername);
+      setRequestId(crypto.randomUUID());
       setShareStatus(
-        `Request sent to ${formatUsernameLabel(
-          payload?.recipientUsername ?? recipientUsername,
-        )}.`,
+        `Request sent to ${formatUsernameLabel(savedUsername)}.`,
       );
-      setShareUsername("");
     } catch (error) {
       setShareError(
         error instanceof Error
@@ -301,11 +376,17 @@ export function PaymentCollectionHub({
   }
 
   const activeCount = savedRequests.filter((r) => r.status === "active").length;
-  const recipientSummary = resolvedRecipientUsername
-    ? formatUsernameLabel(resolvedRecipientUsername)
+  const recipientSummary = requesterUsername
+    ? formatUsernameLabel(requesterUsername)
     : isWalletValid
-      ? trimmedWalletAddress
-      : recipientDisplayLabel;
+      ? shortenWallet(trimmedWalletAddress)
+      : "Connect a wallet";
+  const walletSourceLabel =
+    source === "embedded"
+      ? "Embedded wallet"
+      : source === "external"
+        ? "External wallet"
+        : "Not connected";
 
   return (
     <div className="collection-hub">
@@ -318,8 +399,8 @@ export function PaymentCollectionHub({
           Payment collection hub
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Generate payment links, share QR codes, set expiration windows, and
-          track open requests — all routing to your dashboard receive flow.
+          Request payment to your connected wallet. Start with a SwiftPay
+          username, then share the in-app request, link, or QR code.
         </p>
         <div className="collection-hub-stats">
           <div className="preview-metric">
@@ -346,29 +427,72 @@ export function PaymentCollectionHub({
       <div className="collection-hub-grid">
         <section className="section-panel">
           <p className="section-eyebrow">Create request</p>
-          <h2 className="section-title">Build a payment link</h2>
+          <h2 className="section-title">Ask someone to pay you</h2>
 
           <div className="mt-5 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-sm font-semibold">
-                Receiving wallet or @username
-              </span>
+              <span className="text-sm font-semibold">Send request to</span>
               <div className="field-shell flex h-11 items-center gap-2 px-3">
-                <Wallet className="h-4 w-4 text-primary" />
+                <AtSign className="h-4 w-4 text-primary" />
                 <Input
+                  autoComplete="off"
                   className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
-                  onChange={(event) => setWalletAddress(event.target.value)}
-                  placeholder="0x address or @username"
-                  value={walletAddress}
+                  onChange={(event) => {
+                    setShareUsername(
+                      event.target.value.toLowerCase().replace(/\s/g, ""),
+                    );
+                    setShareError(null);
+                    setShareStatus(null);
+                  }}
+                  placeholder="username"
+                  spellCheck={false}
+                  value={shareUsername}
                 />
               </div>
-              {recipientResolveError ? (
-                <p className="text-sm text-destructive">{recipientResolveError}</p>
-              ) : isRecipientValid && resolvedRecipientUsername ? (
-                <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                  Resolved to {formatUsernameLabel(resolvedRecipientUsername)}
+              {usernameHistory.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {usernameHistory.map((username) => (
+                    <button
+                      className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                      key={username}
+                      onClick={() => applyHistoryUsername(username)}
+                      type="button"
+                    >
+                      {formatUsernameLabel(username)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Recent usernames you request from will appear here.
                 </p>
-              ) : null}
+              )}
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold">Receiving wallet</span>
+              <div className="field-shell flex h-11 items-center gap-2 px-3 opacity-90">
+                {isConnected ? (
+                  <Lock className="h-4 w-4 text-primary" />
+                ) : (
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                )}
+                <Input
+                  className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
+                  readOnly
+                  value={
+                    isConnected
+                      ? requesterUsername
+                        ? `${formatUsernameLabel(requesterUsername)} · ${shortenWallet(trimmedWalletAddress)}`
+                        : trimmedWalletAddress
+                      : "Connect a wallet to lock this request"
+                  }
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Locked to your {walletSourceLabel.toLowerCase()}. Funds always
+                settle to this address.
+              </p>
             </label>
 
             <div className="grid gap-3 sm:grid-cols-[1fr_12rem_7rem]">
@@ -422,6 +546,42 @@ export function PaymentCollectionHub({
               </div>
             </label>
 
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-3">
+                <p className="text-sm font-semibold">Send in-app request</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  The recipient can pay or decline. You will be notified if they
+                  decline.
+                </p>
+              </div>
+              <Button
+                className="h-11 w-full sm:w-auto"
+                disabled={
+                  !requestLink ||
+                  Boolean(shareUsernameError) ||
+                  isSendingNotification ||
+                  !isConnected
+                }
+                onClick={() => void sendRequestNotification()}
+                type="button"
+              >
+                {isSendingNotification ? (
+                  <Clock3 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="h-4 w-4" />
+                )}
+                Send request
+              </Button>
+              {shareError ? (
+                <p className="mt-2 text-sm text-destructive">{shareError}</p>
+              ) : null}
+              {shareStatus ? (
+                <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+                  {shareStatus}
+                </p>
+              ) : null}
+            </div>
+
             <div className="rounded-lg border border-border bg-muted/30 p-4">
               <div className="mb-2 flex items-center gap-2">
                 <Link2 className="h-4 w-4 text-primary" />
@@ -429,7 +589,7 @@ export function PaymentCollectionHub({
               </div>
               <p className="break-all font-mono text-xs text-muted-foreground">
                 {requestLink ||
-                  "Enter a valid wallet or @username and amount to generate."}
+                  "Connect a wallet and enter an amount to generate a link."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button disabled={!requestLink} onClick={() => void copyValue(requestLink, "link")} type="button">
@@ -449,62 +609,6 @@ export function PaymentCollectionHub({
                   </Button>
                 ) : null}
               </div>
-            </div>
-
-            <div className="rounded-lg border border-border bg-card p-4">
-              <div className="mb-3">
-                <p className="text-sm font-semibold">Send in-app request</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Share this generated link to any SwiftPay username. They will
-                  receive it in their notification bell.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="field-shell flex h-11 min-w-0 flex-1 items-center gap-2 px-3">
-                  <span className="text-sm font-semibold text-muted-foreground">
-                    @
-                  </span>
-                  <Input
-                    autoComplete="off"
-                    className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
-                    onChange={(event) => {
-                      setShareUsername(
-                        event.target.value.toLowerCase().replace(/\s/g, ""),
-                      );
-                      setShareError(null);
-                      setShareStatus(null);
-                    }}
-                    placeholder="username"
-                    spellCheck={false}
-                    value={shareUsername}
-                  />
-                </div>
-                <Button
-                  className="h-11 shrink-0"
-                  disabled={
-                    !requestLink ||
-                    !shareUsername.trim() ||
-                    isSendingNotification
-                  }
-                  onClick={() => void sendRequestNotification()}
-                  type="button"
-                >
-                  {isSendingNotification ? (
-                    <Clock3 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Share2 className="h-4 w-4" />
-                  )}
-                  Send request
-                </Button>
-              </div>
-              {shareError ? (
-                <p className="mt-2 text-sm text-destructive">{shareError}</p>
-              ) : null}
-              {shareStatus ? (
-                <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-                  {shareStatus}
-                </p>
-              ) : null}
             </div>
           </div>
         </section>
@@ -536,16 +640,24 @@ export function PaymentCollectionHub({
               </motion.div>
             ) : (
               <div className="flex h-full min-h-[220px] items-center justify-center text-sm text-muted-foreground">
-                QR preview appears when link is ready
+                QR preview appears when the request is ready
               </div>
             )}
           </div>
 
           <div className="mt-4 grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
             <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Recipient</span>
+              <span className="text-muted-foreground">Pays to</span>
               <span className="max-w-[12rem] truncate text-right font-semibold">
-                {recipientSummary || "Waiting"}
+                {recipientSummary}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Requesting</span>
+              <span className="max-w-[12rem] truncate text-right font-semibold">
+                {normalizedShareUsername
+                  ? formatUsernameLabel(normalizedShareUsername)
+                  : "Waiting"}
               </span>
             </div>
             <div className="flex justify-between gap-3">
@@ -580,7 +692,7 @@ export function PaymentCollectionHub({
 
         {savedRequests.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Generated links appear here for quick status tracking.
+            Sent and generated requests appear here for quick tracking.
           </p>
         ) : (
           <div className="collection-hub-requests">
@@ -591,10 +703,12 @@ export function PaymentCollectionHub({
                     <p className="font-semibold">
                       {request.amount} {request.token}
                     </p>
-                    <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                      {request.username
-                        ? formatUsernameLabel(request.username)
-                        : request.wallet}
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {request.sentToUsername
+                        ? `Requested ${formatUsernameLabel(request.sentToUsername)}`
+                        : request.username
+                          ? `Pays ${formatUsernameLabel(request.username)}`
+                          : `Pays ${shortenWallet(request.wallet)}`}
                     </p>
                     {request.note ? (
                       <p className="mt-1 text-xs text-muted-foreground">{request.note}</p>
@@ -620,6 +734,16 @@ export function PaymentCollectionHub({
                       Open
                     </Link>
                   </Button>
+                  {request.sentToUsername ? (
+                    <Button
+                      onClick={() => applyHistoryUsername(request.sentToUsername ?? "")}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      Use @{request.sentToUsername}
+                    </Button>
+                  ) : null}
                 </div>
               </article>
             ))}

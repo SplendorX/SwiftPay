@@ -12,7 +12,7 @@ export function SidebarToggle() {
     <Button
       aria-expanded={!retracted}
       aria-label={retracted ? "Show navigation" : "Hide navigation"}
-      className="hidden h-9 w-9 shrink-0 lg:inline-flex"
+      className="h-9 w-9 shrink-0"
       onClick={toggleRetracted}
       size="icon"
       type="button"

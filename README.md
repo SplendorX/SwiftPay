@@ -159,6 +159,35 @@ pnpm --filter @swiftpay/contracts test:save
 
 Copy `.env.example` to `.env` at the repository root for contracts and scripts. The web app also loads the root `.env` through `apps/web/next.config.mjs`, so existing root-level environment files continue to work.
 
+## Traction analytics
+
+SwiftPay includes real traction instrumentation for investor and operator reporting. It records product events into Supabase and aggregates actual MAU-style active wallets, stablecoin volume, transaction count, payment success rate, savings AUM, indexed Earn AUM, registered wallets, and recurring schedules.
+
+Apply SQL:
+
+```sh
+packages/database/supabase/traction-events.sql
+```
+
+Configure:
+
+```sh
+SUPABASE_TRACTION_EVENTS_TABLE=traction_events
+TRACTION_ADMIN_SECRET=...
+```
+
+Surfaces:
+
+| Surface | Purpose |
+|---------|---------|
+| `POST /api/traction/events` | Server-side ingestion for app telemetry |
+| `GET /api/admin/traction?rangeDays=30` | Admin JSON summary, Bearer `TRACTION_ADMIN_SECRET` |
+| `/admin/traction` | Live admin dashboard for real traction metrics |
+
+The dashboard reports actual tracked data only. It does not invent MAU, AUM, or transaction volume. Existing product tables are also used where available: profiles, savings transactions, Earn deposits/withdrawals, and recurring schedules.
+
+Implementation notes and event naming: `docs/traction-analytics.md`.
+
 SwiftBatch, SwiftRecurepay, and PrivSwiftPay escrow charge a **1% platform fee** (100 bps).
 
 ```sh
