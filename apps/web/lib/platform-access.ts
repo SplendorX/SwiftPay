@@ -36,7 +36,7 @@ function removePlatformAccessCookie() {
   document.cookie = `${platformAccessCookieName}=; Path=/; Max-Age=0; SameSite=Lax${getSecureCookieAttribute()}`;
 }
 
-function hasPlatformAccessCookie() {
+export function hasPlatformAccessCookie() {
   if (typeof document === "undefined") {
     return false;
   }

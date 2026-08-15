@@ -1,0 +1,7 @@
+{
+  "network": "arcTestnet",
+  "send": "0xF787B27AD58848557BfE57e85120127BA7ee2BB4",
+  "feeRecipient": "0x7f99be073c65bbf70ec75d6d33824ed473028200",
+  "deployedAt": "2026-08-14T23:23:57.058Z",
+  "deployer": "0x6Aa30a03D7F0c7928CD9CaCFd8c765FCcB2efD77"
+}

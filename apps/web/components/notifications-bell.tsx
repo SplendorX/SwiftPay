@@ -11,6 +11,7 @@ import {
   LockKeyhole,
   PiggyBank,
   ReceiptText,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -27,8 +28,16 @@ import {
 } from "@/lib/circle-session";
 import { withPaymentRequestId } from "@/lib/payment-request-url";
 import {
+  alertPreferencesChangedEvent,
+  readAlertPreferences,
+  shouldShowAlertToast,
+  type AlertCategory,
+} from "@/lib/notifications/preferences";
+import { deleteSavingsNotifications } from "@/lib/save/client";
+import {
   extractClaimCodeFromNotification,
   extractPaymentRequestId,
+  getAlertInboxCategory,
   isPaymentRequestDeclinedNotification,
   isPaymentRequestMarkedDeclined,
   isPaymentRequestMarkedPaid,
@@ -190,6 +199,24 @@ export function NotificationsBell({ className }: { className?: string }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [authHint, setAuthHint] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [alertPrefs, setAlertPrefs] = useState(() =>
+    typeof window === "undefined"
+      ? {
+          toasts: true,
+          quietHoursEnabled: false,
+          quietHoursStart: "22:00",
+          quietHoursEnd: "07:00",
+          categories: {
+            payments: true,
+            requests: true,
+            savings: true,
+            claims: true,
+          },
+        }
+      : readAlertPreferences(),
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
   const hasLoadedOnce = useRef(false);
@@ -208,6 +235,19 @@ export function NotificationsBell({ className }: { className?: string }) {
       window.removeEventListener(circleSessionEventName, refreshCircleState);
     };
   }, [refreshCircleState]);
+
+  useEffect(() => {
+    function refreshPrefs() {
+      setAlertPrefs(readAlertPreferences());
+    }
+    refreshPrefs();
+    window.addEventListener(alertPreferencesChangedEvent, refreshPrefs);
+    window.addEventListener("storage", refreshPrefs);
+    return () => {
+      window.removeEventListener(alertPreferencesChangedEvent, refreshPrefs);
+      window.removeEventListener("storage", refreshPrefs);
+    };
+  }, []);
 
   const ownerWallet = useMemo(() => {
     if (circleLogin && circleWalletAddress) {
@@ -335,6 +375,10 @@ export function NotificationsBell({ className }: { className?: string }) {
             !item.read_at &&
             !knownIdsRef.current.has(item.id)
           ) {
+            const category = getAlertInboxCategory(item) as AlertCategory;
+            if (!shouldShowAlertToast(alertPrefs, category)) {
+              continue;
+            }
             const claimCode = getClaimCodeFromNotification(item);
             const requestHref = isRequest ? paymentRequestHref(item) : null;
             toast.success(displayTitle(item), {
@@ -369,7 +413,7 @@ export function NotificationsBell({ className }: { className?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [circleSocialUuid, ownerWallet]);
+  }, [alertPrefs, circleSocialUuid, ownerWallet]);
 
   useEffect(() => {
     void load();
@@ -397,6 +441,49 @@ export function NotificationsBell({ className }: { className?: string }) {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  async function deleteOne(id: string) {
+    if (!ownerWallet) return;
+    setDeletingId(id);
+    try {
+      const result = await deleteSavingsNotifications({
+        ownerWallet,
+        circleSocialUuid,
+        ids: [id],
+      });
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      if (typeof result.unreadCount === "number") {
+        setUnreadCount(result.unreadCount);
+      } else {
+        setUnreadCount((count) => Math.max(0, count - 1));
+      }
+    } catch {
+      toast.error("Could not delete this alert");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function clearInbox() {
+    if (!ownerWallet || items.length === 0) return;
+    setClearing(true);
+    try {
+      await deleteSavingsNotifications({
+        ownerWallet,
+        circleSocialUuid,
+        all: true,
+        keepImportant: true,
+      });
+      await load();
+      toast.success("Cleared alerts", {
+        description: "Open claims and payment requests were kept.",
+      });
+    } catch {
+      toast.error("Could not clear alerts");
+    } finally {
+      setClearing(false);
+    }
+  }
 
   async function markAllRead() {
     if (!ownerWallet || unreadCount === 0) return;
@@ -546,22 +633,40 @@ export function NotificationsBell({ className }: { className?: string }) {
                 Payments, claim codes, and savings
               </p>
             </div>
-            {unreadCount > 0 ? (
-              <Button
-                disabled={marking}
-                onClick={() => void markAllRead()}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                {marking ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <CheckCheck className="h-3.5 w-3.5" />
-                )}
-                <span className="ml-1.5">Mark read</span>
-              </Button>
-            ) : null}
+            <div className="flex items-center gap-1">
+              {unreadCount > 0 ? (
+                <Button
+                  disabled={marking}
+                  onClick={() => void markAllRead()}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  {marking ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-3.5 w-3.5" />
+                  )}
+                  <span className="ml-1.5">Mark read</span>
+                </Button>
+              ) : null}
+              {items.length > 0 ? (
+                <Button
+                  disabled={clearing}
+                  onClick={() => void clearInbox()}
+                  size="sm"
+                  title="Clear inbox, keep claims and requests"
+                  type="button"
+                  variant="ghost"
+                >
+                  {clearing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div className="notifications-popover-list">
@@ -762,6 +867,19 @@ export function NotificationsBell({ className }: { className?: string }) {
                                   <ExternalLink className="h-3 w-3" />
                                 </a>
                               ) : null}
+                              <button
+                                className="inline-flex items-center gap-0.5 text-[11px] font-medium text-rose-600 hover:underline dark:text-rose-400"
+                                disabled={deletingId === item.id}
+                                onClick={() => void deleteOne(item.id)}
+                                type="button"
+                              >
+                                {deletingId === item.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                                Delete
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -776,10 +894,10 @@ export function NotificationsBell({ className }: { className?: string }) {
           <div className="border-t border-border/80 px-3 py-2">
             <Link
               className="block rounded-lg px-2 py-1.5 text-center text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              href="/dashboard"
+              href="/settings#alerts"
               onClick={() => setOpen(false)}
             >
-              Go to dashboard
+              Manage alerts
             </Link>
           </div>
         </div>

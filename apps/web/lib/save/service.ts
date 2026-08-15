@@ -25,6 +25,7 @@ import { capSaveAmountForTarget, isTargetReached } from "@/lib/save/target";
 export { isEligibleOutgoingPayment } from "@/lib/save/eligibility";
 import {
   SAVINGS_POCKET_LIMIT,
+  type SavingsLockKind,
   type SavingsPocketRecord,
   type SavingsSummary,
   type SavingsTransactionRecord,
@@ -64,6 +65,19 @@ export function readSavingsSupabaseError(
     return "Create Swift+Save tables with packages/database/supabase/swift-save.sql.";
   }
   return message || fallback;
+}
+
+function missingColumnFromError(message: string): string | null {
+  const patterns = [
+    /Could not find the '([^']+)' column/i,
+    /column [\"']?([\w]+)[\"']? of relation/i,
+    /column [\"']?[\w.]*\.?([\w]+)[\"']? does not exist/i,
+  ];
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+  return null;
 }
 
 function startOfMonthUtc(date = new Date()) {
@@ -149,11 +163,14 @@ export async function createPocket(input: {
   targetAmountUnits: string | null;
   currency: ArcTokenSymbol;
   stopAtTarget?: boolean;
+  lockKind?: SavingsLockKind;
+  lockUntil?: string | null;
+  lockDurationDays?: number | null;
 }) {
   await assertUnderPocketLimit(input.ownerWallet);
 
   const supabase = createSupabaseAdminClient();
-  const payload = {
+  let payload: Record<string, unknown> = {
     owner_wallet: input.ownerWallet,
     name: input.name,
     icon: input.icon,
@@ -167,28 +184,53 @@ export async function createPocket(input: {
     status: "active",
     stop_at_target: input.stopAtTarget === true,
     target_reached_at: null,
+    lock_kind: input.lockKind === "fixed" ? "fixed" : "flexible",
+    lock_until: input.lockKind === "fixed" ? (input.lockUntil ?? null) : null,
+    lock_duration_days:
+      input.lockKind === "fixed" ? (input.lockDurationDays ?? null) : null,
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from(pocketsTable)
-    .insert(payload)
-    .select("*")
-    .single();
+  let data: SavingsPocketRecord | null = null;
+  let lastError: { message?: string } | null = null;
 
-  if (error || !data) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const inserted = await supabase
+      .from(pocketsTable)
+      .insert(payload)
+      .select("*")
+      .single();
+
+    if (!inserted.error && inserted.data) {
+      data = inserted.data as SavingsPocketRecord;
+      break;
+    }
+
+    lastError = inserted.error;
+    const missing = missingColumnFromError(inserted.error?.message ?? "");
+    if (missing && missing in payload) {
+      const next = { ...payload };
+      delete next[missing];
+      payload = next;
+      continue;
+    }
+    break;
+  }
+
+  if (!data) {
     throw new Error(
-      readSavingsSupabaseError(error, "Could not create savings pocket."),
+      readSavingsSupabaseError(lastError, "Could not create savings pocket."),
     );
   }
 
   trackSwiftSaveEvent("swift_save_pocket_created", {
-    pocketId: (data as SavingsPocketRecord).id,
+    pocketId: data.id,
     currency: input.currency,
     hasTarget: Boolean(input.targetAmount),
+    lockKind: input.lockKind === "fixed" ? "fixed" : "flexible",
   });
 
-  return data as SavingsPocketRecord;
+  return data;
 }
 
 export async function updatePocket(
@@ -202,6 +244,9 @@ export async function updatePocket(
     target_amount: string | null;
     target_amount_units: string | null;
     stop_at_target: boolean;
+    lock_kind: SavingsLockKind;
+    lock_until: string | null;
+    lock_duration_days: number | null;
   }>,
 ) {
   const pocket = await getPocketForOwner(pocketId, ownerWallet);
@@ -213,24 +258,39 @@ export async function updatePocket(
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from(pocketsTable)
-    .update({
-      ...patch,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", pocketId)
-    .eq("owner_wallet", ownerWallet)
-    .select("*")
-    .single();
+  let payload: Record<string, unknown> = {
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+  let lastError: { message?: string } | null = null;
 
-  if (error || !data) {
-    throw new Error(
-      readSavingsSupabaseError(error, "Could not update savings pocket."),
-    );
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const updated = await supabase
+      .from(pocketsTable)
+      .update(payload)
+      .eq("id", pocketId)
+      .eq("owner_wallet", ownerWallet)
+      .select("*")
+      .single();
+
+    if (!updated.error && updated.data) {
+      return updated.data as SavingsPocketRecord;
+    }
+
+    lastError = updated.error;
+    const missing = missingColumnFromError(updated.error?.message ?? "");
+    if (missing && missing in payload) {
+      const next = { ...payload };
+      delete next[missing];
+      payload = next;
+      continue;
+    }
+    break;
   }
 
-  return data as SavingsPocketRecord;
+  throw new Error(
+    readSavingsSupabaseError(lastError, "Could not update savings pocket."),
+  );
 }
 
 export async function archivePocket(pocketId: string, ownerWallet: string) {

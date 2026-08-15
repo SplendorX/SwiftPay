@@ -17,7 +17,9 @@ export type SavingsNotificationKind =
   | "payment_received"
   | "payment_request"
   | "payment_request_declined"
-  | "privswiftpay_claim";
+  | "privswiftpay_claim"
+  | "fixed_lock_started"
+  | "fixed_unlock_ready";
 
 export type SavingsNotificationRecord = {
   id: string;
@@ -134,6 +136,24 @@ export function copyPaymentRequestDeclined(
   return {
     title: "Request declined",
     body: `${declinedByLabel} declined your $${amount} ${currency} request.`,
+  };
+}
+
+export function copyFixedLockStarted(
+  pocketName: string,
+  unlockLabel: string,
+  days: number,
+) {
+  return {
+    title: "Fixed pocket locked",
+    body: `${pocketName} is locked for ${days} day${days === 1 ? "" : "s"}. You can add money, but withdrawals wait until ${unlockLabel}.`,
+  };
+}
+
+export function copyFixedUnlockReady(pocketName: string) {
+  return {
+    title: `${pocketName} is unlocked`,
+    body: `The lock on ${pocketName} ended. Withdraw anytime, or lock it again if you want another term.`,
   };
 }
 
@@ -882,6 +902,39 @@ export async function hasNotificationForPaymentId(
   }
 }
 
+export async function notifyMaturedFixedPockets(
+  ownerWallet: string,
+  pockets: Array<{
+    id: string;
+    name: string;
+    lock_kind?: string | null;
+    lock_until?: string | null;
+  }>,
+) {
+  const now = Date.now();
+  for (const pocket of pockets) {
+    if (pocket.lock_kind !== "fixed" || !pocket.lock_until) continue;
+    const until = new Date(pocket.lock_until);
+    if (Number.isNaN(until.getTime()) || until.getTime() > now) continue;
+
+    const copy = copyFixedUnlockReady(pocket.name);
+    await createSavingsNotificationResult({
+      ownerWallet,
+      kind: "fixed_unlock_ready",
+      fallbackKind: "manual_save_success",
+      title: copy.title,
+      body: copy.body,
+      pocketId: pocket.id,
+      relatedTxHash: `unlock:${pocket.id}:${pocket.lock_until}`,
+      metadata: {
+        type: "fixed_unlock_ready",
+        pocketId: pocket.id,
+        lockUntil: pocket.lock_until,
+      },
+    });
+  }
+}
+
 export async function listSavingsNotifications(
   ownerWallet: string,
   limit = 20,
@@ -892,7 +945,7 @@ export async function listSavingsNotifications(
     .select("*")
     .eq("owner_wallet", ownerWallet.toLowerCase())
     .order("created_at", { ascending: false })
-    .limit(Math.min(limit, 50));
+    .limit(Math.min(limit, 100));
 
   if (error) {
     if (
@@ -904,6 +957,73 @@ export async function listSavingsNotifications(
     throw new Error(error.message);
   }
   return (data ?? []) as SavingsNotificationRecord[];
+}
+
+export async function deleteSavingsNotifications(
+  ownerWallet: string,
+  options: {
+    ids?: string[];
+    all?: boolean;
+    olderThanDays?: number;
+    keepImportant?: boolean;
+  } = {},
+) {
+  const supabase = createSupabaseAdminClient();
+  const owner = ownerWallet.toLowerCase();
+
+  if (options.ids && options.ids.length > 0) {
+    const { error, count } = await supabase
+      .from(notificationsTable)
+      .delete({ count: "exact" })
+      .eq("owner_wallet", owner)
+      .in("id", options.ids);
+
+    if (error) {
+      if (
+        error.message.toLowerCase().includes("does not exist") ||
+        error.message.toLowerCase().includes("permission denied")
+      ) {
+        return { deleted: 0 };
+      }
+      throw new Error(error.message);
+    }
+    return { deleted: count ?? options.ids.length };
+  }
+
+  if (!options.all && options.olderThanDays == null) {
+    throw new Error("Choose notifications to delete, or clear the inbox.");
+  }
+
+  let query = supabase
+    .from(notificationsTable)
+    .delete({ count: "exact" })
+    .eq("owner_wallet", owner);
+
+  if (options.olderThanDays != null && Number.isFinite(options.olderThanDays)) {
+    const cutoff = new Date(
+      Date.now() - Math.max(1, options.olderThanDays) * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    query = query.lt("created_at", cutoff);
+  }
+
+  if (options.keepImportant) {
+    query = query
+      .not("kind", "in", "(payment_request,privswiftpay_claim)")
+      .not("body", "ilike", "%PAYMENT_REQUEST_ID:%")
+      .not("body", "ilike", "%CLAIM_CODE:%");
+  }
+
+  const { error, count } = await query;
+  if (error) {
+    if (
+      error.message.toLowerCase().includes("does not exist") ||
+      error.message.toLowerCase().includes("permission denied")
+    ) {
+      return { deleted: 0 };
+    }
+    throw new Error(error.message);
+  }
+  return { deleted: count ?? 0 };
 }
 
 export async function markSavingsNotificationsRead(
@@ -953,6 +1073,31 @@ export async function countUnreadSavingsNotifications(ownerWallet: string) {
     throw new Error(error.message);
   }
   return count ?? 0;
+}
+
+export type AlertInboxCategory =
+  | "payments"
+  | "requests"
+  | "savings"
+  | "claims";
+
+export function getAlertInboxCategory(
+  item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
+): AlertInboxCategory {
+  if (isPrivSwiftPayClaimNotification(item)) return "claims";
+  if (
+    isPaymentRequestNotification(item) ||
+    isPaymentRequestDeclinedNotification(item)
+  ) {
+    return "requests";
+  }
+  if (
+    item.kind === "payment_received" ||
+    /money received|you received/i.test(`${item.kind} ${item.body}`)
+  ) {
+    return "payments";
+  }
+  return "savings";
 }
 
 export function formatAmountForCopy(

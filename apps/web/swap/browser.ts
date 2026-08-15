@@ -1,3 +1,4 @@
+import { SWAP_FEE_BPS } from "@/lib/fees";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { arcTestnetTokens } from "@/lib/tokens";
 import { arcTestnet } from "@/lib/wagmi";
@@ -381,12 +382,22 @@ function buildSwapConfig(
   allowanceStrategy?: "approve" | "permit",
 ) {
   const kitKey = getCircleKitKey();
+  const feeRecipient =
+    process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim() ?? "";
 
   return {
     kitKey,
     slippageBps,
     ...(allowanceStrategy ? { allowanceStrategy } : {}),
     ...(stopLimit ? { stopLimit } : {}),
+    ...(feeRecipient
+      ? {
+          customFee: {
+            percentageBps: SWAP_FEE_BPS,
+            recipientAddress: feeRecipient,
+          },
+        }
+      : {}),
   };
 }
 

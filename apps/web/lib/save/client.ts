@@ -59,6 +59,21 @@ function withWalletParams(
   return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
+export async function deleteSavingsNotifications(body: Record<string, unknown>) {
+  return parseJson<{
+    deleted: number;
+    notifications?: import("@/lib/save/notifications").SavingsNotificationRecord[];
+    unreadCount?: number;
+  }>(
+    await fetch("/api/savings/notifications", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
 export async function fetchSavingsSummary(
   ownerWallet: string,
   currency: ArcTokenSymbol = "USDC",
@@ -355,6 +370,41 @@ export async function confirmSavingsRefund(body: Record<string, unknown>) {
           ? { "Idempotency-Key": body.idempotencyKey }
           : {}),
       },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export type PaymentQuote = {
+  paymentAmount: string;
+  paymentAmountUnits: string;
+  platformFeeBps: number;
+  platformFeeLabel: string;
+  platformFeeAmount: string;
+  platformFeeUnits: string;
+  feeRecipient: string;
+  sendRouter: string;
+  vaultAddress: string;
+  spendSave: {
+    active: boolean;
+    saveAmount: string;
+    saveAmountUnits: string;
+    percentage: string;
+    pocketName?: string;
+    pocketId?: string;
+    pocketIdBytes32?: string;
+    targetCapped?: boolean;
+  };
+  totalRequired: string;
+  totalRequiredUnits: string;
+  currency: string;
+};
+
+export async function quotePayment(body: Record<string, unknown>) {
+  return parseJson<PaymentQuote>(
+    await fetch("/api/payments/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
   );

@@ -23,8 +23,12 @@ create table if not exists public.savings_pockets (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   archived_at timestamptz,
+  lock_kind text not null default 'flexible',
+  lock_until timestamptz,
+  lock_duration_days integer,
   constraint savings_pockets_name_len check (char_length(name) between 1 and 50),
-  constraint savings_pockets_status_check check (status in ('active', 'archived'))
+  constraint savings_pockets_status_check check (status in ('active', 'archived')),
+  constraint savings_pockets_lock_kind_check check (lock_kind in ('flexible', 'fixed'))
 );
 
 -- Safe upgrades for existing installs
@@ -32,6 +36,17 @@ alter table public.savings_pockets
   add column if not exists stop_at_target boolean not null default false;
 alter table public.savings_pockets
   add column if not exists target_reached_at timestamptz;
+alter table public.savings_pockets
+  add column if not exists lock_kind text not null default 'flexible';
+alter table public.savings_pockets
+  add column if not exists lock_until timestamptz;
+alter table public.savings_pockets
+  add column if not exists lock_duration_days integer;
+
+alter table public.savings_pockets
+  drop constraint if exists savings_pockets_lock_kind_check;
+alter table public.savings_pockets
+  add constraint savings_pockets_lock_kind_check check (lock_kind in ('flexible', 'fixed'));
 
 create index if not exists savings_pockets_owner_idx
   on public.savings_pockets (owner_wallet, status, created_at desc);
@@ -201,7 +216,9 @@ create table if not exists public.savings_notifications (
       'payment_received',
       'payment_request',
       'payment_request_declined',
-      'privswiftpay_claim'
+      'privswiftpay_claim',
+      'fixed_lock_started',
+      'fixed_unlock_ready'
     )
   )
 );
@@ -228,7 +245,9 @@ alter table public.savings_notifications
       'payment_received',
       'payment_request',
       'payment_request_declined',
-      'privswiftpay_claim'
+      'privswiftpay_claim',
+      'fixed_lock_started',
+      'fixed_unlock_ready'
     )
   );
 

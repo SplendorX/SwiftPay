@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { assertSavingsAccess, normalizeOwnerWallet } from "@/lib/save/auth";
+import { applyLockChange, parseLockRequest } from "@/lib/save/lock";
+import {
+  copyFixedLockStarted,
+  createSavingsNotificationResult,
+} from "@/lib/save/notifications";
 import {
   archivePocket,
   getPocketForOwner,
@@ -158,7 +163,43 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       patch.stop_at_target = body.stopAtTarget === true;
     }
 
+    const lock = parseLockRequest(body);
+    if (!lock.ok) {
+      return jsonError(lock.error, 400);
+    }
+    if (lock.value) {
+      const applied = applyLockChange(existing, lock.value);
+      if ("error" in applied) {
+        return jsonError(applied.error, 400);
+      }
+      Object.assign(patch, applied.patch);
+    }
+
     const pocket = await updatePocket(id, ownerWallet, patch);
+
+    if (lock.value?.kind === "fixed") {
+      const unlock = new Date(lock.value.until).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      const copy = copyFixedLockStarted(pocket.name, unlock, lock.value.days);
+      await createSavingsNotificationResult({
+        ownerWallet,
+        kind: "fixed_lock_started",
+        fallbackKind: "manual_save_success",
+        title: copy.title,
+        body: copy.body,
+        pocketId: pocket.id,
+        relatedTxHash: `lock:${pocket.id}:${lock.value.until}`,
+        metadata: {
+          type: "fixed_lock_started",
+          pocketId: pocket.id,
+          lockUntil: lock.value.until,
+          lockDays: lock.value.days,
+        },
+      });
+    }
+
     return NextResponse.json({ pocket });
   } catch (error) {
     const message =
@@ -167,7 +208,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         : readSavingsSupabaseError(null, "Pocket could not be updated.");
     const status = message.includes("not found")
       ? 404
-      : message.includes("Archived")
+      : message.includes("Archived") || message.includes("locked")
         ? 400
         : 500;
     return jsonError(message, status);

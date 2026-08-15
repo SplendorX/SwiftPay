@@ -8,6 +8,7 @@ import {
   Info,
   KeyRound,
   Loader2,
+  LockKeyhole,
   Pause,
   PiggyBank,
   Play,
@@ -77,6 +78,11 @@ import {
   SWIFT_SAVE_DISCLAIMER,
   swiftSaveVaultAddress,
 } from "@/lib/save/config";
+import {
+  formatLockRemaining,
+  formatUnlockDate,
+  getPocketLockState,
+} from "@/lib/save/lock";
 import { executeSavingsReversal } from "@/lib/save/spend-save-browser";
 import {
   getPocketEmoji,
@@ -441,6 +447,16 @@ export function SwiftSaveHub() {
         "Deploy SwiftSaveVault and set NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS.",
       );
       return;
+    }
+
+    if (amountMode === "withdraw") {
+      const blocked = getPocketLockState(activePocket);
+      if (blocked.locked) {
+        setActionError(
+          `This pocket is locked until ${formatUnlockDate(blocked.until)}.`,
+        );
+        return;
+      }
     }
 
     if (!isCircleMode && !(await ensureArcNetwork())) return;
@@ -949,6 +965,7 @@ export function SwiftSaveHub() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {pockets.map((pocket) => {
               const progress = pocketProgress(pocket);
+              const lockState = getPocketLockState(pocket);
               const goalReached =
                 pocket.target_amount_units &&
                 BigInt(pocket.current_balance_units || "0") >=
@@ -975,9 +992,20 @@ export function SwiftSaveHub() {
                         </p>
                       </div>
                     </div>
-                    {goalReached ? (
-                      <Badge className="shrink-0">Goal reached!</Badge>
-                    ) : null}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {lockState.kind === "fixed" && lockState.locked ? (
+                        <Badge className="bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200">
+                          Locked · {formatLockRemaining(lockState.remainingMs)}
+                        </Badge>
+                      ) : lockState.kind === "fixed" ? (
+                        <Badge variant="secondary">Unlocked</Badge>
+                      ) : (
+                        <Badge variant="outline">Flexible</Badge>
+                      )}
+                      {goalReached ? (
+                        <Badge className="shrink-0">Goal reached!</Badge>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-4">
@@ -1030,18 +1058,35 @@ export function SwiftSaveHub() {
                       Add money
                     </Button>
                     <Button
-                      disabled={!isWalletAuthenticated}
+                      disabled={
+                        !isWalletAuthenticated || lockState.locked
+                      }
                       onClick={() => {
+                        if (lockState.locked) {
+                          setError(
+                            `“${pocket.name}” is locked until ${formatUnlockDate(lockState.until)}.`,
+                          );
+                          return;
+                        }
                         setActivePocket(pocket);
                         setAmountMode("withdraw");
                         setActionError(null);
                       }}
                       size="sm"
+                      title={
+                        lockState.locked
+                          ? `Locked until ${formatUnlockDate(lockState.until)}`
+                          : "Withdraw"
+                      }
                       type="button"
                       variant="outline"
                     >
-                      <ArrowUpFromLine className="mr-1.5 h-3.5 w-3.5" />
-                      Withdraw
+                      {lockState.locked ? (
+                        <LockKeyhole className="mr-1.5 h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowUpFromLine className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {lockState.locked ? "Locked" : "Withdraw"}
                     </Button>
                     <Button asChild size="sm" type="button" variant="ghost">
                       <Link href={`/save/${pocket.id}`}>Details</Link>

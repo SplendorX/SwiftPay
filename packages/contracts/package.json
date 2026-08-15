@@ -11,12 +11,15 @@
     "deploy": "hardhat run contracts/deploy.js --network arcTestnet",
     "deploy:escrow": "node contracts/deployEscrow.js",
     "deploy:swiftbatch": "node contracts/deploySwiftBatch.js",
+    "deploy:swiftpaysend": "node contracts/deploySwiftPaySend.js",
+    "deploy:swiftpaysend:mainnet": "node contracts/deploySwiftPaySend.js --mainnet",
     "deploy:swiftrecurepay": "hardhat run contracts/deploySwiftRecurepayExecutor.js --network arcTestnet",
     "deploy:earn": "hardhat run contracts/deployEarn.js --network arcTestnet",
     "deploy:earn:local": "hardhat run contracts/deployEarn.js",
     "deploy:earn:mainnet": "hardhat run contracts/deployEarn.js --network arcMainnet",
     "deploy:swiftsave": "hardhat run contracts/deploySwiftSave.js --network arcTestnet",
     "deploy:swiftsave:local": "hardhat run contracts/deploySwiftSave.js",
+    "deploy:swiftsave:mainnet": "hardhat run contracts/deploySwiftSave.js --network arcMainnet",
     "test:save": "hardhat test test/save/SwiftSaveVault.js"
   },
   "dependencies": {

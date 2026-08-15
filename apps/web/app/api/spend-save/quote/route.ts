@@ -5,6 +5,7 @@ import {
   evaluateSpendSaveForPayment,
   readSavingsSupabaseError,
 } from "@/lib/save/service";
+import { platformFeeUnits, SEND_FEE_BPS } from "@/lib/fees";
 import {
   normalizeAmount,
   normalizeCurrency,
@@ -48,12 +49,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const paymentAmountUnits = BigInt(amount.amount_units);
     const evaluation = await evaluateSpendSaveForPayment({
       ownerWallet,
-      paymentAmountUnits: BigInt(amount.amount_units),
+      paymentAmountUnits,
       currency,
       paymentKind:
         typeof body.paymentKind === "string" ? body.paymentKind : "outgoing",
+      platformFeeUnits: platformFeeUnits(paymentAmountUnits, SEND_FEE_BPS),
     });
 
     if (!evaluation) {

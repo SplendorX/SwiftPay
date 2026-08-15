@@ -60,8 +60,23 @@ export function SettingsCollapsibleCard({
     });
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== `#${sectionId}`) return;
+    setOpen(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [sectionId]);
+
   return (
-    <article className="rounded-lg border border-border bg-card px-4 py-4 shadow-sm sm:col-span-2">
+    <article
+      className="rounded-lg border border-border bg-card px-4 py-4 shadow-sm sm:col-span-2"
+      id={sectionId}
+    >
       <button
         aria-controls={contentId}
         aria-expanded={open}

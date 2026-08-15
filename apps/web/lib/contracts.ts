@@ -154,6 +154,51 @@ export const swiftBatchMaxRecipients = 500;
 export const swiftRecurepayExecutorAddress =
   process.env.NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS?.trim() ?? "";
 
+/** Direct-send router: 0.1% platform fee + optional Spend&Save in one call. */
+export function getSwiftPaySendAddress() {
+  // Bracket access so Next does not inline an empty string at compile time.
+  return (
+    process.env["NEXT_PUBLIC_SWIFTPAY_SEND_ADDRESS"]?.trim() ||
+    process.env["SWIFTPAY_SEND_ADDRESS"]?.trim() ||
+    ""
+  );
+}
+
+export const swiftPaySendAddress = getSwiftPaySendAddress();
+
+export const sendPlatformFeeBasisPoints = 10;
+
+export const swiftPaySendAbi = [
+  {
+    type: "function",
+    name: "send",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "recipient", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "vault", type: "address" },
+      { name: "pocketId", type: "bytes32" },
+      { name: "saveAmount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "feeRecipient",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "PLATFORM_FEE_BASIS_POINTS",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
 export const swiftRecurepayExecutorAbi = [
   {
     type: "function",

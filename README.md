@@ -107,6 +107,18 @@ pnpm contracts:deploy-swiftsave
 
 Copy `NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS` from deploy output into `.env`.
 
+## Going live on Arc mainnet
+
+SwiftPay is built to flip from Arc Testnet to Arc mainnet when official network details are published. Do not invent a chain ID, RPC, explorer, or token address.
+
+1. Set `NEXT_PUBLIC_ARC_NETWORK=mainnet`.
+2. Copy official Arc mainnet values into `ARC_MAINNET_CHAIN_ID`, `ARC_MAINNET_RPC_URL`, `ARC_MAINNET_EXPLORER`, `ARC_MAINNET_USDC`, `ARC_MAINNET_EURC` (and the matching `NEXT_PUBLIC_*` token/RPC/explorer vars).
+3. Deploy **new** contracts on mainnet — do not reuse testnet addresses:
+   - `pnpm --filter @swiftpay/contracts deploy:swiftpaysend:mainnet`
+   - `pnpm --filter @swiftpay/contracts deploy:swiftsave:mainnet`
+   - existing Earn / SwiftBatch / escrow / recurepay deploy scripts
+4. Point env at the new mainnet addresses. Savings custody is immutable; the launch vault already includes `depositFor` so payment + fee + Spend&Save stay one transaction.
+
 Apply SQL: `packages/database/supabase/swift-save.sql`.
 
 | Surface | Path |

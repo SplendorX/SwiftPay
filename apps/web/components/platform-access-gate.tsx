@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { useAccount } from "wagmi";
 
 import {
@@ -10,6 +16,7 @@ import {
 } from "@/lib/circle-session";
 import {
   ensurePlatformAccessCookie,
+  hasPlatformAccessCookie,
   platformAccessEventName,
   readActivatedExternalProfile,
 } from "@/lib/platform-access";
@@ -20,9 +27,30 @@ import {
 
 type AccessState = "checking" | "allowed" | "locked" | "needs-auth";
 
-export function PlatformAccessGate({ children }: { children: ReactNode }) {
+const PlatformAccessContext = createContext<AccessState>("checking");
+
+function readImmediateAccess(): AccessState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (readCircleLogin() || hasPlatformAccessCookie()) {
+    return "allowed";
+  }
+
+  return null;
+}
+
+export function PlatformAccessProvider({ children }: { children: ReactNode }) {
   const { address, isConnected, status } = useAccount();
   const [access, setAccess] = useState<AccessState>("checking");
+
+  useEffect(() => {
+    const immediate = readImmediateAccess();
+    if (immediate) {
+      setAccess(immediate);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +70,7 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
       }
 
       if (status === "connecting" || status === "reconnecting") {
-        if (!cancelled) setAccess("checking");
+        // Keep a previously allowed session visible while wagmi reconnects.
         return;
       }
 
@@ -50,6 +78,9 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
       const connected = isConnected && address ? address.toLowerCase() : "";
 
       if (!connected || !activated || activated !== connected) {
+        if (hasPlatformAccessCookie() && !connected) {
+          return;
+        }
         lockTimeoutId = window.setTimeout(() => {
           if (!cancelled) setAccess("locked");
         }, 900);
@@ -97,6 +128,16 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
       window.removeEventListener("storage", onChange);
     };
   }, [address, isConnected, status]);
+
+  return (
+    <PlatformAccessContext.Provider value={access}>
+      {children}
+    </PlatformAccessContext.Provider>
+  );
+}
+
+export function PlatformAccessGate({ children }: { children: ReactNode }) {
+  const access = useContext(PlatformAccessContext);
 
   if (access === "checking") {
     return (

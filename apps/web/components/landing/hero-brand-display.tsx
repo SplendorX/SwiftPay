@@ -91,7 +91,7 @@ export function HeroBrandDisplay() {
       initial={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
     >
-      <p className="hero-brand-eyebrow">Arc Testnet infrastructure</p>
+      <p className="hero-brand-eyebrow">The stablecoin payment layer</p>
       <PlatformWordmark className="hero-brand-name" size="hero" />
 
       <div className="hero-stablecoin-stage">

@@ -24,7 +24,7 @@ const swapUSDCtoEURC = async (): Promise<void> => {
         slippageBps: 100,
 
         customFee: {
-          percentageBps: 10, // 0.1%
+          percentageBps: 30, // 0.3%
           recipientAddress: process.env.TREASURY_WALLET as string,
         },
       },

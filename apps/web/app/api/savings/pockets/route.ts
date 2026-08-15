@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { assertSavingsAccess, normalizeOwnerWallet } from "@/lib/save/auth";
+import { parseLockRequest } from "@/lib/save/lock";
+import {
+  copyFixedLockStarted,
+  createSavingsNotificationResult,
+} from "@/lib/save/notifications";
 import {
   createPocket,
   listPockets,
@@ -82,6 +87,10 @@ export async function POST(request: NextRequest) {
 
   const currency = normalizeCurrency(body.currency);
   const target = normalizeOptionalTarget(body.targetAmount, currency);
+  const lock = parseLockRequest(body);
+  if (!lock.ok) {
+    return jsonError(lock.error, 400);
+  }
 
   try {
     const pocket = await createPocket({
@@ -94,9 +103,44 @@ export async function POST(request: NextRequest) {
       targetAmountUnits: target?.amount_units ?? null,
       currency,
       stopAtTarget: body.stopAtTarget === true,
+      lockKind: lock.value?.kind === "fixed" ? "fixed" : "flexible",
+      lockUntil: lock.value?.kind === "fixed" ? lock.value.until : null,
+      lockDurationDays: lock.value?.kind === "fixed" ? lock.value.days : null,
     });
 
-    return NextResponse.json({ pocket }, { status: 201 });
+    if (lock.value?.kind === "fixed") {
+      const unlock = new Date(lock.value.until).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      const copy = copyFixedLockStarted(pocket.name, unlock, lock.value.days);
+      await createSavingsNotificationResult({
+        ownerWallet,
+        kind: "fixed_lock_started",
+        fallbackKind: "manual_save_success",
+        title: copy.title,
+        body: copy.body,
+        pocketId: pocket.id,
+        relatedTxHash: `lock:${pocket.id}:${lock.value.until}`,
+        metadata: {
+          type: "fixed_lock_started",
+          pocketId: pocket.id,
+          lockUntil: lock.value.until,
+          lockDays: lock.value.days,
+        },
+      });
+    }
+
+    return NextResponse.json(
+      {
+        pocket,
+        warning:
+          lock.value?.kind === "fixed" && pocket.lock_kind !== "fixed"
+            ? "Pocket created, but fixed lock needs the latest Swift+Save SQL migration."
+            : undefined,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     const message =
       error instanceof Error

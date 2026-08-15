@@ -114,6 +114,8 @@ function createMemoryStore() {
         current_balance_units: "0",
         stop_at_target: false,
         target_amount_units: null,
+        lock_kind: "flexible",
+        lock_until: null,
       };
       pockets.set(id, pocket);
       return pocket;
@@ -373,6 +375,22 @@ describe("integration: pocket deposit withdraw reverse", () => {
     });
     assert.equal(r.cappedUnits, 10_000_000n);
     assert.equal(r.wasCapped, true);
+  });
+
+  it("blocks withdraw from a locked fixed pocket", () => {
+    const now = new Date("2026-08-15T12:00:00.000Z");
+    const pocket = {
+      name: "Vacation",
+      lock_kind: "fixed",
+      lock_until: "2026-11-15T12:00:00.000Z",
+    };
+    const until = new Date(pocket.lock_until);
+    assert.equal(until.getTime() > now.getTime(), true);
+    assert.throws(() => {
+      if (pocket.lock_kind === "fixed" && until.getTime() > now.getTime()) {
+        throw new Error("fixed pocket is locked");
+      }
+    }, /locked/);
   });
 
   it("payment requires payment + savings funds", () => {

@@ -8,6 +8,7 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
+  LockKeyhole,
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +27,7 @@ import { formatUnits, maxUint256, type Address, type Hash } from "viem";
 
 import { AmountConfirmDialog } from "@/components/save/amount-confirm-dialog";
 import { formatMoney, formatMoneyShort, pocketProgress } from "@/components/save/format";
+import { PocketLockPanel } from "@/components/save/pocket-lock-panel";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
@@ -52,6 +54,10 @@ import {
   explorerTxUrl,
   isSwiftSaveVaultConfigured,
 } from "@/lib/save/config";
+import {
+  formatUnlockDate,
+  getPocketLockState,
+} from "@/lib/save/lock";
 import {
   getPocketEmoji,
   type SavingsPocketRecord,
@@ -317,6 +323,15 @@ export default function SavingsPocketDetailPage() {
       setActionError("SwiftSaveVault is not configured.");
       return;
     }
+    if (amountMode === "withdraw") {
+      const blocked = getPocketLockState(pocket);
+      if (blocked.locked) {
+        setActionError(
+          `This pocket is locked until ${formatUnlockDate(blocked.until)}.`,
+        );
+        return;
+      }
+    }
     if (!(await ensureArcNetwork())) return;
 
     try {
@@ -398,6 +413,34 @@ export default function SavingsPocketDetailPage() {
     }
   }
 
+  async function handleLock(input: {
+    lockDays?: number;
+    lockUntil?: string;
+  }) {
+    if (!address || !pocket) return;
+    try {
+      setIsActing(true);
+      setError(null);
+      const { pocket: next } = await updateSavingsPocket(pocket.id, {
+        ownerWallet: address,
+        circleSocialUuid,
+        lockKind: "fixed",
+        lockDays: input.lockDays,
+        lockUntil: input.lockUntil,
+      });
+      setPocket(next);
+      setSuccess(
+        input.lockUntil
+          ? `Pocket locked until ${formatUnlockDate(input.lockUntil)}.`
+          : `Pocket locked for ${input.lockDays} days.`,
+      );
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsActing(false);
+    }
+  }
+
   async function handleArchive() {
     if (!address || !pocket) return;
     try {
@@ -413,6 +456,7 @@ export default function SavingsPocketDetailPage() {
   }
 
   const progress = pocket ? pocketProgress(pocket) : null;
+  const lockState = pocket ? getPocketLockState(pocket) : null;
   const remaining =
     pocket?.target_amount_units && pocket
       ? Math.max(
@@ -477,6 +521,15 @@ export default function SavingsPocketDetailPage() {
                         >
                           {pocket.status}
                         </Badge>
+                        {lockState?.kind === "fixed" && lockState.locked ? (
+                          <Badge className="bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200">
+                            Fixed · locked
+                          </Badge>
+                        ) : lockState?.kind === "fixed" ? (
+                          <Badge variant="secondary">Fixed · unlocked</Badge>
+                        ) : (
+                          <Badge variant="secondary">Flexible</Badge>
+                        )}
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {pocket.description || "No goal note"}
@@ -549,17 +602,34 @@ export default function SavingsPocketDetailPage() {
                     </Button>
                     <Button
                       disabled={
-                        !isWalletAuthenticated || pocket.status !== "active"
+                        !isWalletAuthenticated ||
+                        pocket.status !== "active" ||
+                        Boolean(lockState?.locked)
                       }
                       onClick={() => {
+                        if (lockState?.locked) {
+                          setError(
+                            `This pocket is locked until ${formatUnlockDate(lockState.until)}.`,
+                          );
+                          return;
+                        }
                         setAmountMode("withdraw");
                         setActionError(null);
                       }}
+                      title={
+                        lockState?.locked
+                          ? `Locked until ${formatUnlockDate(lockState.until)}`
+                          : "Withdraw"
+                      }
                       type="button"
                       variant="outline"
                     >
-                      <ArrowUpFromLine className="mr-2 h-4 w-4" />
-                      Withdraw
+                      {lockState?.locked ? (
+                        <LockKeyhole className="mr-2 h-4 w-4" />
+                      ) : (
+                        <ArrowUpFromLine className="mr-2 h-4 w-4" />
+                      )}
+                      {lockState?.locked ? "Locked" : "Withdraw"}
                     </Button>
                     <Button
                       disabled={
@@ -584,6 +654,15 @@ export default function SavingsPocketDetailPage() {
                       Archive
                     </Button>
                   </div>
+                </div>
+
+                <div className="mt-4">
+                  <PocketLockPanel
+                    disabled={!isWalletAuthenticated || pocket.status !== "active"}
+                    isSaving={isActing}
+                    onLock={(input) => void handleLock(input)}
+                    pocket={pocket}
+                  />
                 </div>
 
                 {spendSave?.enabled ? (

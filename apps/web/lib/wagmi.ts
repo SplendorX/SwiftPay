@@ -6,6 +6,13 @@ import {
 } from "@reown/appkit/networks";
 import { http, type Config } from "wagmi";
 
+import {
+  isArcMainnet,
+  officialArcChainId,
+  officialArcExplorerUrl,
+  officialArcRpcUrl,
+} from "@/lib/network";
+
 export const arcTestnet = {
   id: 5_042_002,
   name: "Arc Testnet",
@@ -36,6 +43,42 @@ export const arcTestnet = {
   testnet: true,
 } as const;
 
+const mainnetChainId = officialArcChainId();
+const mainnetRpc = officialArcRpcUrl();
+const mainnetExplorer = officialArcExplorerUrl();
+
+/** Present only after official Arc mainnet chain ID, RPC, and explorer are published. */
+export const arcMainnet =
+  isArcMainnet() && mainnetChainId && mainnetRpc && mainnetExplorer
+    ? ({
+        id: mainnetChainId,
+        name: "Arc",
+        iconBackground: "#120b20",
+        iconUrl:
+          "https://cdn.prod.website-files.com/685311a976e7c248b5dfde95/699e21e934a48439675361dc_arc-icon.svg",
+        nativeCurrency: {
+          decimals: 18,
+          name: "USDC",
+          symbol: "USDC",
+        },
+        rpcUrls: {
+          default: {
+            http: [mainnetRpc],
+          },
+          public: {
+            http: [mainnetRpc],
+          },
+        },
+        blockExplorers: {
+          default: {
+            name: "ArcScan",
+            url: mainnetExplorer,
+          },
+        },
+        testnet: false,
+      } as const)
+    : null;
+
 const configuredProjectId =
   process.env.NEXT_PUBLIC_REOWN_PROJECT_ID?.trim() ||
   process.env.NEXT_PUBLIC_PROJECT_ID?.trim() ||
@@ -61,11 +104,11 @@ export const metadata = {
   url: appUrl,
 };
 
-export const networks = [
-  arcTestnet,
-  baseSepolia,
-  sepolia,
-] as [AppKitNetwork, ...AppKitNetwork[]];
+export const networks = (
+  arcMainnet
+    ? [arcMainnet, arcTestnet]
+    : [arcTestnet, baseSepolia, sepolia]
+) as [AppKitNetwork, ...AppKitNetwork[]];
 
 export const wagmiAdapter = new WagmiAdapter({
   networks,
@@ -73,8 +116,12 @@ export const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   transports: {
     [arcTestnet.id]: http(arcTestnet.rpcUrls.default.http[0]),
-    [baseSepolia.id]: http(),
-    [sepolia.id]: http(),
+    ...(arcMainnet
+      ? { [arcMainnet.id]: http(arcMainnet.rpcUrls.default.http[0]) }
+      : {
+          [baseSepolia.id]: http(),
+          [sepolia.id]: http(),
+        }),
   },
 });
 

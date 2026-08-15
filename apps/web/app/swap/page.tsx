@@ -614,7 +614,8 @@ function SwapContent() {
  </h1>
  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
  Choose the stablecoin pair, get a Circle quote, and execute the
- swap from the connected wallet.
+ swap from the connected wallet. A 0.3% platform fee is included
+ in the swap.
  </p>
  </div>
 
@@ -769,6 +770,10 @@ function SwapContent() {
  <span className="text-right font-bold text-foreground">
  {swapEstimate?.minimumOutput ?? "Not quoted"}
  </span>
+ </div>
+ <div className="flex items-center justify-between gap-3">
+ <span className="font-semibold text-muted-foreground">Platform fee</span>
+ <span className="text-right font-bold text-foreground">0.3%</span>
  </div>
  <div className="flex items-center justify-between gap-3">
  <span className="font-semibold text-muted-foreground">Status</span>

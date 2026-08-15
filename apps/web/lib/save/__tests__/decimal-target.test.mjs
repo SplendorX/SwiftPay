@@ -178,6 +178,11 @@ describe("capSaveAmountForTarget", () => {
   });
 });
 
+function platformFeeUnits(amountUnits, bps = 10) {
+  if (amountUnits <= 0n || bps <= 0) return 0n;
+  return (amountUnits * BigInt(bps)) / 10_000n;
+}
+
 describe("totalRequiredUnits", () => {
   it("payment + save + fees = $105.10", () => {
     const total = totalRequiredUnits({
@@ -187,6 +192,21 @@ describe("totalRequiredUnits", () => {
       platformFeeUnits: 0n,
     });
     assert.equal(total, 105_100_000n);
+  });
+
+  it("includes 0.1% send fee and Spend&Save in one debit", () => {
+    const payment = 100_000_000n;
+    const fee = platformFeeUnits(payment, 10);
+    const save = 5_000_000n;
+    assert.equal(fee, 100_000n);
+    assert.equal(
+      totalRequiredUnits({
+        paymentUnits: payment,
+        saveUnits: save,
+        platformFeeUnits: fee,
+      }),
+      105_100_000n,
+    );
   });
 });
 

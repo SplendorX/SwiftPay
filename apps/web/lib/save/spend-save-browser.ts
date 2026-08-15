@@ -38,6 +38,40 @@ export type SpendSaveSettlementResult = {
 /**
  * After a payment is confirmed on-chain, settle the Spend&Save deposit leg.
  */
+export async function recordBundledSpendSave(input: {
+  ownerWallet: string;
+  amount: string;
+  currency: ArcTokenSymbol;
+  paymentTxHash: Hash | string;
+  circleSocialUuid?: string;
+}): Promise<SpendSaveSettlementResult> {
+  const prepared = await prepareSpendSave({
+    ownerWallet: input.ownerWallet,
+    amount: input.amount,
+    currency: input.currency,
+    paymentTxHash: input.paymentTxHash,
+    paymentKind: "outgoing",
+    requirePaymentTx: true,
+    circleSocialUuid: input.circleSocialUuid,
+  });
+
+  await completeSpendSave({
+    ownerWallet: input.ownerWallet,
+    circleSocialUuid: input.circleSocialUuid,
+    transactionId: prepared.transaction.id,
+    eventId: prepared.event.id,
+    txHash: input.paymentTxHash,
+  });
+
+  return {
+    saveAmount: prepared.quote.saveAmount,
+    currency: input.currency,
+    savingsTxHash: input.paymentTxHash as Hash,
+    eventId: prepared.event.id,
+    transactionId: prepared.transaction.id,
+  };
+}
+
 export async function settleSpendSaveAfterPayment(input: {
   ownerWallet: string;
   amount: string;

@@ -10,7 +10,10 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /// @title SwiftSaveVault
 /// @notice Non-interest-bearing savings custody for Swift+Save pockets.
-/// @dev Funds are segregated from spendable wallet balances. There is no yield,
+/// @dev Immutable on purpose for mainnet custody. Deploy this bytecode as-is
+///      on Arc mainnet (includes depositFor so Spend&Save can settle in the
+///      same SwiftPaySend transaction). Do not redeploy over live user funds.
+///      Funds are segregated from spendable wallet balances. There is no yield,
 ///      APY, lending, borrowing, or DeFi return. Users may only withdraw their own
 ///      pocket balances. On-chain balances are the source of truth.
 contract SwiftSaveVault is Ownable2Step, Pausable, ReentrancyGuard {
@@ -87,6 +90,28 @@ contract SwiftSaveVault is Ownable2Step, Pausable, ReentrancyGuard {
         totalLocked[token] += amount;
 
         emit Deposited(msg.sender, pocketId, token, amount);
+    }
+
+    /// @notice Deposit tokens into `owner`'s pocket. Used by SwiftPaySend so
+    ///         payment, platform fee, and Spend&Save settle in one transaction.
+    function depositFor(
+        address owner,
+        bytes32 pocketId,
+        address token,
+        uint256 amount
+    ) external nonReentrant whenNotPaused {
+        if (owner == address(0)) revert ZeroAddress();
+        if (pocketId == bytes32(0)) revert ZeroPocket();
+        if (token == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+        if (!allowedTokens[token]) revert TokenNotAllowed();
+
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
+        balances[owner][pocketId][token] += amount;
+        totalLocked[token] += amount;
+
+        emit Deposited(owner, pocketId, token, amount);
     }
 
     /// @notice Withdraw tokens from a savings pocket back to the caller's wallet.

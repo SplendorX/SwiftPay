@@ -23,6 +23,7 @@ export type AnalyticsProps = {
   status?: string;
   /** Non-sensitive flags only */
   hasTarget?: boolean;
+  lockKind?: string;
   percentageBucket?: string;
 };
 
@@ -47,6 +48,7 @@ export function trackSwiftSaveEvent(
     currency: props.currency,
     status: props.status,
     hasTarget: props.hasTarget,
+    lockKind: props.lockKind,
     percentageBucket: props.percentageBucket,
   };
 

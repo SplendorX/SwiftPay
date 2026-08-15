@@ -5,8 +5,11 @@
  *   pnpm --filter @swiftpay/contracts deploy:swiftsave
  *
  * Env:
- *   PRIVATE_KEY (deployer on arcTestnet)
- *   Optional: SWIFT_SAVE_OWNER, ARC_TESTNET_USDC, ARC_TESTNET_EURC
+ *   PRIVATE_KEY
+ *   Optional: SWIFT_SAVE_OWNER, NEXT_PUBLIC_USDC_ADDRESS, NEXT_PUBLIC_EURC_ADDRESS
+ * Mainnet:
+ *   ARC_NETWORK=arcMainnet (or EARN_NETWORK=arcMainnet)
+ *   USDC/EURC must be official published addresses — never testnet defaults.
  *
  * Hardhat 3: must call hre.network.connect() before using ethers.
  */
@@ -56,14 +59,38 @@ async function main() {
     process.env.EARN_VAULT_OWNER?.trim() ||
     deployer.address;
 
+  const mainnet =
+    networkName === "arcMainnet" ||
+    process.env.ARC_NETWORK?.trim().toLowerCase() === "arcmainnet" ||
+    process.env.ARC_NETWORK?.trim().toLowerCase() === "mainnet" ||
+    process.env.EARN_NETWORK?.trim() === "arcMainnet";
+
   const usdc =
-    process.env.ARC_TESTNET_USDC?.trim() ||
     process.env.NEXT_PUBLIC_USDC_ADDRESS?.trim() ||
-    ARC_TESTNET_USDC;
+    process.env.ARC_MAINNET_USDC?.trim() ||
+    process.env.ARC_TESTNET_USDC?.trim() ||
+    (mainnet ? "" : ARC_TESTNET_USDC);
   const eurc =
-    process.env.ARC_TESTNET_EURC?.trim() ||
     process.env.NEXT_PUBLIC_EURC_ADDRESS?.trim() ||
-    ARC_TESTNET_EURC;
+    process.env.ARC_MAINNET_EURC?.trim() ||
+    process.env.ARC_TESTNET_EURC?.trim() ||
+    (mainnet ? "" : ARC_TESTNET_EURC);
+
+  if (mainnet && (!ethers.isAddress(usdc) || !ethers.isAddress(eurc))) {
+    throw new Error(
+      "Refusing to deploy SwiftSaveVault on mainnet without official USDC and EURC addresses.",
+    );
+  }
+
+  if (
+    mainnet &&
+    (usdc.toLowerCase() === ARC_TESTNET_USDC.toLowerCase() ||
+      eurc.toLowerCase() === ARC_TESTNET_EURC.toLowerCase())
+  ) {
+    throw new Error(
+      "Refusing to allowlist Arc Testnet token addresses on mainnet.",
+    );
+  }
 
   console.log("Deploying SwiftSaveVault…");
   console.log("  network:", networkName);
@@ -76,7 +103,7 @@ async function main() {
 
   if (balance === 0n) {
     throw new Error(
-      `Deployer ${deployer.address} has zero balance on Arc Testnet. Fund it with gas (USDC is gas on Arc — get testnet funds first).`,
+      `Deployer ${deployer.address} has zero balance. Fund it with gas (USDC is gas on Arc).`,
     );
   }
 

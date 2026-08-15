@@ -23,10 +23,12 @@ import { Button } from "@/components/ui/button";
 import { type BeneficiaryRecord } from "@/lib/beneficiaries";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 
-type BillPaymentOption = {
-  description: string;
-  id: string;
-  title: string;
+export type SendSettlementQuote = {
+  feeAmount: string;
+  feeLabel: string;
+  saveAmount?: string;
+  saveLabel?: string;
+  totalRequired: string;
 };
 
 export type SendPaymentWizardProps = {
@@ -35,7 +37,6 @@ export type SendPaymentWizardProps = {
   beneficiaryError: string | null;
   beneficiaryName: string;
   beneficiaryStatus: string | null;
-  billPaymentOptions: BillPaymentOption[];
   canSaveBeneficiary: boolean;
   canSubmitPayment: boolean;
   isAuthenticatingWallet: boolean;
@@ -52,7 +53,6 @@ export type SendPaymentWizardProps = {
   isWalletAuthenticated: boolean;
   isWritePending: boolean;
   onBeneficiaryNameChange: (value: string) => void;
-  onBillSelect: (option: BillPaymentOption) => void;
   onPaymentAmountChange: (value: string) => void;
   onPaymentNarrationChange: (value: string) => void;
   onRecipientChange: (value: string) => void;
@@ -66,6 +66,7 @@ export type SendPaymentWizardProps = {
   paymentError: string | null;
   paymentNarration: string;
   paymentStatus: string;
+  spendSaveNotice?: string | null;
   primaryButtonText: string;
   receiveHref: string;
   recipientAddress: string;
@@ -74,9 +75,8 @@ export type SendPaymentWizardProps = {
   resolvedRecipientUsername: string | null;
   refreshBalances: () => void;
   savedBeneficiaries: BeneficiaryRecord[];
-  selectedBillId: string;
-  selectedBillOption: BillPaymentOption;
   selectedToken: ArcTokenSymbol;
+  settlementQuote?: SendSettlementQuote | null;
   shortenAddress: (value?: string) => string;
   transactionConfirmed: boolean;
   transactionExplorerUrl?: string;
@@ -104,7 +104,6 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     beneficiaryError,
     beneficiaryName,
     beneficiaryStatus,
-    billPaymentOptions,
     canSaveBeneficiary,
     canSubmitPayment,
     isAuthenticatingWallet,
@@ -121,7 +120,6 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     isWalletAuthenticated,
     isWritePending,
     onBeneficiaryNameChange,
-    onBillSelect,
     onPaymentAmountChange,
     onPaymentNarrationChange,
     onRecipientChange,
@@ -134,6 +132,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     paymentError,
     paymentNarration,
     paymentStatus,
+    spendSaveNotice,
     primaryButtonText,
     receiveHref,
     recipientAddress,
@@ -141,9 +140,8 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     resolvedRecipientUsername,
     refreshBalances,
     savedBeneficiaries,
-    selectedBillId,
-    selectedBillOption,
     selectedToken,
+    settlementQuote,
     shortenAddress,
     transactionConfirmed,
     transactionExplorerUrl,
@@ -290,7 +288,8 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             Send payment
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Four steps from recipient to confirmation.
+            One wallet confirmation settles the payment, platform fee, and
+            Spend&Save when it is on.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -493,37 +492,19 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             </div>
 
             <label className="grid gap-2">
-              <span className="text-sm font-semibold text-foreground">Narration</span>
+              <span className="text-sm font-semibold text-foreground">
+                Narration <span className="font-normal text-muted-foreground">(optional)</span>
+              </span>
               <div className="field-shell p-3">
                 <textarea
                   className="min-h-20 w-full resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-muted-foreground"
                   maxLength={140}
                   onChange={(event) => scheduleNarrationSync(event.target.value)}
-                  placeholder="Payment note or bill reference"
+                  placeholder="What is this payment for?"
                   value={localNarration}
                 />
               </div>
             </label>
-
-            <div className="grid max-h-40 gap-2 overflow-y-auto">
-              {billPaymentOptions.map((option) => (
-                <button
-                  className={`rounded-lg border px-3 py-2 text-left transition ${
-                    selectedBillId === option.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border bg-card hover:border-primary/30"
-                  }`}
-                  key={option.id}
-                  onClick={() => onBillSelect(option)}
-                  type="button"
-                >
-                  <span className="text-sm font-semibold">{option.title}</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {option.description}
-                  </span>
-                </button>
-              ))}
-            </div>
 
             <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-3 text-sm">
               <p className="flex items-center gap-2 font-semibold text-foreground">
@@ -542,9 +523,21 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Estimated fee: USDC-native gas on Arc Testnet
-            </p>
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-xs leading-5 text-muted-foreground">
+              <p>
+                Platform fee: {settlementQuote?.feeLabel ?? "0.1%"} on this send.
+                {settlementQuote?.saveLabel
+                  ? ` ${settlementQuote.saveLabel}`
+                  : ""}
+              </p>
+              {settlementQuote?.totalRequired ? (
+                <p className="mt-1 font-medium text-foreground">
+                  Total debit: {settlementQuote.totalRequired} {selectedToken}
+                </p>
+              ) : (
+                <p className="mt-1">Gas is USDC-native on Arc Testnet.</p>
+              )}
+            </div>
           </div>
         ) : null}
 
@@ -563,7 +556,6 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
 
             <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm">
               {[
-                ["Bill", selectedBillOption.title],
                 ["From", shortenAddress(address)],
                 [
                   "To",
@@ -574,8 +566,29 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                     : "—",
                 ],
                 ["Amount", `${paymentAmount || "0.00"} ${selectedToken}`],
+                [
+                  "Platform fee",
+                  settlementQuote
+                    ? `${settlementQuote.feeAmount} ${selectedToken}`
+                    : "0.1%",
+                ],
+                ...(settlementQuote?.saveAmount
+                  ? ([
+                      [
+                        "Spend&Save",
+                        `${settlementQuote.saveAmount} ${selectedToken}`,
+                      ],
+                    ] as const)
+                  : []),
+                ...(settlementQuote?.totalRequired
+                  ? ([
+                      [
+                        "Total debit",
+                        `${settlementQuote.totalRequired} ${selectedToken}`,
+                      ],
+                    ] as const)
+                  : []),
                 ["Narration", trimmedPaymentNarration || "No note"],
-                ["Status", paymentStatus],
               ].map(([label, value]) => (
                 <div
                   className="flex items-start justify-between gap-3 border-b border-border/60 py-2 last:border-0"
@@ -604,7 +617,16 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               <p className="font-heading text-lg font-semibold">
                 {transactionConfirmed ? "Payment confirmed" : "Processing payment"}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">{paymentStatus}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {paymentAmount
+                  ? `${paymentAmount} ${selectedToken} sent`
+                  : paymentStatus}
+              </p>
+              {spendSaveNotice ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {spendSaveNotice}
+                </p>
+              ) : null}
             </div>
             {transactionExplorerUrl ? (
               <a

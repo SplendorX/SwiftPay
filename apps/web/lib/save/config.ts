@@ -1,13 +1,12 @@
 import type { Address } from "viem";
 
+import { officialArcExplorerUrl, readContractAddress } from "@/lib/network";
 import { arcTestnet } from "@/lib/wagmi";
 
 export function swiftSaveVaultAddress(): Address | null {
-  const value = process.env.NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS?.trim();
-  if (!value || !/^0x[a-fA-F0-9]{40}$/.test(value)) {
-    return null;
-  }
-  return value as Address;
+  return readContractAddress(
+    process.env.NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS,
+  );
 }
 
 export function isSwiftSaveVaultConfigured() {
@@ -16,15 +15,13 @@ export function isSwiftSaveVaultConfigured() {
 
 export function explorerTxUrl(txHash: string) {
   const base =
-    process.env.NEXT_PUBLIC_ARC_EXPLORER_URL?.trim() ||
-    arcTestnet.blockExplorers.default.url;
+    officialArcExplorerUrl() || arcTestnet.blockExplorers.default.url;
   return `${base.replace(/\/$/, "")}/tx/${txHash}`;
 }
 
 export function explorerAddressUrl(address: string) {
   const base =
-    process.env.NEXT_PUBLIC_ARC_EXPLORER_URL?.trim() ||
-    arcTestnet.blockExplorers.default.url;
+    officialArcExplorerUrl() || arcTestnet.blockExplorers.default.url;
   return `${base.replace(/\/$/, "")}/address/${address}`;
 }
 

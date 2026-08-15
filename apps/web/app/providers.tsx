@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { cookieToInitialState, WagmiProvider } from "wagmi";
 
+import { PlatformAccessProvider } from "@/components/platform-access-gate";
 import { WalletSessionBootstrap } from "@/components/wallet-session-bootstrap";
 import { ensureAppKitInitialized } from "@/lib/appkit";
 import { config } from "@/lib/wagmi";
@@ -25,8 +26,10 @@ export function Providers({
   return (
     <WagmiProvider config={config} initialState={initialState}>
       <QueryClientProvider client={queryClient}>
-        <WalletSessionBootstrap />
-        {children}
+        <PlatformAccessProvider>
+          <WalletSessionBootstrap />
+          {children}
+        </PlatformAccessProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

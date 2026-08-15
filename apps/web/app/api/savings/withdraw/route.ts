@@ -5,6 +5,7 @@ import type { Hash } from "viem";
 import { assertSavingsAccess, normalizeOwnerWallet } from "@/lib/save/auth";
 import { trackSwiftSaveEvent } from "@/lib/save/analytics";
 import { swiftSaveVaultAddress } from "@/lib/save/config";
+import { pocketWithdrawBlockReason } from "@/lib/save/lock";
 import { readIdempotencyKey } from "@/lib/save/idempotency";
 import { pocketIdToBytes32 } from "@/lib/save/pocket-id";
 import {
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
     }
     if (pocket.status !== "active") {
       return jsonError("Cannot withdraw from an archived pocket.", 400);
+    }
+
+    const lockReason = pocketWithdrawBlockReason(pocket);
+    if (lockReason) {
+      return jsonError(lockReason, 400);
     }
 
     const amount = normalizeAmount(body.amount, pocket.currency);

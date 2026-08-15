@@ -42,6 +42,25 @@ describe("SwiftSaveVault", () => {
     );
   });
 
+  it("credits depositFor to the owner, not the caller", async () => {
+    const { user, other, usdc, vault } = await deployFixture();
+    const pocketId = ethers.id("spend-save");
+    const amount = ethers.parseUnits("40", 6);
+    const token = await usdc.getAddress();
+
+    await (await usdc.mint(other.address, amount)).wait();
+    await (await usdc.connect(other).approve(await vault.getAddress(), amount)).wait();
+    await (
+      await vault.connect(other).depositFor(user.address, pocketId, token, amount)
+    ).wait();
+
+    assert.equal(
+      await vault.pocketBalance(user.address, pocketId, token),
+      amount,
+    );
+    assert.equal(await vault.pocketBalance(other.address, pocketId, token), 0n);
+  });
+
   it("rejects withdraw above pocket balance", async () => {
     const { user, usdc, vault } = await deployFixture();
     const pocketId = ethers.id("phone");

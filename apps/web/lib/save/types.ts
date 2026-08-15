@@ -3,6 +3,9 @@ import type { ArcTokenSymbol } from "@/lib/tokens";
 export const savingsPocketStatuses = ["active", "archived"] as const;
 export type SavingsPocketStatus = (typeof savingsPocketStatuses)[number];
 
+export const savingsLockKinds = ["flexible", "fixed"] as const;
+export type SavingsLockKind = (typeof savingsLockKinds)[number];
+
 export const savingsTransactionTypes = [
   "DEPOSIT",
   "WITHDRAWAL",
@@ -79,6 +82,10 @@ export type SavingsPocketRecord = {
   /** When true, auto-save stops once the target is reached. Optional until SQL migration applied. */
   stop_at_target?: boolean;
   target_reached_at?: string | null;
+  /** flexible = withdraw anytime. fixed = locked until lock_until. */
+  lock_kind?: SavingsLockKind;
+  lock_until?: string | null;
+  lock_duration_days?: number | null;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
