@@ -79,7 +79,8 @@ export function WalletSessionBootstrap() {
         });
         if (!cancelled) {
           toast.success("Wallet authorized", {
-            description: "Notifications and secure actions are enabled for this wallet.",
+            description:
+              "Notifications and secure actions are enabled for this wallet.",
           });
         }
       } catch (error) {

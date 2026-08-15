@@ -104,7 +104,7 @@ function getErrorMessage(error: unknown) {
 }
 
 export function SwiftRecurepayHub() {
-  const { address, connector, isConnected } = useAccount();
+  const { address, connector, isConnected, status: walletStatus } = useAccount();
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
@@ -140,6 +140,8 @@ export function SwiftRecurepayHub() {
   );
   const [isProcessingAutopay, setIsProcessingAutopay] = useState(false);
   const processInFlightRef = useRef(false);
+  const decidedSessionAutopayRef = useRef(false);
+  const [sessionAutopayAllowed, setSessionAutopayAllowed] = useState(false);
   const executePaymentRef = useRef<
     (schedule: RecurringScheduleRecord, executionId: string) => Promise<string>
   >(async () => {
@@ -250,7 +252,7 @@ export function SwiftRecurepayHub() {
     }
   }, [canAccessRecurring, requestContext]);
 
-  const processDueAndAutopay = useCallback(async () => {
+  const processDueAndAutopay = useCallback(async (settleWalletPayments = true) => {
     if (
       !canAccessRecurring ||
       !requestContext ||
@@ -261,7 +263,9 @@ export function SwiftRecurepayHub() {
     }
 
     processInFlightRef.current = true;
-    setIsProcessingAutopay(true);
+    if (settleWalletPayments) {
+      setIsProcessingAutopay(true);
+    }
 
     try {
       // 1) Server only queues due executions (no operator private key).
@@ -284,6 +288,17 @@ export function SwiftRecurepayHub() {
         const schedule = scheduleById.get(execution.schedule_id);
         return Boolean(schedule?.autopay_enabled && schedule.status === "active");
       });
+
+      if (!settleWalletPayments) {
+        if (result.due.createdCount > 0 || dueAutopay.length > 0) {
+          setSuccess(
+            "Due payments are waiting. Use Pay now — connecting a wallet never sends funds.",
+          );
+        } else if (dueFailed) {
+          setError(dueFailed);
+        }
+        return;
+      }
 
       // 3) Settle with the connected wallet that owns the schedules.
       let settled = 0;
@@ -378,21 +393,51 @@ export function SwiftRecurepayHub() {
     void refreshData();
   }, [refreshData]);
 
-  // Settle due autopay without waiting for the daily cron when the hub is open.
+  // Decide once whether this visit may auto-send. Connecting on this page
+  // must never pop a transfer — only a wallet that was already present
+  // (reconnect / Circle session) can settle due autopay in the background.
+  useEffect(() => {
+    if (decidedSessionAutopayRef.current) {
+      return;
+    }
+    if (walletStatus === "connecting" || walletStatus === "reconnecting") {
+      return;
+    }
+
+    const circleAlreadyPresent = Boolean(
+      readCircleLogin() && readCircleWallets()[0],
+    );
+    setSessionAutopayAllowed(
+      walletStatus === "connected" || circleAlreadyPresent,
+    );
+    decidedSessionAutopayRef.current = true;
+  }, [walletStatus]);
+
+  // Queue due runs when the hub is open. Only settle on-chain if this
+  // session already had a wallet — never as a side effect of Connect.
   useEffect(() => {
     if (!canAccessRecurring || !requestContext) {
       return;
     }
 
-    void processDueAndAutopay();
+    void processDueAndAutopay(sessionAutopayAllowed);
+    if (!sessionAutopayAllowed) {
+      return;
+    }
+
     const intervalId = window.setInterval(() => {
-      void processDueAndAutopay();
+      void processDueAndAutopay(true);
     }, 30_000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [canAccessRecurring, processDueAndAutopay, requestContext]);
+  }, [
+    canAccessRecurring,
+    processDueAndAutopay,
+    requestContext,
+    sessionAutopayAllowed,
+  ]);
 
   useEffect(() => {
     if (!ownerAddress) {
