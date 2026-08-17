@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Share2,
   UserPlus,
-  Wallet,
   X,
 } from "lucide-react";
 import { ChevronDown } from "lucide-react";
@@ -26,7 +25,6 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   useAccount,
-  useBalance,
   useChainId,
   usePublicClient,
   useReadContract,
@@ -47,6 +45,7 @@ import {
 
 import { TokenSelect } from "@/components/design/token-select";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { ReceiveShareCard } from "@/components/dashboard/receive-share-card";
 import { SendPaymentWizard } from "@/components/dashboard/send-payment-wizard";
 import { DashboardEarnSummary } from "@/components/earn/dashboard-earn-summary";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
@@ -915,7 +914,11 @@ function buildReceiptJpegDataUrl(
   return canvas.toDataURL("image/jpeg", 0.94);
 }
 
-function DashboardContent() {
+export function DashboardContent({
+  preview = false,
+}: {
+  preview?: boolean;
+} = {}) {
   const searchParams = useSearchParams();
   const dashboardPrefillQuery = searchParams.toString();
   const incomingRequestId =
@@ -1004,7 +1007,7 @@ function DashboardContent() {
   const [beneficiaryError, setBeneficiaryError] = useState<string | null>(null);
   const [walletProfile, setWalletProfile] = useState<ProfileRecord | null>(null);
   const [incomingRequestStatus, setIncomingRequestStatus] = useState<
-    "pending" | "paid" | "declined" | "unknown" | null
+    "pending" | "paid" | "declined" | "expired" | "unknown" | null
   >(null);
 
   const externalAddress =
@@ -1079,14 +1082,6 @@ function DashboardContent() {
     },
   });
 
-  const { data: nativeBalance } = useBalance({
-    address,
-    chainId: arcTestnet.id,
-    query: {
-      enabled: Boolean(isConnected && address),
-    },
-  });
-
   const { data: transactionReceipt, isLoading: isConfirming } =
     useWaitForTransactionReceipt({
       hash: transactionHash,
@@ -1148,13 +1143,6 @@ function DashboardContent() {
   const isPortfolioLoading = Boolean(isConnected && portfolioValue === undefined);
 
   const selectedTokenBalance = tokenBalances[selectedToken];
-  const nativeBalanceText = nativeBalance
-    ? `${Number(nativeBalance.formatted).toLocaleString(undefined, {
-        maximumFractionDigits: 4,
-      })} ${nativeBalance.symbol}`
-    : isConnected
-      ? "Loading gas"
-      : "Connect wallet";
 
   const paymentAmountUnits = useMemo(() => {
     if (!paymentAmount.trim()) {
@@ -1302,6 +1290,8 @@ function DashboardContent() {
     ? "Request declined"
     : incomingRequestStatus === "paid"
       ? "Request already paid"
+    : incomingRequestStatus === "expired"
+      ? "Request expired"
     : !isConnected
     ? "Connect wallet"
     : !isArcNetwork
@@ -2924,39 +2914,23 @@ function DashboardContent() {
     ? formatDashboardGreetingName(walletProfile.username)
     : null;
 
-  return (
-    <PlatformChrome
-      actions={
-        <>
-          <a
-            className="hidden h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-semibold shadow-sm transition hover:border-primary/30 sm:inline-flex"
-            href="#activity"
-          >
-            <ReceiptText className="h-4 w-4" />
-            Activity
-          </a>
-          <CircleFaucetLink />
-          <ProfileMenu
-            circleLogin={circleLogin}
-            circleWalletAddress={circleAddress}
-            externalAddress={externalAddress}
-            externalWalletAction={<WalletConnectButton />}
-            onCircleSessionCleared={handleCircleSessionCleared}
-            onWalletModeChange={setWalletMode}
-            walletMode={walletMode}
-          />
-        </>
-      }
-      subtitle="Financial command center"
-      title="Dashboard"
-    >
+  const workspace = (
+    <>
         <section className="section-panel" id="balances">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-base font-black tracking-normal text-swift-700 dark:text-lavender-300 sm:text-lg">
-                Welcome back{dashboardGreetingName ? `, ${dashboardGreetingName}` : ""}
+              <p className="dashboard-greeting">
+                Welcome back
+                {dashboardGreetingName ? (
+                  <>
+                    ,{" "}
+                    <span className="dashboard-greeting-name">
+                      {dashboardGreetingName}
+                    </span>
+                  </>
+                ) : null}
               </p>
-              <h1 className="section-title">Your funds, ready</h1>
+              <h1 className="section-title dashboard-funds-title">Your funds, ready</h1>
               <p className="section-copy">
                 Live portfolio, token balances, and settlement activity on Arc Testnet.
               </p>
@@ -2976,7 +2950,7 @@ function DashboardContent() {
             points={portfolioChartPoints}
           />
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {(["USDC", "EURC"] as const).map((symbol) => {
               const token = arcTestnetTokens[symbol];
               const balance = tokenBalances[symbol];
@@ -2996,14 +2970,7 @@ function DashboardContent() {
                         className="h-12 w-12 shrink-0 rounded-full shadow-sm"
                         symbol={symbol}
                       />
-                      <div className="min-w-0">
-                        <p className="eyebrow text-[0.68rem]">{symbol}</p>
-                        <p className="mt-2 text-sm font-semibold leading-6 text-muted">
-                          {isConnected
-                            ? token.name
-                            : "Connect your wallet to see this balance"}
-                        </p>
-                      </div>
+                      <p className="eyebrow text-[0.68rem]">{symbol} BALANCE</p>
                     </div>
                     <span
                       className={`soft-pill ${
@@ -3019,9 +2986,6 @@ function DashboardContent() {
                       ? formatTokenAmount(balance, token.decimals, symbol)
                       : "Nothing here yet"}
                   </p>
-                  <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-muted">
-                    {symbol} balance - Arc Testnet
-                  </p>
 
                   <div className="field-shell mt-4 flex items-center justify-between gap-3 px-3 py-3 text-sm">
                     <span className="font-semibold text-muted">Status</span>
@@ -3032,52 +2996,6 @@ function DashboardContent() {
                 </button>
               );
             })}
-
-            <article className="surface-card min-h-[15rem] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="eyebrow text-[0.68rem]">
-                    {isEmbeddedWalletMode ? "Circle wallet" : "Network funds"}
-                  </p>
-                  <h2 className="mt-6 font-heading text-3xl font-semibold tracking-normal text-ink">
-                    {nativeBalanceText}
-                  </h2>
-                </div>
-                <span className="soft-pill soft-pill-live">
-                  {isEmbeddedWalletMode ? "Circle" : "Live"}
-                </span>
-              </div>
-              <p className="mt-6 max-w-sm text-sm leading-6 text-muted">
-                {isEmbeddedWalletMode
-                  ? circleError ?? circleStatus
-                  : "Gas and stablecoin balances stay separate so payments remain easy to scan before signing."}
-              </p>
-
-              <div className="mt-7 flex max-w-full items-center gap-2 rounded-lg border border-border bg-muted/70 px-3 py-2.5">
-                <Wallet className="h-4 w-4 shrink-0 text-swift-600" />
-                <span className="min-w-0 flex-1 truncate font-mono text-sm font-bold text-ink">
-                  {shortenAddress(walletAddress)}
-                </span>
-                <button
-                  className="inline-flex h-8 items-center gap-1 rounded-md bg-muted px-2 text-xs font-black text-muted transition hover:bg-accent hover:text-primary"
-                  onClick={copyAddress}
-                  type="button"
-                >
-                  {copied ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-              {isCircleLoading ? (
-                <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-semibold text-muted">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading Circle wallet
-                </div>
-              ) : null}
-            </article>
           </div>
         </section>
 
@@ -3138,11 +3056,7 @@ function DashboardContent() {
               paymentAmountUnits={paymentAmountUnits}
               paymentError={paymentError}
               paymentNarration={paymentNarration}
-              paymentStatus={
-                paymentAmount
-                  ? `${paymentAmount} ${selectedToken} sent`
-                  : paymentStatus
-              }
+              paymentStatus={paymentStatus}
               spendSaveNotice={spendSaveNotice}
               primaryButtonText={primaryButtonText}
               receiveHref={
@@ -3186,6 +3100,12 @@ function DashboardContent() {
           </div>
 
           <div className="grid gap-4">
+            <ReceiveShareCard
+              isConnected={isConnected}
+              username={walletProfile?.username}
+              walletAddress={walletAddress}
+            />
+
             <div className="surface-panel p-4 sm:p-5">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -3222,8 +3142,7 @@ function DashboardContent() {
                   </div>
                 ))}
                 <p className="mt-2 text-sm leading-6 text-muted">
-                  Gas balance: {nativeBalanceText}. Recent transfers indexed:{" "}
-                  {walletTransfers.length}.
+                  Recent transfers indexed: {walletTransfers.length}.
                 </p>
               </div>
             </div>
@@ -3231,7 +3150,10 @@ function DashboardContent() {
           </div>
         </section>
 
-        <section className="surface-panel p-4 sm:p-5" id="activity">
+        <section
+          className={`surface-panel p-4 sm:p-5${preview ? " hidden" : ""}`}
+          id="activity"
+        >
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="eyebrow">Activity</p>
@@ -3349,8 +3271,7 @@ function DashboardContent() {
             )}
           </div>
 
-          <div className="mt-5 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-muted">Gas balance: {nativeBalanceText}</span>
+          <div className="mt-5 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-end">
             <a
               className="inline-flex items-center gap-2 font-bold text-swift-700 transition hover:text-swift-600"
               href={walletExplorerUrl}
@@ -3362,6 +3283,40 @@ function DashboardContent() {
             </a>
           </div>
         </section>
+    </>
+  );
+
+  if (preview) {
+    return workspace;
+  }
+
+  return (
+    <PlatformChrome
+      actions={
+        <>
+          <a
+            className="hidden h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-semibold shadow-sm transition hover:border-primary/30 sm:inline-flex"
+            href="#activity"
+          >
+            <ReceiptText className="h-4 w-4" />
+            Activity
+          </a>
+          <CircleFaucetLink />
+          <ProfileMenu
+            circleLogin={circleLogin}
+            circleWalletAddress={circleAddress}
+            externalAddress={externalAddress}
+            externalWalletAction={<WalletConnectButton />}
+            onCircleSessionCleared={handleCircleSessionCleared}
+            onWalletModeChange={setWalletMode}
+            walletMode={walletMode}
+          />
+        </>
+      }
+      subtitle="Financial command center"
+      title="Dashboard"
+    >
+      {workspace}
       {receiptTransfer ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-swift-700/40 px-4 py-6 backdrop-blur-sm">
           <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-lg">

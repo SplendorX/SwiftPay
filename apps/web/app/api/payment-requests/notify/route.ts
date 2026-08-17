@@ -189,7 +189,11 @@ export async function POST(request: NextRequest) {
     }
 
     const existingLifecycle = await readPaymentRequestLifecycle(requestId);
-    if (existingLifecycle === "paid" || existingLifecycle === "declined") {
+    if (
+      existingLifecycle === "paid" ||
+      existingLifecycle === "declined" ||
+      existingLifecycle === "expired"
+    ) {
       return jsonError(
         "This payment request is no longer open. Generate a new link.",
         409,

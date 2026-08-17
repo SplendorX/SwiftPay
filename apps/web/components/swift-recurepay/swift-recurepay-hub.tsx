@@ -427,7 +427,7 @@ export function SwiftRecurepayHub() {
 
     const intervalId = window.setInterval(() => {
       void processDueAndAutopay(true);
-    }, 30_000);
+    }, 10_000);
 
     return () => {
       window.clearInterval(intervalId);
@@ -618,6 +618,7 @@ export function SwiftRecurepayHub() {
         maxRuns: maxRuns ? Number(maxRuns) : undefined,
         narration,
         ownerWallet: ownerAddress,
+        startsAt: new Date().toISOString(),
         tokenSymbol: token,
         walletMode: isEmbeddedWalletMode ? "circle" : "external",
       });
@@ -626,10 +627,23 @@ export function SwiftRecurepayHub() {
       setRecipientInput("");
       setBeneficiaryLabel("");
       setAmount("");
+
+      try {
+        const waitStarted = Date.now();
+        while (processInFlightRef.current && Date.now() - waitStarted < 8_000) {
+          await new Promise((resolve) => window.setTimeout(resolve, 150));
+        }
+        processInFlightRef.current = false;
+        await processDueAndAutopay(true);
+        await refreshData();
+      } catch {
+        // Schedule exists; Pay now remains if the first run is still queued.
+      }
+
       setSuccess(
         schedule.autopay_enabled
-          ? "Schedule created with autopay. Keep this page open with this wallet to settle due runs automatically."
-          : "SwiftRecurepay schedule created.",
+          ? "Schedule created. The first payment is being initiated now."
+          : "Schedule created. The first payment is queued — confirm with Pay now if needed.",
       );
     } catch (createError) {
       setError(getErrorMessage(createError));

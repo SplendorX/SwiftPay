@@ -18,6 +18,7 @@ import {
  Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
@@ -199,6 +200,16 @@ const featureNavItems = [
  icon: typeof LockKeyhole;
  label: string;
 }[];
+
+function featureFromPath(pathname: string): PrivSwiftPayFeature {
+  if (pathname.includes("/payroll")) {
+    return "payroll";
+  }
+  if (pathname.includes("/claim")) {
+    return "claim";
+  }
+  return "private-send";
+}
 
 type PayrollRecipient = {
  address: string;
@@ -2649,6 +2660,8 @@ export function PrivSwiftPayContent({
  }`}
  href={item.href}
  key={item.feature}
+ scroll={false}
+ prefetch
  >
  <Icon className="h-4 w-4 shrink-0" />
  <span className="truncate">{item.label}</span>
@@ -3413,10 +3426,13 @@ export function PrivSwiftPayContent({
 }
 
 export function PrivSwiftPayFeaturePage({
- feature,
+ feature: featureProp,
 }: {
- feature: PrivSwiftPayFeature;
-}) {
+ feature?: PrivSwiftPayFeature;
+} = {}) {
+ const pathname = usePathname();
+ const feature = featureProp ?? featureFromPath(pathname ?? "");
+
  return (
  <PlatformAccessGate>
  <PrivSwiftPayContent feature={feature} />

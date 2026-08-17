@@ -2,7 +2,7 @@ export type PaymentRequestStatusPayload = {
   message?: string;
   payable?: boolean;
   requestId?: string;
-  status?: "pending" | "paid" | "declined" | "unknown";
+  status?: "pending" | "paid" | "declined" | "expired" | "unknown";
 };
 
 export async function fetchPaymentRequestStatus(requestId: string) {
@@ -49,13 +49,16 @@ export async function completePaymentRequest(input: {
 }
 
 export function paymentRequestClosedMessage(
-  status: "paid" | "declined" | "pending" | "unknown",
+  status: "paid" | "declined" | "expired" | "pending" | "unknown",
 ) {
   if (status === "declined") {
     return "This payment request was declined and can no longer be paid.";
   }
   if (status === "paid") {
     return "This payment request was already paid. Ask for a new request link.";
+  }
+  if (status === "expired") {
+    return "This payment request has expired. Create a new request to get paid.";
   }
   return null;
 }

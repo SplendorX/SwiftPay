@@ -11,7 +11,6 @@ import {
   LockKeyhole,
   PiggyBank,
   ReceiptText,
-  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,7 +32,14 @@ import {
   shouldShowAlertToast,
   type AlertCategory,
 } from "@/lib/notifications/preferences";
-import { deleteSavingsNotifications } from "@/lib/save/client";
+import {
+  isAlertHashDismissed,
+  rememberDismissedAlertHashes,
+} from "@/lib/notifications/dismissed";
+import {
+  deleteSavingsNotifications,
+  notificationsChangedEvent,
+} from "@/lib/save/client";
 import {
   extractClaimCodeFromNotification,
   extractPaymentRequestId,
@@ -199,8 +205,6 @@ export function NotificationsBell({ className }: { className?: string }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [authHint, setAuthHint] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [clearing, setClearing] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [alertPrefs, setAlertPrefs] = useState(() =>
     typeof window === "undefined"
       ? {
@@ -356,8 +360,34 @@ export function NotificationsBell({ className }: { className?: string }) {
       setAuthHint(null);
       setWalletAuthorized(true);
 
-      const next = json.notifications ?? [];
-      const nextUnread = json.unreadCount ?? 0;
+      const incoming = json.notifications ?? [];
+      const resurrected = incoming.filter((item) =>
+        isAlertHashDismissed(ownerWallet, item.related_tx_hash),
+      );
+      if (resurrected.length > 0) {
+        rememberDismissedAlertHashes(
+          ownerWallet,
+          resurrected.map((item) => item.related_tx_hash),
+        );
+        void deleteSavingsNotifications({
+          ownerWallet,
+          circleSocialUuid,
+          ids: resurrected.map((item) => item.id),
+          silent: true,
+        }).catch(() => undefined);
+      }
+
+      const next = incoming.filter(
+        (item) => !isAlertHashDismissed(ownerWallet, item.related_tx_hash),
+      );
+      const nextUnread =
+        json.unreadCount != null
+          ? Math.max(
+              0,
+              json.unreadCount -
+                resurrected.filter((item) => !item.read_at).length,
+            )
+          : next.filter((item) => !item.read_at).length;
 
       if (hasLoadedOnce.current) {
         for (const item of next) {
@@ -416,9 +446,19 @@ export function NotificationsBell({ className }: { className?: string }) {
   }, [alertPrefs, circleSocialUuid, ownerWallet]);
 
   useEffect(() => {
+    function onNotificationsChanged() {
+      void load();
+    }
     void load();
-    const id = window.setInterval(() => void load(), 20_000);
-    return () => window.clearInterval(id);
+    const id = window.setInterval(onNotificationsChanged, 20_000);
+    window.addEventListener(notificationsChangedEvent, onNotificationsChanged);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener(
+        notificationsChangedEvent,
+        onNotificationsChanged,
+      );
+    };
   }, [load]);
 
   useEffect(() => {
@@ -441,49 +481,6 @@ export function NotificationsBell({ className }: { className?: string }) {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
-
-  async function deleteOne(id: string) {
-    if (!ownerWallet) return;
-    setDeletingId(id);
-    try {
-      const result = await deleteSavingsNotifications({
-        ownerWallet,
-        circleSocialUuid,
-        ids: [id],
-      });
-      setItems((prev) => prev.filter((item) => item.id !== id));
-      if (typeof result.unreadCount === "number") {
-        setUnreadCount(result.unreadCount);
-      } else {
-        setUnreadCount((count) => Math.max(0, count - 1));
-      }
-    } catch {
-      toast.error("Could not delete this alert");
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
-  async function clearInbox() {
-    if (!ownerWallet || items.length === 0) return;
-    setClearing(true);
-    try {
-      await deleteSavingsNotifications({
-        ownerWallet,
-        circleSocialUuid,
-        all: true,
-        keepImportant: true,
-      });
-      await load();
-      toast.success("Cleared alerts", {
-        description: "Open claims and payment requests were kept.",
-      });
-    } catch {
-      toast.error("Could not clear alerts");
-    } finally {
-      setClearing(false);
-    }
-  }
 
   async function markAllRead() {
     if (!ownerWallet || unreadCount === 0) return;
@@ -648,22 +645,6 @@ export function NotificationsBell({ className }: { className?: string }) {
                     <CheckCheck className="h-3.5 w-3.5" />
                   )}
                   <span className="ml-1.5">Mark read</span>
-                </Button>
-              ) : null}
-              {items.length > 0 ? (
-                <Button
-                  disabled={clearing}
-                  onClick={() => void clearInbox()}
-                  size="sm"
-                  title="Clear inbox, keep claims and requests"
-                  type="button"
-                  variant="ghost"
-                >
-                  {clearing ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" />
-                  )}
                 </Button>
               ) : null}
             </div>
@@ -867,19 +848,6 @@ export function NotificationsBell({ className }: { className?: string }) {
                                   <ExternalLink className="h-3 w-3" />
                                 </a>
                               ) : null}
-                              <button
-                                className="inline-flex items-center gap-0.5 text-[11px] font-medium text-rose-600 hover:underline dark:text-rose-400"
-                                disabled={deletingId === item.id}
-                                onClick={() => void deleteOne(item.id)}
-                                type="button"
-                              >
-                                {deletingId === item.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3 w-3" />
-                                )}
-                                Delete
-                              </button>
                             </div>
                           </div>
                         </div>

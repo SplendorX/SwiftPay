@@ -265,6 +265,45 @@ html[data-theme="dark"] textarea::placeholder {
   color: transparent;
 }
 
+.platform-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow: visible;
+}
+
+.platform-logo-mark {
+  display: block;
+  height: 1.9rem;
+  width: 1.9rem;
+  flex-shrink: 0;
+  object-fit: contain;
+  overflow: visible;
+  filter:
+    drop-shadow(0 0 1px rgb(196 181 253))
+    drop-shadow(0 0 4px rgb(167 139 250 / 0.7))
+    drop-shadow(0 0 8px rgb(139 92 246 / 0.35));
+}
+
+.dashboard-greeting {
+  font-family: var(--font-sora), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.15rem, 2.3vw, 1.55rem);
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1.15;
+  color: color-mix(in oklch, var(--foreground) 78%, var(--primary));
+}
+
+.dashboard-greeting-name {
+  display: inline-block;
+  background: linear-gradient(160deg, #3b82f6 0%, #6366f1 48%, #8b5cf6 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
 .platform-wordmark {
   display: inline-flex;
   align-items: baseline;
@@ -273,6 +312,17 @@ html[data-theme="dark"] textarea::placeholder {
   line-height: 1;
   letter-spacing: -0.06em;
   white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .platform-brand-name-desktop {
+    display: none;
+  }
+
+  .platform-logo-mark {
+    height: 2rem;
+    width: 2rem;
+  }
 }
 
 .platform-wordmark-header {
@@ -332,6 +382,10 @@ html.dark .platform-wordmark-swift,
   line-height: 1.2;
   letter-spacing: -0.025em;
   color: var(--foreground);
+}
+
+.dashboard-funds-title {
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem);
 }
 
 .section-copy {
@@ -760,15 +814,9 @@ select:focus {
 }
 
 .collection-hub-requests {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-}
-
-@media (min-width: 768px) {
-  .collection-hub-requests {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .collection-hub-request-card {
@@ -1331,6 +1379,44 @@ select:focus {
 
 .preview-body {
   padding: 1rem;
+}
+
+.dashboard-live-preview {
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-stage {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  background: var(--background);
+}
+
+.dashboard-stage-portfolio {
+  min-height: 0;
+}
+
+.dashboard-stage-ops {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .dashboard-stage-ops {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    align-items: start;
+  }
+}
+
+.dashboard-stage-receive :is(.surface-panel, .platform-logo-mark) {
+  pointer-events: none;
+}
+
+.dashboard-live-preview-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
 }
 
 .preview-kpi-grid {
@@ -2321,6 +2407,19 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+
+
+.collection-hub-requests-scroll {
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .earn-tx-item {

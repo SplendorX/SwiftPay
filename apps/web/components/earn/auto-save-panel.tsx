@@ -15,6 +15,7 @@ import { earnConfig } from "@/lib/earn/config";
 import { erc20Abi } from "@/lib/contracts";
 import { arcTestnetTokens } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
+import { StyledSelect } from "@/components/ui/styled-select";
 
 type AutoSaveRule = {
   enabled: boolean;
@@ -314,19 +315,16 @@ export function AutoSavePanel() {
           />
 
           <label className="earn-label">Frequency</label>
-          <select
-            className="earn-input"
-            onChange={(e) =>
-              updateRule({
-                frequency: e.target.value as EditableFields["frequency"],
-              })
-            }
+          <StyledSelect
+            ariaLabel="Auto-save frequency"
+            onChange={(frequency) => updateRule({ frequency })}
+            options={[
+              { label: "Daily", value: "daily" },
+              { label: "Weekly", value: "weekly" },
+              { label: "Monthly", value: "monthly" },
+            ]}
             value={rule.frequency ?? "weekly"}
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
+          />
 
           <label className="earn-toggle-row">
             <input

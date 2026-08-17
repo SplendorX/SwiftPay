@@ -29,7 +29,7 @@ export function SettingsSections() {
       </SettingsCollapsibleCard>
 
       <SettingsCollapsibleCard
-        body="Inbox, mute rules, and cleanup for payments, claims, and savings. Delete one notice or sweep the whole feed."
+        body="Toast rules, quiet hours, and clearing read notification messages."
         icon={Bell}
         sectionId="alerts"
         title="Alerts"

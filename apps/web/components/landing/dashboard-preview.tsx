@@ -1,22 +1,17 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ArrowUpRight, CheckCircle2, Send, TrendingUp } from "lucide-react";
+import Link from "next/link";
 
-import { AnimatedCounter } from "@/components/design/motion";
+import { TokenIcon } from "@/components/token-icon";
 import { Badge } from "@/components/ui/badge";
 
-const chartHeights = [42, 58, 38, 72, 55, 88, 64, 78, 52, 95, 70, 82];
-
-const recentActivity = [
-  { amount: "$1,240.00", label: "Batch settlement", status: "Settled" },
-  { amount: "$320.50", label: "Payment request", status: "Paid" },
-  { amount: "$89.00", label: "Direct send", status: "Confirmed" },
+const chart = [
+  42, 48, 45, 52, 58, 55, 63, 70, 66, 74, 80, 78, 86, 92,
 ];
 
 export function DashboardPreview() {
   return (
-    <div className="preview-panel">
+    <div className="preview-panel dashboard-live-preview">
       <div className="preview-toolbar">
         <span className="preview-dot preview-dot-red" />
         <span className="preview-dot preview-dot-amber" />
@@ -25,91 +20,79 @@ export function DashboardPreview() {
           SwiftPay · Dashboard
         </span>
         <Badge className="ml-auto text-[10px]" variant="secondary">
-          Live preview
+          Live
         </Badge>
       </div>
 
-      <div className="preview-body">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div>
-            <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-              Available balance
-            </p>
-            <p className="font-heading text-xl font-semibold tracking-tight">
-              <AnimatedCounter value="$24,580.42" />
-            </p>
-          </div>
-          <div className="feature-icon">
-            <TrendingUp className="h-4 w-4" />
-          </div>
-        </div>
+      <div className="dashboard-stage">
+        <section className="section-panel dashboard-stage-balances">
+          <p className="dashboard-greeting">Welcome back</p>
+          <h2 className="section-title dashboard-funds-title">Your funds, ready</h2>
 
-        <div className="preview-kpi-grid">
-          <div className="preview-metric">
-            <p className="text-[9px] font-bold tracking-wide text-muted-foreground uppercase">
-              Monthly volume
-            </p>
-            <p className="mt-0.5 font-heading text-sm font-semibold">$128.4k</p>
-          </div>
-          <div className="preview-metric">
-            <p className="text-[9px] font-bold tracking-wide text-muted-foreground uppercase">
-              Success rate
-            </p>
-            <p className="mt-0.5 font-heading text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-              99.2%
-            </p>
-          </div>
-        </div>
+          <article className="portfolio-value-board dashboard-stage-portfolio relative overflow-hidden border border-border p-4">
+            <div className="relative z-10 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                  Portfolio value
+                </p>
+                <p className="mt-1 font-heading text-3xl font-semibold tracking-tight">
+                  $12,840.50
+                </p>
+                <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                  Live USD · 0xA71C…9cE1
+                </p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                +$186.20
+              </span>
+            </div>
+            <div className="relative z-10 mt-3 flex h-14 items-end gap-1">
+              {chart.map((height, index) => (
+                <span
+                  className="min-w-0 flex-1 rounded-t-sm bg-cyan-400/80"
+                  key={`${height}-${index}`}
+                  style={{ height: `${height}%` }}
+                />
+              ))}
+            </div>
+          </article>
 
-        <div className="preview-chart">
-          <div className="preview-chart-bar">
-            {chartHeights.map((height, index) => (
-              <motion.span
-                animate={{ scaleY: 1 }}
-                initial={{ scaleY: 0 }}
-                key={height}
-                style={{ height: `${height}%`, transformOrigin: "bottom" }}
-                transition={{ delay: 0.3 + index * 0.04, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                { amount: "8,420.00 USDC", symbol: "USDC" as const, active: true },
+                { amount: "4,018.50 EURC", symbol: "EURC" as const, active: false },
+              ]
+            ).map((token) => (
+              <div className="surface-card p-3 text-left" key={token.symbol}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <TokenIcon
+                      className="h-8 w-8 rounded-full shadow-sm"
+                      symbol={token.symbol}
+                    />
+                    <p className="eyebrow text-[0.62rem]">{token.symbol} BALANCE</p>
+                  </div>
+                  <span
+                    className={`soft-pill ${token.active ? "soft-pill-live" : ""}`}
+                  >
+                    {token.active ? "Active" : "Select"}
+                  </span>
+                </div>
+                <p className="mt-4 font-heading text-xl font-semibold tracking-tight">
+                  {token.amount}
+                </p>
+              </div>
             ))}
           </div>
-        </div>
-
-        <div className="mt-3 space-y-1.5">
-          {recentActivity.map((item, index) => (
-            <motion.div
-              animate={{ opacity: 1, x: 0 }}
-              className="activity-item"
-              initial={{ opacity: 0, x: 8 }}
-              key={item.label}
-              transition={{ delay: 0.6 + index * 0.1, duration: 0.35 }}
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <Send className="h-3 w-3 shrink-0 text-primary" />
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold">{item.label}</p>
-                  <p className="text-[10px] text-muted-foreground">{item.amount}</p>
-                </div>
-              </div>
-              <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-3 w-3" />
-                {item.status}
-              </span>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="route-node">You</span>
-            <span className="route-line max-w-8" />
-            <span className="route-node">Arc</span>
-            <span className="route-line max-w-8" />
-            <span className="route-node">Recipient</span>
-          </div>
-          <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
+        </section>
       </div>
+
+      <Link
+        aria-label="Open the SwiftPay dashboard"
+        className="dashboard-live-preview-hit"
+        href="/dashboard"
+      />
     </div>
   );
 }

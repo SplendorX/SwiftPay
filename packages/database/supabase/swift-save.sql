@@ -259,6 +259,28 @@ create unique index if not exists savings_notifications_related_tx_uidx
   on public.savings_notifications (owner_wallet, related_tx_hash)
   where related_tx_hash is not null;
 
+alter table public.savings_notifications
+  add column if not exists dismissed_at timestamptz;
+
+create index if not exists savings_notifications_owner_visible_idx
+  on public.savings_notifications (owner_wallet, created_at desc)
+  where dismissed_at is null;
+
+create table if not exists public.savings_notification_dismissals (
+  owner_wallet text not null,
+  related_tx_hash text not null,
+  dismissed_at timestamptz not null default now(),
+  primary key (owner_wallet, related_tx_hash)
+);
+
+create index if not exists savings_notification_dismissals_owner_idx
+  on public.savings_notification_dismissals (owner_wallet);
+
+alter table public.savings_notification_dismissals enable row level security;
+
+grant select, insert, update, delete on public.savings_notification_dismissals
+  to service_role;
+
 -- ─── Reconciliation alerts ───────────────────────────────────────────────────
 create table if not exists public.savings_reconciliation_alerts (
   id uuid primary key default gen_random_uuid(),

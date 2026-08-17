@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
     if (result.status === "declined") {
       return jsonError("This payment request was declined.", 409);
     }
+    if (result.status === "expired") {
+      return jsonError("This payment request has expired.", 409);
+    }
 
     return NextResponse.json({
       alreadyResolved: result.alreadyResolved,

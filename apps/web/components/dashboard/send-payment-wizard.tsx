@@ -619,7 +619,9 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {paymentAmount
-                  ? `${paymentAmount} ${selectedToken} sent`
+                  ? `${paymentAmount} ${selectedToken} ${
+                      transactionConfirmed ? "sent" : "sending"
+                    }`
                   : paymentStatus}
               </p>
               {spendSaveNotice ? (

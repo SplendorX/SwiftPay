@@ -151,6 +151,7 @@ export async function DELETE(request: NextRequest) {
       all: body.all === true,
       olderThanDays,
       keepImportant: body.keepImportant === true,
+      onlyRead: body.onlyRead === true,
     });
     const [notifications, unreadCount] = await Promise.all([
       listSavingsNotifications(ownerWallet, 100),

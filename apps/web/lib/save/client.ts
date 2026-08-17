@@ -59,8 +59,20 @@ function withWalletParams(
   return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
-export async function deleteSavingsNotifications(body: Record<string, unknown>) {
-  return parseJson<{
+export const notificationsChangedEvent = "swiftpay:notifications-changed";
+
+export function emitNotificationsChanged() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(notificationsChangedEvent));
+}
+
+export async function deleteSavingsNotifications(
+  body: Record<string, unknown> & { silent?: boolean },
+) {
+  const { silent, ...payload } = body;
+  const result = await parseJson<{
     deleted: number;
     notifications?: import("@/lib/save/notifications").SavingsNotificationRecord[];
     unreadCount?: number;
@@ -69,9 +81,13 @@ export async function deleteSavingsNotifications(body: Record<string, unknown>) 
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     }),
   );
+  if (!silent) {
+    emitNotificationsChanged();
+  }
+  return result;
 }
 
 export async function fetchSavingsSummary(

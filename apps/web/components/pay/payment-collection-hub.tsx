@@ -15,7 +15,6 @@ import {
   QrCode,
   ReceiptText,
   Share2,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -29,9 +28,14 @@ import { TokenIcon } from "@/components/token-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PagedActivityBox } from "@/components/ui/paged-activity-box";
+import {
+  fetchPaymentRequestStatus,
+} from "@/lib/payment-request-client";
 import {
   buildPaymentRequestPath,
   buildPaymentRequestUrl,
+  readPaymentRequestIdFromLink,
 } from "@/lib/payment-request-url";
 import { fetchProfile, formatUsernameLabel } from "@/lib/profile";
 import { normalizeUsername, validateUsername } from "@/lib/profile-utils";
@@ -45,6 +49,8 @@ import { arcTestnet } from "@/lib/wagmi";
 
 const requestsStorageKey = "swiftpay.payment.requests";
 
+type RequestHistoryStatus = "active" | "expired" | "paid" | "declined";
+
 type SavedRequest = {
   amount: string;
   createdAt: string;
@@ -52,12 +58,43 @@ type SavedRequest = {
   id: string;
   link: string;
   note: string;
+  requestId?: string;
   sentToUsername?: string;
-  status: "active" | "expired";
+  status: RequestHistoryStatus;
   token: ArcTokenSymbol;
   username?: string;
   wallet: string;
 };
+
+function isRequestExpired(request: SavedRequest) {
+  const created = Date.parse(request.createdAt);
+  if (!Number.isFinite(created)) {
+    return request.status === "expired";
+  }
+  const hours = Number(request.expiresInHours);
+  const ttlMs = (Number.isFinite(hours) && hours > 0 ? hours : 24) * 60 * 60 * 1000;
+  return Date.now() >= created + ttlMs;
+}
+
+function deriveLocalRequestStatus(request: SavedRequest): RequestHistoryStatus {
+  if (request.status === "paid" || request.status === "declined") {
+    return request.status;
+  }
+  if (isRequestExpired(request)) {
+    return "expired";
+  }
+  return "active";
+}
+
+function normalizeSavedRequest(request: SavedRequest): SavedRequest {
+  const requestId =
+    request.requestId ?? readPaymentRequestIdFromLink(request.link) ?? undefined;
+  return {
+    ...request,
+    requestId,
+    status: deriveLocalRequestStatus({ ...request, requestId }),
+  };
+}
 
 type PaymentCollectionHubProps = {
   initialAmount: string;
@@ -84,7 +121,8 @@ function readSavedRequests(): SavedRequest[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(requestsStorageKey);
-    return raw ? (JSON.parse(raw) as SavedRequest[]) : [];
+    const parsed = raw ? (JSON.parse(raw) as SavedRequest[]) : [];
+    return parsed.map(normalizeSavedRequest);
   } catch {
     return [];
   }
@@ -191,6 +229,67 @@ export function PaymentCollectionHub({
   }, []);
 
   useEffect(() => {
+    if (savedRequests.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refreshRequestStatuses() {
+      const next = await Promise.all(
+        savedRequests.map(async (request) => {
+          const local = normalizeSavedRequest(request);
+          const id = local.requestId;
+          if (!id || local.status === "paid" || local.status === "declined") {
+            return local;
+          }
+
+          try {
+            const remote = await fetchPaymentRequestStatus(id);
+            if (
+              remote.status === "paid" ||
+              remote.status === "declined" ||
+              remote.status === "expired"
+            ) {
+              return { ...local, status: remote.status };
+            }
+          } catch {
+            // Keep the local expiry/active status if the status API is unavailable.
+          }
+
+          return local;
+        }),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      const changed = next.some(
+        (item, index) =>
+          item.status !== savedRequests[index]?.status ||
+          item.requestId !== savedRequests[index]?.requestId,
+      );
+      if (!changed) {
+        return;
+      }
+
+      writeSavedRequests(next);
+      setSavedRequests(next);
+    }
+
+    void refreshRequestStatuses();
+    const intervalId = window.setInterval(() => {
+      void refreshRequestStatuses();
+    }, 15_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [savedRequests]);
+
+  useEffect(() => {
     if (!canGenerateLink) {
       return;
     }
@@ -248,19 +347,20 @@ export function PaymentCollectionHub({
     );
     if (existing) return;
 
-    const nextRequest: SavedRequest = {
+    const nextRequest: SavedRequest = normalizeSavedRequest({
       amount: trimmedAmount,
       createdAt: new Date().toISOString(),
       expiresInHours: Number(expiresInHours) || 24,
-      id: crypto.randomUUID(),
+      id: requestId || crypto.randomUUID(),
       link: requestLink,
       note: trimmedNote,
+      requestId: requestId || undefined,
       sentToUsername,
       status: "active",
       token,
       username: requesterUsername ?? undefined,
       wallet: trimmedWalletAddress,
-    };
+    });
 
     const next = [nextRequest, ...readSavedRequests()].slice(0, 12);
     writeSavedRequests(next);
@@ -375,7 +475,9 @@ export function PaymentCollectionHub({
     }
   }
 
-  const activeCount = savedRequests.filter((r) => r.status === "active").length;
+  const activeCount = savedRequests.filter(
+    (r) => deriveLocalRequestStatus(r) === "active",
+  ).length;
   const recipientSummary = requesterUsername
     ? formatUsernameLabel(requesterUsername)
     : isWalletValid
@@ -681,75 +783,73 @@ export function PaymentCollectionHub({
         </aside>
       </div>
 
-      <section className="section-panel">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <p className="section-eyebrow">Request history</p>
-            <h2 className="section-title">Recent requests</h2>
-          </div>
-          <TrendingUp className="h-5 w-5 text-primary" />
-        </div>
-
-        {savedRequests.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Sent and generated requests appear here for quick tracking.
-          </p>
-        ) : (
-          <div className="collection-hub-requests">
-            {savedRequests.map((request) => (
-              <article className="collection-hub-request-card" key={request.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold">
-                      {request.amount} {request.token}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {request.sentToUsername
-                        ? `Requested ${formatUsernameLabel(request.sentToUsername)}`
-                        : request.username
-                          ? `Pays ${formatUsernameLabel(request.username)}`
-                          : `Pays ${shortenWallet(request.wallet)}`}
-                    </p>
-                    {request.note ? (
-                      <p className="mt-1 text-xs text-muted-foreground">{request.note}</p>
-                    ) : null}
-                  </div>
-                  <Badge variant={request.status === "active" ? "secondary" : "outline"}>
-                    {request.status}
-                  </Badge>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <Button onClick={() => void copyValue(request.link, "link")} size="sm" variant="outline">
-                    <Copy className="h-3.5 w-3.5" />
-                    Copy
-                  </Button>
-                  <Button asChild size="sm" variant="ghost">
-                    <Link
-                      href={
-                        request.link.startsWith("http")
-                          ? `${new URL(request.link).pathname}${new URL(request.link).search}`
-                          : dashboardHref
-                      }
-                    >
-                      Open
-                    </Link>
-                  </Button>
-                  {request.sentToUsername ? (
-                    <Button
-                      onClick={() => applyHistoryUsername(request.sentToUsername ?? "")}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      Use @{request.sentToUsername}
-                    </Button>
+      <PagedActivityBox
+        empty="Sent and generated requests appear here for quick tracking."
+        items={savedRequests}
+        title="Request history"
+        renderItem={(request) => {
+          const status = deriveLocalRequestStatus(request);
+          return (
+            <article className="collection-hub-request-card" key={request.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    {request.amount} {request.token}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {request.sentToUsername
+                      ? `Requested ${formatUsernameLabel(request.sentToUsername)}`
+                      : request.username
+                        ? `Pays ${formatUsernameLabel(request.username)}`
+                        : `Pays ${shortenWallet(request.wallet)}`}
+                  </p>
+                  {request.note ? (
+                    <p className="mt-1 text-xs text-muted-foreground">{request.note}</p>
                   ) : null}
                 </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+                <Badge
+                  variant={
+                    status === "active"
+                      ? "secondary"
+                      : status === "paid"
+                        ? "default"
+                        : "outline"
+                  }
+                >
+                  {status}
+                </Badge>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button onClick={() => void copyValue(request.link, "link")} size="sm" variant="outline">
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy
+                </Button>
+                <Button asChild size="sm" variant="ghost">
+                  <Link
+                    href={
+                      request.link.startsWith("http")
+                        ? `${new URL(request.link).pathname}${new URL(request.link).search}`
+                        : dashboardHref
+                    }
+                  >
+                    Open
+                  </Link>
+                </Button>
+                {request.sentToUsername ? (
+                  <Button
+                    onClick={() => applyHistoryUsername(request.sentToUsername ?? "")}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    Use @{request.sentToUsername}
+                  </Button>
+                ) : null}
+              </div>
+            </article>
+          );
+        }}
+      />
     </div>
   );
 }

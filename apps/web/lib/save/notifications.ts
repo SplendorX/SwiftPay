@@ -4,6 +4,12 @@ import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 const notificationsTable =
   process.env.SUPABASE_SAVINGS_NOTIFICATIONS_TABLE ?? "savings_notifications";
+const notificationDismissalsTable =
+  process.env.SUPABASE_NOTIFICATION_DISMISSALS_TABLE ??
+  "savings_notification_dismissals";
+const notificationsChangedEventName = "swiftpay:notifications-changed";
+
+export const notificationsChangedEvent = notificationsChangedEventName;
 
 export type SavingsNotificationKind =
   | "manual_save_success"
@@ -32,6 +38,7 @@ export type SavingsNotificationRecord = {
   related_tx_hash?: string | null;
   metadata?: Record<string, unknown> | null;
   read_at: string | null;
+  dismissed_at?: string | null;
   created_at: string;
 };
 
@@ -332,6 +339,74 @@ export async function createSavingsNotification(input: {
   return result.record;
 }
 
+function isRecordDismissed(
+  item: Pick<SavingsNotificationRecord, "dismissed_at" | "metadata">,
+) {
+  if (item.dismissed_at) {
+    return true;
+  }
+  const meta = item.metadata;
+  return Boolean(
+    meta &&
+      typeof meta === "object" &&
+      (meta as Record<string, unknown>).dismissed === true,
+  );
+}
+
+async function isTxHashDismissed(ownerWallet: string, relatedTxHash: string) {
+  const hash = relatedTxHash.toLowerCase();
+  if (!hash) {
+    return false;
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from(notificationDismissalsTable)
+      .select("related_tx_hash")
+      .eq("owner_wallet", ownerWallet.toLowerCase())
+      .eq("related_tx_hash", hash)
+      .maybeSingle();
+
+    if (error) {
+      return false;
+    }
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+}
+
+async function recordDismissedHashes(
+  ownerWallet: string,
+  hashes: Array<string | null | undefined>,
+) {
+  const rows = Array.from(
+    new Set(
+      hashes
+        .map((hash) => hash?.trim().toLowerCase())
+        .filter((hash): hash is string => Boolean(hash)),
+    ),
+  ).map((related_tx_hash) => ({
+    dismissed_at: new Date().toISOString(),
+    owner_wallet: ownerWallet.toLowerCase(),
+    related_tx_hash,
+  }));
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    await supabase
+      .from(notificationDismissalsTable)
+      .upsert(rows, { onConflict: "owner_wallet,related_tx_hash" });
+  } catch {
+    // Table may not exist yet; unique dismissed rows still hide the inbox.
+  }
+}
+
 /** Create a payment_received notification if we have not already notified this tx. */
 export async function createIncomingPaymentNotification(input: {
   ownerWallet: string;
@@ -340,6 +415,10 @@ export async function createIncomingPaymentNotification(input: {
   relatedTxHash: string;
   metadata?: Record<string, unknown>;
 }) {
+  if (await isTxHashDismissed(input.ownerWallet, input.relatedTxHash)) {
+    return null;
+  }
+
   return createSavingsNotification({
     ownerWallet: input.ownerWallet,
     kind: "payment_received",
@@ -642,16 +721,37 @@ export function isPaymentRequestMarkedPaid(
   return /(?:^|\n)PAID:1(?:\n|$)/i.test(item.body ?? "");
 }
 
-export type PaymentRequestLifecycle = "pending" | "paid" | "declined";
+export type PaymentRequestLifecycle = "pending" | "paid" | "declined" | "expired";
+
+export function isPaymentRequestExpired(
+  item: Pick<SavingsNotificationRecord, "created_at" | "metadata">,
+) {
+  const meta =
+    item.metadata && typeof item.metadata === "object"
+      ? (item.metadata as Record<string, unknown>)
+      : null;
+  const hours = Number(meta?.expiresInHours);
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return false;
+  }
+  const created = Date.parse(item.created_at);
+  if (!Number.isFinite(created)) {
+    return false;
+  }
+  return Date.now() >= created + hours * 60 * 60 * 1000;
+}
 
 export function getPaymentRequestLifecycle(
-  item: Pick<SavingsNotificationRecord, "body" | "metadata">,
+  item: Pick<SavingsNotificationRecord, "body" | "created_at" | "metadata">,
 ): PaymentRequestLifecycle {
   if (isPaymentRequestMarkedPaid(item)) {
     return "paid";
   }
   if (isPaymentRequestMarkedDeclined(item)) {
     return "declined";
+  }
+  if (isPaymentRequestExpired(item)) {
+    return "expired";
   }
   return "pending";
 }
@@ -709,6 +809,9 @@ export async function readPaymentRequestLifecycle(requestId: string) {
   }
   if (rows.some((row) => getPaymentRequestLifecycle(row) === "declined")) {
     return "declined" as const;
+  }
+  if (rows.some((row) => getPaymentRequestLifecycle(row) === "expired")) {
+    return "expired" as const;
   }
   if (rows.length > 0) {
     return "pending" as const;
@@ -788,7 +891,13 @@ export async function markPaymentRequestLifecycle(input: {
     (row) => getPaymentRequestLifecycle(row) === "pending",
   );
   if (existing.length > 0 && pending.length === 0) {
-    return { alreadyResolved: true, status: "declined" as const };
+    const anyExpired = existing.some(
+      (row) => getPaymentRequestLifecycle(row) === "expired",
+    );
+    return {
+      alreadyResolved: true,
+      status: anyExpired ? ("expired" as const) : ("declined" as const),
+    };
   }
 
   const extraMetadata =
@@ -940,23 +1049,53 @@ export async function listSavingsNotifications(
   limit = 20,
 ) {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const owner = ownerWallet.toLowerCase();
+  const capped = Math.min(limit, 100);
+
+  const visible = await supabase
     .from(notificationsTable)
     .select("*")
-    .eq("owner_wallet", ownerWallet.toLowerCase())
+    .eq("owner_wallet", owner)
+    .is("dismissed_at", null)
     .order("created_at", { ascending: false })
-    .limit(Math.min(limit, 100));
+    .limit(capped);
 
-  if (error) {
-    if (
-      error.message.toLowerCase().includes("does not exist") ||
-      error.message.toLowerCase().includes("permission denied")
-    ) {
-      return [] as SavingsNotificationRecord[];
-    }
-    throw new Error(error.message);
+  if (!visible.error) {
+    return ((visible.data ?? []) as SavingsNotificationRecord[]).filter(
+      (item) => !isRecordDismissed(item),
+    );
   }
-  return (data ?? []) as SavingsNotificationRecord[];
+
+  if (missingColumnFromError(visible.error.message ?? "") === "dismissed_at") {
+    const fallback = await supabase
+      .from(notificationsTable)
+      .select("*")
+      .eq("owner_wallet", owner)
+      .order("created_at", { ascending: false })
+      .limit(Math.min(capped * 2, 100));
+
+    if (fallback.error) {
+      if (
+        fallback.error.message.toLowerCase().includes("does not exist") ||
+        fallback.error.message.toLowerCase().includes("permission denied")
+      ) {
+        return [] as SavingsNotificationRecord[];
+      }
+      throw new Error(fallback.error.message);
+    }
+
+    return ((fallback.data ?? []) as SavingsNotificationRecord[])
+      .filter((item) => !isRecordDismissed(item))
+      .slice(0, capped);
+  }
+
+  if (
+    visible.error.message.toLowerCase().includes("does not exist") ||
+    visible.error.message.toLowerCase().includes("permission denied")
+  ) {
+    return [] as SavingsNotificationRecord[];
+  }
+  throw new Error(visible.error.message);
 }
 
 export async function deleteSavingsNotifications(
@@ -966,64 +1105,114 @@ export async function deleteSavingsNotifications(
     all?: boolean;
     olderThanDays?: number;
     keepImportant?: boolean;
+    onlyRead?: boolean;
   } = {},
 ) {
   const supabase = createSupabaseAdminClient();
   const owner = ownerWallet.toLowerCase();
 
-  if (options.ids && options.ids.length > 0) {
-    const { error, count } = await supabase
-      .from(notificationsTable)
-      .delete({ count: "exact" })
-      .eq("owner_wallet", owner)
-      .in("id", options.ids);
-
-    if (error) {
-      if (
-        error.message.toLowerCase().includes("does not exist") ||
-        error.message.toLowerCase().includes("permission denied")
-      ) {
-        return { deleted: 0 };
-      }
-      throw new Error(error.message);
-    }
-    return { deleted: count ?? options.ids.length };
-  }
-
-  if (!options.all && options.olderThanDays == null) {
+  if (
+    (!options.ids || options.ids.length === 0) &&
+    !options.all &&
+    options.olderThanDays == null &&
+    !options.onlyRead
+  ) {
     throw new Error("Choose notifications to delete, or clear the inbox.");
   }
 
-  let query = supabase
+  let selectQuery = supabase
     .from(notificationsTable)
-    .delete({ count: "exact" })
+    .select("id, related_tx_hash, metadata, read_at, body, kind")
     .eq("owner_wallet", owner);
 
+  if (options.ids && options.ids.length > 0) {
+    selectQuery = selectQuery.in("id", options.ids);
+  }
+  if (options.onlyRead) {
+    selectQuery = selectQuery.not("read_at", "is", null);
+  }
   if (options.olderThanDays != null && Number.isFinite(options.olderThanDays)) {
     const cutoff = new Date(
       Date.now() - Math.max(1, options.olderThanDays) * 24 * 60 * 60 * 1000,
     ).toISOString();
-    query = query.lt("created_at", cutoff);
+    selectQuery = selectQuery.lt("created_at", cutoff);
   }
-
   if (options.keepImportant) {
-    query = query
+    selectQuery = selectQuery
       .not("kind", "in", "(payment_request,privswiftpay_claim)")
       .not("body", "ilike", "%PAYMENT_REQUEST_ID:%")
       .not("body", "ilike", "%CLAIM_CODE:%");
   }
 
-  const { error, count } = await query;
-  if (error) {
+  const selected = await selectQuery;
+  if (selected.error) {
     if (
-      error.message.toLowerCase().includes("does not exist") ||
-      error.message.toLowerCase().includes("permission denied")
+      selected.error.message.toLowerCase().includes("does not exist") ||
+      selected.error.message.toLowerCase().includes("permission denied")
     ) {
       return { deleted: 0 };
     }
-    throw new Error(error.message);
+    throw new Error(selected.error.message);
   }
-  return { deleted: count ?? 0 };
+
+  const rows = ((selected.data ?? []) as Array<
+    Pick<
+      SavingsNotificationRecord,
+      "id" | "related_tx_hash" | "metadata" | "read_at" | "body" | "kind"
+    >
+  >).filter((item) => !isRecordDismissed(item));
+
+  if (rows.length === 0) {
+    return { deleted: 0 };
+  }
+
+  const ids = rows.map((row) => row.id);
+  const dismissedAt = new Date().toISOString();
+  const dismissed = await supabase
+    .from(notificationsTable)
+    .update({ dismissed_at: dismissedAt })
+    .eq("owner_wallet", owner)
+    .in("id", ids);
+
+  if (dismissed.error) {
+    if (missingColumnFromError(dismissed.error.message ?? "") === "dismissed_at") {
+      for (const row of rows) {
+        const metadata = {
+          ...((row.metadata && typeof row.metadata === "object"
+            ? row.metadata
+            : {}) as Record<string, unknown>),
+          dismissed: true,
+          dismissedAt,
+        };
+        const { error } = await supabase
+          .from(notificationsTable)
+          .update({ metadata })
+          .eq("id", row.id)
+          .eq("owner_wallet", owner);
+        if (error && missingColumnFromError(error.message ?? "") === "metadata") {
+          await supabase
+            .from(notificationsTable)
+            .delete()
+            .eq("id", row.id)
+            .eq("owner_wallet", owner);
+        }
+      }
+    } else if (
+      dismissed.error.message.toLowerCase().includes("does not exist") ||
+      dismissed.error.message.toLowerCase().includes("permission denied")
+    ) {
+      return { deleted: 0 };
+    } else {
+      throw new Error(dismissed.error.message);
+    }
+  }
+
+  await recordDismissedHashes(
+    owner,
+    rows.map((row) => row.related_tx_hash),
+  );
+
+  return { deleted: ids.length };
 }
 
 export async function markSavingsNotificationsRead(
@@ -1057,22 +1246,47 @@ export async function markSavingsNotificationsRead(
 
 export async function countUnreadSavingsNotifications(ownerWallet: string) {
   const supabase = createSupabaseAdminClient();
-  const { count, error } = await supabase
+  const owner = ownerWallet.toLowerCase();
+  const counted = await supabase
     .from(notificationsTable)
     .select("id", { count: "exact", head: true })
-    .eq("owner_wallet", ownerWallet.toLowerCase())
-    .is("read_at", null);
+    .eq("owner_wallet", owner)
+    .is("read_at", null)
+    .is("dismissed_at", null);
 
-  if (error) {
-    if (
-      error.message.toLowerCase().includes("does not exist") ||
-      error.message.toLowerCase().includes("permission denied")
-    ) {
-      return 0;
-    }
-    throw new Error(error.message);
+  if (!counted.error) {
+    return counted.count ?? 0;
   }
-  return count ?? 0;
+
+  if (missingColumnFromError(counted.error.message ?? "") === "dismissed_at") {
+    const fallback = await supabase
+      .from(notificationsTable)
+      .select("id, metadata, dismissed_at, read_at")
+      .eq("owner_wallet", owner)
+      .is("read_at", null);
+
+    if (fallback.error) {
+      if (
+        fallback.error.message.toLowerCase().includes("does not exist") ||
+        fallback.error.message.toLowerCase().includes("permission denied")
+      ) {
+        return 0;
+      }
+      throw new Error(fallback.error.message);
+    }
+
+    return ((fallback.data ?? []) as SavingsNotificationRecord[]).filter(
+      (item) => !isRecordDismissed(item),
+    ).length;
+  }
+
+  if (
+    counted.error.message.toLowerCase().includes("does not exist") ||
+    counted.error.message.toLowerCase().includes("permission denied")
+  ) {
+    return 0;
+  }
+  throw new Error(counted.error.message);
 }
 
 export type AlertInboxCategory =

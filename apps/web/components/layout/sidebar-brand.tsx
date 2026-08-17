@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { PlatformWordmark } from "@/components/brand/platform-wordmark";
+import { PlatformBrand } from "@/components/brand/platform-brand";
 import { cn } from "@/lib/utils";
 
 type SidebarBrandProps = {
@@ -18,7 +18,7 @@ export function SidebarBrand({
       className={cn("app-sidebar-brand-link", className)}
       href={href}
     >
-      <PlatformWordmark />
+      <PlatformBrand showName="desktop" />
     </Link>
   );
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { PlatformWordmark } from "@/components/brand/platform-wordmark";
+import { PlatformBrand } from "@/components/brand/platform-brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,7 @@ export function MarketingNav() {
     <header className="marketing-nav">
       <div className="marketing-nav-inner">
         <Link className="marketing-brand" href="/">
-          <PlatformWordmark />
+          <PlatformBrand showName="desktop" />
         </Link>
 
         <nav aria-label="Marketing" className="hidden items-center gap-1 md:flex">

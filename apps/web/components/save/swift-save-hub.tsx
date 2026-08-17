@@ -35,7 +35,6 @@ import { CreatePocketDialog } from "@/components/save/create-pocket-dialog";
 import {
   formatMoney,
   formatMoneyShort,
-  groupByDay,
   pocketProgress,
 } from "@/components/save/format";
 import { SpendSaveSetupDialog } from "@/components/save/spend-save-setup-dialog";
@@ -43,6 +42,7 @@ import { KpiCard } from "@/components/design/kpi-card";
 import { TokenIcon } from "@/components/token-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PagedActivityBox } from "@/components/ui/paged-activity-box";
 import { Progress } from "@/components/ui/progress";
 import {
   getCircleLoginIdentity,
@@ -1108,138 +1108,96 @@ export function SwiftSaveHub() {
         )}
       </section>
 
-      {/* Spend&Save history */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Spend&Save history</h2>
-        {spendEvents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No automatic savings yet. Activate Spend&Save and make an eligible
-            payment.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {groupByDay(spendEvents).map(([day, events]) => (
-              <div key={day}>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {day}
+      <PagedActivityBox
+        empty="No automatic savings yet. Activate Spend&Save and make an eligible payment."
+        items={spendEvents}
+        title="Spend&Save history"
+        renderItem={(event) => {
+          const pocket = pockets.find((item) => item.id === event.pocket_id);
+          return (
+            <div
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
+              key={event.id}
+            >
+              <div>
+                <p className="font-medium">
+                  {formatMoneyShort(event.payment_amount)} spent ·{" "}
+                  {formatMoneyShort(event.save_amount)} saved
                 </p>
-                <div className="space-y-2">
-                  {events.map((event) => {
-                    const pocket = pockets.find((p) => p.id === event.pocket_id);
-                    return (
-                      <div
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
-                        key={event.id}
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {formatMoneyShort(event.payment_amount)} spent ·{" "}
-                            {formatMoneyShort(event.save_amount)} saved
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {Number(event.save_percentage)}% →{" "}
-                            {pocket?.name ?? "Pocket"} · {event.status}
-                          </p>
-                        </div>
-                        {event.payment_tx_hash ? (
-                          <a
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                            href={explorerTxUrl(event.payment_tx_hash)}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            Payment tx
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  {Number(event.save_percentage)}% → {pocket?.name ?? "Pocket"} ·{" "}
+                  {event.status}
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </section>
+              {event.payment_tx_hash ? (
+                <a
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  href={explorerTxUrl(event.payment_tx_hash)}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Payment tx
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : null}
+            </div>
+          );
+        }}
+      />
 
-      {/* Unified savings history */}
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Savings activity</h2>
-        {transactions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Deposits, withdrawals, and Spend&Save transfers will appear here.
-          </p>
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-border/80">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Type</th>
-                  <th className="px-3 py-2 font-medium">Amount</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                  <th className="px-3 py-2 font-medium">When</th>
-                  <th className="px-3 py-2 font-medium">Tx</th>
-                  <th className="px-3 py-2 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.slice(0, 30).map((tx) => (
-                  <tr className="border-t border-border/60" key={tx.id}>
-                    <td className="px-3 py-2 font-medium">{tx.type}</td>
-                    <td className="px-3 py-2">
-                      {formatMoney(tx.amount, tx.currency)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge
-                        variant={
-                          tx.status === "COMPLETED" ? "default" : "secondary"
-                        }
-                      >
-                        {tx.status}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {new Date(tx.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2">
-                      {tx.tx_hash ? (
-                        <a
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                          href={explorerTxUrl(tx.tx_hash)}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          View
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {tx.type === "SPEND_SAVE" &&
-                      tx.status === "COMPLETED" &&
-                      isWalletAuthenticated ? (
-                        <Button
-                          disabled={isActing}
-                          onClick={() => void handleReverseSpendSave(tx)}
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          Reverse refund
-                        </Button>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <PagedActivityBox
+        empty="Deposits, withdrawals, and Spend&Save transfers will appear here."
+        items={transactions}
+        title="Savings activity"
+        renderItem={(tx) => (
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
+            key={tx.id}
+          >
+            <div>
+              <p className="font-medium">
+                {tx.type} · {formatMoney(tx.amount, tx.currency)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <Badge
+                  variant={tx.status === "COMPLETED" ? "default" : "secondary"}
+                >
+                  {tx.status}
+                </Badge>
+                <span className="ml-2">
+                  {new Date(tx.created_at).toLocaleString()}
+                </span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {tx.tx_hash ? (
+                <a
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  href={explorerTxUrl(tx.tx_hash)}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  View
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : null}
+              {tx.type === "SPEND_SAVE" &&
+              tx.status === "COMPLETED" &&
+              isWalletAuthenticated ? (
+                <Button
+                  disabled={isActing}
+                  onClick={() => void handleReverseSpendSave(tx)}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  Reverse refund
+                </Button>
+              ) : null}
+            </div>
           </div>
         )}
-      </section>
+      />
 
       <CreatePocketDialog
         circleSocialUuid={circleSocialUuid}
