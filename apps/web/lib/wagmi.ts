@@ -99,7 +99,7 @@ const appUrl =
 export const metadata = {
   description:
     "A stablecoin payment platform for USDC and EURC transfers, receiving, swaps, and ArcScan receipts.",
-  icons: [`${appUrl}/tokens/usdc.svg`],
+  icons: [`${appUrl}/brand/swiftpay-mark.png`],
   name: "SwiftPay",
   url: appUrl,
 };

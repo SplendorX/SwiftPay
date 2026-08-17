@@ -22,10 +22,53 @@ const sora = Sora({
   weight: ["400", "500", "600", "700"],
 });
 
+const siteTitle = "SwiftPay | Financial infrastructure on Arc";
+const siteDescription =
+  "Money movement infrastructure for the internet. Send, batch, request, swap, and settle stablecoins on Arc Testnet.";
+const brandMark = "/brand/swiftpay-mark.png";
+
+function getSiteUrl() {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercelHost) {
+    return `https://${vercelHost}`;
+  }
+
+  return "http://localhost:3000";
+}
+
 export const metadata: Metadata = {
-  title: "SwiftPay | Financial infrastructure on Arc",
-  description:
-    "Money movement infrastructure for the internet. Send, batch, request, swap, and settle stablecoins on Arc Testnet.",
+  metadataBase: new URL(getSiteUrl()),
+  title: siteTitle,
+  description: siteDescription,
+  icons: {
+    apple: [{ url: brandMark, type: "image/png", sizes: "180x180" }],
+    icon: [{ url: brandMark, type: "image/png", sizes: "32x32" }],
+    shortcut: brandMark,
+  },
+  openGraph: {
+    description: siteDescription,
+    images: [
+      {
+        alt: "SwiftPay",
+        height: 1024,
+        url: brandMark,
+        width: 1024,
+      },
+    ],
+    title: siteTitle,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    description: siteDescription,
+    images: [brandMark],
+    title: siteTitle,
+  },
 };
 
 const themeInitScript = `(function(){try{var theme=localStorage.getItem("swiftpay.theme");if(theme==="dark"){document.documentElement.dataset.theme="dark";document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}}catch(error){}})();`;
