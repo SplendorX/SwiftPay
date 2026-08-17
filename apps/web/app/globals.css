@@ -281,9 +281,8 @@ html[data-theme="dark"] textarea::placeholder {
   object-fit: contain;
   overflow: visible;
   filter:
-    drop-shadow(0 0 1px rgb(196 181 253))
-    drop-shadow(0 0 4px rgb(167 139 250 / 0.7))
-    drop-shadow(0 0 8px rgb(139 92 246 / 0.35));
+    drop-shadow(0 0 0.6px rgb(196 181 253 / 0.8))
+    drop-shadow(0 0 2px rgb(167 139 250 / 0.4));
 }
 
 .dashboard-greeting {
