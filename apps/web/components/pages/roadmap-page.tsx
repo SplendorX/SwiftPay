@@ -6,9 +6,11 @@ import {
   Bot,
   CheckCircle2,
   CircleDollarSign,
+  Check,
   Clock3,
   Globe2,
-  Sparkles,
+  CalendarClock,
+  TrendingUp,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -77,7 +79,7 @@ const roadmapTracks: Array<{
   },
   {
     body: "Optional yield on idle USDC through vaults and auto-save into Earn.",
-    icon: Sparkles,
+    icon: TrendingUp,
     items: [
       "SwiftPay Earn vault (ERC-4626)",
       "Aave USDC yield strategy",
@@ -135,7 +137,7 @@ const roadmapTracks: Array<{
 const statusMeta: Record<TrackStatus, { icon: LucideIcon; label: string; variant: "default" | "secondary" | "outline" }> = {
   completed: { icon: CheckCircle2, label: "Completed", variant: "default" },
   "in-progress": { icon: Clock3, label: "In progress", variant: "secondary" },
-  upcoming: { icon: Sparkles, label: "Upcoming", variant: "outline" },
+  upcoming: { icon: CalendarClock, label: "Upcoming", variant: "outline" },
 };
 
 function RoadmapTimeline() {
@@ -183,7 +185,7 @@ function RoadmapTimeline() {
                         className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium"
                         key={item}
                       >
-                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        <Check className="h-3.5 w-3.5 text-primary" />
                         {item}
                       </div>
                     ))}

@@ -4,29 +4,27 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   ArrowUpRight,
-  BookOpen,
   CalendarClock,
   ChevronDown,
   CheckCircle2,
   CircleDollarSign,
-  Globe2,
   Layers,
   LockKeyhole,
   PiggyBank,
   RefreshCw,
   ReceiptText,
   ShieldCheck,
-  Sparkles,
+  Landmark,
   TrendingUp,
   Users,
   Wallet,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
 
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
 import { FloatingActivity } from "@/components/landing/floating-activity";
 import { HeroBrandDisplay } from "@/components/landing/hero-brand-display";
+import { XLogoLink } from "@/components/brand/x-logo-link";
 import { SignInPanel } from "@/components/landing/sign-in-panel";
 import { FadeUp, Stagger, StaggerItem } from "@/components/design/motion";
 import { MarketingShell } from "@/components/layout/marketing-shell";
@@ -170,7 +168,7 @@ export function LandingPage() {
         <FadeUp className="marketing-hero-copy" delay={0.08}>
           <SignInPanel />
           <Badge className="mb-5 mt-8" variant="secondary">
-            <Sparkles className="mr-1 h-3 w-3" />
+            <Landmark className="mr-1 h-3 w-3" />
             Money movement infrastructure
           </Badge>
           <h1 className="marketing-headline">
@@ -189,9 +187,9 @@ export function LandingPage() {
               </a>
             </Button>
             <Button asChild className="h-10" size="lg" variant="outline">
-              <Link href="/docs">
-                View Documentation
-                <BookOpen className="h-4 w-4" />
+              <Link href="/roadmap">
+                View Roadmap
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>
@@ -376,14 +374,6 @@ export function LandingPage() {
               <Button asChild className="h-10 bg-background text-foreground hover:bg-background/90" size="lg">
                 <a href="#sign-in">Continue with Google</a>
               </Button>
-              <Button
-                asChild
-                className="h-10 border-primary-foreground/25 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
-                size="lg"
-                variant="outline"
-              >
-                <Link href="/docs">View Documentation</Link>
-              </Button>
             </div>
           </div>
           <TrendingUp className="hidden h-24 w-24 text-primary-foreground/12 lg:block" />
@@ -391,28 +381,7 @@ export function LandingPage() {
       </section>
 
       <footer className="marketing-footer">
-        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <Globe2 className="h-4 w-4" />
-            Arc Testnet
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Zap className="h-4 w-4" />
-            USDC-native gas
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <LockKeyhole className="h-4 w-4" />
-            Wallet-signed
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-4 text-sm">
-          <Link className="text-muted-foreground transition hover:text-foreground" href="/docs">
-            Documentation
-          </Link>
-          <Link className="text-muted-foreground transition hover:text-foreground" href="/roadmap">
-            Roadmap
-          </Link>
-        </div>
+        <XLogoLink />
       </footer>
     </MarketingShell>
   );

@@ -7,7 +7,7 @@ export function PlatformLogoMark({ className }: { className?: string }) {
       className={cn("platform-logo-mark", className)}
       decoding="async"
       height={1024}
-      src="/brand/swiftpay-mark.png"
+      src="/brand/swiftpay-mark.png?v=pay-bg"
       width={1024}
     />
   );

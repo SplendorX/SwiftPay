@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  BookOpen,
   CalendarClock,
   LayoutDashboard,
   LockKeyhole,
@@ -28,7 +27,6 @@ export const platformNavItems = [
   { href: "/swiftRecurepay", label: "SwiftRecurepay", icon: CalendarClock },
   { href: "/pay", label: "Request", icon: Send },
   { href: "/privSwiftPay", label: "PrivSwiftPay", icon: LockKeyhole },
-  { href: "/docs", label: "Docs", icon: BookOpen },
   { href: "/roadmap", label: "Roadmap", icon: Zap },
   { href: "/settings", label: "Settings", icon: Settings },
 ] satisfies Array<{ href: string; label: string; icon: LucideIcon }>;

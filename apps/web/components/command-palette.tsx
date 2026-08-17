@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  BookOpen,
   Command,
   LayoutDashboard,
   LockKeyhole,
@@ -36,7 +35,6 @@ const navIcons: Record<string, typeof Command> = {
   "/swiftBatch": Users,
   "/pay": Send,
   "/privSwiftPay": LockKeyhole,
-  "/docs": BookOpen,
   "/roadmap": Zap,
   "/settings": Settings,
 };

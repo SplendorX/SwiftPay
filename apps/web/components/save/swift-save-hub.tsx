@@ -13,8 +13,8 @@ import {
   PiggyBank,
   Play,
   Plus,
+  CalendarDays,
   Settings2,
-  Sparkles,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -708,7 +708,7 @@ export function SwiftSaveHub() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-xl space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
+              <PiggyBank className="h-3.5 w-3.5" />
               Non-interest savings
             </div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -802,7 +802,7 @@ export function SwiftSaveHub() {
           }
         />
         <KpiCard
-          icon={Sparkles}
+          icon={CalendarDays}
           label="This Month"
           change={
             !isLoading && summary

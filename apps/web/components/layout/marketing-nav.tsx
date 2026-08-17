@@ -4,12 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
+import { XLogoLink } from "@/components/brand/x-logo-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const marketingLinks = [
-  { href: "/docs", label: "Documentation" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "#products", label: "Product" },
 ];
@@ -42,10 +42,8 @@ export function MarketingNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <XLogoLink />
           <ThemeToggle />
-          <Button asChild className="hidden sm:inline-flex" size="sm" variant="ghost">
-            <Link href="/docs">Docs</Link>
-          </Button>
           <Button asChild size="sm">
             <a href="#sign-in">Get started</a>
           </Button>
