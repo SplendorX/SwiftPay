@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAddress, isAddress } from "viem";
+import { getAddress, isAddress, type Address } from "viem";
 import { useAccount } from "wagmi";
 
 import {
@@ -34,13 +34,13 @@ export function usePlatformWallet() {
     };
   }, [refreshCircleState]);
 
-  const address = useMemo(() => {
+  const address = useMemo((): Address | undefined => {
     if (circleLogin && circleWalletAddress && isAddress(circleWalletAddress)) {
-      return getAddress(circleWalletAddress).toLowerCase();
+      return getAddress(circleWalletAddress).toLowerCase() as Address;
     }
 
     if (isConnected && wagmiAddress && isAddress(wagmiAddress)) {
-      return getAddress(wagmiAddress).toLowerCase();
+      return getAddress(wagmiAddress).toLowerCase() as Address;
     }
 
     return undefined;
