@@ -280,9 +280,9 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     isWritePending || isConfirming || isCirclePaymentPending || isSwitchingChain;
 
   return (
-    <div className="send-wizard">
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+    <div className="send-wizard min-w-0">
+      <div className="mb-5 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p className="section-eyebrow">Send</p>
           <h2 className="mt-1 font-heading text-xl font-semibold tracking-tight sm:text-2xl">
             Send payment
@@ -292,7 +292,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             Spend&Save when it is on.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
             onClick={refreshBalances}
             size="icon"
@@ -313,7 +313,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
       <SendStepIndicator activeStep={step} className="mb-6" />
 
       <form
-        className="send-wizard-body"
+        className="send-wizard-body min-w-0"
         onSubmit={(event) => {
           event.preventDefault();
           if (step < 3) {
@@ -353,8 +353,8 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               ) : null}
             </label>
 
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+            <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-3 sm:p-4">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <label className="grid gap-2">
                   <span className="text-sm font-semibold text-foreground">
                     Beneficiary name
@@ -374,6 +374,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                   </div>
                 </label>
                 <Button
+                  className="w-full sm:w-auto"
                   disabled={!canSaveBeneficiary}
                   onClick={onSaveBeneficiary}
                   type="button"
@@ -444,10 +445,10 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                     No saved beneficiaries yet.
                   </p>
                 ) : (
-                  <div className="flex gap-2 overflow-x-auto pb-1">
+                  <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
                     {savedBeneficiaries.map((beneficiary) => (
                       <button
-                        className="min-w-[11rem] rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-primary/40"
+                        className="min-w-[10rem] max-w-[14rem] shrink-0 rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-primary/40"
                         key={`${beneficiary.owner_wallet}-${beneficiary.beneficiary_wallet}`}
                         onClick={() => onSelectBeneficiary(beneficiary)}
                         type="button"
@@ -469,7 +470,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
 
         {step === 2 ? (
           <div className="grid gap-4" key="step-2">
-            <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]">
               <label className="grid gap-2">
                 <span className="text-sm font-semibold text-foreground">Amount</span>
                 <div className="field-shell flex h-11 items-center gap-2 px-3">
@@ -554,7 +555,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               }
             />
 
-            <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm">
+            <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-3 text-sm sm:p-4">
               {[
                 ["From", shortenAddress(address)],
                 [
@@ -591,11 +592,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 ["Narration", trimmedPaymentNarration || "No note"],
               ].map(([label, value]) => (
                 <div
-                  className="flex items-start justify-between gap-3 border-b border-border/60 py-2 last:border-0"
+                  className="flex min-w-0 items-start justify-between gap-3 border-b border-border/60 py-2 last:border-0"
                   key={label}
                 >
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="max-w-[14rem] text-right font-medium">{value}</span>
+                  <span className="shrink-0 text-muted-foreground">{label}</span>
+                  <span className="min-w-0 break-words text-right font-medium">{value}</span>
                 </div>
               ))}
             </div>
@@ -642,7 +643,12 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               </a>
             ) : null}
             {transactionConfirmed ? (
-              <Button onClick={() => setStep(1)} type="button" variant="outline">
+              <Button
+                className="w-full whitespace-normal sm:w-auto sm:whitespace-nowrap"
+                onClick={() => setStep(1)}
+                type="button"
+                variant="outline"
+              >
                 Send another payment
               </Button>
             ) : null}
@@ -650,14 +656,14 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
         ) : null}
 
         {paymentError ? (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="mt-4 flex min-w-0 items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{paymentError}</span>
+            <span className="min-w-0 break-words">{paymentError}</span>
           </div>
         ) : null}
 
         {step < 4 ? (
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-6 flex min-w-0 flex-wrap gap-2">
             {step > 1 ? (
               <Button onClick={goBack} type="button" variant="outline">
                 <ArrowLeft className="h-4 w-4" />
@@ -665,7 +671,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               </Button>
             ) : null}
             <Button
-              className="ml-auto"
+              className="min-w-0 flex-1 whitespace-normal sm:ml-auto sm:flex-none sm:whitespace-nowrap"
               disabled={
                 step === 1
                   ? !isRecipientValid && localRecipient.trim().length === 0

@@ -3,6 +3,7 @@
 import { ArrowDownToLine, ArrowUpFromLine, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useAccount, useReadContract } from "wagmi";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 
 import { earnConfig, isEarnDepositEnabled } from "@/lib/earn/config";
 import { swiftPayVaultAbi } from "@/lib/earn/abis";
@@ -26,7 +27,9 @@ function formatMoney(units: bigint | undefined, decimals = 6): string {
 export function DashboardEarnSummary({
   availableUsdc,
 }: DashboardEarnSummaryProps) {
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress } = useAccount();
+  const { address: platformAddress, isConnected } = usePlatformWallet();
+  const address = platformAddress ?? wagmiAddress;
   const vault = earnConfig.vaultAddress;
   const mode = earnConfig.mode;
   const depositsEnabled = isEarnDepositEnabled(mode) && Boolean(vault);

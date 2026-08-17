@@ -97,6 +97,11 @@ import {
   fetchWalletSession,
   signInWalletSession,
 } from "@/lib/wallet-auth-client";
+import {
+  extractCircleTransactionId,
+  extractCircleTxHash,
+} from "@/lib/circle-tx";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { arcTestnet } from "@/lib/wagmi";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 
@@ -106,7 +111,13 @@ function getErrorMessage(error: unknown) {
 }
 
 export function SwiftSaveHub() {
-  const { address, connector, isConnected } = useAccount();
+  const { address: wagmiAddress, connector } = useAccount();
+  const {
+    address: platformAddress,
+    isConnected,
+    source,
+  } = usePlatformWallet();
+  const address = (platformAddress ?? wagmiAddress) as Address | undefined;
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
@@ -118,6 +129,7 @@ export function SwiftSaveHub() {
   const [circleSocialUuid, setCircleSocialUuid] = useState<string | undefined>();
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
   const [circleWallet, setCircleWallet] = useState<CircleWallet | null>(null);
+  const [circleSdkReady, setCircleSdkReady] = useState(false);
   const [currency] = useState<ArcTokenSymbol>("USDC");
   const [summary, setSummary] = useState<SavingsSummary | null>(null);
   const [pockets, setPockets] = useState<SavingsPocketRecord[]>([]);
@@ -181,9 +193,10 @@ export function SwiftSaveHub() {
   }, [walletTokenBalance, token.decimals, currency]);
 
   const isWalletAuthenticated =
-    Boolean(authWallet) &&
-    Boolean(address) &&
-    authWallet === address?.toLowerCase();
+    source === "embedded" ||
+    (Boolean(authWallet) &&
+      Boolean(address) &&
+      authWallet === address?.toLowerCase());
 
   const loadAll = useCallback(async () => {
     const owner = address;
@@ -240,19 +253,37 @@ export function SwiftSaveHub() {
       null;
     setCircleWallet(primary);
 
-    if (!login) {
+    if (!login?.userToken || !login.encryptionKey) {
       circleSdkRef.current = null;
+      setCircleSdkReady(false);
+      return;
+    }
+
+    const appId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
+    if (!appId) {
+      circleSdkRef.current = null;
+      setCircleSdkReady(false);
       return;
     }
 
     let cancelled = false;
     void import("@circle-fin/w3s-pw-web-sdk")
-      .then(({ W3SSdk }) => {
+      .then(({ W3SSdk: CircleW3SSdk }) => {
         if (cancelled) return;
-        circleSdkRef.current = new W3SSdk();
+        circleSdkRef.current = new CircleW3SSdk({
+          appSettings: { appId },
+          authentication: {
+            encryptionKey: login.encryptionKey,
+            userToken: login.userToken,
+          },
+        });
+        setCircleSdkReady(true);
       })
       .catch(() => {
-        if (!cancelled) circleSdkRef.current = null;
+        if (!cancelled) {
+          circleSdkRef.current = null;
+          setCircleSdkReady(false);
+        }
       });
 
     return () => {
@@ -261,7 +292,7 @@ export function SwiftSaveHub() {
   }, [address]);
 
   const isCircleMode = Boolean(
-    circleLogin && circleWallet?.id && circleSdkRef.current,
+    circleLogin && circleWallet?.id && circleSdkReady && circleSdkRef.current,
   );
 
   useEffect(() => {
@@ -423,12 +454,9 @@ export function SwiftSaveHub() {
                 reject(new Error(getErrorMessage(error)));
                 return;
               }
-              const challengeResult = result as
-                | { data?: { transactionId?: string; txHash?: string } }
-                | undefined;
               resolve({
-                transactionId: challengeResult?.data?.transactionId,
-                txHash: challengeResult?.data?.txHash,
+                transactionId: extractCircleTransactionId(result),
+                txHash: extractCircleTxHash(result),
               });
             });
           },

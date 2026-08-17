@@ -84,7 +84,56 @@ import {
 import { arcTestnet } from "@/lib/wagmi";
 
 type CircleTransferChallenge = { challengeId?: string };
-type CircleChallengeResult = { data?: { txHash?: string } };
+type CircleChallengeResult = {
+  data?: {
+    id?: string;
+    transaction?: { txHash?: string; transactionHash?: string; hash?: string };
+    transactionHash?: string;
+    transactionId?: string;
+    txHash?: string;
+    hash?: string;
+  };
+  hash?: string;
+  id?: string;
+  transactionHash?: string;
+  transactionId?: string;
+  txHash?: string;
+};
+
+function isTxHash(value: unknown): value is string {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{64}$/i.test(value);
+}
+
+function extractCircleTxHash(result: CircleChallengeResult | undefined) {
+  if (!result) return undefined;
+  const data = result.data;
+  const nested = data?.transaction;
+  const candidates = [
+    data?.txHash,
+    data?.transactionHash,
+    data?.hash,
+    nested?.txHash,
+    nested?.transactionHash,
+    nested?.hash,
+    result.txHash,
+    result.transactionHash,
+    result.hash,
+  ];
+  return candidates.find(isTxHash);
+}
+
+function extractCircleTransactionId(result: CircleChallengeResult | undefined) {
+  if (!result) return undefined;
+  const candidates = [
+    result.data?.transactionId,
+    result.data?.id,
+    result.transactionId,
+    result.id,
+  ];
+  return candidates.find(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+}
 
 function shortenAddress(value?: string) {
   if (!value) return "—";
@@ -772,7 +821,69 @@ export function SwiftRecurepayHub() {
     }
   }
 
-  async function executeCircleChallenge(challengeId: string) {
+  async function recoverCircleTxHash(input: {
+    skipHashes?: string[];
+    transactionId?: string;
+  }) {
+    if (!circleLogin || !circleWallet?.id) {
+      return null;
+    }
+
+    const skip = new Set(
+      (input.skipHashes ?? []).map((hash) => hash.toLowerCase()),
+    );
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      try {
+        if (input.transactionId) {
+          const tx = await callCircleWalletApi<{
+            data?: { txHash?: string; transactionHash?: string };
+            txHash?: string;
+            transactionHash?: string;
+          }>("getTransaction", {
+            id: input.transactionId,
+            userToken: circleLogin.userToken,
+          });
+          const hash =
+            tx.data?.txHash ??
+            tx.data?.transactionHash ??
+            tx.txHash ??
+            tx.transactionHash;
+          if (isTxHash(hash) && !skip.has(hash.toLowerCase())) {
+            return hash;
+          }
+        }
+
+        const listed = await callCircleWalletApi<{
+          data?: {
+            transactions?: Array<{ txHash?: string; transactionHash?: string }>;
+          };
+          transactions?: Array<{ txHash?: string; transactionHash?: string }>;
+        }>("listTransactions", {
+          pageSize: 8,
+          userToken: circleLogin.userToken,
+          walletId: circleWallet.id,
+        });
+        const rows = listed.data?.transactions ?? listed.transactions ?? [];
+        for (const row of rows) {
+          const hash = row.txHash ?? row.transactionHash;
+          if (isTxHash(hash) && !skip.has(hash.toLowerCase())) {
+            return hash;
+          }
+        }
+      } catch {
+        // keep polling
+      }
+    }
+
+    return null;
+  }
+
+  async function executeCircleChallenge(
+    challengeId: string,
+    skipHashes: string[] = [],
+  ) {
     if (!circleLogin || !circleSdkRef.current) {
       throw new Error("Circle wallet confirmation is not ready.");
     }
@@ -782,7 +893,10 @@ export function SwiftRecurepayHub() {
       userToken: circleLogin.userToken,
     });
 
-    const txHash = await new Promise<string>((resolve, reject) => {
+    const executed = await new Promise<{
+      transactionId?: string;
+      txHash?: string;
+    }>((resolve, reject) => {
       circleSdkRef.current?.execute(challengeId, (executeError, result) => {
         if (executeError) {
           reject(executeError);
@@ -790,16 +904,25 @@ export function SwiftRecurepayHub() {
         }
 
         const challengeResult = result as CircleChallengeResult | undefined;
-        const hash = challengeResult?.data?.txHash;
-
-        if (!hash) {
-          reject(new Error("Circle transfer completed without a transaction hash."));
-          return;
-        }
-
-        resolve(hash);
+        resolve({
+          transactionId: extractCircleTransactionId(challengeResult),
+          txHash: extractCircleTxHash(challengeResult),
+        });
       });
     });
+
+    let txHash = executed.txHash;
+    if (!txHash) {
+      txHash =
+        (await recoverCircleTxHash({
+          skipHashes,
+          transactionId: executed.transactionId,
+        })) ?? undefined;
+    }
+
+    if (!txHash) {
+      throw new Error("Circle transfer completed without a transaction hash.");
+    }
 
     return { txHash };
   }
@@ -843,6 +966,8 @@ export function SwiftRecurepayHub() {
         schedule.token_symbol,
       );
 
+      const skipHashes: string[] = [];
+
       // Platform fee (1%) — separate transfer; not shown in user history UI.
       if (feeUnits > 0n && feeRecipient) {
         const feeChallenge = await callCircleWalletApi<CircleTransferChallenge>(
@@ -862,7 +987,8 @@ export function SwiftRecurepayHub() {
         if (!feeChallenge.challengeId) {
           throw new Error("Circle did not return a fee transfer challenge.");
         }
-        await executeCircleChallenge(feeChallenge.challengeId);
+        const feeResult = await executeCircleChallenge(feeChallenge.challengeId);
+        skipHashes.push(feeResult.txHash);
       }
 
       const challenge = await callCircleWalletApi<CircleTransferChallenge>(
@@ -884,29 +1010,10 @@ export function SwiftRecurepayHub() {
         throw new Error("Circle did not return a transfer challenge.");
       }
 
-      circleSdkRef.current.setAuthentication({
-        encryptionKey: circleLogin.encryptionKey,
-        userToken: circleLogin.userToken,
-      });
-
-      const txHash = await new Promise<string>((resolve, reject) => {
-        circleSdkRef.current?.execute(challenge.challengeId!, (executeError, result) => {
-          if (executeError) {
-            reject(executeError);
-            return;
-          }
-
-          const challengeResult = result as CircleChallengeResult | undefined;
-          const hash = challengeResult?.data?.txHash;
-
-          if (!hash) {
-            reject(new Error("Circle transfer completed without a transaction hash."));
-            return;
-          }
-
-          resolve(hash);
-        });
-      });
+      const { txHash } = await executeCircleChallenge(
+        challenge.challengeId,
+        skipHashes,
+      );
 
       await updateRecurringExecution(executionId, {
         ...requestContext!,

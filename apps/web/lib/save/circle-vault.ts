@@ -14,6 +14,11 @@ import {
   callCircleWalletApi,
   type CircleLoginResult,
 } from "@/lib/circle-session";
+import {
+  extractCircleTransactionId,
+  extractCircleTxHash,
+  recoverCircleTxHash,
+} from "@/lib/circle-tx";
 import { erc20Abi } from "@/lib/contracts";
 import { swiftSaveVaultAbi } from "@/lib/save/abis";
 
@@ -89,12 +94,13 @@ export function encodeVaultWithdraw(input: {
   });
 }
 
-async function runCircleContractCall(input: {
+export async function executeCircleContractCall(input: {
   executor: CircleVaultExecutor;
   contractAddress: Address;
   callData: Hex;
   refId: string;
   label: string;
+  skipHashes?: string[];
 }): Promise<{ txHash?: Hash; transactionId?: string }> {
   const challenge = await callCircleWalletApi<CircleContractChallenge>(
     "createContractExecution",
@@ -114,9 +120,27 @@ async function runCircleContractCall(input: {
   }
 
   const result = await input.executor.executeChallenge(challengeId);
+  let txHash =
+    extractCircleTxHash(result) ??
+    (result.txHash && /^0x[a-fA-F0-9]{64}$/i.test(result.txHash)
+      ? result.txHash
+      : undefined);
+  const transactionId =
+    extractCircleTransactionId(result) ?? result.transactionId;
+
+  if (!txHash) {
+    txHash =
+      (await recoverCircleTxHash({
+        skipHashes: input.skipHashes,
+        transactionId,
+        userToken: input.executor.login.userToken,
+        walletId: input.executor.walletId,
+      })) ?? undefined;
+  }
+
   return {
-    txHash: result.txHash as Hash | undefined,
-    transactionId: result.transactionId,
+    txHash: txHash as Hash | undefined,
+    transactionId,
   };
 }
 
@@ -133,7 +157,7 @@ export async function circleVaultDeposit(input: {
   refPrefix?: string;
 }): Promise<{ txHash?: Hash; transactionId?: string }> {
   const prefix = input.refPrefix ?? "swift-save-deposit";
-  await runCircleContractCall({
+  const approval = await executeCircleContractCall({
     executor: input.executor,
     contractAddress: input.token,
     callData: encodeErc20Approve(input.vault),
@@ -141,7 +165,7 @@ export async function circleVaultDeposit(input: {
     label: "vault approve",
   });
 
-  return runCircleContractCall({
+  return executeCircleContractCall({
     executor: input.executor,
     contractAddress: input.vault,
     callData: encodeVaultDeposit({
@@ -151,6 +175,7 @@ export async function circleVaultDeposit(input: {
     }),
     refId: `${prefix}-deposit-${Date.now()}`,
     label: "vault deposit",
+    skipHashes: approval.txHash ? [approval.txHash] : undefined,
   });
 }
 
@@ -166,7 +191,7 @@ export async function circleVaultWithdraw(input: {
   refPrefix?: string;
 }): Promise<{ txHash?: Hash; transactionId?: string }> {
   const prefix = input.refPrefix ?? "swift-save-withdraw";
-  return runCircleContractCall({
+  return executeCircleContractCall({
     executor: input.executor,
     contractAddress: input.vault,
     callData: encodeVaultWithdraw({

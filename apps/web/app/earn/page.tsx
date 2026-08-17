@@ -14,13 +14,14 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
+import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   useAccount,
   useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from "wagmi";
-import { formatUnits, parseUnits, type Hash } from "viem";
+import { formatUnits, getAddress, isAddress, parseUnits, type Address, type Hash } from "viem";
 
 import { AutoSavePanel } from "@/components/earn/auto-save-panel";
 import { EarnModeBanner } from "@/components/earn/earn-mode-banner";
@@ -30,7 +31,17 @@ import { YieldChart } from "@/components/earn/yield-chart";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
+import {
+  extractCircleTransactionId,
+  extractCircleTxHash,
+} from "@/lib/circle-tx";
+import {
+  readCircleLogin,
+  readCircleWallets,
+  type CircleLoginResult,
+} from "@/lib/circle-session";
 import { erc20Abi } from "@/lib/contracts";
+import { circleEarnDeposit, circleEarnWithdraw } from "@/lib/earn/circle-earn";
 import {
   earnConfig,
   explorerAddressUrl,
@@ -50,6 +61,7 @@ import {
 import { arcTestnetTokens } from "@/lib/tokens";
 import { trackTractionEvent } from "@/lib/traction/client";
 import { cn } from "@/lib/utils";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { arcTestnet } from "@/lib/wagmi";
 
 const usdc = arcTestnetTokens.USDC;
@@ -67,7 +79,12 @@ function shorten(address?: string | null) {
 
 function EarnPageInner() {
   const searchParams = useSearchParams();
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress } = useAccount();
+  const { address: platformAddress, isConnected, source } = usePlatformWallet();
+  const address = platformAddress ?? wagmiAddress;
+  const circleSdkRef = useRef<W3SSdk | null>(null);
+  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
+  const [circleSdkReady, setCircleSdkReady] = useState(false);
   const vault = earnConfig.vaultAddress;
   const strategy = earnConfig.strategyAddress;
   const mode = earnConfig.mode;
@@ -109,6 +126,91 @@ function EarnPageInner() {
   const { writeContractAsync, isPending: isWriting } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({ hash: txHash });
+
+  useEffect(() => {
+    const login = readCircleLogin();
+    setCircleLogin(login);
+    if (!login?.userToken || !login.encryptionKey) {
+      circleSdkRef.current = null;
+      setCircleSdkReady(false);
+      return;
+    }
+
+    const appId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
+    if (!appId) {
+      circleSdkRef.current = null;
+      setCircleSdkReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    void import("@circle-fin/w3s-pw-web-sdk")
+      .then(({ W3SSdk: CircleW3SSdk }) => {
+        if (cancelled) return;
+        circleSdkRef.current = new CircleW3SSdk({
+          appSettings: { appId },
+          authentication: {
+            encryptionKey: login.encryptionKey,
+            userToken: login.userToken,
+          },
+        });
+        setCircleSdkReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          circleSdkRef.current = null;
+          setCircleSdkReady(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const isCircleMode = Boolean(
+    source === "embedded" &&
+      circleLogin &&
+      readCircleWallets()[0]?.id &&
+      circleSdkReady,
+  );
+
+  function buildCircleExecutor() {
+    const wallet = readCircleWallets()[0];
+    if (!circleLogin || !wallet?.id || !circleSdkRef.current) {
+      throw new Error("Circle wallet is not ready.");
+    }
+    const login = circleLogin;
+    const sdk = circleSdkRef.current;
+    return {
+      login,
+      walletId: wallet.id,
+      executeChallenge: async (challengeId: string) => {
+        sdk.setAuthentication({
+          encryptionKey: login.encryptionKey,
+          userToken: login.userToken,
+        });
+        return new Promise<{ transactionId?: string; txHash?: string }>(
+          (resolve, reject) => {
+            sdk.execute(challengeId, (error, result) => {
+              if (error) {
+                reject(
+                  error instanceof Error
+                    ? error
+                    : new Error("Circle confirmation failed."),
+                );
+                return;
+              }
+              resolve({
+                transactionId: extractCircleTransactionId(result),
+                txHash: extractCircleTxHash(result),
+              });
+            });
+          },
+        );
+      },
+    };
+  }
 
   const loadApy = useCallback(async () => {
     try {
@@ -379,6 +481,11 @@ function EarnPageInner() {
     if (!vault || !address) return;
     setActionError(null);
     try {
+      if (isCircleMode) {
+        throw new Error(
+          "Circle wallet will approve as part of the deposit confirmation.",
+        );
+      }
       const hash = await writeContractAsync({
         address: usdc.address,
         abi: erc20Abi,
@@ -402,18 +509,40 @@ function EarnPageInner() {
         setActionError("Enter a deposit amount.");
         return;
       }
+      const owner = isAddress(address) ? getAddress(address) : undefined;
+      if (!owner) {
+        setActionError("A valid wallet address is required.");
+        return;
+      }
       const currentAllowance = (allowance as bigint | undefined) ?? zero;
-      if (currentAllowance < amount) {
+      if (!isCircleMode && currentAllowance < amount) {
         await handleApprove(amount);
         return;
       }
       const amountLabel = formatUsd(amount, usdc.decimals);
-      const hash = await writeContractAsync({
-        address: vault,
-        abi: swiftPayVaultAbi,
-        functionName: "deposit",
-        args: [amount, address],
-      });
+      let hash: Hash | undefined;
+      if (isCircleMode) {
+        const result = await circleEarnDeposit({
+          amountUnits: amount,
+          executor: buildCircleExecutor(),
+          owner,
+          token: usdc.address,
+          vault,
+        });
+        hash = result.txHash;
+        if (!hash) {
+          throw new Error(
+            "Circle deposit submitted. Waiting for the transaction hash — try refresh shortly.",
+          );
+        }
+      } else {
+        hash = await writeContractAsync({
+          address: vault,
+          abi: swiftPayVaultAbi,
+          functionName: "deposit",
+          args: [amount, owner],
+        });
+      }
       setPendingTxType("deposit");
       setPendingTxAmountLabel(amountLabel);
       setPendingTxAmount(formatUnits(amount, usdc.decimals));
@@ -437,6 +566,11 @@ function EarnPageInner() {
         setActionError("Enter a withdrawal amount.");
         return;
       }
+      const owner = isAddress(address) ? getAddress(address) : undefined;
+      if (!owner) {
+        setActionError("A valid wallet address is required.");
+        return;
+      }
       const available =
         typeof maxWithdraw === "bigint"
           ? (maxWithdraw as bigint)
@@ -450,12 +584,28 @@ function EarnPageInner() {
         return;
       }
       const amountLabel = formatUsd(amount, usdc.decimals);
-      const hash = await writeContractAsync({
-        address: vault,
-        abi: swiftPayVaultAbi,
-        functionName: "withdraw",
-        args: [amount, address, address],
-      });
+      let hash: Hash | undefined;
+      if (isCircleMode) {
+        const result = await circleEarnWithdraw({
+          amountUnits: amount,
+          executor: buildCircleExecutor(),
+          owner,
+          vault,
+        });
+        hash = result.txHash;
+        if (!hash) {
+          throw new Error(
+            "Circle withdrawal submitted. Waiting for the transaction hash — try refresh shortly.",
+          );
+        }
+      } else {
+        hash = await writeContractAsync({
+          address: vault,
+          abi: swiftPayVaultAbi,
+          functionName: "withdraw",
+          args: [amount, owner, owner],
+        });
+      }
       setPendingTxType("withdraw");
       setPendingTxAmountLabel(amountLabel);
       setPendingTxAmount(formatUnits(amount, usdc.decimals));

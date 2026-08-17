@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   useAccount,
   useWriteContract,
@@ -10,11 +11,25 @@ import { Loader2, ShieldCheck } from "lucide-react";
 import type { Address, Hash } from "viem";
 import { maxUint256 } from "viem";
 
+import {
+  readCircleLogin,
+  readCircleWallets,
+  type CircleLoginResult,
+} from "@/lib/circle-session";
+import {
+  extractCircleTransactionId,
+  extractCircleTxHash,
+} from "@/lib/circle-tx";
 import { AUTO_SAVE_AUTHORIZATION_TEXT } from "@/lib/earn/auto-save";
 import { earnConfig } from "@/lib/earn/config";
 import { erc20Abi } from "@/lib/contracts";
+import {
+  encodeErc20Approve,
+  executeCircleContractCall,
+} from "@/lib/save/circle-vault";
 import { arcTestnetTokens } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { StyledSelect } from "@/components/ui/styled-select";
 
 type AutoSaveRule = {
@@ -78,7 +93,12 @@ function snapshotKey(fields: EditableFields) {
 }
 
 export function AutoSavePanel() {
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress } = useAccount();
+  const { address: platformAddress, isConnected, source } = usePlatformWallet();
+  const address = platformAddress ?? wagmiAddress;
+  const circleSdkRef = useRef<W3SSdk | null>(null);
+  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
+  const [circleSdkReady, setCircleSdkReady] = useState(false);
   const [rule, setRule] = useState<Partial<AutoSaveRule>>(defaultEditable);
   const [savedSnapshot, setSavedSnapshot] = useState(
     snapshotKey(defaultEditable),
@@ -105,6 +125,54 @@ export function AutoSavePanel() {
     useWaitForTransactionReceipt({
       hash: txHash,
     });
+
+  useEffect(() => {
+    const login = readCircleLogin();
+    setCircleLogin(login);
+    if (!login?.userToken || !login.encryptionKey) {
+      circleSdkRef.current = null;
+      setCircleSdkReady(false);
+      return;
+    }
+
+    const appId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
+    if (!appId) {
+      circleSdkRef.current = null;
+      setCircleSdkReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    void import("@circle-fin/w3s-pw-web-sdk")
+      .then(({ W3SSdk: CircleW3SSdk }) => {
+        if (cancelled) return;
+        circleSdkRef.current = new CircleW3SSdk({
+          appSettings: { appId },
+          authentication: {
+            encryptionKey: login.encryptionKey,
+            userToken: login.userToken,
+          },
+        });
+        setCircleSdkReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          circleSdkRef.current = null;
+          setCircleSdkReady(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const isCircleMode = Boolean(
+    source === "embedded" &&
+      circleLogin &&
+      readCircleWallets()[0]?.id &&
+      circleSdkReady,
+  );
 
   const currentEditable = useMemo(() => toEditable(rule), [rule]);
   const isDirty = snapshotKey(currentEditable) !== savedSnapshot;
@@ -247,12 +315,59 @@ export function AutoSavePanel() {
     setError(null);
     setMessage(null);
     try {
-      const hash = await writeContractAsync({
-        address: arcTestnetTokens.USDC.address,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [executorAddress as Address, maxUint256],
-      });
+      let hash: Hash | undefined;
+      if (isCircleMode) {
+        const wallet = readCircleWallets()[0];
+        if (!circleLogin || !wallet?.id || !circleSdkRef.current) {
+          throw new Error("Circle wallet is not ready.");
+        }
+        const login = circleLogin;
+        const sdk = circleSdkRef.current;
+        const result = await executeCircleContractCall({
+          callData: encodeErc20Approve(executorAddress as Address, maxUint256),
+          contractAddress: arcTestnetTokens.USDC.address,
+          executor: {
+            login,
+            walletId: wallet.id,
+            executeChallenge: (challengeId) =>
+              new Promise((resolve, reject) => {
+                sdk.setAuthentication({
+                  encryptionKey: login.encryptionKey,
+                  userToken: login.userToken,
+                });
+                sdk.execute(challengeId, (error, challengeResult) => {
+                  if (error) {
+                    reject(
+                      error instanceof Error
+                        ? error
+                        : new Error("Circle confirmation failed."),
+                    );
+                    return;
+                  }
+                  resolve({
+                    transactionId: extractCircleTransactionId(challengeResult),
+                    txHash: extractCircleTxHash(challengeResult),
+                  });
+                });
+              }),
+          },
+          label: "auto-save approve",
+          refId: `earn-autosave-approve-${Date.now()}`,
+        });
+        hash = result.txHash;
+        if (!hash) {
+          throw new Error(
+            "Circle approval submitted. Waiting for the transaction hash — try again shortly.",
+          );
+        }
+      } else {
+        hash = await writeContractAsync({
+          address: arcTestnetTokens.USDC.address,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [executorAddress as Address, maxUint256],
+        });
+      }
       setTxHash(hash);
       setApproveEligible(false);
       setMessage("USDC allowance submitted for Auto-Save executor…");

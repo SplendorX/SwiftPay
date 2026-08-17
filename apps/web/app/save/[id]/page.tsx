@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   useAccount,
   useChainId,
@@ -39,8 +40,14 @@ import { Progress } from "@/components/ui/progress";
 import {
   getCircleLoginIdentity,
   readCircleLogin,
+  readCircleWallets,
+  type CircleLoginResult,
 } from "@/lib/circle-session";
 import { erc20Abi } from "@/lib/contracts";
+import {
+  circleVaultDeposit,
+  circleVaultWithdraw,
+} from "@/lib/save/circle-vault";
 import { swiftSaveVaultAbi } from "@/lib/save/abis";
 import {
   archiveSavingsPocket,
@@ -70,6 +77,11 @@ import {
   fetchWalletSession,
   signInWalletSession,
 } from "@/lib/wallet-auth-client";
+import {
+  extractCircleTransactionId,
+  extractCircleTxHash,
+} from "@/lib/circle-tx";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { arcTestnet } from "@/lib/wagmi";
 
 function getErrorMessage(error: unknown) {
@@ -80,11 +92,20 @@ function getErrorMessage(error: unknown) {
 export default function SavingsPocketDetailPage() {
   const params = useParams<{ id: string }>();
   const pocketId = params.id;
-  const { address, connector, isConnected } = useAccount();
+  const { address: wagmiAddress, connector } = useAccount();
+  const {
+    address: platformAddress,
+    isConnected,
+    source,
+  } = usePlatformWallet();
+  const address = (platformAddress ?? wagmiAddress) as Address | undefined;
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync, isPending: isWritePending } = useWriteContract();
+  const circleSdkRef = useRef<W3SSdk | null>(null);
+  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
+  const [circleSdkReady, setCircleSdkReady] = useState(false);
 
   const [authWallet, setAuthWallet] = useState<string | null>(null);
   const [circleSocialUuid, setCircleSocialUuid] = useState<string | undefined>();
@@ -155,9 +176,10 @@ export default function SavingsPocketDetailPage() {
   }, [walletTokenBalance, token.decimals, currency]);
 
   const isWalletAuthenticated =
-    Boolean(authWallet) &&
-    Boolean(address) &&
-    authWallet === address?.toLowerCase();
+    source === "embedded" ||
+    (Boolean(authWallet) &&
+      Boolean(address) &&
+      authWallet === address?.toLowerCase());
 
   const load = useCallback(async () => {
     const owner = address;
@@ -218,6 +240,51 @@ export default function SavingsPocketDetailPage() {
       cancelled = true;
     };
   }, [address]);
+
+  useEffect(() => {
+    const login = readCircleLogin();
+    setCircleLogin(login);
+    if (!login?.userToken || !login.encryptionKey) {
+      circleSdkRef.current = null;
+      setCircleSdkReady(false);
+      return;
+    }
+
+    const appId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
+    if (!appId) {
+      circleSdkRef.current = null;
+      setCircleSdkReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    void import("@circle-fin/w3s-pw-web-sdk")
+      .then(({ W3SSdk: CircleW3SSdk }) => {
+        if (cancelled) return;
+        circleSdkRef.current = new CircleW3SSdk({
+          appSettings: { appId },
+          authentication: {
+            encryptionKey: login.encryptionKey,
+            userToken: login.userToken,
+          },
+        });
+        setCircleSdkReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          circleSdkRef.current = null;
+          setCircleSdkReady(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const isCircleMode = Boolean(
+    circleLogin && readCircleWallets()[0]?.id && circleSdkReady,
+  );
 
   useEffect(() => {
     if (!isConfirmed || !pendingConfirm || !pendingTxHash || !address || !pocket)
@@ -333,10 +400,43 @@ export default function SavingsPocketDetailPage() {
         return;
       }
     }
-    if (!(await ensureArcNetwork())) return;
+    if (!isCircleMode && !(await ensureArcNetwork())) return;
 
     try {
       setIsActing(true);
+      const circleWallet = readCircleWallets()[0];
+      const buildCircleExecutor = () => {
+        if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
+          throw new Error("Circle wallet is not ready.");
+        }
+        const login = circleLogin;
+        const sdk = circleSdkRef.current;
+        return {
+          login,
+          walletId: circleWallet.id,
+          executeChallenge: async (challengeId: string) => {
+            sdk.setAuthentication({
+              encryptionKey: login.encryptionKey,
+              userToken: login.userToken,
+            });
+            return new Promise<{ transactionId?: string; txHash?: string }>(
+              (resolve, reject) => {
+                sdk.execute(challengeId, (error, result) => {
+                  if (error) {
+                    reject(new Error(getErrorMessage(error)));
+                    return;
+                  }
+                  resolve({
+                    transactionId: extractCircleTransactionId(result),
+                    txHash: extractCircleTxHash(result),
+                  });
+                });
+              },
+            );
+          },
+        };
+      };
+
       if (amountMode === "deposit") {
         const prepared = await initiateDeposit(pocket.id, {
           ownerWallet: address,
@@ -344,23 +444,48 @@ export default function SavingsPocketDetailPage() {
           amount,
         });
         const amountUnits = BigInt(prepared.amountUnits);
-        await ensureAllowance(amountUnits, prepared.vaultAddress as Address);
-        const hash = await writeContractAsync({
-          address: prepared.vaultAddress as Address,
-          abi: swiftSaveVaultAbi,
-          functionName: "deposit",
-          args: [
-            prepared.pocketIdBytes32 as `0x${string}`,
-            prepared.tokenAddress as Address,
+        if (isCircleMode) {
+          const result = await circleVaultDeposit({
+            executor: buildCircleExecutor(),
+            vault: prepared.vaultAddress as Address,
+            token: prepared.tokenAddress as Address,
+            pocketIdBytes32: prepared.pocketIdBytes32 as `0x${string}`,
             amountUnits,
-          ],
-          chainId: arcTestnet.id,
-        });
-        setPendingTxHash(hash);
-        setPendingConfirm({
-          mode: "deposit",
-          transactionId: prepared.transaction.id,
-        });
+          });
+          if (!result.txHash) {
+            throw new Error(
+              "Circle deposit submitted without a hash yet. Check again shortly.",
+            );
+          }
+          await confirmDeposit(pocket.id, {
+            ownerWallet: address,
+            circleSocialUuid,
+            transactionId: prepared.transaction.id,
+            txHash: result.txHash,
+          });
+          setSuccess("Nice! Money was added to your pocket.");
+          setAmountMode(null);
+          await load();
+          void refetchBalance();
+        } else {
+          await ensureAllowance(amountUnits, prepared.vaultAddress as Address);
+          const hash = await writeContractAsync({
+            address: prepared.vaultAddress as Address,
+            abi: swiftSaveVaultAbi,
+            functionName: "deposit",
+            args: [
+              prepared.pocketIdBytes32 as `0x${string}`,
+              prepared.tokenAddress as Address,
+              amountUnits,
+            ],
+            chainId: arcTestnet.id,
+          });
+          setPendingTxHash(hash);
+          setPendingConfirm({
+            mode: "deposit",
+            transactionId: prepared.transaction.id,
+          });
+        }
       } else {
         const prepared = await initiateWithdraw(pocket.id, {
           ownerWallet: address,
@@ -368,22 +493,47 @@ export default function SavingsPocketDetailPage() {
           amount,
         });
         const amountUnits = BigInt(prepared.amountUnits);
-        const hash = await writeContractAsync({
-          address: prepared.vaultAddress as Address,
-          abi: swiftSaveVaultAbi,
-          functionName: "withdraw",
-          args: [
-            prepared.pocketIdBytes32 as `0x${string}`,
-            prepared.tokenAddress as Address,
+        if (isCircleMode) {
+          const result = await circleVaultWithdraw({
+            executor: buildCircleExecutor(),
+            vault: prepared.vaultAddress as Address,
+            token: prepared.tokenAddress as Address,
+            pocketIdBytes32: prepared.pocketIdBytes32 as `0x${string}`,
             amountUnits,
-          ],
-          chainId: arcTestnet.id,
-        });
-        setPendingTxHash(hash);
-        setPendingConfirm({
-          mode: "withdraw",
-          transactionId: prepared.transaction.id,
-        });
+          });
+          if (!result.txHash) {
+            throw new Error(
+              "Circle withdrawal submitted without a hash yet. Check again shortly.",
+            );
+          }
+          await confirmWithdraw(pocket.id, {
+            ownerWallet: address,
+            circleSocialUuid,
+            transactionId: prepared.transaction.id,
+            txHash: result.txHash,
+          });
+          setSuccess("Withdrawal confirmed on-chain and pocket updated.");
+          setAmountMode(null);
+          await load();
+          void refetchBalance();
+        } else {
+          const hash = await writeContractAsync({
+            address: prepared.vaultAddress as Address,
+            abi: swiftSaveVaultAbi,
+            functionName: "withdraw",
+            args: [
+              prepared.pocketIdBytes32 as `0x${string}`,
+              prepared.tokenAddress as Address,
+              amountUnits,
+            ],
+            chainId: arcTestnet.id,
+          });
+          setPendingTxHash(hash);
+          setPendingConfirm({
+            mode: "withdraw",
+            transactionId: prepared.transaction.id,
+          });
+        }
       }
     } catch (err) {
       setActionError(getErrorMessage(err));

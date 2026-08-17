@@ -100,6 +100,11 @@ import {
   writeCircleWallets,
 } from "@/lib/circle-session";
 import {
+  extractCircleTransactionId,
+  extractCircleTxHash,
+  recoverCircleTxHash,
+} from "@/lib/circle-tx";
+import {
   arcTestnetTokens,
   arcTokenSymbols,
   type ArcTokenSymbol,
@@ -973,6 +978,7 @@ export function DashboardContent({
   const [circleError, setCircleError] = useState<string | null>(null);
   const [isCircleLoading, setIsCircleLoading] = useState(false);
   const [isCirclePaymentPending, setIsCirclePaymentPending] = useState(false);
+  const [circleSendSettled, setCircleSendSettled] = useState(false);
   const [swapTokenIn, setSwapTokenIn] = useState<ArcTokenSymbol>("USDC");
   const [swapTokenOut, setSwapTokenOut] = useState<ArcTokenSymbol>("EURC");
   const [swapAmount, setSwapAmount] = useState("");
@@ -1847,6 +1853,17 @@ export function DashboardContent({
   }
 
   useEffect(() => {
+    if (!transactionHash || transactionReceipt || circleSendSettled) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setCircleSendSettled(true);
+      setPaymentStatus(`${selectedToken} payment submitted`);
+    }, 45_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [circleSendSettled, selectedToken, transactionHash, transactionReceipt]);
+
+  useEffect(() => {
     if (!transactionReceipt) {
       return;
     }
@@ -2230,12 +2247,12 @@ export function DashboardContent({
 
     const executed = await executeCircleChallenge(challenge.challengeId);
     let txHash = executed.txHash;
-    if (!txHash && executed.transactionId) {
+    if (!txHash) {
       txHash =
-        (await recoverCirclePaymentTxHash({
+        (await recoverCircleTxHash({
           transactionId: executed.transactionId,
-          walletId: circleWallet.id,
           userToken: circleLogin.userToken,
+          walletId: circleWallet.id,
         })) ?? undefined;
     }
 
@@ -2290,6 +2307,7 @@ export function DashboardContent({
 
     try {
       setIsCirclePaymentPending(true);
+      setCircleSendSettled(false);
       setPaymentStatus("Preparing Circle wallet transfer");
 
       pendingSpendSavePayment.current = {
@@ -2361,6 +2379,7 @@ export function DashboardContent({
         void runSpendSaveAfterConfirmedPayment(result.txHash);
         void settleIncomingPaymentRequest(result.txHash);
       } else {
+        setCircleSendSettled(true);
         setPaymentStatus(`${selectedToken} payment submitted`);
         void refreshBalances();
       }
@@ -2450,6 +2469,7 @@ export function DashboardContent({
 
     async function handlePaymentAction() {
     setPaymentError(null);
+    setCircleSendSettled(false);
 
     if (isIncomingRequestClosed) {
       setPaymentError(
@@ -2609,8 +2629,10 @@ export function DashboardContent({
       setSwapStatus(`Confirm ${label} in Circle wallet`);
     }
 
-    return new Promise<{ transactionId?: string; txHash?: string }>(
-      (resolve, reject) => {
+    const executed = await new Promise<{
+      transactionId?: string;
+      txHash?: string;
+    }>((resolve, reject) => {
       sdk.execute(challengeId, (error, result) => {
         if (error) {
           reject(new Error(getErrorMessage(error)));
@@ -2619,16 +2641,26 @@ export function DashboardContent({
 
         const challengeResult = result as CircleChallengeResult | undefined;
         resolve({
-          transactionId:
-            challengeResult?.data?.transactionId ??
-            challengeResult?.transactionId ??
-            challengeResult?.data?.id ??
-            challengeResult?.id,
-          txHash: challengeResult?.data?.txHash,
+          transactionId: extractCircleTransactionId(challengeResult),
+          txHash: extractCircleTxHash(challengeResult),
         });
       });
-      },
-    );
+    });
+
+    if (executed.txHash || !circleWallet?.id) {
+      return executed;
+    }
+
+    const recovered = await recoverCircleTxHash({
+      transactionId: executed.transactionId,
+      userToken: circleLogin.userToken,
+      walletId: circleWallet.id,
+    });
+
+    return {
+      transactionId: executed.transactionId,
+      txHash: recovered ?? executed.txHash,
+    };
   }
 
   async function handleEstimateSwap() {
@@ -3008,10 +3040,10 @@ export function DashboardContent({
         <QuickActions className="mb-2" />
 
         <section
-          className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_30rem]"
+          className="grid min-w-0 items-start gap-4 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]"
           id="send"
         >
-          <div className="glass-panel self-start p-4 sm:p-5">
+          <div className="glass-panel min-w-0 self-start overflow-x-hidden p-3 sm:p-5">
             <SendPaymentWizard
               address={address}
               authWallet={authWallet}
@@ -3091,7 +3123,9 @@ export function DashboardContent({
                   : null
               }
               shortenAddress={shortenAddress}
-              transactionConfirmed={transactionReceipt?.status === "success"}
+              transactionConfirmed={
+                transactionReceipt?.status === "success" || circleSendSettled
+              }
               transactionExplorerUrl={transactionExplorerUrl}
               trimmedPaymentNarration={trimmedPaymentNarration}
               trimmedRecipientAddress={trimmedRecipientAddress}
@@ -3099,23 +3133,23 @@ export function DashboardContent({
             />
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid min-w-0 gap-4">
             <ReceiveShareCard
               isConnected={isConnected}
               username={walletProfile?.username}
               walletAddress={walletAddress}
             />
 
-            <div className="surface-panel p-4 sm:p-5">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
+            <div className="surface-panel min-w-0 overflow-x-hidden p-3 sm:p-5">
+              <div className="mb-4 flex min-w-0 flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <p className="eyebrow">Insights</p>
-                  <h2 className="mt-3 font-heading text-xl font-semibold tracking-normal text-ink">
+                  <h2 className="mt-3 font-heading text-lg font-semibold tracking-normal text-ink sm:text-xl">
                     Payment notes
                   </h2>
                 </div>
                 <button
-                  className="inline-flex h-10 items-center justify-center rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-4 text-xs font-black text-white shadow-[0_12px_26px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 active:translate-y-0"
+                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-3 text-xs font-black text-white shadow-[0_12px_26px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 active:translate-y-0 sm:h-10 sm:px-4"
                   onClick={refreshBalancesFromButton}
                   type="button"
                 >
@@ -3127,16 +3161,16 @@ export function DashboardContent({
                 Live narration for the payment currently being prepared.
               </p>
 
-              <div className="mt-5 grid gap-2 rounded-lg border border-dashed border-border bg-muted/60 px-4 py-4">
+              <div className="mt-5 grid min-w-0 gap-2 rounded-lg border border-dashed border-border bg-muted/60 px-3 py-3 sm:px-4 sm:py-4">
                 {paymentNarrationSteps.map((step, index) => (
                   <div
-                    className="grid grid-cols-[auto_1fr] items-start gap-3"
+                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-3"
                     key={step}
                   >
-                    <span className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md bg-card text-xs font-black text-primary shadow-sm">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-card text-xs font-black text-primary shadow-sm">
                       {index + 1}
                     </span>
-                    <span className="text-sm font-semibold leading-6 text-muted">
+                    <span className="min-w-0 break-words text-sm font-semibold leading-6 text-muted">
                       {step}
                     </span>
                   </div>
@@ -3151,7 +3185,7 @@ export function DashboardContent({
         </section>
 
         <section
-          className={`surface-panel p-4 sm:p-5${preview ? " hidden" : ""}`}
+          className={`surface-panel min-w-0 overflow-x-hidden p-3 sm:p-5${preview ? " hidden" : ""}`}
           id="activity"
         >
           <div className="mb-5 flex items-center justify-between gap-3">
@@ -3294,13 +3328,6 @@ export function DashboardContent({
     <PlatformChrome
       actions={
         <>
-          <a
-            className="hidden h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-semibold shadow-sm transition hover:border-primary/30 sm:inline-flex"
-            href="#activity"
-          >
-            <ReceiptText className="h-4 w-4" />
-            Activity
-          </a>
           <CircleFaucetLink />
           <ProfileMenu
             circleLogin={circleLogin}

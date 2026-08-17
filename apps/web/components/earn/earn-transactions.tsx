@@ -9,7 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { usePublicClient } from "wagmi";
 import type { Address, Hash } from "viem";
 
 import {
@@ -18,6 +18,7 @@ import {
 } from "@/lib/earn/transactions";
 import { earnConfig, explorerTxUrl } from "@/lib/earn/config";
 import { cn } from "@/lib/utils";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 
 type SessionTx = {
   hash: Hash;
@@ -55,7 +56,8 @@ export function EarnTransactions({
   refreshKey,
   sessionTxs = [],
 }: EarnTransactionsProps) {
-  const { address, isConnected } = useAccount();
+  const { address: platformAddress, isConnected } = usePlatformWallet();
+  const address = platformAddress as Address | undefined;
   const publicClient = usePublicClient();
   const vault = earnConfig.vaultAddress;
 

@@ -134,8 +134,8 @@ export function ReceiveShareCard({
   }
 
   return (
-    <section className="surface-panel p-4 sm:p-5">
-      <div className="mb-3 flex items-start justify-between gap-3">
+    <section className="surface-panel min-w-0 overflow-x-hidden p-3 sm:p-5">
+      <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="eyebrow">Receive</p>
           <h2 className="mt-2 font-heading text-lg font-semibold tracking-normal text-ink">
@@ -150,9 +150,9 @@ export function ReceiveShareCard({
           Connect a wallet to copy your address, username, or receive QR.
         </p>
       ) : (
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-start">
           <div
-            className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center rounded-lg border border-border bg-white p-1.5"
+            className="mx-auto flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center rounded-lg border border-border bg-white p-1.5 sm:mx-0"
             ref={qrRef}
           >
             {qrValue ? (
