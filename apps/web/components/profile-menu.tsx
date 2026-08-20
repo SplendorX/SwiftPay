@@ -44,6 +44,7 @@ import {
   profileUpdatedEventName,
   type ProfileRecord,
 } from "@/lib/profile";
+import { resolvePlatformWalletMode } from "@/lib/wallet-mode";
 
 export type WalletMode = "circle" | "external";
 
@@ -163,7 +164,7 @@ export function ProfileMenu({
     circleWalletAddress ?? loadedCircleWalletAddress;
   const activeMode =
     walletMode ??
-    (activeLogin || resolvedCircleWalletAddress ? "circle" : "external");
+    resolvePlatformWalletMode();
   const activeAddress =
     activeMode === "circle" ? resolvedCircleWalletAddress : externalAddress;
   const normalizedExternalAddress = externalAddress?.toLowerCase() ?? "";

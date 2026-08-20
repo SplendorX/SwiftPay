@@ -63,6 +63,7 @@ export const circleStorageKeys = {
   deviceToken: "swiftpay.circle.deviceToken",
   login: "swiftpay.circle.login",
   setupIntent: "swiftpay.circle.setupIntent",
+  enterApp: "swiftpay.circle.enterApp",
   wallets: "swiftpay.circle.wallets",
 };
 
@@ -162,6 +163,7 @@ export function clearCircleSession(options: { clearDevice?: boolean } = {}) {
   const clearDevice = options.clearDevice ?? true;
   window.sessionStorage.removeItem(circleStorageKeys.login);
   window.sessionStorage.removeItem(circleStorageKeys.setupIntent);
+  window.sessionStorage.removeItem(circleStorageKeys.enterApp);
   window.sessionStorage.removeItem(circleStorageKeys.wallets);
 
   if (clearDevice) {

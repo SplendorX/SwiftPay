@@ -9,6 +9,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 
@@ -276,8 +277,10 @@ export function CircleGoogleLogin({
   embedded = false,
   showRefreshWallet = true,
 }: CircleGoogleLoginProps) {
+  const router = useRouter();
   const sdkRef = useRef<W3SSdk | null>(null);
   const setupCompletionStartedRef = useRef(false);
+  const enterAppAfterLoginRef = useRef(false);
   const envAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
   const googleClientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
@@ -571,6 +574,16 @@ export function CircleGoogleLogin({
       if (nextWallets[0]) {
         await loadBalances(userToken, nextWallets[0].id);
         setStatus("Circle wallet loaded");
+        if (
+          typeof window !== "undefined" &&
+          window.location.pathname === "/" &&
+          (enterAppAfterLoginRef.current ||
+            readStorage(storageKeys.enterApp) === "true")
+        ) {
+          enterAppAfterLoginRef.current = false;
+          removeStorage(storageKeys.enterApp);
+          router.replace("/dashboard");
+        }
       } else {
         setBalances([]);
         setStatus("No Circle wallet found");
@@ -707,6 +720,8 @@ export function CircleGoogleLogin({
       updateSdkLoginConfig(tokens);
       setupCompletionStartedRef.current = false;
       writeStorage(storageKeys.setupIntent, "true");
+      writeStorage(storageKeys.enterApp, "true");
+      enterAppAfterLoginRef.current = true;
       setStatus("Redirecting to Google");
       await sdk.performLogin(googleProvider);
     } catch (loginError) {
@@ -839,6 +854,8 @@ export function CircleGoogleLogin({
 
     setupCompletionStartedRef.current = false;
     writeStorage(storageKeys.setupIntent, "true");
+    writeStorage(storageKeys.enterApp, "true");
+    enterAppAfterLoginRef.current = true;
     await completeWalletSetup(loginResult);
   }
 

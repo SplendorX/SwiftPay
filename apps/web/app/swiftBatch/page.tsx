@@ -39,7 +39,7 @@ import {
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
-import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
+import { ProfileMenu } from "@/components/profile-menu";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
 import {
@@ -62,6 +62,7 @@ import {
  swiftBatchMaxRecipients,
 } from "@/lib/contracts";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcTestnet } from "@/lib/wagmi";
 
 type BatchRecipient = {
@@ -298,7 +299,7 @@ export default function SwiftBatchPage() {
  const chainId = useChainId();
  const { switchChainAsync } = useSwitchChain();
  const { writeContractAsync } = useWriteContract();
- const [walletMode, setWalletMode] = useState<WalletMode>("external");
+ const [walletMode, setWalletMode] = usePreferredWalletMode("external");
  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(
  null,
  );

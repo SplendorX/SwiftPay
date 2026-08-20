@@ -1,8 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
 import {
-  ArrowRight,
   ArrowUpRight,
   CalendarClock,
   ChevronDown,
@@ -14,17 +12,16 @@ import {
   RefreshCw,
   ReceiptText,
   ShieldCheck,
-  Landmark,
   TrendingUp,
   Users,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
 
-import { DashboardPreview } from "@/components/landing/dashboard-preview";
-import { FloatingActivity } from "@/components/landing/floating-activity";
-import { HeroBrandDisplay } from "@/components/landing/hero-brand-display";
-import { XLogoLink } from "@/components/brand/x-logo-link";
+import { HeroWelcome } from "@/components/landing/hero-welcome";
+import { LandingFooter } from "@/components/landing/landing-footer";
+import { LaunchAppLink } from "@/components/landing/launch-app-link";
+import { ProductShowcase } from "@/components/landing/product-showcase";
 import { SignInPanel } from "@/components/landing/sign-in-panel";
 import { FadeUp, Stagger, StaggerItem } from "@/components/design/motion";
 import { MarketingShell } from "@/components/layout/marketing-shell";
@@ -138,77 +135,18 @@ const faqItems = [
   },
 ];
 
-function HeroVisual() {
-  return (
-    <div className="landing-preview-wrap">
-      <HeroBrandDisplay />
-      <div className="landing-preview-stack">
-        <motion.div
-          className="landing-preview-panel"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-        >
-          <DashboardPreview />
-        </motion.div>
-        <FloatingActivity />
-      </div>
-    </div>
-  );
-}
-
 export function LandingPage() {
   return (
     <MarketingShell>
       <section className="marketing-hero">
-        <FadeUp className="marketing-hero-visual mx-auto w-full max-w-[30rem] lg:mx-0 lg:max-w-none">
-          <HeroVisual />
-        </FadeUp>
+        <HeroWelcome />
 
         <FadeUp className="marketing-hero-copy" delay={0.08}>
           <SignInPanel />
-          <Badge className="mb-5 mt-8" variant="secondary">
-            <Landmark className="mr-1 h-3 w-3" />
-            Money movement infrastructure
-          </Badge>
-          <h1 className="marketing-headline">
-            Financial infrastructure for the internet.
-          </h1>
-          <p className="marketing-lead">
-            SwiftPay is how startups, businesses, and creators move stablecoins —
-            send, batch, request, swap, and settle on Arc. Not another crypto
-            dashboard. Real payment infrastructure.
-          </p>
-          <div className="marketing-hero-actions">
-            <Button asChild className="h-10 px-5" size="lg">
-              <a href="#sign-in">
-                Continue with Google
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </Button>
-            <Button asChild className="h-10" size="lg" variant="outline">
-              <Link href="/roadmap">
-                View Roadmap
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-          <div className="mt-6 flex flex-wrap gap-4 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              Arc Testnet
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              USDC-native gas
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              Wallet-signed settlements
-            </span>
-          </div>
         </FadeUp>
       </section>
+
+      <ProductShowcase />
 
       <section className="marketing-section" id="products">
         <div className="marketing-section-header">
@@ -312,7 +250,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="marketing-section marketing-section-muted">
+      <section className="marketing-section marketing-section-muted" id="how-it-works">
         <div className="marketing-split marketing-split-center">
           <FadeUp>
             <p className="section-eyebrow">How it works</p>
@@ -372,7 +310,7 @@ export function LandingPage() {
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <Button asChild className="h-10 bg-background text-foreground hover:bg-background/90" size="lg">
-                <a href="#sign-in">Continue with Google</a>
+                <LaunchAppLink>Launch App</LaunchAppLink>
               </Button>
             </div>
           </div>
@@ -380,9 +318,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <footer className="marketing-footer">
-        <XLogoLink />
-      </footer>
+      <LandingFooter />
     </MarketingShell>
   );
 }

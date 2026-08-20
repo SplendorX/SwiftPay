@@ -5,6 +5,7 @@ import { getAddress, isAddress } from "viem";
 import {
   buildUsernameCandidate,
   normalizeUsername,
+  usernameFromDisplayName,
   validateUsername,
 } from "@/lib/profile-utils";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
@@ -214,15 +215,38 @@ async function assertProfileOwnership(input: {
   return existing.data.auth_provider === "external";
 }
 
+async function releaseCircleSocialUuid(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  circleSocialUuid: string,
+  keepWalletAddress?: string,
+) {
+  let query = supabase
+    .from(profilesTable)
+    .update({
+      circle_social_uuid: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("circle_social_uuid", circleSocialUuid);
+
+  if (keepWalletAddress) {
+    query = query.neq("wallet_address", keepWalletAddress);
+  }
+
+  const mutation = await query;
+
+  if (mutation.error) {
+    throw new Error(readSupabaseError(mutation.error));
+  }
+}
+
 async function findAvailableUsername(
   walletAddress: string,
-  preferred?: string,
+  preferred?: string | null,
 ) {
-  const candidates = preferred
-    ? [preferred]
-    : Array.from({ length: maxUsernameAttempts }, (_, attempt) =>
-        buildUsernameCandidate(walletAddress, attempt),
-      );
+  const fallbacks = Array.from({ length: maxUsernameAttempts }, (_, attempt) =>
+    buildUsernameCandidate(walletAddress, attempt),
+  );
+  const candidates = preferred ? [preferred, ...fallbacks] : fallbacks;
 
   const supabase = createSupabaseAdminClient();
 
@@ -355,7 +379,15 @@ export async function POST(request: NextRequest) {
     if (existing.data) {
       const updates: Record<string, string | null> = {};
 
-      if (circleSocialUuid && !existing.data.circle_social_uuid) {
+      if (
+        circleSocialUuid &&
+        existing.data.circle_social_uuid !== circleSocialUuid
+      ) {
+        await releaseCircleSocialUuid(
+          supabase,
+          circleSocialUuid,
+          walletAddress,
+        );
         updates.circle_social_uuid = circleSocialUuid;
       }
 
@@ -386,7 +418,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ profile: existing.data });
     }
 
-    const username = await findAvailableUsername(walletAddress);
+    if (circleSocialUuid) {
+      await releaseCircleSocialUuid(supabase, circleSocialUuid, walletAddress);
+    }
+
+    const username = await findAvailableUsername(
+      walletAddress,
+      usernameFromDisplayName(displayName),
+    );
     const profile = {
       auth_provider: authProvider,
       circle_social_uuid: circleSocialUuid,

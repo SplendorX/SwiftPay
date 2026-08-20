@@ -39,6 +39,24 @@ export function buildUsernameCandidate(walletAddress: string, attempt = 0) {
   return `swift_${suffix}_${attempt}`;
 }
 
+export function usernameFromDisplayName(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 16);
+
+  if (!slug || slug.length < 3 || !/^[a-z]/.test(slug)) {
+    return null;
+  }
+
+  return slug;
+}
+
 export function formatUsernameLabel(username: string) {
   return `@${normalizeUsername(username)}`;
 }

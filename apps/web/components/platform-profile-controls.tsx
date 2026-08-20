@@ -11,9 +11,12 @@ import {
   writeActivatedExternalProfile,
 } from "@/lib/platform-access";
 import { ensureProfile } from "@/lib/profile";
+import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
+import { writePreferredWalletMode } from "@/lib/wallet-mode";
 
 export function PlatformProfileControls() {
   const { address, isConnected } = useAccount();
+  const [walletMode, setWalletMode] = usePreferredWalletMode("external");
   const [externalConnectStarted, setExternalConnectStarted] = useState(false);
 
   useEffect(() => {
@@ -60,7 +63,11 @@ export function PlatformProfileControls() {
             onConnectIntent={() => setExternalConnectStarted(true)}
           />
         }
-        onWalletModeChange={() => undefined}
+        onWalletModeChange={(mode) => {
+          writePreferredWalletMode(mode);
+          setWalletMode(mode);
+        }}
+        walletMode={walletMode}
       />
     </>
   );

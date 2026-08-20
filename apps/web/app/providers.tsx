@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { cookieToInitialState, WagmiProvider } from "wagmi";
 
 import { PlatformAccessProvider } from "@/components/platform-access-gate";
+import { WalletDisconnectRedirect } from "@/components/wallet-disconnect-redirect";
 import { WalletSessionBootstrap } from "@/components/wallet-session-bootstrap";
 import { ensureAppKitInitialized } from "@/lib/appkit";
 import { config } from "@/lib/wagmi";
@@ -28,6 +29,7 @@ export function Providers({
       <QueryClientProvider client={queryClient}>
         <PlatformAccessProvider>
           <WalletSessionBootstrap />
+          <WalletDisconnectRedirect />
           {children}
         </PlatformAccessProvider>
       </QueryClientProvider>

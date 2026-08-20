@@ -2,6 +2,7 @@
 
 import { ArrowRight, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
@@ -18,6 +19,7 @@ import {
 } from "@/lib/wallet-auth-client";
 
 export function SignInPanel() {
+  const router = useRouter();
   const { address, isConnected, connector } = useAccount();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const [externalConnectStarted, setExternalConnectStarted] = useState(false);
@@ -94,6 +96,7 @@ export function SignInPanel() {
         signMessage: (message) => signMessageAsync({ message }),
       });
       setWalletAuthorized(true);
+      router.replace("/dashboard");
     } catch (error) {
       setWalletAuthorized(false);
       setAuthError(

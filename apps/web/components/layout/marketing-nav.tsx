@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { XLogoLink } from "@/components/brand/x-logo-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LaunchAppLink } from "@/components/landing/launch-app-link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +46,7 @@ export function MarketingNav() {
           <XLogoLink />
           <ThemeToggle />
           <Button asChild size="sm">
-            <a href="#sign-in">Get started</a>
+            <LaunchAppLink>Get started</LaunchAppLink>
           </Button>
         </div>
       </div>

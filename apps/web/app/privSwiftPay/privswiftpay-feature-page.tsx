@@ -46,11 +46,12 @@ import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PrivacyHeroSection } from "@/components/privswiftpay/privacy-hero-section";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
-import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
+import { ProfileMenu } from "@/components/profile-menu";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { formatUsernameLabel } from "@/lib/profile";
+import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 import {
  callCircleWalletApi,
@@ -801,7 +802,7 @@ export function PrivSwiftPayContent({
  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(
  null,
  );
- const [walletMode, setWalletMode] = useState<WalletMode>("circle");
+ const [walletMode, setWalletMode] = usePreferredWalletMode("circle");
  const [circleWallets, setCircleWallets] = useState<CircleWallet[]>([]);
  const [isCircleLoading, setIsCircleLoading] = useState(false);
  const [isStorageReady, setIsStorageReady] = useState(false);

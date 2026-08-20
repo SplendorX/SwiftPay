@@ -117,19 +117,87 @@ function shortenWallet(value: string) {
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }
 
+function requestHistoryKey(request: Pick<SavedRequest, "id" | "requestId">) {
+  return request.requestId || request.id;
+}
+
+function requestContentKey(request: SavedRequest) {
+  return [
+    request.wallet.trim().toLowerCase(),
+    request.token,
+    request.amount.trim(),
+    request.note.trim(),
+    (request.sentToUsername ?? "").trim().toLowerCase(),
+  ].join("|");
+}
+
+function requestRank(request: SavedRequest) {
+  const created = Date.parse(request.createdAt);
+  const statusScore =
+    request.status === "paid"
+      ? 3
+      : request.status === "declined"
+        ? 2
+        : request.status === "active"
+          ? 1
+          : 0;
+  const sentScore = request.sentToUsername ? 1 : 0;
+
+  return (
+    (Number.isFinite(created) ? created : 0) +
+    statusScore * 1_000_000_000_000 +
+    sentScore * 100_000_000_000
+  );
+}
+
+function dedupeSavedRequests(requests: SavedRequest[]) {
+  const byId = new Map<string, SavedRequest>();
+
+  for (const request of requests) {
+    const key = requestHistoryKey(request);
+    if (!key) {
+      continue;
+    }
+
+    const existing = byId.get(key);
+    if (!existing || requestRank(request) >= requestRank(existing)) {
+      byId.set(key, request);
+    }
+  }
+
+  const byContent = new Map<string, SavedRequest>();
+
+  for (const request of byId.values()) {
+    const contentKey = request.sentToUsername
+      ? `sent:${requestContentKey(request)}`
+      : `draft:${request.wallet.trim().toLowerCase()}:${request.token}`;
+    const existing = byContent.get(contentKey);
+    if (!existing || requestRank(request) >= requestRank(existing)) {
+      byContent.set(contentKey, request);
+    }
+  }
+
+  return Array.from(byContent.values()).sort(
+    (left, right) => requestRank(right) - requestRank(left),
+  );
+}
+
 function readSavedRequests(): SavedRequest[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(requestsStorageKey);
     const parsed = raw ? (JSON.parse(raw) as SavedRequest[]) : [];
-    return parsed.map(normalizeSavedRequest);
+    return dedupeSavedRequests(parsed.map(normalizeSavedRequest));
   } catch {
     return [];
   }
 }
 
 function writeSavedRequests(requests: SavedRequest[]) {
-  window.localStorage.setItem(requestsStorageKey, JSON.stringify(requests));
+  window.localStorage.setItem(
+    requestsStorageKey,
+    JSON.stringify(dedupeSavedRequests(requests)),
+  );
 }
 
 export function PaymentCollectionHub({
@@ -223,7 +291,9 @@ export function PaymentCollectionHub({
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    setSavedRequests(readSavedRequests());
+    const cleaned = readSavedRequests();
+    writeSavedRequests(cleaned);
+    setSavedRequests(cleaned);
     setUsernameHistory(readRequestUsernameHistory());
     setRequestId(crypto.randomUUID());
   }, []);
@@ -290,29 +360,6 @@ export function PaymentCollectionHub({
   }, [savedRequests]);
 
   useEffect(() => {
-    if (!canGenerateLink) {
-      return;
-    }
-    setRequestId(crypto.randomUUID());
-  }, [
-    canGenerateLink,
-    token,
-    trimmedAmount,
-    trimmedNote,
-    trimmedWalletAddress,
-  ]);
-
-  useEffect(() => {
-    if (!requestLink || !canGenerateLink) {
-      return;
-    }
-
-    persistGeneratedRequest();
-    // Persist the generated pay-to-self link once it becomes valid.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canGenerateLink, requestLink]);
-
-  useEffect(() => {
     if (!connectedWallet) {
       setRequesterUsername(null);
       return;
@@ -340,37 +387,50 @@ export function PaymentCollectionHub({
   function persistGeneratedRequest(sentToUsername?: string) {
     if (!requestLink || !canGenerateLink) return;
 
-    const existing = readSavedRequests().find(
-      (item) =>
-        item.link === requestLink &&
-        (item.sentToUsername ?? "") === (sentToUsername ?? ""),
+    const persistedId = requestId || crypto.randomUUID();
+    const current = readSavedRequests();
+    const existingIndex = current.findIndex(
+      (item) => requestHistoryKey(item) === persistedId,
     );
-    if (existing) return;
+    const existing = existingIndex >= 0 ? current[existingIndex] : undefined;
 
     const nextRequest: SavedRequest = normalizeSavedRequest({
       amount: trimmedAmount,
-      createdAt: new Date().toISOString(),
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
       expiresInHours: Number(expiresInHours) || 24,
-      id: requestId || crypto.randomUUID(),
+      id: existing?.id ?? persistedId,
       link: requestLink,
       note: trimmedNote,
-      requestId: requestId || undefined,
-      sentToUsername,
-      status: "active",
+      requestId: persistedId,
+      sentToUsername: sentToUsername ?? existing?.sentToUsername,
+      status: existing?.status ?? "active",
       token,
       username: requesterUsername ?? undefined,
       wallet: trimmedWalletAddress,
     });
 
-    const next = [nextRequest, ...readSavedRequests()].slice(0, 12);
+    const next =
+      existingIndex >= 0
+        ? current.map((item, index) =>
+            index === existingIndex ? nextRequest : item,
+          )
+        : [nextRequest, ...current].slice(0, 12);
+
     writeSavedRequests(next);
     setSavedRequests(next);
   }
 
-  async function copyValue(value: string, type: "address" | "link") {
+  async function copyValue(
+    value: string,
+    type: "address" | "link",
+    options: { persist?: boolean } = {},
+  ) {
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
+      if (type === "link" && options.persist) {
+        persistGeneratedRequest();
+      }
       setCopied(type);
       window.setTimeout(() => setCopied(null), 1400);
     } catch {
@@ -381,6 +441,7 @@ export function PaymentCollectionHub({
   async function shareRequestLink() {
     if (!requestLink) return;
     try {
+      persistGeneratedRequest();
       if (navigator.share) {
         await navigator.share({
           text: trimmedNote || `Payment request for ${trimmedAmount} ${token}`,
@@ -694,7 +755,7 @@ export function PaymentCollectionHub({
                   "Connect a wallet and enter an amount to generate a link."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button disabled={!requestLink} onClick={() => void copyValue(requestLink, "link")} type="button">
+                <Button disabled={!requestLink} onClick={() => void copyValue(requestLink, "link", { persist: true })} type="button">
                   {copied === "link" ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   {copied === "link" ? "Copied" : "Copy link"}
                 </Button>

@@ -327,8 +327,10 @@ export function SessionDeviceManagement({
     setSuccess(null);
 
     try {
+      await endWalletSession().catch(() => undefined);
+      clearActivatedExternalProfile();
       await disconnectAsync();
-      setSuccess("External wallet disconnected.");
+      router.replace("/");
     } catch (disconnectError) {
       setError(
         disconnectError instanceof Error

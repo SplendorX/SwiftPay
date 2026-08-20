@@ -5,7 +5,7 @@ export function XLogoLink({ className }: { className?: string }) {
     <a
       aria-label="SwiftPay on X"
       className={cn("marketing-x-link", className)}
-      href="https://x.com/SwiftPay__"
+      href="https://x.com/getswiftpay?s=11"
       rel="noreferrer"
       target="_blank"
     >

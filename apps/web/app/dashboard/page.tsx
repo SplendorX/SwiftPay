@@ -52,7 +52,7 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
-import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
+import { ProfileMenu } from "@/components/profile-menu";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { type BeneficiaryRecord } from "@/lib/beneficiaries";
@@ -117,6 +117,7 @@ import {
 } from "@/lib/save/spend-save-browser";
 import { getSwapErrorMessage } from "@/lib/swap-errors";
 import { trackTractionEvent } from "@/lib/traction/client";
+import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
 
@@ -969,7 +970,7 @@ export function DashboardContent({
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(
     null,
   );
-  const [walletMode, setWalletMode] = useState<WalletMode>("circle");
+  const [walletMode, setWalletMode] = usePreferredWalletMode("circle");
   const [circleWallets, setCircleWallets] = useState<CircleWallet[]>([]);
   const [circleBalances, setCircleBalances] = useState<CircleTokenBalance[]>(
     [],

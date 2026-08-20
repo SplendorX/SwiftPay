@@ -26,7 +26,7 @@ import { formatUnits, isAddress, parseUnits, type Address } from "viem";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
-import { ProfileMenu, type WalletMode } from "@/components/profile-menu";
+import { ProfileMenu } from "@/components/profile-menu";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
@@ -41,6 +41,7 @@ import {
 import { erc20Abi } from "@/lib/contracts";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import { getSwapErrorMessage } from "@/lib/swap-errors";
+import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
 
@@ -101,7 +102,7 @@ function SwapContent() {
  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(
  null,
  );
- const [walletMode, setWalletMode] = useState<WalletMode>("circle");
+ const [walletMode, setWalletMode] = usePreferredWalletMode("circle");
  const [circleWallets, setCircleWallets] = useState<CircleWallet[]>([]);
  const [isCircleLoading, setIsCircleLoading] = useState(false);
  const [swapTokenIn, setSwapTokenIn] = useState<ArcTokenSymbol>("USDC");
