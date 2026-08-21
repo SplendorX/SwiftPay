@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { processAutopayExecutions } from "@/lib/recurring-autopay";
-import { processDueRecurringSchedules } from "@/lib/recurring-service";
+import { runAutopayTick } from "@/lib/recurring/tick";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ message }, { status });
@@ -17,7 +18,6 @@ function isAuthorized(request: NextRequest) {
   }
 
   const authorization = request.headers.get("authorization");
-
   return authorization === `Bearer ${cronSecret}`;
 }
 
@@ -27,25 +27,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const dueResult = await processDueRecurringSchedules();
-    const autopayResult = await processAutopayExecutions();
-
-    return NextResponse.json({
-      autopayAttemptedCount: autopayResult.attemptedCount,
-      autopayConfirmedCount: autopayResult.confirmedCount,
-      autopayErrors: autopayResult.errors,
-      createdCount: dueResult.createdCount,
-      dueErrors: dueResult.errors,
-      scannedCount: dueResult.scannedCount,
-      status: "ok",
-    });
+    const result = await runAutopayTick();
+    return NextResponse.json(result);
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
         : "Recurring cron could not complete.";
+    const needsMigration =
+      /authorization_status|execution_mode|occurrence_number|does not exist|schema cache/i.test(
+        message,
+      );
 
-    return jsonError(message, 500);
+    return jsonError(
+      needsMigration
+        ? "Apply packages/database/supabase/recurring-schedules.sql before running autonomous Autopay."
+        : message,
+      500,
+    );
   }
 }
 

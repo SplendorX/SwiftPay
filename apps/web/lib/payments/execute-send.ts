@@ -52,6 +52,7 @@ export type BundledSendInput = {
 
 export type BundledSendResult = {
   txHash?: Hash;
+  transactionId?: string;
   bundledSave: boolean;
 };
 
@@ -238,6 +239,7 @@ export async function executeBundledSend(
     );
     return {
       txHash: result.txHash as Hash | undefined,
+      transactionId: result.transactionId,
       bundledSave,
     };
   } catch (error) {
@@ -259,6 +261,7 @@ export async function executeBundledSend(
     );
     return {
       txHash: result.txHash as Hash | undefined,
+      transactionId: result.transactionId,
       bundledSave,
     };
   }
@@ -277,7 +280,7 @@ export async function executeCircleContract(params: {
   }>("createContractExecution", {
     callData: params.callData,
     contractAddress: params.contractAddress,
-    feeLevel: "MEDIUM",
+    feeLevel: "HIGH",
     refId: params.refId,
     userToken: params.userToken,
     walletId: params.walletId,

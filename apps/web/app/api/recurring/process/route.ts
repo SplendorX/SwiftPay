@@ -19,8 +19,8 @@ function jsonError(message: string, status: number) {
 }
 
 /**
- * Authenticated owner process: queue due schedule executions.
- * Autopay settlement is performed client-side by the connected wallet (no env key).
+ * Authenticated owner process: queue due schedule executions for display.
+ * Does not submit Autopay. Autonomous settlement is cron → worker only.
  */
 export async function POST(request: NextRequest) {
   let body: ProcessBody;

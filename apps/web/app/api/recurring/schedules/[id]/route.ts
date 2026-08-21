@@ -10,9 +10,12 @@ import {
   isRecurringScheduleStatus,
   normalizeRecurringAmount,
 } from "@/lib/recurring-utils";
-import { processAutopayExecutions } from "@/lib/recurring-autopay";
-import { processSingleDueSchedule } from "@/lib/recurring-service";
+import { authorizationInvalidatedByUpdate } from "@/lib/recurring/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
+import {
+  withScheduleDefaults,
+  type RecurringScheduleRecord,
+} from "@/lib/recurring-utils";
 
 export const runtime = "nodejs";
 
@@ -63,6 +66,44 @@ async function loadOwnedSchedule(id: string, ownerWallet: string) {
   }
 
   return existing.data;
+}
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { id } = await context.params;
+  const ownerWallet = normalizeOwnerWallet(
+    request.nextUrl.searchParams.get("ownerWallet"),
+  );
+  const circleSocialUuid =
+    request.nextUrl.searchParams.get("circleSocialUuid") ?? undefined;
+
+  if (!ownerWallet) {
+    return jsonError("A valid owner wallet is required.", 400);
+  }
+
+  const canAccess = await assertRecurringAccess({
+    circleSocialUuid,
+    ownerWallet,
+  });
+  if (!canAccess) {
+    return jsonError("Authorize this wallet before loading this schedule.", 401);
+  }
+
+  try {
+    const current = await loadOwnedSchedule(id, ownerWallet);
+    if (!current) {
+      return jsonError("Schedule not found.", 404);
+    }
+    return NextResponse.json({
+      schedule: withScheduleDefaults(current as RecurringScheduleRecord),
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Schedule could not be loaded.";
+    return jsonError(message, 500);
+  }
 }
 
 export async function PATCH(
@@ -126,12 +167,16 @@ export async function PATCH(
       updates.narration = normalizeText(body.narration, 140);
     }
 
-    if (body.autopayEnabled === true && current.wallet_mode === "external") {
-      updates.autopay_enabled = true;
-    }
-
     if (body.autopayEnabled === false) {
       updates.autopay_enabled = false;
+      updates.authorization_status = "REVOKED";
+    }
+
+    if (body.autopayEnabled === true) {
+      return jsonError(
+        "Enabling Autopay requires an explicit authorization. POST /api/recurring/schedules/:id/authorize after approving the executor.",
+        400,
+      );
     }
 
     const tokenSymbol =
@@ -151,6 +196,21 @@ export async function PATCH(
       updates.token_symbol = tokenSymbol;
     }
 
+    const currentSchedule = withScheduleDefaults(
+      current as RecurringScheduleRecord,
+    );
+    if (
+      authorizationInvalidatedByUpdate(currentSchedule, {
+        amountUnits:
+          typeof updates.amount_units === "string" ? updates.amount_units : undefined,
+        tokenSymbol:
+          typeof updates.token_symbol === "string" ? updates.token_symbol : undefined,
+      })
+    ) {
+      updates.authorization_status = "REAUTHORIZATION_REQUIRED";
+      updates.autopay_enabled = false;
+    }
+
     const supabase = createSupabaseAdminClient();
     const mutation = await supabase
       .from(schedulesTable)
@@ -164,18 +224,9 @@ export async function PATCH(
       return jsonError(readSupabaseError(mutation.error), 500);
     }
 
-    const schedule = mutation.data;
-
-    if (body.autopayEnabled === true || body.status === "active") {
-      try {
-        await processSingleDueSchedule(schedule);
-        await processAutopayExecutions(10);
-      } catch {
-        // Schedule update succeeded; autopay can retry on the next cron tick.
-      }
-    }
-
-    return NextResponse.json({ schedule });
+    return NextResponse.json({
+      schedule: withScheduleDefaults(mutation.data as RecurringScheduleRecord),
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Schedule could not be updated.";

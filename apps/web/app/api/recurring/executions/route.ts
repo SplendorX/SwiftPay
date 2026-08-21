@@ -5,6 +5,7 @@ import {
   normalizeOwnerWallet,
 } from "@/lib/recurring-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
+import { withExecutionDefaults } from "@/lib/recurring-utils";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
   const ownerWallet = normalizeOwnerWallet(
     request.nextUrl.searchParams.get("ownerWallet"),
   );
+  const scheduleId = request.nextUrl.searchParams.get("scheduleId");
   const circleSocialUuid =
     request.nextUrl.searchParams.get("circleSocialUuid") ?? undefined;
 
@@ -42,18 +44,26 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
+    let query = supabase
       .from(executionsTable)
       .select("*")
       .eq("owner_wallet", ownerWallet)
       .order("created_at", { ascending: false })
       .limit(100);
 
+    if (scheduleId) {
+      query = query.eq("schedule_id", scheduleId);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       return jsonError(readSupabaseError(error), 500);
     }
 
-    return NextResponse.json({ executions: data ?? [] });
+    return NextResponse.json({
+      executions: (data ?? []).map((row) => withExecutionDefaults(row)),
+    });
   } catch (error) {
     const message =
       error instanceof Error

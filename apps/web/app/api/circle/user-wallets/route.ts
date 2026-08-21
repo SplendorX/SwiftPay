@@ -36,6 +36,7 @@ type CircleActionBody = {
   tokenAddress?: string;
   tokenId?: string;
   transactionId?: string;
+  id?: string;
   txHash?: string;
   txType?: "INBOUND" | "OUTBOUND";
   userToken?: string;
@@ -360,11 +361,12 @@ export async function POST(request: Request) {
         return missingParameter("userToken");
       }
 
-      if (!body.transactionId) {
+      const transactionId = body.transactionId ?? body.id;
+      if (!transactionId) {
         return missingParameter("transactionId");
       }
 
-      return requestCircle(`/v1/w3s/transactions/${body.transactionId}`, {
+      return requestCircle(`/v1/w3s/transactions/${transactionId}`, {
         method: "GET",
         userToken: body.userToken,
       });

@@ -487,17 +487,31 @@ export async function confirmSavingsTransaction(input: {
     .eq("id", tx.id)
     .eq("owner_wallet", input.ownerWallet);
 
-  // Verify receipt exists (source of truth gate)
+  // Verify receipt exists (source of truth gate). Prefer a single lookup —
+  // callers should already have waited for inclusion. A long wait here
+  // blows the API timeout and Spend&Save never credits the pocket.
   const publicClient = createPublicClient({
     chain: arcTestnet,
     transport: http(arcTestnet.rpcUrls.default.http[0]),
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({
-    hash: input.txHash,
-    confirmations: 1,
-    timeout: 120_000,
-  });
+  let receipt: Awaited<
+    ReturnType<typeof publicClient.getTransactionReceipt>
+  > | null = null;
+  try {
+    receipt = await publicClient.getTransactionReceipt({ hash: input.txHash });
+  } catch {
+    receipt = null;
+  }
+
+  if (!receipt) {
+    receipt = await publicClient.waitForTransactionReceipt({
+      hash: input.txHash,
+      confirmations: 1,
+      pollingInterval: 400,
+      timeout: 12_000,
+    });
+  }
 
   if (receipt.status !== "success") {
     const failedAt = new Date().toISOString();

@@ -175,6 +175,34 @@ export async function updateRecurringExecution(
   return payload.execution;
 }
 
+export async function authorizeRecurringSchedule(
+  scheduleId: string,
+  input: RecurringRequestContext & {
+    action?: "revoke";
+    authorizationTxHash?: string;
+    expiresAt?: string;
+    maxPaymentAmountUnits?: string;
+    totalLimitUnits?: string;
+  },
+) {
+  const response = await fetch(
+    `/api/recurring/schedules/${scheduleId}/authorize`,
+    {
+      body: JSON.stringify(input),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    },
+  );
+
+  const payload = await parseResponse<{ schedule: RecurringScheduleRecord }>(
+    response,
+  );
+
+  return payload.schedule;
+}
+
 export async function runRecurringScheduleNow(
   scheduleId: string,
   context: RecurringRequestContext,
@@ -194,7 +222,7 @@ export async function runRecurringScheduleNow(
   return payload.execution;
 }
 
-/** Queue due runs and settle autopay for this owner (no cron wait). */
+/** Queue due runs for display. Does not submit Autopay. */
 export async function processRecurringDue(context: RecurringRequestContext) {
   const response = await fetch("/api/recurring/process", {
     body: JSON.stringify(context),

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  encodeFunctionData,
   getAddress,
   isAddress,
   maxUint256,
@@ -58,18 +59,23 @@ import {
 import { formatUnitsToDecimal } from "@/lib/save/decimal";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 import {
+  authorizeRecurringSchedule,
   createRecurringSchedule,
   deleteRecurringSchedule,
   fetchRecurringExecutions,
   fetchRecurringSchedules,
-  processRecurringDue,
   runRecurringScheduleNow,
   updateRecurringExecution,
   updateRecurringSchedule,
 } from "@/lib/recurring-schedules";
 import {
+  formatAuthorizationStatusLabel,
+  formatExecutionStatusLabel,
   formatFrequencyLabel,
   formatScheduleRecipient,
+  isCompletedDisplayStatus,
+  isDueDisplayStatus,
+  isProcessingDisplayStatus,
   recurringFrequencies,
   type RecurringExecutionRecord,
   type RecurringFrequency,
@@ -153,7 +159,7 @@ function getErrorMessage(error: unknown) {
 }
 
 export function SwiftRecurepayHub() {
-  const { address, connector, isConnected, status: walletStatus } = useAccount();
+  const { address, connector, isConnected } = useAccount();
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
@@ -187,15 +193,9 @@ export function SwiftRecurepayHub() {
   const [approvingScheduleId, setApprovingScheduleId] = useState<string | null>(
     null,
   );
-  const [isProcessingAutopay, setIsProcessingAutopay] = useState(false);
-  const processInFlightRef = useRef(false);
-  const decidedSessionAutopayRef = useRef(false);
-  const [sessionAutopayAllowed, setSessionAutopayAllowed] = useState(false);
-  const executePaymentRef = useRef<
-    (schedule: RecurringScheduleRecord, executionId: string) => Promise<string>
-  >(async () => {
-    throw new Error("Payment handler is not ready.");
-  });
+  const [authorizingScheduleId, setAuthorizingScheduleId] = useState<string | null>(
+    null,
+  );
 
   const circleIdentity = getCircleLoginIdentity(circleLogin);
   const circleAddress =
@@ -268,7 +268,33 @@ export function SwiftRecurepayHub() {
 
   const dueExecutions = useMemo(
     () =>
-      executions.filter((execution) => execution.status === "awaiting_wallet"),
+      executions.filter(
+        (execution) =>
+          isDueDisplayStatus(execution.status) &&
+          execution.execution_mode !== "autopay",
+      ),
+    [executions],
+  );
+  const processingExecutions = useMemo(
+    () =>
+      executions.filter(
+        (execution) =>
+          isProcessingDisplayStatus(execution.status) ||
+          (execution.execution_mode === "autopay" &&
+            isDueDisplayStatus(execution.status)),
+      ),
+    [executions],
+  );
+  const historyExecutions = useMemo(
+    () =>
+      executions.filter(
+        (execution) =>
+          isCompletedDisplayStatus(execution.status) ||
+          execution.status === "FAILED" ||
+          execution.status === "FAILED_PERMANENTLY" ||
+          execution.status === "failed" ||
+          execution.status === "RETRYING",
+      ),
     [executions],
   );
 
@@ -276,7 +302,7 @@ export function SwiftRecurepayHub() {
     (schedule) => schedule.status === "active",
   ).length;
 
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (silent = false) => {
     if (!canAccessRecurring || !requestContext) {
       setSchedules([]);
       setExecutions([]);
@@ -284,8 +310,10 @@ export function SwiftRecurepayHub() {
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
 
     try {
       const [nextSchedules, nextExecutions] = await Promise.all([
@@ -295,142 +323,15 @@ export function SwiftRecurepayHub() {
       setSchedules(nextSchedules);
       setExecutions(nextExecutions);
     } catch (refreshError) {
-      setError(getErrorMessage(refreshError));
+      if (!silent) {
+        setError(getErrorMessage(refreshError));
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, [canAccessRecurring, requestContext]);
-
-  const processDueAndAutopay = useCallback(async (settleWalletPayments = true) => {
-    if (
-      !canAccessRecurring ||
-      !requestContext ||
-      !ownerAddress ||
-      processInFlightRef.current
-    ) {
-      return;
-    }
-
-    processInFlightRef.current = true;
-    if (settleWalletPayments) {
-      setIsProcessingAutopay(true);
-    }
-
-    try {
-      // 1) Server only queues due executions (no operator private key).
-      const result = await processRecurringDue(requestContext);
-      const dueFailed = result.due.errors[0]?.message;
-
-      // 2) Load latest queue for this wallet.
-      const [nextSchedules, nextExecutions] = await Promise.all([
-        fetchRecurringSchedules(requestContext),
-        fetchRecurringExecutions(requestContext),
-      ]);
-      setSchedules(nextSchedules);
-      setExecutions(nextExecutions);
-
-      const scheduleById = new Map(nextSchedules.map((item) => [item.id, item]));
-      const dueAutopay = nextExecutions.filter((execution) => {
-        if (execution.status !== "awaiting_wallet") {
-          return false;
-        }
-        const schedule = scheduleById.get(execution.schedule_id);
-        return Boolean(schedule?.autopay_enabled && schedule.status === "active");
-      });
-
-      if (!settleWalletPayments) {
-        if (result.due.createdCount > 0 || dueAutopay.length > 0) {
-          setSuccess(
-            "Due payments are waiting. Use Pay now — connecting a wallet never sends funds.",
-          );
-        } else if (dueFailed) {
-          setError(dueFailed);
-        }
-        return;
-      }
-
-      // 3) Settle with the connected wallet that owns the schedules.
-      let settled = 0;
-      let lastPayError: string | null = null;
-
-      for (const execution of dueAutopay) {
-        const schedule = scheduleById.get(execution.schedule_id);
-        if (!schedule) {
-          continue;
-        }
-
-        // Match wallet mode to the active connection when possible.
-        if (schedule.wallet_mode === "circle" && !isEmbeddedWalletMode) {
-          continue;
-        }
-        if (schedule.wallet_mode === "external" && isEmbeddedWalletMode) {
-          continue;
-        }
-
-        try {
-          setPayingExecutionId(execution.id);
-          const txHash = await executePaymentRef.current(
-            schedule,
-            execution.id,
-          );
-          settled += 1;
-          setExecutions((current) =>
-            current.map((item) =>
-              item.id === execution.id
-                ? {
-                    ...item,
-                    completed_at: new Date().toISOString(),
-                    status: "confirmed",
-                    tx_hash: txHash as Hash,
-                  }
-                : item,
-            ),
-          );
-        } catch (payError) {
-          lastPayError = getErrorMessage(payError);
-          try {
-            await updateRecurringExecution(execution.id, {
-              ...requestContext,
-              errorMessage: lastPayError,
-              ownerWallet: ownerAddress,
-              status: "failed",
-            });
-          } catch {
-            // keep going
-          }
-        } finally {
-          setPayingExecutionId(null);
-        }
-      }
-
-      if (settled > 0) {
-        setSuccess(
-          settled === 1
-            ? "Autopay sent 1 due payment from your connected wallet."
-            : `Autopay sent ${settled} due payments from your connected wallet.`,
-        );
-        setError(null);
-        await refreshData();
-      } else if (lastPayError) {
-        setError(lastPayError);
-      } else if (dueFailed) {
-        setError(dueFailed);
-      } else if (result.due.createdCount > 0 && dueAutopay.length === 0) {
-        setSuccess("Due payments queued. Confirm with Pay now if needed.");
-      }
-    } catch {
-      // Keep the queue visible; manual pay remains as a fallback.
-    } finally {
-      processInFlightRef.current = false;
-      setIsProcessingAutopay(false);
-    }
-  }, [
-    canAccessRecurring,
-    isEmbeddedWalletMode,
-    ownerAddress,
-    refreshData,
-    requestContext,
-  ]);
 
   useEffect(() => {
     setCircleLogin(readCircleLogin());
@@ -442,51 +343,19 @@ export function SwiftRecurepayHub() {
     void refreshData();
   }, [refreshData]);
 
-  // Decide once whether this visit may auto-send. Connecting on this page
-  // must never pop a transfer — only a wallet that was already present
-  // (reconnect / Circle session) can settle due autopay in the background.
-  useEffect(() => {
-    if (decidedSessionAutopayRef.current) {
-      return;
-    }
-    if (walletStatus === "connecting" || walletStatus === "reconnecting") {
-      return;
-    }
-
-    const circleAlreadyPresent = Boolean(
-      readCircleLogin() && readCircleWallets()[0],
-    );
-    setSessionAutopayAllowed(
-      walletStatus === "connected" || circleAlreadyPresent,
-    );
-    decidedSessionAutopayRef.current = true;
-  }, [walletStatus]);
-
-  // Queue due runs when the hub is open. Only settle on-chain if this
-  // session already had a wallet — never as a side effect of Connect.
   useEffect(() => {
     if (!canAccessRecurring || !requestContext) {
       return;
     }
 
-    void processDueAndAutopay(sessionAutopayAllowed);
-    if (!sessionAutopayAllowed) {
-      return;
-    }
-
     const intervalId = window.setInterval(() => {
-      void processDueAndAutopay(true);
-    }, 10_000);
+      void refreshData(true);
+    }, 30_000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [
-    canAccessRecurring,
-    processDueAndAutopay,
-    requestContext,
-    sessionAutopayAllowed,
-  ]);
+  }, [canAccessRecurring, refreshData, requestContext]);
 
   useEffect(() => {
     if (!ownerAddress) {
@@ -677,23 +546,22 @@ export function SwiftRecurepayHub() {
       setBeneficiaryLabel("");
       setAmount("");
 
-      try {
-        const waitStarted = Date.now();
-        while (processInFlightRef.current && Date.now() - waitStarted < 8_000) {
-          await new Promise((resolve) => window.setTimeout(resolve, 150));
+      if (autopayEnabled) {
+        try {
+          await authorizeScheduleAutopay(schedule);
+          await refreshData();
+          setSuccess(
+            "Schedule created. Autopay is authorized — due payments run in the background without this page.",
+          );
+        } catch (authorizeError) {
+          setSuccess("Schedule created. Authorize Autopay to enable background payments.");
+          setError(getErrorMessage(authorizeError));
         }
-        processInFlightRef.current = false;
-        await processDueAndAutopay(true);
-        await refreshData();
-      } catch {
-        // Schedule exists; Pay now remains if the first run is still queued.
+      } else {
+        setSuccess(
+          "Schedule created. Use Pay now for a manual run, or authorize Autopay to let the backend execute when due.",
+        );
       }
-
-      setSuccess(
-        schedule.autopay_enabled
-          ? "Schedule created. The first payment is being initiated now."
-          : "Schedule created. The first payment is queued — confirm with Pay now if needed.",
-      );
     } catch (createError) {
       setError(getErrorMessage(createError));
     } finally {
@@ -743,47 +611,78 @@ export function SwiftRecurepayHub() {
     }
   }
 
-  async function handleApproveExecutor(schedule: RecurringScheduleRecord) {
+  async function approveExecutorForSchedule(schedule: RecurringScheduleRecord) {
     if (!ownerAddress || !swiftRecurepayExecutorAddress) {
-      setError("Autopay executor is not configured.");
-      return;
-    }
-
-    if (!(await ensureArcNetwork())) {
-      return;
+      throw new Error("Autopay executor is not configured.");
     }
 
     const scheduleToken = arcTestnetTokens[schedule.token_symbol];
+
+    if (isEmbeddedWalletMode) {
+      if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
+        throw new Error("Circle wallet is not ready to authorize Autopay.");
+      }
+
+      const callData = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [swiftRecurepayExecutorAddress as Address, maxUint256],
+      });
+      const challenge = await callCircleWalletApi<{ challengeId?: string }>(
+        "createContractExecution",
+        {
+          callData,
+          contractAddress: scheduleToken.address,
+          feeLevel: "MEDIUM",
+          refId: "SwiftRecurepay Autopay approve",
+          userToken: circleLogin.userToken,
+          walletId: circleWallet.id,
+        },
+      );
+      if (!challenge.challengeId) {
+        throw new Error("Circle did not return an Autopay approval challenge.");
+      }
+      const { txHash } = await executeCircleChallenge(challenge.challengeId);
+      return txHash;
+    }
+
+    if (!(await ensureArcNetwork())) {
+      throw new Error("Switch to Arc Testnet before authorizing Autopay.");
+    }
+
+    const hash = await writeContractAsync({
+      abi: erc20Abi,
+      address: scheduleToken.address,
+      args: [swiftRecurepayExecutorAddress as Address, maxUint256],
+      functionName: "approve",
+      chainId: arcTestnet.id,
+    });
+    return hash;
+  }
+
+  async function authorizeScheduleAutopay(schedule: RecurringScheduleRecord) {
+    if (!requestContext) {
+      throw new Error("Authorize this wallet before enabling Autopay.");
+    }
+
+    setAuthorizingScheduleId(schedule.id);
     setApprovingScheduleId(schedule.id);
     setError(null);
-    setSuccess(null);
 
     try {
-      await writeContractAsync({
-        abi: erc20Abi,
-        address: scheduleToken.address,
-        args: [swiftRecurepayExecutorAddress as Address, maxUint256],
-        functionName: "approve",
-        chainId: arcTestnet.id,
-      });
-
-      const updated = await updateRecurringSchedule(schedule.id, {
-        ...requestContext!,
-        autopayEnabled: true,
+      const txHash = await approveExecutorForSchedule(schedule);
+      const updated = await authorizeRecurringSchedule(schedule.id, {
+        ...requestContext,
+        authorizationTxHash: txHash,
+        maxPaymentAmountUnits: schedule.amount_units,
       });
       setSchedules((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
-
       await refetchExecutorAllowance();
-      await processDueAndAutopay();
-      await refreshData();
-      setSuccess(
-        "Autopay allowance approved. Due payments are settling automatically.",
-      );
-    } catch (approveError) {
-      setError(getErrorMessage(approveError));
+      return updated;
     } finally {
+      setAuthorizingScheduleId(null);
       setApprovingScheduleId(null);
     }
   }
@@ -794,14 +693,14 @@ export function SwiftRecurepayHub() {
     }
 
     try {
-      const updated = await updateRecurringSchedule(schedule.id, {
+      const updated = await authorizeRecurringSchedule(schedule.id, {
         ...requestContext,
-        autopayEnabled: false,
+        action: "revoke",
       });
       setSchedules((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
-      setSuccess("Autopay disabled for this schedule.");
+      setSuccess("Autopay authorization revoked. Background payments will stop.");
     } catch (updateError) {
       setError(getErrorMessage(updateError));
     }
@@ -1063,25 +962,14 @@ export function SwiftRecurepayHub() {
     return hash;
   }
 
-  executePaymentRef.current = executePaymentForSchedule;
-
   async function handleEnableAutopay(schedule: RecurringScheduleRecord) {
-    if (!requestContext) {
-      return;
-    }
-
+    setError(null);
+    setSuccess(null);
     try {
-      const updated = await updateRecurringSchedule(schedule.id, {
-        ...requestContext,
-        autopayEnabled: true,
-      });
-      setSchedules((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
-      );
+      await authorizeScheduleAutopay(schedule);
       setSuccess(
-        "Autopay enabled. Due payments will send from this connected wallet while SwiftRecurepay is open.",
+        "Autopay authorized. Due payments execute in the background even if you log out.",
       );
-      void processDueAndAutopay();
     } catch (updateError) {
       setError(getErrorMessage(updateError));
     }
@@ -1195,9 +1083,9 @@ export function SwiftRecurepayHub() {
             <p className="section-eyebrow">SwiftRecurepay</p>
             <h1 className="section-title">Recurring stablecoin payments</h1>
             <p className="section-copy">
-              Schedule USDC and EURC on Arc Testnet. Autopay uses your connected
-              wallet (no server private key). Keep this page open with the same
-              wallet to settle due runs automatically, or use Pay now.
+              Schedule USDC and EURC on Arc Testnet. Authorize Autopay once
+              (token approval to the SwiftRecurepay executor). After that, due
+              payments run in the background — this page is not required.
             </p>
           </div>
           <Button
@@ -1239,8 +1127,9 @@ export function SwiftRecurepayHub() {
             icon={CheckCircle2}
             label="Completed runs"
             value={String(
-              executions.filter((execution) => execution.status === "confirmed")
-                .length,
+              executions.filter((execution) =>
+                isCompletedDisplayStatus(execution.status),
+              ).length,
             )}
           />
         </div>
@@ -1266,25 +1155,17 @@ export function SwiftRecurepayHub() {
             </div>
           ) : dueExecutions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No due payments right now. With autopay enabled, due payments settle
-              from your connected wallet while this page is open.
+              No manual payments waiting. Authorized Autopay runs in the
+              background and appears in execution history after settlement.
             </p>
           ) : (
             <div className="grid gap-3">
-              {isProcessingAutopay ? (
-                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Settling autopay payments...
-                </div>
-              ) : null}
               {dueExecutions.map((execution) => {
                 const schedule = scheduleMap.get(execution.schedule_id);
 
                 if (!schedule) {
                   return null;
                 }
-
-                const isAutopaySchedule = Boolean(schedule.autopay_enabled);
 
                 return (
                   <article
@@ -1297,9 +1178,9 @@ export function SwiftRecurepayHub() {
                           <p className="text-sm font-semibold">
                             {schedule.amount} {schedule.token_symbol}
                           </p>
-                          {isAutopaySchedule ? (
-                            <Badge variant="secondary">Autopay</Badge>
-                          ) : null}
+                          <Badge variant="outline">
+                            {formatExecutionStatusLabel(execution.status)}
+                          </Badge>
                           <Badge variant="outline">
                             +{recurringPlatformFeeBasisPoints / 100}% fee
                           </Badge>
@@ -1313,12 +1194,6 @@ export function SwiftRecurepayHub() {
                           Platform fee {recurringPlatformFeeBasisPoints / 100}%
                           is charged separately and hidden from history
                         </p>
-                        {isAutopaySchedule && !execution.error_message ? (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Autopay will send this without another wallet prompt.
-                            Manual pay remains available if settlement is delayed.
-                          </p>
-                        ) : null}
                         {execution.error_message ? (
                           <p className="mt-1 text-xs text-destructive">
                             {execution.error_message}
@@ -1326,31 +1201,16 @@ export function SwiftRecurepayHub() {
                         ) : null}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {isAutopaySchedule ? (
-                          <Button
-                            disabled={isProcessingAutopay}
-                            onClick={() => void processDueAndAutopay()}
-                            variant="outline"
-                          >
-                            {isProcessingAutopay ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-4 w-4" />
-                            )}
-                            Retry autopay
-                          </Button>
-                        ) : null}
                         <Button
                           disabled={Boolean(payingExecutionId) || !ownerAddress}
                           onClick={() => void handlePayExecution(execution)}
-                          variant={isAutopaySchedule ? "outline" : "default"}
                         >
                           {payingExecutionId === execution.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <Play className="h-4 w-4" />
                           )}
-                          {isAutopaySchedule ? "Pay manually" : "Pay now"}
+                          Pay now
                         </Button>
                       </div>
                     </div>
@@ -1458,11 +1318,11 @@ export function SwiftRecurepayHub() {
                   type="checkbox"
                 />
                 <span className="grid gap-1">
-                  <span className="text-sm font-semibold">Enable autopay</span>
+                  <span className="text-sm font-semibold">Authorize Autopay</span>
                   <span className="text-xs text-muted-foreground">
-                    When due, payments are sent from this connected wallet while
-                    SwiftRecurepay is open. No operator private key in env.
-                    Your wallet may still ask to confirm each transfer.
+                    After create, you will approve the SwiftRecurepay executor
+                    once. Due payments then settle on the server while you are
+                    logged out. This does not store your private key.
                   </span>
                 </span>
               </label>
@@ -1515,35 +1375,54 @@ export function SwiftRecurepayHub() {
                         {schedule.amount} {schedule.token_symbol}
                       </p>
                       <Badge variant="outline">{schedule.status}</Badge>
-                      {schedule.autopay_enabled ? (
+                      {schedule.autopay_enabled &&
+                      schedule.authorization_status === "AUTHORIZED" ? (
                         <Badge variant="secondary">Autopay</Badge>
                       ) : null}
+                      <Badge variant="outline">
+                        {formatAuthorizationStatusLabel(
+                          schedule.authorization_status,
+                        )}
+                      </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {formatScheduleRecipient(schedule)} ·{" "}
                       {formatFrequencyLabel(schedule.frequency, schedule.interval_days)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Next run {new Date(schedule.next_run_at).toLocaleString()} ·{" "}
+                      {new Date(schedule.next_run_at).getTime() <= Date.now() &&
+                      schedule.autopay_enabled &&
+                      schedule.authorization_status === "AUTHORIZED"
+                        ? "Due now — Autopay is queued in the background"
+                        : `Next run ${new Date(schedule.next_run_at).toLocaleString()}`}
+                      {" · "}
                       {schedule.run_count} completed
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {schedule.autopay_enabled ? (
+                    {schedule.authorization_status === "AUTHORIZED" &&
+                    schedule.autopay_enabled ? (
                       <Button
                         onClick={() => void handleDisableAutopay(schedule)}
                         size="sm"
                         variant="outline"
                       >
-                        Disable autopay
+                        Revoke Autopay
                       </Button>
                     ) : (
                       <Button
+                        disabled={
+                          authorizingScheduleId === schedule.id ||
+                          approvingScheduleId === schedule.id
+                        }
                         onClick={() => void handleEnableAutopay(schedule)}
                         size="sm"
                         variant="outline"
                       >
-                        Enable autopay
+                        {authorizingScheduleId === schedule.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : null}
+                        Authorize Autopay
                       </Button>
                     )}
                     {schedule.status === "active" ? (
@@ -1599,6 +1478,95 @@ export function SwiftRecurepayHub() {
                 </div>
               </article>
             ))}
+          </div>
+        )}
+      </section>
+
+      {processingExecutions.length > 0 ? (
+        <section className="section-panel">
+          <div className="mb-4">
+            <p className="section-eyebrow">In flight</p>
+            <h2 className="section-title">Processing Autopay</h2>
+          </div>
+          <div className="grid gap-3">
+            {processingExecutions.map((execution) => {
+              const schedule = scheduleMap.get(execution.schedule_id);
+              return (
+                <article
+                  className="rounded-lg border border-border bg-card px-4 py-3"
+                  key={execution.id}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">
+                      {execution.amount ?? schedule?.amount}{" "}
+                      {schedule?.token_symbol}
+                    </p>
+                    <Badge variant="secondary">
+                      {formatExecutionStatusLabel(execution.status)}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Occurrence {execution.occurrence_number ?? "—"}
+                    {execution.tx_hash
+                      ? ` · ${execution.tx_hash.slice(0, 10)}…`
+                      : ""}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="section-panel">
+        <div className="mb-4">
+          <p className="section-eyebrow">History</p>
+          <h2 className="section-title">Execution history</h2>
+        </div>
+        {historyExecutions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No completed or failed Autopay runs yet.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {historyExecutions.slice(0, 25).map((execution) => {
+              const schedule = scheduleMap.get(execution.schedule_id);
+              return (
+                <article
+                  className="rounded-lg border border-border bg-card px-4 py-3"
+                  key={execution.id}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">
+                      {execution.amount ?? schedule?.amount}{" "}
+                      {schedule?.token_symbol}
+                    </p>
+                    <Badge
+                      variant={
+                        isCompletedDisplayStatus(execution.status)
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {formatExecutionStatusLabel(execution.status)}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {schedule ? formatScheduleRecipient(schedule) : execution.owner_wallet}
+                    {" · "}
+                    {new Date(execution.due_at).toLocaleString()}
+                    {execution.tx_hash
+                      ? ` · ${execution.tx_hash.slice(0, 10)}…`
+                      : ""}
+                  </p>
+                  {execution.error_message ? (
+                    <p className="mt-1 text-xs text-destructive">
+                      {execution.error_message}
+                    </p>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

@@ -1,0 +1,3 @@
+-- Autonomous Autopay upgrade for existing SwiftPay databases.
+-- Run packages/database/supabase/recurring-schedules.sql in the Supabase SQL editor.
+-- That file is idempotent and contains the full schema plus additive columns.

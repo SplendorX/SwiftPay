@@ -14,6 +14,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 const eventsTable =
   process.env.SUPABASE_SPEND_SAVE_EVENTS_TABLE ?? "spend_save_events";

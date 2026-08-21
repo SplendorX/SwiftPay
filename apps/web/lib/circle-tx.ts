@@ -52,30 +52,30 @@ export async function recoverCircleTxHash(input: {
   const skip = new Set(
     (input.skipHashes ?? []).map((hash) => hash.toLowerCase()),
   );
-  const attempts = input.attempts ?? 12;
+  const attempts = input.attempts ?? 8;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    if (attempt > 0) {
+      const delayMs = Math.min(400 * 2 ** (attempt - 1), 1_500);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
     try {
       if (input.transactionId) {
-        const tx = await callCircleWalletApi<{
-          data?: { txHash?: string; transactionHash?: string };
-          transactionHash?: string;
-          txHash?: string;
-        }>("getTransaction", {
-          id: input.transactionId,
+        const tx = await callCircleWalletApi<unknown>("getTransaction", {
+          transactionId: input.transactionId,
           userToken: input.userToken,
         });
-        const hash =
-          tx.data?.txHash ??
-          tx.data?.transactionHash ??
-          tx.txHash ??
-          tx.transactionHash;
-        if (isOnchainTxHash(hash) && !skip.has(hash.toLowerCase())) {
+        const hash = extractCircleTxHash(tx);
+        if (hash && !skip.has(hash.toLowerCase())) {
           return hash;
         }
       }
+    } catch {
+      // transactionId may be a challenge id; fall through to the wallet list
+    }
 
+    try {
       const listed = await callCircleWalletApi<{
         data?: {
           transactions?: Array<{
@@ -94,7 +94,7 @@ export async function recoverCircleTxHash(input: {
       });
       const rows = listed.data?.transactions ?? listed.transactions ?? [];
       for (const row of rows) {
-        const hash = row.txHash ?? row.transactionHash;
+        const hash = extractCircleTxHash(row) ?? row.txHash ?? row.transactionHash;
         if (isOnchainTxHash(hash) && !skip.has(hash.toLowerCase())) {
           return hash;
         }

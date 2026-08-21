@@ -617,7 +617,9 @@ html.dark .platform-wordmark-swift,
 }
 
 .send-wizard {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
 }
 
 .send-steps {
@@ -677,8 +679,53 @@ html.dark .platform-wordmark-swift,
 }
 
 .send-wizard-body {
-  display: grid;
+  display: flex;
   min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.send-wizard-panes {
+  display: grid;
+  grid-template-areas: "pane";
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.send-wizard-pane {
+  grid-area: pane;
+  min-width: 0;
+  align-content: start;
+}
+
+.send-wizard-pane[data-active="false"] {
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.send-wizard-pane[data-active="true"] {
+  z-index: 1;
+}
+
+.send-wizard-pane[data-step="4"] {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+}
+
+.send-wizard-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.send-wizard-actions[data-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @media (max-width: 379px) {

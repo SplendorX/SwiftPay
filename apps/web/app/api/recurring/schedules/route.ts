@@ -11,9 +11,9 @@ import {
   normalizeRecurringAmount,
   type RecurringWalletMode,
 } from "@/lib/recurring-utils";
-import { processSingleDueSchedule } from "@/lib/recurring-service";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { recordTractionEvent } from "@/lib/traction/service";
+import { withScheduleDefaults } from "@/lib/recurring-utils";
 
 export const runtime = "nodejs";
 
@@ -137,7 +137,9 @@ export async function GET(request: NextRequest) {
       return jsonError(readSupabaseError(error), 500);
     }
 
-    return NextResponse.json({ schedules: data ?? [] });
+    return NextResponse.json({
+      schedules: (data ?? []).map((row) => withScheduleDefaults(row)),
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Schedules could not be loaded.";
@@ -221,21 +223,27 @@ export async function POST(request: NextRequest) {
     return jsonError("End date must be after the start date.", 400);
   }
 
-  // Client-wallet autopay works for external and Circle — no operator key required.
-  const autopayEnabled = body.autopayEnabled === true;
-
+  // Autopay is not authorized at create time. Enablement requires an explicit
+  // ERC-20 approval to SwiftRecurepayExecutor plus POST /authorize.
   const schedulePayload = {
     amount: amount.amount,
     amount_units: amount.amount_units,
-    autopay_enabled: autopayEnabled,
+    authorization_status: "UNAUTHORIZED",
+    autopay_enabled: false,
     beneficiary_label: normalizeText(body.beneficiaryLabel, 80),
     beneficiary_username: normalizeText(body.beneficiaryUsername, 20),
     beneficiary_wallet: beneficiaryWallet,
     ends_at: endsAt,
+    executed_amount_units: "0",
+    failure_count: 0,
     frequency,
     interval_days: intervalDays,
+    max_payment_amount: amount.amount,
+    max_payment_amount_units: amount.amount_units,
+    max_retries: 4,
     max_runs: normalizePositiveInt(body.maxRuns),
     narration: normalizeText(body.narration, 140),
+    next_occurrence_number: 1,
     next_run_at: nextRunAt.toISOString(),
     owner_wallet: ownerWallet,
     starts_at: startsAt,
@@ -258,7 +266,7 @@ export async function POST(request: NextRequest) {
       return jsonError(readSupabaseError(mutation.error), 500);
     }
 
-    const createdSchedule = mutation.data;
+    const createdSchedule = withScheduleDefaults(mutation.data);
     void recordTractionEvent({
       amount: createdSchedule.amount,
       circleSocialUuid:
@@ -270,23 +278,18 @@ export async function POST(request: NextRequest) {
       metadata: {
         autopayEnabled: createdSchedule.autopay_enabled,
         frequency: createdSchedule.frequency,
+        requestedAutopay: body.autopayEnabled === true,
         scheduleId: createdSchedule.id,
         walletMode: createdSchedule.wallet_mode,
       },
       source: "recurring",
       walletAddress: ownerWallet,
     }).catch(() => undefined);
-    let initialRun = null;
 
-    if (new Date(createdSchedule.next_run_at).getTime() <= Date.now()) {
-      try {
-        initialRun = await processSingleDueSchedule(createdSchedule);
-      } catch {
-        initialRun = null;
-      }
-    }
-
-    return NextResponse.json({ initialRun, schedule: createdSchedule }, { status: 201 });
+    return NextResponse.json(
+      { initialRun: null, schedule: createdSchedule, wantsAutopay: body.autopayEnabled === true },
+      { status: 201 },
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Schedule could not be created.";

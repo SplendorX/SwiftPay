@@ -86,8 +86,16 @@ export async function PATCH(
     }
 
     updates.tx_hash = txHash;
-    updates.completed_at = new Date().toISOString();
+    updates.provider_transaction_id = txHash;
     updates.error_message = null;
+    if (body.status === "confirmed") {
+      updates.status = "COMPLETED";
+      updates.completed_at = new Date().toISOString();
+      updates.confirmed_at = new Date().toISOString();
+    } else {
+      updates.status = "SUBMITTED";
+      updates.submitted_at = new Date().toISOString();
+    }
   }
 
   if (body.status === "failed") {
@@ -95,7 +103,7 @@ export async function PATCH(
       typeof body.errorMessage === "string" && body.errorMessage.trim()
         ? body.errorMessage.trim().slice(0, 280)
         : "Payment failed.";
-    updates.completed_at = new Date().toISOString();
+    updates.status = "FAILED";
   }
 
   try {

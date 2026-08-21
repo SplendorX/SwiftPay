@@ -277,7 +277,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
   }
 
   const isBusy =
-    isWritePending || isConfirming || isCirclePaymentPending || isSwitchingChain;
+    isWritePending ||
+    isConfirming ||
+    isCirclePaymentPending ||
+    isSwitchingChain ||
+    isSubmitting;
 
   return (
     <div className="send-wizard min-w-0">
@@ -324,8 +328,13 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
           onSubmit();
         }}
       >
-        {step === 1 ? (
-          <div className="grid gap-4" key="step-1">
+        <div className="send-wizard-panes">
+        <div
+          aria-hidden={step !== 1}
+          className="send-wizard-pane grid gap-4"
+          data-active={step === 1 ? "true" : "false"}
+          data-step="1"
+        >
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-foreground">
                 Recipient wallet or @username
@@ -465,11 +474,14 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 )}
               </div>
             </div>
-          </div>
-        ) : null}
+        </div>
 
-        {step === 2 ? (
-          <div className="grid gap-4" key="step-2">
+        <div
+          aria-hidden={step !== 2}
+          className="send-wizard-pane grid gap-4"
+          data-active={step === 2 ? "true" : "false"}
+          data-step="2"
+        >
             <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]">
               <label className="grid gap-2">
                 <span className="text-sm font-semibold text-foreground">Amount</span>
@@ -539,11 +551,14 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 <p className="mt-1">Gas is USDC-native on Arc Testnet.</p>
               )}
             </div>
-          </div>
-        ) : null}
+        </div>
 
-        {step === 3 ? (
-          <div className="grid gap-4" key="step-3">
+        <div
+          aria-hidden={step !== 3}
+          className="send-wizard-pane grid gap-4"
+          data-active={step === 3 ? "true" : "false"}
+          data-step="3"
+        >
             <PaymentRouteViz
               from={shortenAddress(address)}
               to={
@@ -600,11 +615,14 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 </div>
               ))}
             </div>
-          </div>
-        ) : null}
+        </div>
 
-        {step === 4 ? (
-          <div className="grid gap-4 text-center" key="step-4">
+        <div
+          aria-hidden={step !== 4}
+          className="send-wizard-pane gap-4 text-center"
+          data-active={step === 4 ? "true" : "false"}
+          data-step="4"
+        >
             {transactionConfirmed ? (
               <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15">
                 <CheckCircle2 className="h-8 w-8 text-emerald-500" />
@@ -652,8 +670,8 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 Send another payment
               </Button>
             ) : null}
-          </div>
-        ) : null}
+        </div>
+        </div>
 
         {paymentError ? (
           <div className="mt-4 flex min-w-0 items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -662,25 +680,33 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
           </div>
         ) : null}
 
-        {step < 4 ? (
-          <div className="mt-6 flex min-w-0 flex-wrap gap-2">
-            {step > 1 ? (
-              <Button onClick={goBack} type="button" variant="outline">
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-            ) : null}
+        <div
+          className="send-wizard-actions"
+          data-hidden={step >= 4 ? "true" : "false"}
+        >
+            <Button
+              className={step === 1 ? "invisible" : undefined}
+              disabled={step <= 1}
+              onClick={goBack}
+              tabIndex={step <= 1 || step >= 4 ? -1 : undefined}
+              type="button"
+              variant="outline"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
             <Button
               className="min-w-0 flex-1 whitespace-normal sm:ml-auto sm:flex-none sm:whitespace-nowrap"
               disabled={
-                step === 1
-                  ? !isRecipientValid && localRecipient.trim().length === 0
-                  : step === 2
-                    ? !hasAmount && localAmount.trim().length === 0
-                    : step === 3
-                      ? isBusy || (isConnected && !canSubmitPayment)
-                      : false
+                step >= 4
+                  ? true
+                  : step === 1
+                    ? !isRecipientValid && localRecipient.trim().length === 0
+                    : step === 2
+                      ? !hasAmount && localAmount.trim().length === 0
+                      : isBusy || (isConnected && !canSubmitPayment)
               }
+              tabIndex={step >= 4 ? -1 : undefined}
               type="submit"
             >
               {isBusy ? (
@@ -694,8 +720,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                   : primaryButtonText
                 : "Continue"}
             </Button>
-          </div>
-        ) : null}
+        </div>
       </form>
     </div>
   );

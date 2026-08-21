@@ -66,7 +66,7 @@ const productFlows = [
     title: "Payment requests",
   },
   {
-    body: "Schedule recurring payments, monitor upcoming runs, and execute due settlements.",
+    body: "Schedule recurring payments, authorize Autopay once, and let due settlements run in the background.",
     href: "/swiftRecurepay",
     icon: CalendarClock,
     title: "SwiftRecurepay",
