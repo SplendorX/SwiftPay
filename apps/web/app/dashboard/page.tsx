@@ -2231,6 +2231,7 @@ export function DashboardContent({
     }
 
     const controller = new AbortController();
+    const ownerWallet = getAddress(address);
 
     async function loadBeneficiaries() {
       setIsBeneficiariesLoading(true);
@@ -2238,7 +2239,7 @@ export function DashboardContent({
 
       try {
         const params = new URLSearchParams({
-          ownerWallet: getAddress(address),
+          ownerWallet,
         });
         const circleSocialUuid =
           getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined;
