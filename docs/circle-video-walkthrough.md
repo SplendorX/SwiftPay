@@ -129,7 +129,6 @@ Say this directly:
 - "These contracts are the SwiftPay payment rails."
 - "`SwiftBatch.sol` batches USDC/EURC payments and charges a 1% platform fee."
 - "`SwiftRecurepayExecutor.sol` executes approved recurring stablecoin payments."
-- "`PrivSwiftPayEscrow.sol` supports claim-code escrow for private payments."
 - "`SwiftSaveVault.sol` holds non-interest-bearing USDC/EURC savings pockets."
 - "Circle wallets reach these contracts through `createContractExecution`."
 
@@ -235,7 +234,6 @@ Partially implemented or operational-script only:
 - `packages/scripts/send-tokens.ts`
 - `packages/contracts/contracts/SwiftBatch.sol`
 - `packages/contracts/contracts/SwiftRecurepayExecutor.sol`
-- `packages/contracts/contracts/PrivSwiftPayEscrow.sol`
 - `packages/contracts/contracts/save/SwiftSaveVault.sol`
 
 ## Suggested Submission Description

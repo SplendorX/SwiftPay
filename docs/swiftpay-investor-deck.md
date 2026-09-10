@@ -34,7 +34,6 @@ SwiftPay bundles the workflows that make USDC useful after a wallet is funded.
 - Generate ArcScan-backed transaction receipts.
 - Swap between USDC and EURC.
 - Run batch payouts and recurring stablecoin payments.
-- Use private claim-code escrow when a direct public transfer is not the right flow.
 - Move funds into non-interest savings pockets with Spend&Save.
 - Put idle USDC to work through SwiftPay Earn, an ERC-4626 vault with an Aave-compatible strategy path.
 
@@ -68,7 +67,7 @@ Initial users:
 - Internet-native operators that already hold stablecoins but lack payment workflows.
 - Users in high-friction payment markets who need predictable digital dollar settlement.
 
-The product expands from direct payments into recurring payments, privacy escrow, savings automation, Earn, and multi-currency stablecoin workflows.
+The product expands from direct payments into recurring payments, invoices, savings automation, Earn, and multi-currency stablecoin workflows.
 
 ---
 
@@ -123,7 +122,6 @@ SwiftPay has working implementation across the full payment surface.
 | Payment requests and receipts | Implemented with QR links, usernames, ArcScan history, and receipt UI |
 | Batch payments | Implemented with `SwiftBatch.sol` and UI |
 | Recurring payments | Implemented with scheduler, API routes, and `SwiftRecurepayExecutor.sol` |
-| Private payments | Implemented with claim-code escrow |
 | Swift+Save | Implemented with non-interest pockets and Circle contract execution support |
 | SwiftPay Earn | Implemented as an ERC-4626 USDC vault with Aave-compatible strategy, APY/status routes, admin health, history, and auto-save plumbing |
 
