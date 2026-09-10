@@ -40,7 +40,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   getCircleLoginIdentity,
   readCircleLogin,
-  readCircleWallets,
   type CircleLoginResult,
 } from "@/lib/circle-session";
 import { erc20Abi } from "@/lib/contracts";
@@ -95,10 +94,13 @@ export default function SavingsPocketDetailPage() {
   const { address: wagmiAddress, connector } = useAccount();
   const {
     address: platformAddress,
+    circleWallet: platformCircleWallet,
+    isBusinessWorkspace,
     isConnected,
     source,
   } = usePlatformWallet();
-  const address = (platformAddress ?? wagmiAddress) as Address | undefined;
+  const address = (platformAddress ??
+    (isBusinessWorkspace ? undefined : wagmiAddress)) as Address | undefined;
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
@@ -171,7 +173,7 @@ export default function SavingsPocketDetailPage() {
     useWaitForTransactionReceipt({ hash: pendingTxHash });
 
   const walletBalanceLabel = useMemo(() => {
-    if (walletTokenBalance === undefined) return "—";
+    if (walletTokenBalance === undefined) return "n/a";
     return `${formatMoneyShort(formatUnits(walletTokenBalance, token.decimals))} ${currency}`;
   }, [walletTokenBalance, token.decimals, currency]);
 
@@ -283,7 +285,7 @@ export default function SavingsPocketDetailPage() {
   }, [address]);
 
   const isCircleMode = Boolean(
-    circleLogin && readCircleWallets()[0]?.id && circleSdkReady,
+    circleLogin && platformCircleWallet?.id && circleSdkReady,
   );
 
   useEffect(() => {
@@ -404,7 +406,7 @@ export default function SavingsPocketDetailPage() {
 
     try {
       setIsActing(true);
-      const circleWallet = readCircleWallets()[0];
+      const circleWallet = platformCircleWallet;
       const buildCircleExecutor = () => {
         if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
           throw new Error("Circle wallet is not ready.");
@@ -621,13 +623,13 @@ export default function SavingsPocketDetailPage() {
       <PlatformChrome
         actions={<PlatformProfileControls />}
         subtitle="Pocket detail"
-        title="Swift+Save"
+        title="Save"
       >
         <div className="space-y-6">
           <Button asChild size="sm" variant="ghost">
             <Link href="/save">
               <ArrowLeft className="mr-1.5 h-4 w-4" />
-              Back to Swift+Save
+              Back to Save
             </Link>
           </Button>
 
@@ -819,7 +821,7 @@ export default function SavingsPocketDetailPage() {
                 {spendSave?.enabled ? (
                   <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
                     <span className="font-medium">Spend&Save active</span>
-                    {" — "}
+                    {". "}
                     {Number(spendSave.percentage)}% of eligible spending goes
                     here.
                   </div>
@@ -837,7 +839,7 @@ export default function SavingsPocketDetailPage() {
                     <p className="mt-1 text-sm font-medium">
                       {stats?.lastDepositAt
                         ? new Date(stats.lastDepositAt).toLocaleString()
-                        : "—"}
+                        : "n/a"}
                     </p>
                   </div>
                   <div className="rounded-xl border border-border/70 p-3">

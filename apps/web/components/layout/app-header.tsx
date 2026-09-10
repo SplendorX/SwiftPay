@@ -26,9 +26,13 @@ export function AppHeader({ actions, className }: AppHeaderProps) {
 
         <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
           <CommandPaletteTrigger />
-          <NotificationsBell />
-          <ThemeToggle />
-          {actions}
+          <NotificationsBell className="shrink-0" />
+          <div className="hidden shrink-0 items-center sm:flex">
+            <ThemeToggle />
+          </div>
+          <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+            {actions}
+          </div>
           <PlatformNavDrawer />
         </div>
       </div>

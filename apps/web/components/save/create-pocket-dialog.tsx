@@ -129,7 +129,7 @@ export function CreatePocketDialog({
           <DialogTitle>Create savings pocket</DialogTitle>
           <DialogDescription>
             Separate money you want to save from money you want to spend. No
-            interest or APY — just structure.
+            interest or APY, just structure.
           </DialogDescription>
         </DialogHeader>
 

@@ -4,12 +4,12 @@ import { motion } from "framer-motion";
 import {
   ArrowDownUp,
   CalendarClock,
-  LockKeyhole,
   PiggyBank,
   QrCode,
   Send,
   TrendingUp,
   Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,21 +20,15 @@ const actions: Array<{
   href: string;
   icon: LucideIcon;
   label: string;
-  tone?: string;
 }> = [
   { href: "#send", icon: Send, label: "Send Payment" },
-  { href: "/save", icon: PiggyBank, label: "Swift+Save" },
+  { href: "/swiftCircle", icon: UsersRound, label: "Circle" },
+  { href: "/save", icon: PiggyBank, label: "Save" },
   { href: "/earn", icon: TrendingUp, label: "Earn" },
   { href: "/pay", icon: QrCode, label: "Request Payment" },
-  { href: "/swiftBatch", icon: Users, label: "Batch Settlement" },
-  { href: "/swiftRecurepay", icon: CalendarClock, label: "SwiftRecurepay" },
+  { href: "/swiftBatch", icon: Users, label: "BatchPay" },
+  { href: "/swiftRecurepay", icon: CalendarClock, label: "RecurePay" },
   { href: "/swap", icon: ArrowDownUp, label: "Swap" },
-  {
-    href: "/privSwiftPay/private-send",
-    icon: LockKeyhole,
-    label: "Private Transfer",
-    tone: "privacy",
-  },
 ];
 
 export function QuickActions({ className }: { className?: string }) {
@@ -50,10 +44,7 @@ export function QuickActions({ className }: { className?: string }) {
             transition={{ delay: index * 0.05, duration: 0.35 }}
           >
             <Link
-              className={cn(
-                "quick-action-card",
-                action.tone === "privacy" && "quick-action-privacy",
-              )}
+              className="quick-action-card"
               href={action.href}
             >
               <Icon className="h-4 w-4" />

@@ -19,6 +19,7 @@ export const profileUpdatedEventName = "swiftpay:profile-updated";
 export type ProfileRecord = {
   auth_provider: string;
   avatar_url: string | null;
+  bio: string | null;
   circle_social_uuid: string | null;
   created_at: string;
   display_name: string | null;
@@ -141,6 +142,7 @@ export async function ensureProfile(input: EnsureProfileInput) {
 
 export async function updateProfileUsername(input: {
   avatarUrl?: string | null;
+  bio?: string | null;
   circleSocialUuid?: string;
   username: string;
   walletAddress: string;
@@ -160,6 +162,7 @@ export async function updateProfileUsername(input: {
   const response = await fetch("/api/profile", {
     body: JSON.stringify({
       avatarUrl: input.avatarUrl,
+      bio: input.bio,
       circleSocialUuid: input.circleSocialUuid,
       username,
       walletAddress,

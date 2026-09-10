@@ -23,9 +23,23 @@ export type SavingsNotificationKind =
   | "payment_received"
   | "payment_request"
   | "payment_request_declined"
-  | "privswiftpay_claim"
   | "fixed_lock_started"
-  | "fixed_unlock_ready";
+  | "fixed_unlock_ready"
+  | "circle_invitation"
+  | "circle_invitation_accepted"
+  | "circle_invitation_declined"
+  | "circle_message"
+  | "circle_payment"
+  | "circle_request"
+  | "circle_request_paid"
+  | "circle_request_declined"
+  | "circle_save"
+  | "circle_earn"
+  | "circle_withdrawal"
+  | "circle_approval"
+  | "circle_member"
+  | "circle_role"
+  | "circle_frozen";
 
 export type SavingsNotificationRecord = {
   id: string;
@@ -615,49 +629,6 @@ export async function markPaymentRequestNotificationDeclined(input: {
   }
 }
 
-/**
- * Extract a PrivSwiftPay claim code from notification metadata or body.
- * Body format used when the DB has no metadata column:
- *   CLAIM_CODE:privswiftpay:...
- */
-export function extractClaimCodeFromNotification(
-  item: Pick<SavingsNotificationRecord, "body" | "metadata">,
-): string | null {
-  const meta = item.metadata;
-  if (meta && typeof meta === "object") {
-    const code = (meta as Record<string, unknown>).claimCode;
-    if (typeof code === "string" && code.trim().startsWith("privswiftpay:")) {
-      return code.trim();
-    }
-  }
-
-  const body = item.body ?? "";
-  const labeled = body.match(/CLAIM_CODE:(privswiftpay:[A-Za-z0-9_-]+)/i);
-  if (labeled?.[1]) {
-    return labeled[1];
-  }
-  const bare = body.match(/privswiftpay:[A-Za-z0-9_-]+/i);
-  return bare?.[0] ?? null;
-}
-
-export function isPrivSwiftPayClaimNotification(
-  item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
-): boolean {
-  if (item.kind === "privswiftpay_claim") {
-    return true;
-  }
-  const meta = item.metadata;
-  if (meta && typeof meta === "object") {
-    if ((meta as Record<string, unknown>).type === "privswiftpay_claim") {
-      return true;
-    }
-    if ((meta as Record<string, unknown>).claimCode) {
-      return true;
-    }
-  }
-  return /CLAIM_CODE:privswiftpay:/i.test(item.body ?? "");
-}
-
 export function isPaymentRequestNotification(
   item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
 ): boolean {
@@ -1139,9 +1110,8 @@ export async function deleteSavingsNotifications(
   }
   if (options.keepImportant) {
     selectQuery = selectQuery
-      .not("kind", "in", "(payment_request,privswiftpay_claim)")
-      .not("body", "ilike", "%PAYMENT_REQUEST_ID:%")
-      .not("body", "ilike", "%CLAIM_CODE:%");
+      .not("kind", "eq", "payment_request")
+      .not("body", "ilike", "%PAYMENT_REQUEST_ID:%");
   }
 
   const selected = await selectQuery;
@@ -1292,21 +1262,91 @@ export async function countUnreadSavingsNotifications(ownerWallet: string) {
 export type AlertInboxCategory =
   | "payments"
   | "requests"
-  | "savings"
-  | "claims";
+  | "savings";
+
+export function isCircleNotification(
+  item: Pick<SavingsNotificationRecord, "kind" | "metadata">,
+) {
+  if (String(item.kind ?? "").startsWith("circle_")) {
+    return true;
+  }
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    const type = (meta as Record<string, unknown>).type;
+    const href = (meta as Record<string, unknown>).href;
+    if (typeof type === "string" && type.startsWith("circle_")) return true;
+    if (typeof href === "string" && href.startsWith("/swiftCircle")) return true;
+  }
+  return false;
+}
+
+export function isCircleInvitationNotification(
+  item: Pick<SavingsNotificationRecord, "kind" | "metadata">,
+) {
+  if (item.kind === "circle_invitation") return true;
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    const type = (meta as Record<string, unknown>).type;
+    const invitationId = (meta as Record<string, unknown>).invitationId;
+    if (type === "circle_invitation") return true;
+    if (typeof invitationId === "string" && invitationId.length > 0) return true;
+  }
+  return false;
+}
+
+export function extractCircleInvitationId(
+  item: Pick<SavingsNotificationRecord, "metadata" | "body">,
+) {
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    const invitationId = (meta as Record<string, unknown>).invitationId;
+    if (typeof invitationId === "string" && invitationId.length > 0) {
+      return invitationId;
+    }
+  }
+  const match = (item.body ?? "").match(
+    /INVITATION_ID:([0-9a-f-]{36})/i,
+  );
+  return match?.[1] ?? null;
+}
+
+export function circleNotificationHref(
+  item: Pick<SavingsNotificationRecord, "kind" | "metadata" | "body">,
+) {
+  const invitationId = extractCircleInvitationId(item);
+  if (invitationId) {
+    return `/swiftCircle?invite=${encodeURIComponent(invitationId)}`;
+  }
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    const href = (meta as Record<string, unknown>).href;
+    if (typeof href === "string" && href.startsWith("/swiftCircle")) {
+      return href;
+    }
+    const circleId = (meta as Record<string, unknown>).circleId;
+    if (typeof circleId === "string") {
+      return `/swiftCircle/${circleId}`;
+    }
+  }
+  return "/swiftCircle";
+}
 
 export function getAlertInboxCategory(
   item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
 ): AlertInboxCategory {
-  if (isPrivSwiftPayClaimNotification(item)) return "claims";
   if (
     isPaymentRequestNotification(item) ||
-    isPaymentRequestDeclinedNotification(item)
+    isPaymentRequestDeclinedNotification(item) ||
+    item.kind === "circle_invitation" ||
+    item.kind === "circle_request" ||
+    item.kind === "circle_request_declined"
   ) {
     return "requests";
   }
   if (
     item.kind === "payment_received" ||
+    item.kind === "circle_payment" ||
+    item.kind === "circle_request_paid" ||
     /money received|you received/i.test(`${item.kind} ${item.body}`)
   ) {
     return "payments";

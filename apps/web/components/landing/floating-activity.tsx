@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowDownLeft, ArrowUpRight, CheckCircle2, LockKeyhole, Users } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CalendarClock, CheckCircle2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ type FeedItem = {
   amount: string;
   icon: typeof ArrowUpRight;
   id: string;
-  status: "confirmed" | "settled" | "private";
+  status: "confirmed" | "settled";
   time: string;
   title: string;
   tone: "in" | "out";
@@ -37,11 +37,11 @@ const feedItems: FeedItem[] = [
   },
   {
     amount: "-$150.00",
-    icon: LockKeyhole,
+    icon: CalendarClock,
     id: "3",
-    status: "private",
+    status: "settled",
     time: "5m ago",
-    title: "PrivSwiftPay claim funded",
+    title: "RecurePay schedule sent",
     tone: "out",
   },
   {
@@ -57,7 +57,6 @@ const feedItems: FeedItem[] = [
 
 const statusLabel: Record<FeedItem["status"], string> = {
   confirmed: "Confirmed",
-  private: "Private",
   settled: "Settled",
 };
 

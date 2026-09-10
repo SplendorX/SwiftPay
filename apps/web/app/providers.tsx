@@ -5,9 +5,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { cookieToInitialState, WagmiProvider } from "wagmi";
 
 import { PlatformAccessProvider } from "@/components/platform-access-gate";
+import { SuccessPopupHost } from "@/components/success-popup";
 import { WalletDisconnectRedirect } from "@/components/wallet-disconnect-redirect";
 import { WalletSessionBootstrap } from "@/components/wallet-session-bootstrap";
 import { ensureAppKitInitialized } from "@/lib/appkit";
+import { applyAppLocale, readStoredLocale } from "@/lib/locales";
 import { config } from "@/lib/wagmi";
 
 export function Providers({
@@ -22,6 +24,7 @@ export function Providers({
 
   useEffect(() => {
     void ensureAppKitInitialized();
+    applyAppLocale(readStoredLocale());
   }, []);
 
   return (
@@ -31,6 +34,7 @@ export function Providers({
           <WalletSessionBootstrap />
           <WalletDisconnectRedirect />
           {children}
+          <SuccessPopupHost />
         </PlatformAccessProvider>
       </QueryClientProvider>
     </WagmiProvider>

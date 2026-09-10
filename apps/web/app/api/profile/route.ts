@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAddress, isAddress } from "viem";
 
+import { isAppLocale } from "@/lib/locales";
 import {
   buildUsernameCandidate,
   normalizeUsername,
@@ -28,13 +29,15 @@ type EnsureProfileBody = {
 
 type UpdateProfileBody = {
   avatarUrl?: unknown;
+  bio?: unknown;
   circleSocialUuid?: unknown;
+  locale?: unknown;
   username?: unknown;
   walletAddress?: unknown;
 };
 
 const profileSelect =
-  "wallet_address,username,circle_social_uuid,display_name,avatar_url,auth_provider,created_at,updated_at";
+  "wallet_address,username,circle_social_uuid,display_name,avatar_url,bio,auth_provider,created_at,updated_at";
 const maxAvatarDataUrlLength = 500_000;
 const maxAvatarUrlLength = 500;
 const allowedAvatarDataMimeTypes = new Set([
@@ -463,11 +466,16 @@ export async function PATCH(request: NextRequest) {
   }
 
   const walletAddress = normalizeWallet(body.walletAddress);
-  const username = normalizeUsername(
-    typeof body.username === "string" ? body.username : "",
-  );
+  const hasUsername = typeof body.username === "string" && body.username.trim().length > 0;
+  const username = hasUsername
+    ? normalizeUsername(body.username as string)
+    : "";
+  const locale =
+    typeof body.locale === "string" && isAppLocale(body.locale)
+      ? body.locale
+      : null;
   const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
-  const validationError = validateUsername(username);
+  const validationError = hasUsername ? validateUsername(username) : null;
   let avatarUrl: string | null | undefined;
 
   try {
@@ -485,7 +493,7 @@ export async function PATCH(request: NextRequest) {
     return jsonError("A valid wallet address is required.", 400);
   }
 
-  if (validationError) {
+  if (hasUsername && validationError) {
     return jsonError(validationError, 400);
   }
 
@@ -505,11 +513,24 @@ export async function PATCH(request: NextRequest) {
     const supabase = createSupabaseAdminClient();
     const updates: Record<string, string | null> = {
       updated_at: new Date().toISOString(),
-      username,
     };
+
+    if (hasUsername) {
+      updates.username = username;
+    }
+
+    if (locale) {
+      updates.locale = locale;
+    }
 
     if (avatarUrl !== undefined) {
       updates.avatar_url = avatarUrl;
+    }
+
+    if (typeof body.bio === "string") {
+      updates.bio = body.bio.trim().slice(0, 160) || null;
+    } else if (body.bio === null) {
+      updates.bio = null;
     }
 
     const mutation = await supabase
@@ -531,3 +552,4 @@ export async function PATCH(request: NextRequest) {
     return jsonError(message, 500);
   }
 }
+

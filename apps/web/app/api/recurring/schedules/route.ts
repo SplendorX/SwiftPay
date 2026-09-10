@@ -13,7 +13,7 @@ import {
 } from "@/lib/recurring-utils";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { recordTractionEvent } from "@/lib/traction/service";
-import { withScheduleDefaults } from "@/lib/recurring-utils";
+import { advanceNextRunAt, withScheduleDefaults } from "@/lib/recurring-utils";
 
 export const runtime = "nodejs";
 
@@ -36,6 +36,7 @@ type CreateScheduleBody = {
   startsAt?: unknown;
   tokenSymbol?: unknown;
   walletMode?: unknown;
+  deferFirstOccurrence?: unknown;
 };
 
 function jsonError(message: string, status: number) {
@@ -217,9 +218,18 @@ export async function POST(request: NextRequest) {
   const startsAt =
     normalizeOptionalIsoDate(body.startsAt) ?? new Date().toISOString();
   const endsAt = normalizeOptionalIsoDate(body.endsAt);
-  const nextRunAt = new Date(startsAt);
+  const startDate = new Date(startsAt);
+  const now = Date.now();
+  if (startDate.getTime() < now - 60_000) {
+    return jsonError("Start time must be in the future.", 400);
+  }
 
-  if (endsAt && new Date(endsAt).getTime() < new Date(startsAt).getTime()) {
+  let nextRunAt = startDate;
+  if (body.deferFirstOccurrence === true && startDate.getTime() <= now + 60_000) {
+    nextRunAt = advanceNextRunAt(startDate, frequency, intervalDays);
+  }
+
+  if (endsAt && new Date(endsAt).getTime() < startDate.getTime()) {
     return jsonError("End date must be after the start date.", 400);
   }
 

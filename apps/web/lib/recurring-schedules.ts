@@ -28,6 +28,7 @@ type CreateRecurringScheduleInput = RecurringRequestContext & {
   startsAt?: string;
   tokenSymbol: ArcTokenSymbol;
   walletMode: RecurringWalletMode;
+  deferFirstOccurrence?: boolean;
 };
 
 type UpdateRecurringScheduleInput = RecurringRequestContext & {

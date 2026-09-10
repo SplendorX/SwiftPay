@@ -9,7 +9,7 @@ export default function SwiftRecurepayPage() {
       <PlatformChrome
         actions={<PlatformProfileControls />}
         subtitle="Automated stablecoin schedules"
-        title="SwiftRecurepay"
+        title="RecurePay"
       >
         <SwiftRecurepayHub />
       </PlatformChrome>

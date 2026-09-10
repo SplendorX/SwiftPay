@@ -216,7 +216,6 @@ create table if not exists public.savings_notifications (
       'payment_received',
       'payment_request',
       'payment_request_declined',
-      'privswiftpay_claim',
       'fixed_lock_started',
       'fixed_unlock_ready'
     )
@@ -245,7 +244,6 @@ alter table public.savings_notifications
       'payment_received',
       'payment_request',
       'payment_request_declined',
-      'privswiftpay_claim',
       'fixed_lock_started',
       'fixed_unlock_ready'
     )

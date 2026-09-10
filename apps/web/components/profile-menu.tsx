@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 
+import { personalCircleWallet } from "@/lib/business/provision-wallet";
 import {
   callCircleWalletApi,
   circleSessionEventName,
@@ -44,6 +45,7 @@ import {
   profileUpdatedEventName,
   type ProfileRecord,
 } from "@/lib/profile";
+import { useOptionalAccount } from "@/components/account/account-provider";
 import { resolvePlatformWalletMode } from "@/lib/wallet-mode";
 
 export type WalletMode = "circle" | "external";
@@ -147,6 +149,10 @@ export function ProfileMenu({
   walletMode,
 }: ProfileMenuProps) {
   const router = useRouter();
+  const accountContext = useOptionalAccount();
+  const isBusinessAccount = accountContext?.isBusiness ?? false;
+  const businessProfile = accountContext?.profile ?? null;
+  const accountRecord = accountContext?.account ?? null;
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [storedLogin, setStoredLogin] = useState<CircleLoginResult | null>(
@@ -182,7 +188,9 @@ export function ProfileMenu({
 
     return identity.email ?? identity.name ?? "Google account connected";
   }, [activeLogin, identity.email, identity.name]);
-  const buttonLabel = profile?.username
+  const buttonLabel = isBusinessAccount && accountRecord?.username
+    ? `@${accountRecord.username}`
+    : profile?.username
     ? `@${profile.username}`
     : isCurrentExternalWallet && activeAddress
       ? shortenCircleAddress(activeAddress)
@@ -198,7 +206,9 @@ export function ProfileMenu({
     : externalAddress
       ? "External wallet"
       : "Google";
-  const profilePrimaryLabel = profile?.username
+  const profilePrimaryLabel = isBusinessAccount
+    ? businessProfile?.business_name || accountRecord?.username || "Business"
+    : profile?.username
     ? `@${profile.username}`
     : activeLogin
       ? googleLabel
@@ -207,7 +217,11 @@ export function ProfileMenu({
           ? "Wallet profile active"
           : "Wallet connected"
         : googleLabel;
-  const profileSecondaryLabel = profile?.username
+  const profileSecondaryLabel = isBusinessAccount
+    ? accountRecord?.username
+      ? `@${accountRecord.username}`
+      : "Business account"
+    : profile?.username
     ? activeLogin
       ? (identity.email ?? identity.name ?? "")
       : externalAddress
@@ -301,7 +315,9 @@ export function ProfileMenu({
         return;
       }
 
-      const cachedWalletAddress = readCircleWallets()[0]?.address ?? "";
+      const cachedWallets = readCircleWallets();
+      const cachedWalletAddress =
+        personalCircleWallet(cachedWallets)?.address ?? "";
 
       if (cachedWalletAddress) {
         setLoadedCircleWalletAddress(cachedWalletAddress);
@@ -315,7 +331,7 @@ export function ProfileMenu({
           },
         );
         const wallets = payload.wallets ?? [];
-        const walletAddress = wallets[0]?.address ?? "";
+        const walletAddress = personalCircleWallet(wallets)?.address ?? "";
 
         if (!cancelled) {
           setLoadedCircleWalletAddress(walletAddress);
@@ -468,7 +484,7 @@ export function ProfileMenu({
   }
 
   return (
-    <div className="relative z-[90]" ref={menuRef}>
+    <div className="relative z-[90] shrink-0" ref={menuRef}>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
@@ -477,8 +493,16 @@ export function ProfileMenu({
         type="button"
       >
         <ProfileAvatar
-          avatarUrl={profile?.avatar_url}
-          fallbackLabel={profile?.username ?? profilePrimaryLabel}
+          avatarUrl={
+            isBusinessAccount
+              ? businessProfile?.logo_url
+              : profile?.avatar_url
+          }
+          fallbackLabel={
+            isBusinessAccount
+              ? businessProfile?.business_name
+              : profile?.username ?? profilePrimaryLabel
+          }
         />
         <span className="hidden min-w-0 truncate sm:inline">{buttonLabel}</span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/75" />
@@ -492,8 +516,16 @@ export function ProfileMenu({
           <div className="rounded-lg border border-border bg-muted px-3 py-3">
             <div className="flex items-start gap-3">
               <ProfileAvatar
-                avatarUrl={profile?.avatar_url}
-                fallbackLabel={profile?.username ?? profilePrimaryLabel}
+                avatarUrl={
+                  isBusinessAccount
+                    ? businessProfile?.logo_url
+                    : profile?.avatar_url
+                }
+                fallbackLabel={
+                  isBusinessAccount
+                    ? businessProfile?.business_name
+                    : profile?.username ?? profilePrimaryLabel
+                }
                 size="lg"
               />
               <div className="min-w-0">

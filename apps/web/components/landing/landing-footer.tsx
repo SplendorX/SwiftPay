@@ -17,7 +17,7 @@ const appLinks = [
   { href: "/swiftBatch", label: "Batch settlement" },
 ];
 
-const appLaunchLabel = "Launch App";
+const appLaunchLabel = "Open SwiftPay";
 
 const resourceLinks = [
   { href: "https://www.arc.io/", label: "Arc Network" },
@@ -63,7 +63,7 @@ export function LandingFooter() {
         <div className="marketing-footer-brand">
           <PlatformBrand />
           <p>
-            Do more with USDC — swap, send, request, batch, save, and schedule
+            Do more with USDC. Swap, send, request, batch, save, and schedule
             stablecoin payments from one wallet on Arc.
           </p>
           <XLogoLink />
@@ -85,7 +85,9 @@ export function LandingFooter() {
         <FooterColumn heading="Resources" links={resourceLinks} />
       </div>
       <div className="marketing-footer-bottom">
-        <p>© 2026 SwiftPay — The stablecoin payment layer</p>
+        <p className="marketing-footer-legal">
+          © 2026 SwiftPay. The stablecoin payment layer
+        </p>
       </div>
     </footer>
   );

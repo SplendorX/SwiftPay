@@ -1,50 +1,96 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const themeStorageKey = "swiftpay.theme";
-type ThemeMode = "dark" | "light";
+import {
+  applyLightSurface,
+  lightSurfaceStorageKey,
+  type LightSurface,
+} from "@/components/settings/light-surface-picker";
 
-function applyTheme(theme: ThemeMode) {
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.style.colorScheme = theme;
-  document.documentElement.classList.toggle("dark", theme === "dark");
+const themeStorageKey = "swiftpay.theme";
+type ThemePref = "dark" | "light" | "system";
+
+function resolveTheme(pref: ThemePref): "dark" | "light" {
+  if (pref === "system") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+  return pref;
+}
+
+function applyTheme(pref: ThemePref) {
+  const resolved = resolveTheme(pref);
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.themePref = pref;
+  document.documentElement.style.colorScheme = resolved;
+  document.documentElement.classList.toggle("dark", resolved === "dark");
+  const surface =
+    window.localStorage.getItem(lightSurfaceStorageKey) === "glass"
+      ? "glass"
+      : "cream";
+  applyLightSurface(surface as LightSurface);
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>("light");
+  const [pref, setPref] = useState<ThemePref>("dark");
 
   useEffect(() => {
-    const storedTheme =
-      window.localStorage.getItem(themeStorageKey) === "dark"
-        ? "dark"
-        : "light";
-
-    setTheme(storedTheme);
-    applyTheme(storedTheme);
+    const stored = window.localStorage.getItem(themeStorageKey);
+    const next: ThemePref =
+      stored === "light" || stored === "dark" || stored === "system"
+        ? stored
+        : "dark";
+    setPref(next);
+    applyTheme(next);
+    if (next !== "system") return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => applyTheme("system");
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
   }, []);
 
-  function selectTheme(nextTheme: ThemeMode) {
-    setTheme(nextTheme);
-    window.localStorage.setItem(themeStorageKey, nextTheme);
-    applyTheme(nextTheme);
+  function selectPref(next: ThemePref) {
+    setPref(next);
+    window.localStorage.setItem(themeStorageKey, next);
+    applyTheme(next);
   }
 
-  const isDark = theme === "dark";
-  const nextTheme = isDark ? "light" : "dark";
-  const Icon = isDark ? Moon : Sun;
+  const options: Array<{ value: ThemePref; icon: typeof Moon; label: string }> = [
+    { value: "dark", icon: Moon, label: "Dark" },
+    { value: "light", icon: Sun, label: "Light" },
+    { value: "system", icon: Monitor, label: "System" },
+  ];
 
   return (
-    <button
-      aria-label={`Switch to ${nextTheme} mode`}
-      aria-pressed={isDark}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-background/80 text-foreground shadow-sm transition hover:border-primary/30 hover:bg-background"
-      onClick={() => selectTheme(nextTheme)}
-      title={`Switch to ${nextTheme} mode`}
-      type="button"
+    <div
+      aria-label="Theme"
+      className="inline-flex items-center rounded-full border border-border bg-card/80 p-0.5"
+      role="group"
     >
-      <Icon className="h-4 w-4" />
-    </button>
+      {options.map((option) => {
+        const Icon = option.icon;
+        const active = pref === option.value;
+        return (
+          <button
+            aria-label={option.label}
+            aria-pressed={active}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition ${
+              active
+                ? "bg-primary text-primary-foreground shadow-[0_8px_20px_rgba(91,33,182,0.28)]"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            key={option.value}
+            onClick={() => selectPref(option.value)}
+            title={option.label}
+            type="button"
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </button>
+        );
+      })}
+    </div>
   );
 }

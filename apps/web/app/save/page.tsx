@@ -11,7 +11,7 @@ export default function SwiftSavePage() {
       <PlatformChrome
         actions={<PlatformProfileControls />}
         subtitle="Non-interest savings pockets and Spend&Save"
-        title="Swift+Save"
+        title="Save"
       >
         <SwiftSaveHub />
       </PlatformChrome>

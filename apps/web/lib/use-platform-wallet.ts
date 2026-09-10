@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAddress, isAddress, type Address } from "viem";
 import { useAccount } from "wagmi";
 
+import { useOptionalWorkspace } from "@/components/business/workspace-provider";
+import { activeCircleWallet } from "@/lib/business/provision-wallet";
 import {
   circleSessionEventName,
   getCircleLoginIdentity,
   readCircleLogin,
   readCircleWallets,
   type CircleLoginResult,
+  type CircleWallet,
 } from "@/lib/circle-session";
 import {
   readPreferredWalletMode,
@@ -19,17 +22,16 @@ import {
 
 export function usePlatformWallet() {
   const { address: wagmiAddress, isConnected } = useAccount();
+  const workspaceContext = useOptionalWorkspace();
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(
     null,
   );
-  const [circleWalletAddress, setCircleWalletAddress] = useState("");
+  const [circleWallets, setCircleWallets] = useState<CircleWallet[]>([]);
   const [preferredMode, setPreferredMode] = useState<WalletMode | null>(null);
 
   const refreshCircleState = useCallback(() => {
-    const login = readCircleLogin();
-    setCircleLogin(login);
-    const wallets = readCircleWallets();
-    setCircleWalletAddress(wallets[0]?.address ?? "");
+    setCircleLogin(readCircleLogin());
+    setCircleWallets(readCircleWallets());
     setPreferredMode(readPreferredWalletMode());
   }, []);
 
@@ -42,6 +44,22 @@ export function usePlatformWallet() {
       window.removeEventListener(walletModeEventName, refreshCircleState);
     };
   }, [refreshCircleState]);
+
+  const isBusinessWorkspace = workspaceContext?.workspace?.kind === "business";
+  const circleWallet = useMemo(
+    () =>
+      activeCircleWallet(
+        workspaceContext?.workspace ?? null,
+        circleWallets,
+        workspaceContext?.ownerWallet,
+      ),
+    [
+      circleWallets,
+      workspaceContext?.ownerWallet,
+      workspaceContext?.workspace,
+    ],
+  );
+  const circleWalletAddress = circleWallet?.address ?? "";
 
   const circleReady = Boolean(
     circleLogin && circleWalletAddress && isAddress(circleWalletAddress),
@@ -60,6 +78,10 @@ export function usePlatformWallet() {
         ? (getAddress(wagmiAddress).toLowerCase() as Address)
         : undefined;
 
+    if (isBusinessWorkspace) {
+      return circleAddress;
+    }
+
     if (preferredMode === "external" && externalAddress) {
       return externalAddress;
     }
@@ -73,11 +95,16 @@ export function usePlatformWallet() {
     circleReady,
     circleWalletAddress,
     externalReady,
+    isBusinessWorkspace,
     preferredMode,
     wagmiAddress,
   ]);
 
   const source = useMemo(() => {
+    if (isBusinessWorkspace) {
+      return circleReady ? ("embedded" as const) : null;
+    }
+
     if (preferredMode === "external" && externalReady) {
       return "external" as const;
     }
@@ -95,7 +122,7 @@ export function usePlatformWallet() {
     }
 
     return null;
-  }, [circleReady, externalReady, preferredMode]);
+  }, [circleReady, externalReady, isBusinessWorkspace, preferredMode]);
 
   const circleSocialUuid = useMemo(
     () => getCircleLoginIdentity(circleLogin)?.socialUserUUID ?? undefined,
@@ -105,7 +132,10 @@ export function usePlatformWallet() {
   return {
     address,
     circleSocialUuid,
+    circleWallet,
+    isBusinessWorkspace,
     isConnected: Boolean(address),
+    needsBusinessWallet: isBusinessWorkspace && !circleWallet,
     source,
   };
 }

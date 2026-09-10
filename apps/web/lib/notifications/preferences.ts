@@ -5,7 +5,6 @@ export const alertCategories = [
   "payments",
   "requests",
   "savings",
-  "claims",
 ] as const;
 
 export type AlertCategory = (typeof alertCategories)[number];
@@ -27,7 +26,6 @@ export const defaultAlertPreferences: AlertPreferences = {
     payments: true,
     requests: true,
     savings: true,
-    claims: true,
   },
 };
 
@@ -57,7 +55,6 @@ export function normalizeAlertPreferences(
       payments: categories.payments !== false,
       requests: categories.requests !== false,
       savings: categories.savings !== false,
-      claims: categories.claims !== false,
     },
   };
 }

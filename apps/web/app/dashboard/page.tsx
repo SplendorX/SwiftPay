@@ -8,6 +8,8 @@ import {
   CircleDollarSign,
   Copy,
   Download,
+  Eye,
+  EyeOff,
   ExternalLink,
   KeyRound,
   Loader2,
@@ -34,6 +36,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import {
+  encodeFunctionData,
   formatUnits,
   getAddress,
   isAddress,
@@ -45,10 +48,21 @@ import {
 } from "viem";
 
 import { TokenSelect } from "@/components/design/token-select";
+import { drawSwiftPayBrand } from "@/lib/brand-canvas";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { DashboardCircleInvites } from "@/components/swift-circle/circle-invite-inbox";
+import { BeneficiaryContacts } from "@/components/dashboard/beneficiary-contacts";
 import { ReceiveShareCard } from "@/components/dashboard/receive-share-card";
 import { SendPaymentWizard } from "@/components/dashboard/send-payment-wizard";
+import {
+  createRecurringDraft,
+  datetimeLocalToIso,
+  startTimeError,
+  type RecurringScheduleDraft,
+} from "@/components/recurring-schedule-fields";
+import { showSuccess } from "@/components/success-popup";
 import { DashboardEarnSummary } from "@/components/earn/dashboard-earn-summary";
+import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
@@ -63,6 +77,11 @@ import {
   paymentRequestClosedMessage,
 } from "@/lib/payment-request-client";
 import { buildPaymentRequestUrl } from "@/lib/payment-request-url";
+import {
+  createBusinessPayment,
+  submitBusinessPayment,
+} from "@/lib/business/client";
+import { dedicatedBusinessWallet } from "@/lib/business/provision-wallet";
 import {
   ensureProfile,
   fetchProfile,
@@ -80,7 +99,7 @@ import {
   type ArcScanTokenTransferResponse,
   type WalletTransfer,
 } from "@/lib/arcscan-history";
-import { erc20Abi } from "@/lib/contracts";
+import { erc20Abi, swiftRecurepayExecutorAddress } from "@/lib/contracts";
 import {
   feePercentLabel,
   platformFeeRecipient,
@@ -110,6 +129,10 @@ import {
   arcTokenSymbols,
   type ArcTokenSymbol,
 } from "@/lib/tokens";
+import {
+  authorizeRecurringSchedule,
+  createRecurringSchedule,
+} from "@/lib/recurring-schedules";
 import { quotePayment, type PaymentQuote } from "@/lib/save/client";
 import { isSwiftSaveVaultConfigured } from "@/lib/save/config";
 import {
@@ -233,7 +256,7 @@ type PortfolioChartPoint = {
 
 function formatUsdValue(value: number | undefined | null) {
   if (value === undefined || value === null || !Number.isFinite(value)) {
-    return "—";
+    return "n/a";
   }
 
   return new Intl.NumberFormat(undefined, {
@@ -246,7 +269,7 @@ function formatUsdValue(value: number | undefined | null) {
 
 function formatSignedUsdValue(value: number | undefined | null) {
   if (value === undefined || value === null || !Number.isFinite(value)) {
-    return "—";
+    return "n/a";
   }
 
   if (value === 0) {
@@ -437,17 +460,21 @@ function PortfolioValueBoard({
   addressLabel,
   changeLabel,
   currentValue,
+  hideBalance,
   historyLabel,
   isConnected,
   isLoading,
+  onToggleHideBalance,
   points,
 }: {
   addressLabel: string;
   changeLabel: string;
   currentValue: number | undefined;
+  hideBalance: boolean;
   historyLabel: string;
   isConnected: boolean;
   isLoading: boolean;
+  onToggleHideBalance: () => void;
   points: PortfolioChartPoint[];
 }) {
   const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
@@ -500,7 +527,9 @@ function PortfolioValueBoard({
     ? "Connect wallet"
     : isLoading
       ? "Loading"
-      : formatUsdValue(currentValue);
+      : hideBalance
+        ? "••••••"
+        : formatUsdValue(currentValue);
 
   function handleChartPointerMove(event: PointerEvent<HTMLDivElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -521,25 +550,29 @@ function PortfolioValueBoard({
   }
 
   return (
-    <article className="portfolio-value-board relative overflow-hidden border border-border bg-[linear-gradient(115deg,#f7f3ff_0%,#eff9fb_58%,#d9f8fb_100%)] p-4 shadow-sm dark:bg-[linear-gradient(115deg,rgba(20,18,32,0.95)_0%,rgba(13,31,36,0.95)_58%,rgba(10,47,52,0.95)_100%)] sm:p-5">
+    <article className="portfolio-value-board relative overflow-hidden border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <CircleDollarSign className="h-4 w-4 text-cyan-600" />
+            <CircleDollarSign className="h-4 w-4 text-primary" />
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
               Portfolio value
             </p>
+            <button
+              aria-label={hideBalance ? "Show balances" : "Hide balances"}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground"
+              onClick={onToggleHideBalance}
+              type="button"
+            >
+              {hideBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
           <p className="mt-2 font-heading text-4xl font-semibold tracking-normal text-foreground sm:text-5xl">
             {valueLabel}
           </p>
-          <p className="mt-2 text-sm font-semibold text-muted-foreground">
-            {isConnected ? `Live USD · ${addressLabel}` : "Connect wallet to load live USD"}
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <span className="soft-pill soft-pill-live">Arc Testnet live</span>
           <span
             className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${
               changeLabel.startsWith("+")
@@ -568,8 +601,8 @@ function PortfolioValueBoard({
         >
           <defs>
             <linearGradient id="portfolioAreaGradient" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#00d3dc" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#00d3dc" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.34" />
+              <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.02" />
             </linearGradient>
           </defs>
           {activeCoordinate ? (
@@ -588,7 +621,7 @@ function PortfolioValueBoard({
             <path
               d={linePath}
               fill="none"
-              stroke="#00d3dc"
+              stroke="#7c3aed"
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth="3"
@@ -598,7 +631,7 @@ function PortfolioValueBoard({
             <circle
               cx={toChartNumber(activeCoordinate.x)}
               cy={toChartNumber(activeCoordinate.y)}
-              fill="#00d3dc"
+              fill="#7c3aed"
               r="6"
               stroke="white"
               strokeWidth="2.5"
@@ -614,10 +647,10 @@ function PortfolioValueBoard({
             {activePoint?.label ?? latestPoint?.label ?? "Today"}
           </p>
           <p className="mt-1 font-black text-cyan-300">
-            Value: {activePoint ? formatUsdValue(activePoint.value) : "—"}
+            Value: {activePoint ? formatUsdValue(activePoint.value) : "n/a"}
           </p>
           <p className="mt-1 font-semibold text-slate-400">
-            Change: {activePoint ? formatSignedUsdValue(activePoint.delta) : "—"}
+            Change: {activePoint ? formatSignedUsdValue(activePoint.delta) : "n/a"}
           </p>
         </div>
 
@@ -854,7 +887,7 @@ function drawWrappedCanvasText(
   return y;
 }
 
-function buildReceiptJpegDataUrl(
+async function buildReceiptJpegDataUrl(
   transfer: WalletTransfer,
   walletAddress: string,
 ) {
@@ -886,18 +919,10 @@ function buildReceiptJpegDataUrl(
   context.lineWidth = 2;
   context.strokeRect(32, 32, width - 64, height - 64);
 
-  context.fillStyle = "#42118f";
-  context.fillRect(58, 58, 64, 64);
-  context.fillStyle = "#ffffff";
-  context.font = "800 28px Manrope, Arial, sans-serif";
-  context.fillText("SP", 71, 99);
-
-  context.fillStyle = "#120b20";
-  context.font = "700 34px Sora, Arial, sans-serif";
-  context.fillText("SwiftPay", 145, 84);
+  await drawSwiftPayBrand(context, 58, 58, 64);
   context.fillStyle = "#6a6079";
   context.font = "700 16px Manrope, Arial, sans-serif";
-  context.fillText("Transaction receipt", 146, 112);
+  context.fillText("Transaction receipt", 146, 136);
 
   context.fillStyle = "#120b20";
   context.font = "700 48px Sora, Arial, sans-serif";
@@ -984,6 +1009,11 @@ export function DashboardContent({
   const [recipientAddress, setRecipientAddress] = useState("");
   const [beneficiaryName, setBeneficiaryName] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
+  const [recurringDraft, setRecurringDraft] =
+    useState<RecurringScheduleDraft>(createRecurringDraft);
+  const [recurringNotice, setRecurringNotice] = useState<string | null>(null);
+  const shownSuccessKey = useRef<string | null>(null);
   const [paymentNarration, setPaymentNarration] = useState("");
   const [transactionHash, setTransactionHash] = useState<Hash>();
   const [transactionLabel, setTransactionLabel] = useState("");
@@ -1001,7 +1031,9 @@ export function DashboardContent({
     pocketName?: string;
     saveAmount?: string;
   } | null>(null);
+  const businessPaymentIdRef = useRef<string | null>(null);
 
+  const [hideBalance, setHideBalance] = useState(false);
   const [receiveAmount, setReceiveAmount] = useState("");
   const [receiveToken, setReceiveToken] = useState<ArcTokenSymbol>("USDC");
   const [paymentRequestCopied, setPaymentRequestCopied] = useState(false);
@@ -1056,9 +1088,29 @@ export function DashboardContent({
     "pending" | "paid" | "declined" | "expired" | "unknown" | null
   >(null);
 
+  const workspaceContext = useOptionalWorkspace();
+  const activeWorkspace = workspaceContext?.workspace ?? null;
+  const isBusinessWorkspace = activeWorkspace?.kind === "business";
+  const publicUsername = isBusinessWorkspace
+    ? activeWorkspace?.username ?? null
+    : null;
   const externalAddress =
     isMounted && isAccountConnected ? accountAddress : undefined;
-  const circleWallet = circleWallets[0];
+  const circleWallet = useMemo(() => {
+    if (isBusinessWorkspace) {
+      return dedicatedBusinessWallet(
+        activeWorkspace,
+        circleWallets,
+        workspaceContext?.ownerWallet,
+      );
+    }
+    return circleWallets[0];
+  }, [
+    activeWorkspace,
+    circleWallets,
+    isBusinessWorkspace,
+    workspaceContext?.ownerWallet,
+  ]);
   const circleAddress =
     circleWallet?.address && isAddress(circleWallet.address)
       ? (circleWallet.address as Address)
@@ -1071,9 +1123,11 @@ export function DashboardContent({
     (!isEmbeddedWalletMode && Boolean(externalAddress));
   // Prefer active Circle wallet when in circle mode; otherwise use external.
   // Fall back so a connected MetaMask is not ignored while walletMode is still "circle".
-  const address = isEmbeddedWalletMode
+  const address = isBusinessWorkspace
     ? circleAddress
-    : externalAddress ?? (isCircleWalletConnected ? circleAddress : undefined);
+    : isEmbeddedWalletMode
+      ? circleAddress
+      : externalAddress ?? (isCircleWalletConnected ? circleAddress : undefined);
   const isConnected = Boolean(address);
   const walletAddress = address ?? sampleAddress;
   const fallbackAddressTyped = fallbackAddress as Address;
@@ -1327,7 +1381,6 @@ export function DashboardContent({
   );
   const canSaveBeneficiary = Boolean(
     isConnected &&
-      !isEmbeddedWalletMode &&
       address &&
       isWalletAuthenticated &&
       isRecipientValid &&
@@ -1374,7 +1427,9 @@ export function DashboardContent({
       origin: window.location.origin,
       path: "/pay",
       token: receiveToken,
-      username: walletProfile?.username,
+      username:
+        (isBusinessWorkspace ? publicUsername : walletProfile?.username) ||
+        undefined,
       walletAddress,
     });
   }, [
@@ -1382,50 +1437,29 @@ export function DashboardContent({
     receiveAmount,
     receiveToken,
     walletAddress,
+    isBusinessWorkspace,
+    publicUsername,
     walletProfile?.username,
   ]);
-  const paymentNarrationSteps = useMemo(
-    () => [
-      isRecipientResolving
-        ? "Resolving recipient username"
-        : isRecipientValid
-          ? resolvedRecipientUsername
-            ? `Recipient ${formatUsernameLabel(resolvedRecipientUsername)} is ready`
-            : `Recipient ${shortenAddress(trimmedRecipientAddress)} is ready`
-          : recipientResolveError
-            ? recipientResolveError
-            : "Add a recipient wallet address or @username",
-      paymentAmountUnits !== null && paymentAmountUnits > zeroAmount
-        ? `${formatDisplayAmount(paymentAmount)} ${selectedToken} prepared`
-        : "Enter the payment amount",
-      sendFeeUnits > zeroAmount
-        ? `Platform fee ${feePercentLabel(SEND_FEE_BPS)}: ${formatDisplayAmount(formatUnits(sendFeeUnits, selectedTokenInfo.decimals))} ${selectedToken}`
-        : `Platform fee ${feePercentLabel(SEND_FEE_BPS)} applies on send`,
-      paymentQuote?.spendSave.active
-        ? `Spend&Save ${paymentQuote.spendSave.percentage}% → ${paymentQuote.spendSave.pocketName ?? "pocket"} (${paymentQuote.spendSave.saveAmount} ${selectedToken}) included in the same transaction`
-        : "Spend&Save is off for this payment",
-      trimmedPaymentNarration
-        ? `Receipt note: ${trimmedPaymentNarration}`
-        : "Add a receipt note if needed",
-    ],
-    [
-      isRecipientResolving,
-      isRecipientValid,
-      paymentAmount,
-      paymentAmountUnits,
-      paymentQuote,
-      recipientResolveError,
-      resolvedRecipientUsername,
-      selectedToken,
-      selectedTokenInfo.decimals,
-      sendFeeUnits,
-      trimmedPaymentNarration,
-      trimmedRecipientAddress,
-    ],
-  );
 
   useEffect(() => {
     setIsMounted(true);
+    if (window.location.hash === "#send") {
+      window.requestAnimationFrame(() => {
+        document.getElementById("send")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setHideBalance(window.localStorage.getItem("swiftpay.hide-balance") === "1");
+    } catch {
+      setHideBalance(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -1585,7 +1619,38 @@ export function DashboardContent({
     if (requestedMemo) {
       setPaymentNarration(requestedMemo);
     }
-  }, [dashboardPrefillQuery]);
+
+    if (
+      requestedUsername ||
+      requestedRecipient ||
+      requestedAmount ||
+      incomingRequestId
+    ) {
+      window.requestAnimationFrame(() => {
+        document.getElementById("send")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  }, [dashboardPrefillQuery, incomingRequestId]);
+
+  useEffect(() => {
+    const workspaceId = new URLSearchParams(dashboardPrefillQuery).get(
+      "workspace",
+    );
+    if (
+      workspaceId &&
+      workspaceContext?.setWorkspace &&
+      workspaceContext.workspace?.id !== workspaceId
+    ) {
+      void workspaceContext.setWorkspace(workspaceId);
+    }
+  }, [
+    dashboardPrefillQuery,
+    workspaceContext?.setWorkspace,
+    workspaceContext?.workspace?.id,
+  ]);
 
   useEffect(() => {
     if (!incomingRequestId) {
@@ -1651,7 +1716,8 @@ export function DashboardContent({
       return;
     }
 
-    const connectedAddress = address;
+    const connectedAddress =
+      workspaceContext?.ownerWallet ?? address;
     let cancelled = false;
 
     async function loadWalletProfile() {
@@ -1679,7 +1745,7 @@ export function DashboardContent({
     return () => {
       cancelled = true;
     };
-  }, [address, circleLogin, isEmbeddedWalletMode]);
+  }, [address, circleLogin, isEmbeddedWalletMode, workspaceContext?.ownerWallet]);
 
   useEffect(() => {
     if (!paymentAmountUnits || paymentAmountUnits <= zeroAmount || !address) {
@@ -1831,7 +1897,7 @@ export function DashboardContent({
 
       if (!liveQuote.spendSave.active) {
         setSpendSaveNotice(
-          "Payment succeeded. Spend&Save was on at send time but is not active for this payment — open Swift+Save to check the pocket currency and rule.",
+          "Payment succeeded. Spend&Save was on at send time but is not active for this payment. Open Swift+Save to check the pocket currency and rule.",
         );
         return;
       }
@@ -1935,7 +2001,7 @@ export function DashboardContent({
       if (spendSaveHandledTx.current === paymentTxHash) {
         spendSaveHandledTx.current = null;
       }
-      const msg = `Payment succeeded. Spend&Save needs attention: ${getErrorMessage(error)}. Your payment wasn’t affected — open Swift+Save to finish saving.`;
+      const msg = `Payment succeeded. Spend&Save needs attention: ${getErrorMessage(error)}. Your payment wasn’t affected. Open Swift+Save to finish saving.`;
       setSpendSaveNotice(msg);
       setPaymentStatus(msg);
     }
@@ -1977,6 +2043,50 @@ export function DashboardContent({
     transactionReceipt?.status,
     transactionReceipt?.transactionHash,
     transactionLabel,
+  ]);
+
+  useEffect(() => {
+    const confirmed =
+      transactionReceipt?.status === "success" || circleSendSettled;
+    if (!confirmed) {
+      return;
+    }
+
+    const key = transactionHash ?? transactionReceipt?.transactionHash ?? "settled";
+    if (shownSuccessKey.current === key) {
+      return;
+    }
+    shownSuccessKey.current = key;
+    showSuccess({
+      amount: paymentAmount
+        ? `${paymentAmount} ${selectedToken}`
+        : undefined,
+      explorerUrl: transactionExplorerUrl,
+      eyebrow: "Pay",
+      rows: [
+        { label: "To", value: recipientDisplayLabel || trimmedRecipientAddress },
+        { label: "Status", value: "Confirmed on Arc" },
+        ...(recurringNotice
+          ? [{ label: "Recurring", value: recurringNotice }]
+          : []),
+      ],
+      subtitle: paymentAmount
+        ? `${paymentAmount} ${selectedToken} is on the way.`
+        : paymentStatus,
+      title: "Payment successful",
+    });
+  }, [
+    circleSendSettled,
+    paymentAmount,
+    paymentStatus,
+    recipientDisplayLabel,
+    recurringNotice,
+    selectedToken,
+    transactionExplorerUrl,
+    transactionHash,
+    transactionReceipt?.status,
+    transactionReceipt?.transactionHash,
+    trimmedRecipientAddress,
   ]);
 
   useEffect(() => {
@@ -2113,7 +2223,7 @@ export function DashboardContent({
   }, [address, isEmbeddedWalletMode]);
 
   useEffect(() => {
-    if (!address || !isWalletAuthenticated || isEmbeddedWalletMode) {
+    if (!address || !isWalletAuthenticated) {
       setSavedBeneficiaries([]);
       setIsBeneficiariesLoading(false);
       setBeneficiaryStatus(null);
@@ -2127,7 +2237,15 @@ export function DashboardContent({
       setBeneficiaryError(null);
 
       try {
-        const response = await fetch("/api/beneficiaries", {
+        const params = new URLSearchParams({
+          ownerWallet: getAddress(address),
+        });
+        const circleSocialUuid =
+          getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined;
+        if (circleSocialUuid) {
+          params.set("circleSocialUuid", circleSocialUuid);
+        }
+        const response = await fetch(`/api/beneficiaries?${params.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -2140,7 +2258,20 @@ export function DashboardContent({
           throw new Error(payload.message ?? "Unable to load beneficiaries.");
         }
 
-        setSavedBeneficiaries(payload.beneficiaries ?? []);
+        const list = payload.beneficiaries ?? [];
+        const withUsernames = await Promise.all(
+          list.map(async (item) => {
+            try {
+              const profile = await fetchProfile(item.beneficiary_wallet);
+              return { ...item, username: profile?.username ?? null };
+            } catch {
+              return item;
+            }
+          }),
+        );
+        if (!controller.signal.aborted) {
+          setSavedBeneficiaries(withUsernames);
+        }
       } catch (error) {
         if (!controller.signal.aborted) {
           setBeneficiaryError(getErrorMessage(error));
@@ -2157,7 +2288,7 @@ export function DashboardContent({
     return () => {
       controller.abort();
     };
-  }, [address, isEmbeddedWalletMode, isWalletAuthenticated]);
+  }, [address, circleLogin, isWalletAuthenticated]);
 
   async function refreshCircleWallet() {
     if (!circleLogin || !circleWallet) {
@@ -2278,7 +2409,10 @@ export function DashboardContent({
       const response = await fetch("/api/beneficiaries", {
         body: JSON.stringify({
           beneficiaryWallet,
+          circleSocialUuid:
+            getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
           name: trimmedBeneficiaryName,
+          ownerWallet: getAddress(address),
         }),
         headers: {
           "content-type": "application/json",
@@ -2294,7 +2428,10 @@ export function DashboardContent({
         throw new Error(payload.message ?? "Beneficiary could not be saved.");
       }
 
-      mergeSavedBeneficiary(payload.beneficiary);
+      mergeSavedBeneficiary({
+        ...payload.beneficiary,
+        username: resolvedRecipientUsername,
+      });
       setBeneficiaryStatus(`${trimmedBeneficiaryName} saved`);
     } catch (error) {
       setBeneficiaryError(getErrorMessage(error));
@@ -2339,6 +2476,68 @@ export function DashboardContent({
     });
   }
 
+  async function prepareBusinessOutgoing() {
+    businessPaymentIdRef.current = null;
+    const existingPayment = new URLSearchParams(dashboardPrefillQuery).get(
+      "businessPayment",
+    );
+    if (existingPayment) {
+      businessPaymentIdRef.current = existingPayment;
+      return true;
+    }
+    if (!isBusinessWorkspace || !activeWorkspace || !workspaceContext?.ownerWallet) {
+      return true;
+    }
+    try {
+      const result = await createBusinessPayment(
+        workspaceContext.ownerWallet,
+        activeWorkspace.id,
+        {
+          amount: paymentAmount.trim(),
+          asset: selectedToken === "EURC" ? "EURC" : "USDC",
+          memo: trimmedPaymentNarration,
+          recipient: trimmedRecipientInput,
+        },
+        workspaceContext.circleSocialUuid,
+      );
+      if (
+        result.payment.approval_status === "PENDING_APPROVAL" ||
+        result.payment.approval_status === "PARTIALLY_APPROVED"
+      ) {
+        setPaymentError(
+          "This payment needs approval in Overview before it can leave the business wallet.",
+        );
+        return false;
+      }
+      businessPaymentIdRef.current = result.payment.id;
+      return true;
+    } catch (error) {
+      setPaymentError(getErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function recordBusinessOutgoing(txHash: string) {
+    const paymentId =
+      businessPaymentIdRef.current ??
+      new URLSearchParams(dashboardPrefillQuery).get("businessPayment");
+    const workspaceId =
+      activeWorkspace?.id ??
+      new URLSearchParams(dashboardPrefillQuery).get("workspace");
+    const owner =
+      workspaceContext?.ownerWallet ?? circleAddress?.toLowerCase() ?? address?.toLowerCase();
+    if (!paymentId || !workspaceId || !owner) return;
+    await submitBusinessPayment(
+      owner,
+      workspaceId,
+      paymentId,
+      { txHash },
+      workspaceContext?.circleSocialUuid ??
+        getCircleLoginIdentity(circleLogin).socialUserUUID ??
+        undefined,
+    ).catch(() => undefined);
+  }
+
   async function handleCirclePaymentAction() {
     if (isIncomingRequestClosed) {
       setPaymentError(
@@ -2363,6 +2562,10 @@ export function DashboardContent({
         recipientResolveError ??
           "Enter a valid recipient wallet address or @username.",
       );
+      return;
+    }
+
+    if (!(await prepareBusinessOutgoing())) {
       return;
     }
 
@@ -2392,7 +2595,7 @@ export function DashboardContent({
 
       if (saveBundle.active && !saveBundle.canBundle) {
         setSpendSaveNotice(
-          "Spend&Save is on, but it could not be included in this send. Payment will continue — finish saving from Swift+Save if needed.",
+          "Spend&Save is on, but it could not be included in this send. Payment will continue. Finish saving from Swift+Save if needed.",
         );
       }
 
@@ -2464,6 +2667,7 @@ export function DashboardContent({
         });
         void runSpendSaveAfterConfirmedPayment(txHash);
         void settleIncomingPaymentRequest(txHash);
+        void recordBusinessOutgoing(txHash);
       };
 
       if (result.txHash) {
@@ -2501,11 +2705,169 @@ export function DashboardContent({
     }
   }
 
+  async function authorizeDashboardAutopay(
+    scheduleId: string,
+    amountUnits: string,
+  ) {
+    if (!address) {
+      throw new Error("Connect a wallet before authorizing Autopay.");
+    }
+    if (!swiftRecurepayExecutorAddress) {
+      throw new Error("Autopay executor is not configured.");
+    }
+
+    const scheduleToken = arcTestnetTokens[selectedToken];
+    let txHash: string | undefined;
+
+    if (isEmbeddedWalletMode) {
+      const callData = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [swiftRecurepayExecutorAddress as Address, maxUint256],
+      });
+      const executed = await executePaymentCircleCall(
+        callData,
+        scheduleToken.address,
+        "Autopay approve",
+      );
+      txHash = executed.txHash;
+      if (!txHash && executed.transactionId && circleLogin && circleWallet?.id) {
+        const recovered = await recoverCircleTxHash({
+          transactionId: executed.transactionId,
+          userToken: circleLogin.userToken,
+          walletId: circleWallet.id,
+        });
+        txHash = recovered ?? undefined;
+      }
+    } else {
+      if (!(await ensureArcNetwork())) {
+        throw new Error("Switch to Arc Testnet before authorizing Autopay.");
+      }
+      txHash = await writeContractAsync({
+        abi: erc20Abi,
+        address: scheduleToken.address,
+        args: [swiftRecurepayExecutorAddress as Address, maxUint256],
+        functionName: "approve",
+        chainId: arcTestnet.id,
+      });
+    }
+
+    if (!txHash) {
+      throw new Error("Autopay approval did not return a transaction hash.");
+    }
+
+    await authorizeRecurringSchedule(scheduleId, {
+      authorizationTxHash: txHash,
+      circleSocialUuid:
+        getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
+      maxPaymentAmountUnits: amountUnits,
+      ownerWallet: address,
+    });
+  }
+
+  async function handleCreateRecurringFromPay() {
+    if (!address) {
+      setPaymentError("Connect a wallet before creating a recurring payment.");
+      return false;
+    }
+
+    if (!isRecipientValid || !resolvedRecipientAddress) {
+      setPaymentError(
+        recipientResolveError ??
+          "Enter a valid recipient wallet address or @username.",
+      );
+      return false;
+    }
+
+    if (!paymentAmount.trim()) {
+      setPaymentError("Enter a valid amount.");
+      return false;
+    }
+
+    const startError = startTimeError(recurringDraft.startsAt);
+    if (startError) {
+      setPaymentError(startError);
+      return false;
+    }
+
+    const startsAt = datetimeLocalToIso(recurringDraft.startsAt);
+    const endsAt = datetimeLocalToIso(recurringDraft.endsAt);
+
+    if (endsAt && startsAt && new Date(endsAt).getTime() < new Date(startsAt).getTime()) {
+      setPaymentError("End time must be after the start time.");
+      return false;
+    }
+
+    try {
+      setIsPreparingPayment(true);
+      setPaymentStatus("Creating recurring schedule");
+      const schedule = await createRecurringSchedule({
+        amount: paymentAmount.trim(),
+        autopayEnabled: recurringDraft.autopayEnabled,
+        beneficiaryLabel: trimmedBeneficiaryName || undefined,
+        beneficiaryUsername: resolvedRecipientUsername ?? undefined,
+        beneficiaryWallet: resolvedRecipientAddress,
+        circleSocialUuid:
+          getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
+        deferFirstOccurrence: true,
+        endsAt,
+        frequency: recurringDraft.frequency,
+        intervalDays:
+          recurringDraft.frequency === "custom"
+            ? Number(recurringDraft.intervalDays) || undefined
+            : undefined,
+        maxRuns: recurringDraft.maxRuns
+          ? Number(recurringDraft.maxRuns)
+          : undefined,
+        narration: trimmedPaymentNarration || "Pay schedule",
+        ownerWallet: address,
+        startsAt,
+        tokenSymbol: selectedToken,
+        walletMode: isEmbeddedWalletMode ? "circle" : "external",
+      });
+
+      if (recurringDraft.autopayEnabled) {
+        setPaymentStatus("Authorizing Autopay");
+        try {
+          await authorizeDashboardAutopay(schedule.id, schedule.amount_units);
+          setRecurringNotice(
+            `${schedule.frequency} schedule with Autopay authorized`,
+          );
+        } catch (authorizeError) {
+          setRecurringNotice(
+            `${schedule.frequency} schedule created. Autopay still needs authorization.`,
+          );
+          setPaymentStatus(getErrorMessage(authorizeError));
+        }
+      } else {
+        setRecurringNotice(`${schedule.frequency} schedule created`);
+      }
+
+      setPaymentStatus("Recurring payment scheduled");
+      setRecurringEnabled(false);
+      return true;
+    } catch (error) {
+      setPaymentError(getErrorMessage(error));
+      setPaymentStatus("Recurring schedule failed");
+      return false;
+    } finally {
+      setIsPreparingPayment(false);
+    }
+  }
+
     async function handlePaymentAction() {
     setPaymentError(null);
     setSpendSaveNotice(null);
     setCircleSendSettled(false);
     setTransactionHash(undefined);
+    setRecurringNotice(null);
+
+    if (recurringEnabled) {
+      const scheduled = await handleCreateRecurringFromPay();
+      if (!scheduled) {
+        return;
+      }
+    }
 
     if (isIncomingRequestClosed) {
       setPaymentError(
@@ -2534,6 +2896,10 @@ export function DashboardContent({
         recipientResolveError ??
           "Enter a valid recipient wallet address or @username.",
       );
+      return;
+    }
+
+    if (!(await prepareBusinessOutgoing())) {
       return;
     }
 
@@ -2569,7 +2935,7 @@ export function DashboardContent({
 
       if (saveBundle.active && !saveBundle.canBundle) {
         setSpendSaveNotice(
-          "Spend&Save is on, but it could not be included in this send. Payment will continue — finish saving from Swift+Save if needed.",
+          "Spend&Save is on, but it could not be included in this send. Payment will continue. Finish saving from Swift+Save if needed.",
         );
       }
 
@@ -2619,6 +2985,7 @@ export function DashboardContent({
       if (hash) {
         setTransactionHash(hash);
         void runSpendSaveAfterConfirmedPayment(hash);
+        void recordBusinessOutgoing(hash);
       }
       trackTractionEvent({
         amount: paymentAmount.trim(),
@@ -2880,6 +3247,19 @@ export function DashboardContent({
           ? `Received ${result.amountOut} ${swapTokenOut}`
           : "Swap submitted",
       );
+      showSuccess({
+        amount: result.amountOut
+          ? `${result.amountOut} ${swapTokenOut}`
+          : undefined,
+        explorerUrl: result.txHash
+          ? `${arcTestnet.blockExplorers.default.url}/tx/${result.txHash}`
+          : undefined,
+        eyebrow: "Swap",
+        subtitle: result.amountOut
+          ? `Received ${result.amountOut} ${swapTokenOut}.`
+          : "Swap submitted on Arc.",
+        title: "Swap successful",
+      });
       setSwapEstimate(undefined);
       await refreshBalances();
     } catch (error) {
@@ -2913,9 +3293,9 @@ export function DashboardContent({
     }
   }
 
-  function downloadReceipt(transfer: WalletTransfer) {
+  async function downloadReceipt(transfer: WalletTransfer) {
     try {
-      const receiptUrl = buildReceiptJpegDataUrl(transfer, walletAddress);
+      const receiptUrl = await buildReceiptJpegDataUrl(transfer, walletAddress);
       const anchor = document.createElement("a");
       anchor.href = receiptUrl;
       anchor.download = `swiftpay-receipt-${transfer.hash.slice(0, 12)}.jpg`;
@@ -2968,16 +3348,6 @@ export function DashboardContent({
     setWalletMode("circle");
   }
 
-  const usdcDisplay = isConnected
-    ? formatTokenAmount(
-        tokenBalances.USDC,
-        arcTestnetTokens.USDC.decimals,
-        "USDC",
-      )
-    : "—";
-  const eurcDisplay = isConnected
-    ? formatTokenAmount(tokenBalances.EURC, arcTestnetTokens.EURC.decimals, "EURC")
-    : "—";
   const filteredWalletTransfers = useMemo(
     () =>
       walletTransfers.filter((transfer) => {
@@ -2992,9 +3362,15 @@ export function DashboardContent({
       }),
     [activityTokenFilter, activityTypeFilter, walletTransfers],
   );
-  const dashboardGreetingName = walletProfile?.username
-    ? formatDashboardGreetingName(walletProfile.username)
-    : null;
+  const dashboardGreetingName = isBusinessWorkspace
+    ? activeWorkspace?.name ?? null
+    : walletProfile?.username
+      ? formatDashboardGreetingName(walletProfile.username)
+      : null;
+
+  const displayUsername = isBusinessWorkspace
+    ? publicUsername
+    : walletProfile?.username ?? null;
 
   const workspace = (
     <>
@@ -3002,7 +3378,7 @@ export function DashboardContent({
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="dashboard-greeting">
-                Welcome back
+                Welcome
                 {dashboardGreetingName ? (
                   <>
                     ,{" "}
@@ -3012,9 +3388,13 @@ export function DashboardContent({
                   </>
                 ) : null}
               </p>
-              <h1 className="section-title dashboard-funds-title">Your funds, ready</h1>
+              <h1 className="section-title dashboard-funds-title">
+                {isBusinessWorkspace ? "Business balance" : "Your funds, ready"}
+              </h1>
               <p className="section-copy">
-                Live portfolio, token balances, and settlement activity on Arc Testnet.
+                {isBusinessWorkspace
+                  ? `${activeWorkspace?.name ?? "Business"} · @${activeWorkspace?.username ?? "business"} · Arc`
+                  : "Live portfolio, token balances, and settlement activity on Arc Testnet."}
               </p>
             </div>
             <p className="font-mono text-xs text-muted-foreground">
@@ -3026,9 +3406,24 @@ export function DashboardContent({
             addressLabel={shortenAddress(walletAddress)}
             changeLabel={portfolioChangeLabel}
             currentValue={portfolioValue}
+            hideBalance={hideBalance}
             historyLabel={portfolioHistoryLabel}
             isConnected={isConnected}
             isLoading={isPortfolioLoading}
+            onToggleHideBalance={() => {
+              setHideBalance((current) => {
+                const next = !current;
+                try {
+                  window.localStorage.setItem(
+                    "swiftpay.hide-balance",
+                    next ? "1" : "0",
+                  );
+                } catch {
+                  // ignore
+                }
+                return next;
+              });
+            }}
             points={portfolioChartPoints}
           />
 
@@ -3065,7 +3460,9 @@ export function DashboardContent({
 
                   <p className="mt-8 font-heading text-3xl font-semibold tracking-normal text-ink sm:text-4xl">
                     {isConnected
-                      ? formatTokenAmount(balance, token.decimals, symbol)
+                      ? hideBalance
+                        ? "••••••"
+                        : formatTokenAmount(balance, token.decimals, symbol)
                       : "Nothing here yet"}
                   </p>
 
@@ -3087,10 +3484,12 @@ export function DashboardContent({
           }
         />
 
+        <DashboardCircleInvites />
+
         <QuickActions className="mb-2" />
 
         <section
-          className="grid min-w-0 items-start gap-4 overflow-x-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]"
+          className="dashboard-pay-row"
           id="send"
         >
           <div className="glass-panel min-w-0 self-start overflow-x-hidden p-3 sm:p-5">
@@ -3103,7 +3502,6 @@ export function DashboardContent({
               canSaveBeneficiary={canSaveBeneficiary}
               canSubmitPayment={canSubmitPayment}
               isAuthenticatingWallet={isAuthenticatingWallet}
-              isBeneficiariesLoading={isBeneficiariesLoading}
               isBeneficiarySaving={isBeneficiarySaving}
               isCirclePaymentPending={isCirclePaymentPending}
               isConfirming={isConfirming}
@@ -3127,13 +3525,9 @@ export function DashboardContent({
               onPaymentAmountChange={setPaymentAmount}
               onPaymentNarrationChange={setPaymentNarration}
               onRecipientChange={setRecipientAddress}
+              onRecurringChange={setRecurringDraft}
+              onRecurringEnabledChange={setRecurringEnabled}
               onSaveBeneficiary={() => void handleSaveBeneficiary()}
-              onSelectBeneficiary={(beneficiary) => {
-                setBeneficiaryName(beneficiary.name);
-                setRecipientAddress(beneficiary.beneficiary_wallet);
-                setBeneficiaryError(null);
-                setBeneficiaryStatus(null);
-              }}
               onSelectToken={setSelectedToken}
               onSubmit={() => void handlePaymentAction()}
               onWalletSignIn={() => void handleWalletSignIn()}
@@ -3143,15 +3537,18 @@ export function DashboardContent({
               paymentNarration={paymentNarration}
               paymentStatus={paymentStatus}
               spendSaveNotice={spendSaveNotice}
-              primaryButtonText={primaryButtonText}
+              primaryButtonText={
+                recurringEnabled ? "Pay and schedule" : primaryButtonText
+              }
               receiveHref={
-                walletProfile?.username
-                  ? `/pay?username=${encodeURIComponent(walletProfile.username)}`
+                displayUsername
+                  ? `/pay?username=${encodeURIComponent(displayUsername)}`
                   : `/pay?to=${encodeURIComponent(walletAddress)}`
               }
               recipientAddress={recipientAddress}
+              recurring={recurringDraft}
+              recurringEnabled={recurringEnabled}
               refreshBalances={refreshBalancesFromButton}
-              savedBeneficiaries={savedBeneficiaries}
               selectedToken={selectedToken}
               settlementQuote={
                 paymentAmountUnits
@@ -3185,55 +3582,28 @@ export function DashboardContent({
               walletAddress={walletAddress}
             />
           </div>
-
-          <div className="grid min-w-0 gap-4">
+          <div className="dashboard-pay-side">
             <ReceiveShareCard
               isConnected={isConnected}
-              username={walletProfile?.username}
+              username={displayUsername}
               walletAddress={walletAddress}
             />
-
-            <div className="surface-panel min-w-0 overflow-x-hidden p-3 sm:p-5">
-              <div className="mb-4 flex min-w-0 flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="eyebrow">Insights</p>
-                  <h2 className="mt-3 font-heading text-lg font-semibold tracking-normal text-ink sm:text-xl">
-                    Payment notes
-                  </h2>
-                </div>
-                <button
-                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-swift-600 to-lavender-500 px-3 text-xs font-black text-white shadow-[0_12px_26px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 active:translate-y-0 sm:h-10 sm:px-4"
-                  onClick={refreshBalancesFromButton}
-                  type="button"
-                >
-                  Refresh
-                </button>
-              </div>
-
-              <p className="text-sm leading-6 text-muted">
-                Live narration for the payment currently being prepared.
-              </p>
-
-              <div className="mt-5 grid min-w-0 gap-2 rounded-lg border border-dashed border-border bg-muted/60 px-3 py-3 sm:px-4 sm:py-4">
-                {paymentNarrationSteps.map((step, index) => (
-                  <div
-                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-3"
-                    key={step}
-                  >
-                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-card text-xs font-black text-primary shadow-sm">
-                      {index + 1}
-                    </span>
-                    <span className="min-w-0 break-words text-sm font-semibold leading-6 text-muted">
-                      {step}
-                    </span>
-                  </div>
-                ))}
-                <p className="mt-2 text-sm leading-6 text-muted">
-                  Recent transfers indexed: {walletTransfers.length}.
-                </p>
-              </div>
-            </div>
-
+            <BeneficiaryContacts
+              isLoading={isBeneficiariesLoading}
+              onSelect={(beneficiary) => {
+                setBeneficiaryName(beneficiary.name);
+                setRecipientAddress(
+                  beneficiary.username
+                    ? `@${beneficiary.username}`
+                    : beneficiary.beneficiary_wallet,
+                );
+                setBeneficiaryError(null);
+                setBeneficiaryStatus(null);
+              }}
+              savedBeneficiaries={savedBeneficiaries}
+              selectedWallet={trimmedRecipientAddress}
+              shortenAddress={shortenAddress}
+            />
           </div>
         </section>
 
@@ -3398,7 +3768,7 @@ export function DashboardContent({
     >
       {workspace}
       {receiptTransfer ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-swift-700/40 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm dark:bg-background/70">
           <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-lg">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -3499,7 +3869,7 @@ export function DashboardContent({
       ) : null}
 
       {receiveOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-swift-700/40 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm dark:bg-background/70">
           <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-lg">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -3559,9 +3929,9 @@ export function DashboardContent({
               <p className="mb-3 break-all text-xs font-bold leading-5 text-swift-700">
                 {paymentRequestUrl || "Payment link will be generated here."}
               </p>
-              {walletProfile?.username ? (
+              {displayUsername ? (
                 <p className="mb-2 text-sm font-bold text-swift-700">
-                  {formatUsernameLabel(walletProfile.username)}
+                  {formatUsernameLabel(displayUsername)}
                 </p>
               ) : null}
               <p className="truncate font-mono text-sm font-bold text-ink">

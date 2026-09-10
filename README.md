@@ -25,7 +25,6 @@ Contract and script commands are also routed from the root:
 ```sh
 npm run contracts:compile
 npm run contracts:deploy
-npm run contracts:deploy-escrow
 npm run contracts:deploy-swiftbatch
 npm run create-wallet
 npm run batch-wallets
@@ -34,14 +33,6 @@ npm run bridge
 npm run swap
 npm run send
 ```
-
-## Private payments (PrivSwiftPay)
-
-Confidential settlement uses **PrivSwiftPay** claim-code escrow — not plain transfers.
-
-- UI: `/privSwiftPay` (private send, payroll, claim)
-- Contract: `NEXT_PUBLIC_PRIVSWIFTPAY_ESCROW_ADDRESS`
-- Standard dashboard send remains a public on-chain transfer
 
 ## Earn (USDC yield vault)
 
@@ -200,16 +191,15 @@ The dashboard reports actual tracked data only. It does not invent MAU, AUM, or 
 
 Implementation notes and event naming: `docs/traction-analytics.md`.
 
-SwiftBatch, SwiftRecurepay, and PrivSwiftPay escrow charge a **1% platform fee** (100 bps).
+SwiftBatch and SwiftRecurepay charge a **1% platform fee** (100 bps).
 
 ```sh
 PLATFORM_FEE_RECIPIENT=
 NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=
 NEXT_PUBLIC_SWIFTBATCH_ADDRESS=
 NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS=
-NEXT_PUBLIC_PRIVSWIFTPAY_ESCROW_ADDRESS=
 ```
 
-`PLATFORM_FEE_RECIPIENT` receives the fee (SwiftBatch, Recurepay, and PrivSwiftPay).  
+`PLATFORM_FEE_RECIPIENT` receives the fee (SwiftBatch and RecurePay).  
 Fee transfers to that address are **hidden from the end-user transaction history** feed.  
-Redeploy contracts after fee constant changes (`pnpm contracts:deploy-swiftbatch`, `pnpm contracts:deploy-swiftrecurepay`, `pnpm --filter @swiftpay/contracts deploy:escrow`).
+Redeploy contracts after fee constant changes (`pnpm contracts:deploy-swiftbatch`, `pnpm contracts:deploy-swiftrecurepay`).

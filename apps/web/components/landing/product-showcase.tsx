@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownUp,
   Bell,
+  CalendarClock,
   LayoutDashboard,
-  LockKeyhole,
   PiggyBank,
   ReceiptText,
   RefreshCw,
@@ -33,7 +33,7 @@ const sidebarItems = [
   { icon: ReceiptText, id: "request", label: "Request" },
   { icon: Users, id: "batch", label: "SwiftBatch" },
   { icon: PiggyBank, id: "save", label: "Swift+Save" },
-  { icon: LockKeyhole, id: "private", label: "PrivSwiftPay" },
+  { icon: CalendarClock, id: "recure", label: "RecurePay" },
 ] as const;
 
 function ScreenShell({
@@ -59,13 +59,15 @@ function ScreenShell({
       </div>
       <div className="grid min-h-0 grid-rows-[1fr_auto] gap-2.5 rounded-2xl border border-border bg-card p-3">
         <div className="grid min-h-0 content-start gap-2.5">{children}</div>
-        <div className="inline-flex h-10 items-center justify-center rounded-full bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 text-sm font-bold text-slate-950">
+        {/* Primary action button — solid brand color, not rainbow */}
+        <div className="inline-flex h-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
           {action}
         </div>
       </div>
     </div>
   );
 }
+
 
 function SwapScreen() {
   return (
@@ -259,7 +261,7 @@ function PreviewBoard() {
             aria-label={`Show ${slide.label}`}
             className={`h-1.5 rounded-full border-0 transition-all ${
               slideIndex === index
-                ? "w-5 bg-gradient-to-r from-cyan-400 to-violet-400"
+                ? "w-5 bg-primary"
                 : "w-1.5 bg-muted-foreground/40"
             }`}
             key={slide.id}
@@ -275,7 +277,29 @@ function PreviewBoard() {
   );
 }
 
-export function ProductShowcase() {
+export function ProductShowcase({
+  placement = "section",
+}: {
+  placement?: "hero" | "section";
+}) {
+  const isHeroPlacement = placement === "hero";
+
+  if (isHeroPlacement) {
+    return (
+      <section
+        aria-label="SwiftPay product preview"
+        className="landing-hero-showcase"
+      >
+        <FadeUp className="landing-hero-preview">
+          <div className="landing-hero-brand-strip">
+            <HeroBrandDisplay />
+          </div>
+          <PreviewBoard />
+        </FadeUp>
+      </section>
+    );
+  }
+
   return (
     <section
       aria-label="SwiftPay product preview"

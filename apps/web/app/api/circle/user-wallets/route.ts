@@ -13,6 +13,7 @@ type CircleAction =
   | "createTransfer"
   | "createContractExecution"
   | "createDeviceToken"
+  | "createWallet"
   | "getEntityConfig"
   | "getChallenge"
   | "getTransaction"
@@ -42,6 +43,7 @@ type CircleActionBody = {
   userToken?: string;
   walletId?: string;
   walletIds?: string[];
+  walletName?: string;
 };
 
 type CircleWalletApiResponse = {
@@ -324,6 +326,30 @@ export async function POST(request: Request) {
           accountType: "SCA",
           blockchains: ["ARC-TESTNET"],
           idempotencyKey: crypto.randomUUID(),
+        },
+        method: "POST",
+        userToken: body.userToken,
+      });
+    }
+
+    case "createWallet": {
+      if (!body.userToken) {
+        return missingParameter("userToken");
+      }
+
+      return requestCircle("/v1/w3s/user/wallets", {
+        body: {
+          accountType: "SCA",
+          blockchains: ["ARC-TESTNET"],
+          idempotencyKey: crypto.randomUUID(),
+          metadata: {
+            name:
+              typeof body.walletName === "string" && body.walletName.trim()
+                ? body.walletName.trim().slice(0, 80)
+                : "Business",
+            refId:
+              typeof body.refId === "string" ? body.refId.slice(0, 120) : undefined,
+          },
         },
         method: "POST",
         userToken: body.userToken,

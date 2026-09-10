@@ -37,7 +37,6 @@ const categoryMeta: Record<AlertCategory, { label: string; hint: string }> = {
   payments: { label: "Money in", hint: "Incoming transfers" },
   requests: { label: "Requests", hint: "Pay requests and declines" },
   savings: { label: "Savings", hint: "Pockets, Spend&Save, locks" },
-  claims: { label: "Claims", hint: "Private claim codes" },
 };
 
 export function AlertsSettings() {
@@ -391,7 +390,7 @@ export function AlertsSettings() {
               <div className="rounded-xl border border-border/80 px-3 py-2.5">
                 <p className="text-[11px] text-muted-foreground">Unread</p>
                 <p className="mt-1 text-lg font-semibold tracking-tight">
-                  {loading ? "—" : unreadCount}
+                  {loading ? "n/a" : unreadCount}
                 </p>
                 <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Clock3 className="h-3 w-3" />
@@ -401,7 +400,7 @@ export function AlertsSettings() {
               <div className="rounded-xl border border-border/80 px-3 py-2.5">
                 <p className="text-[11px] text-muted-foreground">Read</p>
                 <p className="mt-1 text-lg font-semibold tracking-tight">
-                  {loading ? "—" : readCount}
+                  {loading ? "n/a" : readCount}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   Safe to clear
@@ -456,7 +455,6 @@ function defaultPrefsSafe() {
       payments: true,
       requests: true,
       savings: true,
-      claims: true,
     },
   } satisfies AlertPreferences;
 }

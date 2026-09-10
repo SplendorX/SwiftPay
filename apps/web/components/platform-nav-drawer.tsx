@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useOptionalAccount } from "@/components/account/account-provider";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { platformNavItems } from "@/components/platform-nav";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,8 @@ const shouldPrefetchPlatformRoutes = process.env.NODE_ENV === "production";
 export function PlatformNavDrawer() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const isBusiness = useOptionalAccount()?.isBusiness ?? false;
+  const items = platformNavItems.filter((item) => !item.businessOnly || isBusiness);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -31,13 +34,13 @@ export function PlatformNavDrawer() {
   }, [pathname]);
 
   return (
-    <div className="relative z-[110] lg:hidden">
+    <div className="relative z-[110] shrink-0 lg:hidden">
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-label="Open navigation"
         className={cn(
-          "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold shadow-sm transition",
+          "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold shadow-sm transition",
           open
             ? "border-primary bg-primary text-primary-foreground"
             : "border-border bg-background text-foreground hover:border-primary/30",
@@ -57,7 +60,7 @@ export function PlatformNavDrawer() {
           <aside
             aria-label="Platform navigation"
             aria-modal="true"
-            className="drawer-slide-panel absolute top-3 right-3 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-card p-3 text-foreground shadow-2xl"
+            className="drawer-slide-panel absolute top-3 right-3 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
           >
@@ -74,8 +77,11 @@ export function PlatformNavDrawer() {
             </div>
 
             <nav aria-label="Slide navigation" className="grid gap-1.5">
-              {platformNavItems.map((item) => {
-                const isActive = pathname.startsWith(item.href);
+              {items.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/business" &&
+                    pathname.startsWith(`${item.href}/`));
                 const Icon = item.icon;
 
                 return (

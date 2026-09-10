@@ -130,10 +130,12 @@ async function fetchWithRelaxedTls(
             }
           });
 
+          const status = response.statusCode ?? 500;
+          const bodyless = status === 204 || status === 205 || status === 304;
           resolve(
-            new Response(Buffer.concat(chunks), {
+            new Response(bodyless ? null : Buffer.concat(chunks), {
               headers: responseHeaders,
-              status: response.statusCode ?? 500,
+              status,
               statusText: response.statusMessage,
             }),
           );

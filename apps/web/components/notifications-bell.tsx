@@ -5,10 +5,8 @@ import {
   Ban,
   Bell,
   CheckCheck,
-  Copy,
   ExternalLink,
   Loader2,
-  LockKeyhole,
   PiggyBank,
   ReceiptText,
 } from "lucide-react";
@@ -38,19 +36,23 @@ import {
 } from "@/lib/notifications/dismissed";
 import {
   deleteSavingsNotifications,
+  emitNotificationsChanged,
   notificationsChangedEvent,
 } from "@/lib/save/client";
 import {
-  extractClaimCodeFromNotification,
   extractPaymentRequestId,
   getAlertInboxCategory,
   isPaymentRequestDeclinedNotification,
   isPaymentRequestMarkedDeclined,
   isPaymentRequestMarkedPaid,
   isPaymentRequestNotification,
-  isPrivSwiftPayClaimNotification,
+  isCircleNotification,
+  isCircleInvitationNotification,
+  circleNotificationHref,
+  extractCircleInvitationId,
   type SavingsNotificationRecord,
 } from "@/lib/save/notifications";
+import { respondToInvitationClient } from "@/lib/swift-circle/client";
 import {
   fetchWalletSessionForAddress,
   walletSessionChangedEventName,
@@ -86,14 +88,6 @@ function getMeta(item: SavingsNotificationRecord) {
   return item.metadata as Record<string, unknown>;
 }
 
-function getClaimCodeFromNotification(item: SavingsNotificationRecord) {
-  return extractClaimCodeFromNotification(item);
-}
-
-function isClaimNotification(item: SavingsNotificationRecord) {
-  return isPrivSwiftPayClaimNotification(item);
-}
-
 function getDepositTxHash(item: SavingsNotificationRecord) {
   const meta = getMeta(item);
   const hash = meta?.depositTxHash;
@@ -105,7 +99,6 @@ function getDepositTxHash(item: SavingsNotificationRecord) {
     return bodyTx[1];
   }
   if (
-    !isClaimNotification(item) &&
     item.related_tx_hash &&
     /^0x[a-fA-F0-9]{64}$/i.test(item.related_tx_hash)
   ) {
@@ -114,22 +107,7 @@ function getDepositTxHash(item: SavingsNotificationRecord) {
   return null;
 }
 
-function claimSummaryFromBody(item: SavingsNotificationRecord) {
-  const meta = getMeta(item);
-  if (typeof meta?.amount === "string" && typeof meta?.token === "string") {
-    return `${meta.amount} ${meta.token} ready to claim`;
-  }
-  const match = item.body?.match(/You received \$([0-9.]+)\s+([A-Z]+)/i);
-  if (match) {
-    return `${match[1]} ${match[2]} ready to claim`;
-  }
-  return null;
-}
-
 function displayTitle(item: SavingsNotificationRecord) {
-  if (isClaimNotification(item)) {
-    return claimSummaryFromBody(item) ?? item.title;
-  }
   return item.title;
 }
 
@@ -147,8 +125,6 @@ function displayBody(item: SavingsNotificationRecord) {
     .replace(/DECLINED_BY:\S+/gi, "")
     .replace(/\bDECLINED:1\b/gi, "")
     .replace(/\bPAID:1\b/gi, "")
-    .replace(/Open PrivSwiftPay[^\n.]*/gi, "")
-    .replace(/Copy claim code below\.?/gi, "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
@@ -157,10 +133,6 @@ function displayBody(item: SavingsNotificationRecord) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 220);
-}
-
-function claimPageHref(claimCode: string) {
-  return `/privSwiftPay/claim?code=${encodeURIComponent(claimCode)}`;
 }
 
 function paymentRequestHref(item: SavingsNotificationRecord) {
@@ -201,10 +173,10 @@ export function NotificationsBell({ className }: { className?: string }) {
   const [loading, setLoading] = useState(false);
   const [marking, setMarking] = useState(false);
   const [decliningId, setDecliningId] = useState<string | null>(null);
+  const [inviteActionId, setInviteActionId] = useState<string | null>(null);
   const [items, setItems] = useState<SavingsNotificationRecord[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [authHint, setAuthHint] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [alertPrefs, setAlertPrefs] = useState(() =>
     typeof window === "undefined"
       ? {
@@ -216,7 +188,6 @@ export function NotificationsBell({ className }: { className?: string }) {
             payments: true,
             requests: true,
             savings: true,
-            claims: true,
           },
         }
       : readAlertPreferences(),
@@ -391,17 +362,18 @@ export function NotificationsBell({ className }: { className?: string }) {
 
       if (hasLoadedOnce.current) {
         for (const item of next) {
-          const isClaim = isClaimNotification(item);
-          const isRequest = isPaymentRequestNotification(item);
+          const isCircleInvite = isCircleInvitationNotification(item);
+          const isRequest =
+            !isCircleInvite && isPaymentRequestNotification(item);
           const isDeclined = isPaymentRequestDeclinedNotification(item);
           const isReceive =
             item.kind === "payment_received" &&
-            !isClaim &&
             !isRequest &&
-            !isDeclined;
+            !isDeclined &&
+            !isCircleInvite;
 
           if (
-            (isReceive || isClaim || isRequest || isDeclined) &&
+            (isReceive || isRequest || isDeclined || isCircleInvite) &&
             !item.read_at &&
             !knownIdsRef.current.has(item.id)
           ) {
@@ -409,15 +381,17 @@ export function NotificationsBell({ className }: { className?: string }) {
             if (!shouldShowAlertToast(alertPrefs, category)) {
               continue;
             }
-            const claimCode = getClaimCodeFromNotification(item);
             const requestHref = isRequest ? paymentRequestHref(item) : null;
+            const inviteHref = isCircleInvite
+              ? circleNotificationHref(item)
+              : null;
             toast.success(displayTitle(item), {
               description: displayBody(item),
-              action: claimCode
+              action: inviteHref
                 ? {
-                    label: "Claim",
+                    label: "Review",
                     onClick: () => {
-                      window.location.href = claimPageHref(claimCode);
+                      window.location.href = inviteHref;
                     },
                   }
                 : requestHref
@@ -510,18 +484,37 @@ export function NotificationsBell({ className }: { className?: string }) {
     }
   }
 
-  async function copyClaimCode(item: SavingsNotificationRecord) {
-    const code = getClaimCodeFromNotification(item);
-    if (!code || typeof navigator === "undefined") return;
+  async function respondToCircleInvite(
+    item: SavingsNotificationRecord,
+    action: "accept" | "decline",
+  ) {
+    if (!ownerWallet) return;
+    const invitationId = extractCircleInvitationId(item);
+    if (!invitationId) {
+      toast.error("This invitation could not be found.");
+      return;
+    }
+    setInviteActionId(`${item.id}:${action}`);
     try {
-      await navigator.clipboard.writeText(code);
-      setCopiedId(item.id);
-      toast.success("Claim code copied");
-      window.setTimeout(() => {
-        setCopiedId((current) => (current === item.id ? null : current));
-      }, 1600);
-    } catch {
-      toast.error("Could not copy claim code");
+      await respondToInvitationClient(
+        invitationId,
+        ownerWallet,
+        action,
+        circleSocialUuid,
+      );
+      toast.success(
+        action === "accept" ? "You joined the Circle." : "Invitation declined.",
+      );
+      setItems((prev) => prev.filter((current) => current.id !== item.id));
+      emitNotificationsChanged();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not update this invitation.",
+      );
+    } finally {
+      setInviteActionId(null);
     }
   }
 
@@ -605,7 +598,7 @@ export function NotificationsBell({ className }: { className?: string }) {
         aria-label={
           badge ? `Notifications, ${unreadCount} unread` : "Notifications"
         }
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-background/70 text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-background hover:text-foreground"
+        className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-background/70 text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-background hover:text-foreground"
         onClick={toggle}
         type="button"
       >
@@ -627,7 +620,7 @@ export function NotificationsBell({ className }: { className?: string }) {
             <div>
               <p className="text-sm font-semibold">Notifications</p>
               <p className="text-[11px] text-muted-foreground">
-                Payments, claim codes, and savings
+                Payments, requests, and savings
               </p>
             </div>
             <div className="flex items-center gap-1">
@@ -674,7 +667,7 @@ export function NotificationsBell({ className }: { className?: string }) {
                 <Bell className="mx-auto h-8 w-8 text-muted-foreground/60" />
                 <p className="mt-3 text-sm font-medium">You’re all caught up</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Incoming payments, claim codes, and savings updates show up
+                  Incoming payments, requests, and savings updates show up
                   here.
                 </p>
               </div>
@@ -682,23 +675,21 @@ export function NotificationsBell({ className }: { className?: string }) {
               <ul className="divide-y divide-border/70">
                 {items.map((item) => {
                   const unread = !item.read_at;
+                  const isCircleInvite = isCircleInvitationNotification(item);
                   const isDeclinedNotice =
                     isPaymentRequestDeclinedNotification(item);
                   const isReceive =
                     item.kind === "payment_received" &&
-                    !isClaimNotification(item) &&
                     !isPaymentRequestNotification(item) &&
-                    !isDeclinedNotice;
-                  const isClaim = isClaimNotification(item);
-                  const isRequest = isPaymentRequestNotification(item);
+                    !isDeclinedNotice &&
+                    !isCircleInvite;
+                  const isRequest =
+                    !isCircleInvite && isPaymentRequestNotification(item);
                   const requestDeclined =
                     isRequest && isPaymentRequestMarkedDeclined(item);
                   const requestPaid =
                     isRequest && isPaymentRequestMarkedPaid(item);
                   const requestClosed = requestDeclined || requestPaid;
-                  const claimCode = isClaim
-                    ? getClaimCodeFromNotification(item)
-                    : null;
                   const requestHref = isRequest ? paymentRequestHref(item) : null;
                   const txHash = getDepositTxHash(item);
 
@@ -720,17 +711,13 @@ export function NotificationsBell({ className }: { className?: string }) {
                                   ? "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
                                   : isDeclinedNotice
                                     ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
-                                    : isClaim
-                                      ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
-                                      : "bg-muted text-muted-foreground",
+                                    : "bg-muted text-muted-foreground",
                             )}
                           >
                             {isReceive ? (
                               <ArrowDownLeft className="h-3.5 w-3.5" />
                             ) : isRequest || isDeclinedNotice ? (
                               <ReceiptText className="h-3.5 w-3.5" />
-                            ) : isClaim ? (
-                              <LockKeyhole className="h-3.5 w-3.5" />
                             ) : (
                               <PiggyBank className="h-3.5 w-3.5" />
                             )}
@@ -758,6 +745,49 @@ export function NotificationsBell({ className }: { className?: string }) {
                                   onClick={() => setOpen(false)}
                                 >
                                   View pocket
+                                </Link>
+                              ) : null}
+                              {isCircleInvite ? (
+                                <>
+                                  <button
+                                    className="text-[11px] font-medium text-primary hover:underline"
+                                    disabled={inviteActionId === `${item.id}:accept`}
+                                    onClick={() =>
+                                      void respondToCircleInvite(item, "accept")
+                                    }
+                                    type="button"
+                                  >
+                                    {inviteActionId === `${item.id}:accept`
+                                      ? "Joining…"
+                                      : "Accept"}
+                                  </button>
+                                  <button
+                                    className="text-[11px] font-medium text-rose-600 hover:underline dark:text-rose-400"
+                                    disabled={inviteActionId === `${item.id}:decline`}
+                                    onClick={() =>
+                                      void respondToCircleInvite(item, "decline")
+                                    }
+                                    type="button"
+                                  >
+                                    {inviteActionId === `${item.id}:decline`
+                                      ? "Declining…"
+                                      : "Decline"}
+                                  </button>
+                                  <Link
+                                    className="text-[11px] font-medium text-primary hover:underline"
+                                    href={circleNotificationHref(item)}
+                                    onClick={() => setOpen(false)}
+                                  >
+                                    Open invitations
+                                  </Link>
+                                </>
+                              ) : isCircleNotification(item) ? (
+                                <Link
+                                  className="text-[11px] font-medium text-primary hover:underline"
+                                  href={circleNotificationHref(item)}
+                                  onClick={() => setOpen(false)}
+                                >
+                                  Open Circle
                                 </Link>
                               ) : null}
                               {isReceive ? (
@@ -804,38 +834,6 @@ export function NotificationsBell({ className }: { className?: string }) {
                                 <span className="text-[11px] font-medium text-muted-foreground">
                                   Paid
                                 </span>
-                              ) : null}
-                              {isClaim && claimCode ? (
-                                <>
-                                  <button
-                                    aria-label={
-                                      copiedId === item.id
-                                        ? "Claim code copied"
-                                        : "Copy claim code"
-                                    }
-                                    className="inline-flex h-5 w-5 items-center justify-center text-primary hover:text-foreground"
-                                    onClick={() => void copyClaimCode(item)}
-                                    title={
-                                      copiedId === item.id
-                                        ? "Copied"
-                                        : "Copy claim code"
-                                    }
-                                    type="button"
-                                  >
-                                    {copiedId === item.id ? (
-                                      <CheckCheck className="h-3.5 w-3.5" />
-                                    ) : (
-                                      <Copy className="h-3.5 w-3.5" />
-                                    )}
-                                  </button>
-                                  <Link
-                                    className="text-[11px] font-medium text-primary hover:underline"
-                                    href={claimPageHref(claimCode)}
-                                    onClick={() => setOpen(false)}
-                                  >
-                                    Open claim page
-                                  </Link>
-                                </>
                               ) : null}
                               {txHash ? (
                                 <a

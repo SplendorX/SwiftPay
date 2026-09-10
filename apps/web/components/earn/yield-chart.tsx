@@ -96,7 +96,7 @@ export function YieldChart({
         <span className="earn-pill">From indexed events</span>
       </div>
       <p className="earn-footnote earn-chart-note">
-        Points reflect deposits, withdrawals, and your current on-chain value —
+        Points reflect deposits, withdrawals, and your current on-chain value.
         not interpolated daily yield.
       </p>
 

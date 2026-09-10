@@ -20,8 +20,8 @@ export default function SettingsPage() {
               <p className="section-eyebrow">Settings</p>
               <h2 className="section-title">Account preferences</h2>
               <p className="section-copy">
-                Manage the profile-level defaults SwiftPay uses across wallet,
-                payment, and privacy workflows.
+                Manage the profile-level defaults SwiftPay uses across wallet
+                and payment workflows.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

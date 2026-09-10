@@ -2,14 +2,19 @@
 
 import { motion } from "framer-motion";
 
+import { StablecoinBackground } from "@/components/landing/stablecoin-background";
+
 export function AmbientBackground({ variant = "default" }: { variant?: "default" | "hero" | "dashboard" }) {
   if (variant === "dashboard") {
     return null;
   }
 
+  if (variant === "hero") {
+    return <StablecoinBackground />;
+  }
+
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {variant === "hero" ? <div className="ambient-hero absolute inset-0" /> : null}
       <div className="ambient-grid absolute inset-x-0 top-0 h-[min(50vh,480px)]" />
       <motion.div
         animate={{ x: [0, 20, 0], y: [0, -12, 0] }}

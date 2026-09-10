@@ -2,7 +2,7 @@ import "./globals.css";
 
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Manrope, Sora } from "next/font/google";
+import { Instrument_Serif, Manrope, Sora } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/app/providers";
@@ -22,7 +22,13 @@ const sora = Sora({
   weight: ["400", "500", "600", "700"],
 });
 
-const siteTitle = "SwiftPay | Financial infrastructure on Arc";
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: "400",
+});
+
+const siteTitle = "SwiftPay | Do more with USDC";
 const siteDescription =
   "Money movement infrastructure for the internet. Send, batch, request, swap, and settle stablecoins on Arc Testnet.";
 const brandMark = "/brand/swiftpay-mark.png";
@@ -71,7 +77,7 @@ export const metadata: Metadata = {
   },
 };
 
-const themeInitScript = `(function(){try{var theme=localStorage.getItem("swiftpay.theme");if(theme==="dark"){document.documentElement.dataset.theme="dark";document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}}catch(error){}})();`;
+const themeInitScript = `(function(){try{var pref=localStorage.getItem("swiftpay.theme")||"dark";var resolved=pref;if(pref==="system"){resolved=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var dark=resolved==="dark";document.documentElement.dataset.theme=dark?"dark":"light";document.documentElement.dataset.themePref=pref;document.documentElement.style.colorScheme=dark?"dark":"light";document.documentElement.classList.toggle("dark",dark);var surface=localStorage.getItem("swiftpay.light-surface");document.documentElement.dataset.lightSurface=surface==="glass"?"glass":"cream";var loc=localStorage.getItem("swiftpay.locale");if(loc){document.documentElement.lang=loc;document.documentElement.dir=loc==="ar"?"rtl":"ltr";}}catch(error){document.documentElement.classList.add("dark");document.documentElement.dataset.theme="dark";document.documentElement.style.colorScheme="dark";document.documentElement.dataset.lightSurface="cream";}})();`;
 
 export default async function RootLayout({
   children,
@@ -83,8 +89,9 @@ export default async function RootLayout({
 
   return (
     <html
-      className={cn(manrope.variable, sora.variable)}
+      className={cn(manrope.variable, sora.variable, instrumentSerif.variable, "dark")}
       data-scroll-behavior="smooth"
+      data-theme="dark"
       lang="en"
       suppressHydrationWarning
     >

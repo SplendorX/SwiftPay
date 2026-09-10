@@ -23,10 +23,12 @@ import {
 } from "wagmi";
 import { formatUnits, isAddress, parseUnits, type Address } from "viem";
 
+import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu } from "@/components/profile-menu";
+import { showSuccess } from "@/components/success-popup";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
@@ -41,6 +43,7 @@ import {
 import { erc20Abi } from "@/lib/contracts";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import { getSwapErrorMessage } from "@/lib/swap-errors";
+import { activeCircleWallet } from "@/lib/business/provision-wallet";
 import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcTestnet } from "@/lib/wagmi";
 import type { CircleSwapEstimate } from "@/swap/browser";
@@ -115,9 +118,15 @@ function SwapContent() {
  const [isSwapEstimating, setIsSwapEstimating] = useState(false);
  const [isSwapPending, setIsSwapPending] = useState(false);
 
+ const workspaceContext = useOptionalWorkspace();
+ const isBusinessWorkspace = workspaceContext?.workspace?.kind === "business";
  const externalAddress =
  isMounted && isAccountConnected ? accountAddress : undefined;
- const circleWallet = circleWallets[0];
+ const circleWallet = activeCircleWallet(
+ workspaceContext?.workspace ?? null,
+ circleWallets,
+ workspaceContext?.ownerWallet,
+ );
  const circleAddress =
  circleWallet?.address && isAddress(circleWallet.address)
  ? (circleWallet.address as Address)
@@ -125,8 +134,10 @@ function SwapContent() {
  const isCircleWalletConnected = Boolean(circleLogin && circleAddress);
  const isEmbeddedWalletMode =
  walletMode === "circle" && isCircleWalletConnected;
- const isExternalWalletMode = walletMode === "external";
- const address = isEmbeddedWalletMode
+ const isExternalWalletMode = !isBusinessWorkspace && walletMode === "external";
+ const address = isBusinessWorkspace
+ ? circleAddress
+ : isEmbeddedWalletMode
  ? circleAddress
  : isExternalWalletMode
  ? externalAddress
@@ -555,6 +566,26 @@ function SwapContent() {
  ? `Received ${result.amountOut} ${swapTokenOut}`
  : "Swap submitted",
  );
+ const explorerUrl =
+ result.explorerUrl ??
+ `${arcTestnet.blockExplorers.default.url}/tx/${result.txHash}`;
+ showSuccess({
+ amount: result.amountOut
+ ? `${result.amountOut} ${swapTokenOut}`
+ : `${swapAmount} ${swapTokenIn}`,
+ explorerUrl,
+ eyebrow: "Swap",
+ rows: [
+ { label: "From", value: `${swapAmount} ${swapTokenIn}` },
+ ...(result.amountOut
+ ? [{ label: "Received", value: `${result.amountOut} ${swapTokenOut}` }]
+ : []),
+ ],
+ subtitle: result.amountOut
+ ? `Received ${result.amountOut} ${swapTokenOut}.`
+ : "Swap submitted on Arc.",
+ title: "Swap successful",
+ });
  setSwapEstimate(undefined);
  await refreshBalances();
  } catch (error) {

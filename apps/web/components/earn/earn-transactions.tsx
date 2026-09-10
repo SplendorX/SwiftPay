@@ -35,7 +35,7 @@ type EarnTransactionsProps = {
 };
 
 function formatWhen(iso: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "n/a";
   try {
     return new Date(iso).toLocaleString(undefined, {
       month: "short",
@@ -44,7 +44,7 @@ function formatWhen(iso: string | null) {
       minute: "2-digit",
     });
   } catch {
-    return "—";
+    return "n/a";
   }
 }
 
@@ -287,7 +287,7 @@ export function EarnTransactions({
                   <div className="earn-tx-row-meta">
                     <span>{formatWhen(tx.timestamp)}</span>
                     <span className="earn-tx-dot">·</span>
-                    <span>Block {tx.blockNumber || "—"}</span>
+                    <span>Block {tx.blockNumber || "n/a"}</span>
                     <a
                       className="earn-tx-hash"
                       href={explorerTxUrl(tx.hash)}

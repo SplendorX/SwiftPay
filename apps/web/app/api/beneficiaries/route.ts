@@ -1,12 +1,11 @@
-import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAddress, isAddress } from "viem";
 
-import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import {
-  readWalletToken,
-  walletSessionCookieName,
-} from "@/lib/wallet-session";
+  assertRecurringAccess,
+  getSessionOwnerWallet,
+} from "@/lib/recurring-auth";
+import { createSupabaseAdminClient } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 
@@ -15,7 +14,9 @@ const beneficiariesTable =
 
 type SaveBeneficiaryBody = {
   beneficiaryWallet?: unknown;
+  circleSocialUuid?: unknown;
   name?: unknown;
+  ownerWallet?: unknown;
 };
 
 function jsonError(message: string, status: number) {
@@ -65,18 +66,35 @@ function readSupabaseError(error: { message?: string } | null) {
   return message || "Supabase could not save this beneficiary.";
 }
 
-async function getSessionOwnerWallet() {
-  const cookieStore = await cookies();
-  const session = readWalletToken(
-    cookieStore.get(walletSessionCookieName)?.value,
-    "session",
+async function resolveOwnerWallet(
+  request: NextRequest,
+  body?: SaveBeneficiaryBody,
+) {
+  const requested = normalizeWallet(
+    body?.ownerWallet ?? request.nextUrl.searchParams.get("ownerWallet"),
   );
+  const circleSocialUuid =
+    (typeof body?.circleSocialUuid === "string"
+      ? body.circleSocialUuid
+      : null) ??
+    request.nextUrl.searchParams.get("circleSocialUuid") ??
+    undefined;
+  const ownerWallet = requested ?? (await getSessionOwnerWallet());
 
-  return session?.ownerWallet ?? null;
+  if (!ownerWallet) {
+    return null;
+  }
+
+  const allowed = await assertRecurringAccess({
+    circleSocialUuid,
+    ownerWallet,
+  });
+
+  return allowed ? ownerWallet.toLowerCase() : null;
 }
 
-export async function GET() {
-  const ownerWallet = await getSessionOwnerWallet();
+export async function GET(request: NextRequest) {
+  const ownerWallet = await resolveOwnerWallet(request);
 
   if (!ownerWallet) {
     return jsonError("Sign in with your wallet to load beneficiaries.", 401);
@@ -115,7 +133,7 @@ export async function POST(request: NextRequest) {
     return jsonError("A valid JSON body is required.", 400);
   }
 
-  const ownerWallet = await getSessionOwnerWallet();
+  const ownerWallet = await resolveOwnerWallet(request, body);
   const beneficiaryWallet = normalizeWallet(body.beneficiaryWallet);
   const name = normalizeName(body.name);
 

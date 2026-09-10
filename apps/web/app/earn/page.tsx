@@ -37,7 +37,6 @@ import {
 } from "@/lib/circle-tx";
 import {
   readCircleLogin,
-  readCircleWallets,
   type CircleLoginResult,
 } from "@/lib/circle-session";
 import { erc20Abi } from "@/lib/contracts";
@@ -68,20 +67,26 @@ const usdc = arcTestnetTokens.USDC;
 const zero = BigInt(0);
 
 function formatUsd(amount: bigint | undefined, decimals = 6) {
-  if (amount === undefined) return "—";
+  if (amount === undefined) return "n/a";
   return formatUsdDisplay(formatUnitsToDecimal(amount, decimals));
 }
 
 function shorten(address?: string | null) {
-  if (!address) return "—";
+  if (!address) return "n/a";
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
 function EarnPageInner() {
   const searchParams = useSearchParams();
   const { address: wagmiAddress } = useAccount();
-  const { address: platformAddress, isConnected, source } = usePlatformWallet();
-  const address = platformAddress ?? wagmiAddress;
+  const {
+    address: platformAddress,
+    circleWallet: platformCircleWallet,
+    isBusinessWorkspace,
+    isConnected,
+    source,
+  } = usePlatformWallet();
+  const address = platformAddress ?? (isBusinessWorkspace ? undefined : wagmiAddress);
   const circleSdkRef = useRef<W3SSdk | null>(null);
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
   const [circleSdkReady, setCircleSdkReady] = useState(false);
@@ -100,8 +105,8 @@ function EarnPageInner() {
   );
   const [txHash, setTxHash] = useState<Hash | undefined>();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [apyDisplay, setApyDisplay] = useState<string>("—");
-  const [underlyingApyDisplay, setUnderlyingApyDisplay] = useState<string>("—");
+  const [apyDisplay, setApyDisplay] = useState<string>("n/a");
+  const [underlyingApyDisplay, setUnderlyingApyDisplay] = useState<string>("n/a");
   const [apyMessage, setApyMessage] = useState<string>("");
   const [txRefreshKey, setTxRefreshKey] = useState(0);
   const [historyEvents, setHistoryEvents] = useState<EarnHistoryEvent[]>([]);
@@ -171,12 +176,12 @@ function EarnPageInner() {
   const isCircleMode = Boolean(
     source === "embedded" &&
       circleLogin &&
-      readCircleWallets()[0]?.id &&
+      platformCircleWallet?.id &&
       circleSdkReady,
   );
 
   function buildCircleExecutor() {
-    const wallet = readCircleWallets()[0];
+    const wallet = platformCircleWallet;
     if (!circleLogin || !wallet?.id || !circleSdkRef.current) {
       throw new Error("Circle wallet is not ready.");
     }
@@ -297,7 +302,7 @@ function EarnPageInner() {
         {
           hash: txHash,
           type: pendingTxType,
-          assetsLabel: pendingTxAmountLabel || "—",
+          assetsLabel: pendingTxAmountLabel || "n/a",
           status: isConfirmed ? "confirmed" : "pending",
         },
         ...prev,
@@ -532,7 +537,7 @@ function EarnPageInner() {
         hash = result.txHash;
         if (!hash) {
           throw new Error(
-            "Circle deposit submitted. Waiting for the transaction hash — try refresh shortly.",
+            "Circle deposit submitted. Waiting for the transaction hash. Try refresh shortly.",
           );
         }
       } else {
@@ -579,7 +584,7 @@ function EarnPageInner() {
             : zero;
       if (amount > available) {
         setActionError(
-          "Amount exceeds available balance. If liquidity is limited, reduce the amount or try again later — we will not fake an instant withdrawal.",
+          "Amount exceeds available balance. If liquidity is limited, reduce the amount or try again later. We will not fake an instant withdrawal.",
         );
         return;
       }
@@ -595,7 +600,7 @@ function EarnPageInner() {
         hash = result.txHash;
         if (!hash) {
           throw new Error(
-            "Circle withdrawal submitted. Waiting for the transaction hash — try refresh shortly.",
+            "Circle withdrawal submitted. Waiting for the transaction hash. Try refresh shortly.",
           );
         }
       } else {
@@ -619,7 +624,7 @@ function EarnPageInner() {
       // Surface liquidity / revert as pending-style guidance
       if (/liquidity|exceeds|ERC4626|reverted/i.test(message)) {
         setActionError(
-          "Withdrawal pending or unavailable — underlying liquidity may be temporarily constrained. Your funds remain in the vault; try a smaller amount or check back shortly.",
+          "Withdrawal pending or unavailable. Underlying liquidity may be temporarily constrained. Your funds remain in the vault; try a smaller amount or check back shortly.",
         );
       } else {
         setActionError(message);
@@ -671,7 +676,7 @@ function EarnPageInner() {
                 <p className="section-copy">
                   Earn variable yield on your USDC while keeping your money
                   accessible. Yield comes from Aave when a live market is
-                  configured — never from fake balances.
+                  configured, never from fake balances.
                 </p>
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -715,7 +720,7 @@ function EarnPageInner() {
                       undefined,
                       { maximumFractionDigits: 4 },
                     )
-                  : "—"}
+                  : "n/a"}
               </p>
               <div className="earn-stat-row">
                 <div>
@@ -811,7 +816,7 @@ function EarnPageInner() {
                       <dd>
                         {previewShares !== undefined
                           ? `${Number(formatUnits(previewShares as bigint, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })} vault shares`
-                          : "—"}
+                          : "n/a"}
                       </dd>
                     </div>
                     <div>
@@ -884,7 +889,7 @@ function EarnPageInner() {
                         $
                         {withdrawAmountUnits !== null
                           ? formatUsd(withdrawAmountUnits)
-                          : "—"}
+                          : "n/a"}
                       </dd>
                     </div>
                     <div>
@@ -893,7 +898,7 @@ function EarnPageInner() {
                         $
                         {withdrawRemaining !== undefined
                           ? formatUsd(withdrawRemaining)
-                          : "—"}
+                          : "n/a"}
                       </dd>
                     </div>
                     <div>
@@ -902,14 +907,14 @@ function EarnPageInner() {
                         $
                         {withdrawAmountUnits !== null
                           ? formatUsd(withdrawAmountUnits)
-                          : "—"}{" "}
+                          : "n/a"}{" "}
                         USDC
                       </dd>
                     </div>
                   </dl>
                   <p className="earn-form-hint">
                     Instant when underlying liquidity permits. If liquidity is
-                    constrained we show pending status — never a fake instant
+                    constrained we show pending status, never a fake instant
                     withdrawal.
                   </p>
                   <button
@@ -1001,7 +1006,7 @@ function EarnPageInner() {
             </div>
             <p className="earn-footnote" style={{ marginTop: "0.75rem" }}>
               Protocol: {earnConfig.protocolName}. Audits are only listed when
-              independently verifiable — none are claimed here without sources.
+              independently verifiable. None are claimed here without sources.
             </p>
           </section>
 

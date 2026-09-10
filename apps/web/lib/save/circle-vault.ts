@@ -82,6 +82,19 @@ export function encodeVaultDeposit(input: {
   });
 }
 
+export function encodeVaultDepositFor(input: {
+  owner: Address;
+  pocketIdBytes32: Hex;
+  token: Address;
+  amountUnits: bigint;
+}) {
+  return encodeFunctionData({
+    abi: swiftSaveVaultAbi,
+    functionName: "depositFor",
+    args: [input.owner, input.pocketIdBytes32, input.token, input.amountUnits],
+  });
+}
+
 export function encodeVaultWithdraw(input: {
   pocketIdBytes32: Hex;
   token: Address;

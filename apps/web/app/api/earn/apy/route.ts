@@ -106,7 +106,7 @@ export async function GET() {
       earnConfig.mode === "live"
         ? "Estimated APY from protocol data. Yield is variable and not guaranteed."
         : earnConfig.mode === "simulation"
-          ? "Simulation — no real economic yield."
+          ? "Simulation, no real economic yield."
           : "Real yield strategy unavailable on this network.",
   });
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -7,7 +8,6 @@ import { PlatformBrand } from "@/components/brand/platform-brand";
 import { XLogoLink } from "@/components/brand/x-logo-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LaunchAppLink } from "@/components/landing/launch-app-link";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const marketingLinks = [
@@ -29,10 +29,10 @@ export function MarketingNav() {
           {marketingLinks.map((link) => (
             <Link
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium transition",
+                "marketing-nav-link rounded-lg px-3 py-2 text-sm font-medium transition",
                 pathname === link.href
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  ? "marketing-nav-link-active"
+                  : undefined,
               )}
               href={link.href}
               key={link.href}
@@ -45,9 +45,10 @@ export function MarketingNav() {
         <div className="flex items-center gap-2">
           <XLogoLink />
           <ThemeToggle />
-          <Button asChild size="sm">
-            <LaunchAppLink>Get started</LaunchAppLink>
-          </Button>
+          <LaunchAppLink className="hero-launch-btn marketing-nav-launch">
+            Open SwiftPay
+            <ArrowRight className="h-4 w-4" />
+          </LaunchAppLink>
         </div>
       </div>
     </header>

@@ -8,7 +8,6 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
-  LockKeyhole,
   RefreshCw,
   UserPlus,
   Users,
@@ -18,9 +17,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SendStepIndicator } from "@/components/dashboard/send-step-indicator";
 import { TokenSelect } from "@/components/design/token-select";
+import {
+  RecurringScheduleFields,
+  RecurringToggle,
+  type RecurringScheduleDraft,
+} from "@/components/recurring-schedule-fields";
 import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
-import { type BeneficiaryRecord } from "@/lib/beneficiaries";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 
 export type SendSettlementQuote = {
@@ -40,7 +43,6 @@ export type SendPaymentWizardProps = {
   canSaveBeneficiary: boolean;
   canSubmitPayment: boolean;
   isAuthenticatingWallet: boolean;
-  isBeneficiariesLoading: boolean;
   isBeneficiarySaving: boolean;
   isCirclePaymentPending: boolean;
   isConfirming: boolean;
@@ -57,24 +59,26 @@ export type SendPaymentWizardProps = {
   onPaymentNarrationChange: (value: string) => void;
   onRecipientChange: (value: string) => void;
   onSaveBeneficiary: () => void;
-  onSelectBeneficiary: (beneficiary: BeneficiaryRecord) => void;
   onSelectToken: (token: ArcTokenSymbol) => void;
   onSubmit: () => void;
   onWalletSignIn: () => void;
   paymentAmount: string;
   paymentAmountUnits: bigint | null;
   paymentError: string | null;
+  onRecurringChange: (value: RecurringScheduleDraft) => void;
+  onRecurringEnabledChange: (value: boolean) => void;
   paymentNarration: string;
   paymentStatus: string;
   spendSaveNotice?: string | null;
   primaryButtonText: string;
+  recurring: RecurringScheduleDraft;
+  recurringEnabled: boolean;
   receiveHref: string;
   recipientAddress: string;
   recipientDisplayLabel: string;
   recipientResolveError: string | null;
   resolvedRecipientUsername: string | null;
   refreshBalances: () => void;
-  savedBeneficiaries: BeneficiaryRecord[];
   selectedToken: ArcTokenSymbol;
   settlementQuote?: SendSettlementQuote | null;
   shortenAddress: (value?: string) => string;
@@ -107,7 +111,6 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     canSaveBeneficiary,
     canSubmitPayment,
     isAuthenticatingWallet,
-    isBeneficiariesLoading,
     isBeneficiarySaving,
     isCirclePaymentPending,
     isConfirming,
@@ -124,10 +127,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     onPaymentNarrationChange,
     onRecipientChange,
     onSaveBeneficiary,
-    onSelectBeneficiary,
     onSelectToken,
     onSubmit,
     onWalletSignIn,
+    onRecurringChange,
+    onRecurringEnabledChange,
     paymentAmount,
     paymentError,
     paymentNarration,
@@ -136,10 +140,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     primaryButtonText,
     receiveHref,
     recipientAddress,
+    recurring,
+    recurringEnabled,
     recipientResolveError,
     resolvedRecipientUsername,
     refreshBalances,
-    savedBeneficiaries,
     selectedToken,
     settlementQuote,
     shortenAddress,
@@ -206,7 +211,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     if (!(isSubmitting || transactionConfirmed)) {
       return;
     }
-    setStep((current) => (current === 4 ? current : 4));
+    setStepWithoutJump(4);
   }, [isSubmitting, transactionConfirmed]);
 
   function scheduleRecipientSync(value: string) {
@@ -263,16 +268,24 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     onPaymentNarrationChange(localNarration);
   }
 
+  function setStepWithoutJump(next: 1 | 2 | 3 | 4) {
+    const y = typeof window === "undefined" ? 0 : window.scrollY;
+    setStep(next);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: y, left: 0, behavior: "auto" });
+    });
+  }
+
   function goNext() {
     flushDrafts();
-    if (step === 1 && isRecipientValid) setStep(2);
-    else if (step === 2 && hasAmount) setStep(3);
-    else if (step === 3) setStep(4);
+    if (step === 1 && isRecipientValid) setStepWithoutJump(2);
+    else if (step === 2 && hasAmount) setStepWithoutJump(3);
+    else if (step === 3) setStepWithoutJump(4);
   }
 
   function goBack() {
     if (step > 1 && step < 4) {
-      setStep((current) => (current - 1) as 1 | 2 | 3 | 4);
+      setStepWithoutJump((step - 1) as 1 | 2 | 3 | 4);
     }
   }
 
@@ -287,9 +300,9 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     <div className="send-wizard min-w-0">
       <div className="mb-5 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="section-eyebrow">Send</p>
+          <p className="section-eyebrow">Pay</p>
           <h2 className="mt-1 font-heading text-xl font-semibold tracking-tight sm:text-2xl">
-            Send payment
+            Pay
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
             One wallet confirmation settles the payment, platform fee, and
@@ -438,41 +451,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
                   {beneficiaryStatus}
                 </p>
-              ) : null}
-
-              <div className="mt-3 grid gap-2">
-                <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Saved beneficiaries
-                </span>
-                {isBeneficiariesLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading…
-                  </div>
-                ) : savedBeneficiaries.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No saved beneficiaries yet.
-                  </p>
-                ) : (
-                  <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
-                    {savedBeneficiaries.map((beneficiary) => (
-                      <button
-                        className="min-w-[10rem] max-w-[14rem] shrink-0 rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-primary/40"
-                        key={`${beneficiary.owner_wallet}-${beneficiary.beneficiary_wallet}`}
-                        onClick={() => onSelectBeneficiary(beneficiary)}
-                        type="button"
-                      >
-                        <span className="block truncate text-sm font-semibold">
-                          {beneficiary.name}
-                        </span>
-                        <span className="block font-mono text-xs text-muted-foreground">
-                          {shortenAddress(beneficiary.beneficiary_wallet)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Saved contacts live in the list beside this board.
+                </p>
+              )}
             </div>
         </div>
 
@@ -519,23 +502,6 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               </div>
             </label>
 
-            <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-3 text-sm">
-              <p className="flex items-center gap-2 font-semibold text-foreground">
-                <LockKeyhole className="h-4 w-4 text-primary" />
-                Need private settlement?
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Standard sends are public on ArcScan. For claim-code privacy escrow
-                (recipient not a direct transfer), use PrivSwiftPay.
-              </p>
-              <Button asChild className="mt-3" size="sm" variant="outline">
-                <Link href="/privSwiftPay/private-send">
-                  <LockKeyhole className="h-3.5 w-3.5" />
-                  Open PrivSwiftPay
-                </Link>
-              </Button>
-            </div>
-
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-xs leading-5 text-muted-foreground">
               <p>
                 Platform fee: {settlementQuote?.feeLabel ?? "0.1%"} on this send.
@@ -579,7 +545,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                     ? resolvedRecipientUsername
                       ? `@${resolvedRecipientUsername}`
                       : shortenAddress(trimmedRecipientAddress)
-                    : "—",
+                    : "n/a",
                 ],
                 ["Amount", `${paymentAmount || "0.00"} ${selectedToken}`],
                 [
@@ -615,6 +581,17 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 </div>
               ))}
             </div>
+
+            <RecurringToggle
+              checked={recurringEnabled}
+              onCheckedChange={onRecurringEnabledChange}
+            />
+            {recurringEnabled ? (
+              <RecurringScheduleFields
+                onChange={onRecurringChange}
+                value={recurring}
+              />
+            ) : null}
         </div>
 
         <div
@@ -627,6 +604,10 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15">
                 <CheckCircle2 className="h-8 w-8 text-emerald-500" />
               </div>
+            ) : paymentError ? (
+              <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+              </div>
             ) : (
               <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -634,7 +615,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             )}
             <div>
               <p className="font-heading text-lg font-semibold">
-                {transactionConfirmed ? "Payment confirmed" : "Processing payment"}
+                {transactionConfirmed
+                  ? "Payment confirmed"
+                  : paymentError
+                    ? "Payment did not finish"
+                    : "Processing payment"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {paymentAmount
@@ -663,7 +648,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             {transactionConfirmed ? (
               <Button
                 className="w-full whitespace-normal sm:w-auto sm:whitespace-nowrap"
-                onClick={() => setStep(1)}
+                onClick={() => setStepWithoutJump(1)}
                 type="button"
                 variant="outline"
               >
@@ -682,13 +667,19 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
 
         <div
           className="send-wizard-actions"
-          data-hidden={step >= 4 ? "true" : "false"}
+          data-hidden={step >= 4 && !paymentError ? "true" : "false"}
         >
             <Button
               className={step === 1 ? "invisible" : undefined}
-              disabled={step <= 1}
-              onClick={goBack}
-              tabIndex={step <= 1 || step >= 4 ? -1 : undefined}
+              disabled={step <= 1 || (step >= 4 && !paymentError)}
+              onClick={() => {
+                if (step >= 4) {
+                  setStepWithoutJump(3);
+                  return;
+                }
+                goBack();
+              }}
+              tabIndex={step <= 1 || (step >= 4 && !paymentError) ? -1 : undefined}
               type="button"
               variant="outline"
             >
@@ -698,7 +689,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             <Button
               className="min-w-0 flex-1 whitespace-normal sm:ml-auto sm:flex-none sm:whitespace-nowrap"
               disabled={
-                step >= 4
+                step >= 4 && !paymentError
                   ? true
                   : step === 1
                     ? !isRecipientValid && localRecipient.trim().length === 0
@@ -706,7 +697,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                       ? !hasAmount && localAmount.trim().length === 0
                       : isBusy || (isConnected && !canSubmitPayment)
               }
-              tabIndex={step >= 4 ? -1 : undefined}
+              tabIndex={step >= 4 && !paymentError ? -1 : undefined}
               type="submit"
             >
               {isBusy ? (
@@ -714,7 +705,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               ) : step === 3 ? (
                 <ArrowRight className="h-4 w-4" />
               ) : null}
-              {step === 3
+              {step === 3 || (step >= 4 && paymentError)
                 ? isBusy
                   ? "Confirming"
                   : primaryButtonText

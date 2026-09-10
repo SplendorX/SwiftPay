@@ -1,11 +1,11 @@
--- PrivSwiftPay claim notifications + missing columns upgrade
--- Run in Supabase SQL editor. Fixes: metadata / related_tx_hash missing.
+-- Remove PrivSwiftPay claim notifications and drop the kind from the check.
+-- Run in Supabase SQL editor after PrivPay is retired.
 
-alter table public.savings_notifications
-  add column if not exists related_tx_hash text;
-
-alter table public.savings_notifications
-  add column if not exists metadata jsonb not null default '{}'::jsonb;
+delete from public.savings_notifications
+where kind = 'privswiftpay_claim'
+   or coalesce(metadata->>'type', '') = 'privswiftpay_claim'
+   or coalesce(body, '') ilike '%CLAIM_CODE:privswiftpay:%'
+   or coalesce(body, '') ilike '%privswiftpay:%';
 
 alter table public.savings_notifications
   drop constraint if exists savings_notifications_kind_check;
@@ -24,13 +24,22 @@ alter table public.savings_notifications
       'payment_received',
       'payment_request',
       'payment_request_declined',
-      'privswiftpay_claim'
+      'fixed_lock_started',
+      'fixed_unlock_ready',
+      'circle_invitation',
+      'circle_invitation_accepted',
+      'circle_invitation_declined',
+      'circle_message',
+      'circle_payment',
+      'circle_request',
+      'circle_request_paid',
+      'circle_request_declined',
+      'circle_save',
+      'circle_earn',
+      'circle_withdrawal',
+      'circle_approval',
+      'circle_member',
+      'circle_role',
+      'circle_frozen'
     )
   );
-
-create unique index if not exists savings_notifications_related_tx_uidx
-  on public.savings_notifications (owner_wallet, related_tx_hash)
-  where related_tx_hash is not null;
-
-create index if not exists savings_notifications_owner_idx
-  on public.savings_notifications (owner_wallet, created_at desc);

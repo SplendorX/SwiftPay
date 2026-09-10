@@ -56,7 +56,6 @@ const roadmapTracks: Array<{
       "Send and swap flows",
       "Payment request links",
       "SwiftRecurepay recurring payments",
-      "PrivSwiftPay claim codes and payroll",
       "SwiftBatch bulk payments",
     ],
     phase: "Phase 02",
@@ -64,14 +63,13 @@ const roadmapTracks: Array<{
     title: "Core Money Movement",
   },
   {
-    body: "Let users set money aside without interest complexity — pockets, targets, and auto-save.",
+    body: "Let users set money aside without interest complexity: pockets, targets, and auto-save.",
     icon: CircleDollarSign,
     items: [
       "Swift+Save pockets (deposit / withdraw)",
       "Spend&Save after payments",
       "Target caps and refunds",
       "In-app notifications and payment received alerts",
-      "PrivSwiftPay claim codes delivered to receivers",
     ],
     phase: "Phase 03",
     status: "completed",
@@ -92,7 +90,7 @@ const roadmapTracks: Array<{
     title: "Earn And Yield Vaults",
   },
   {
-    body: "Add retention loops around balances — rewards, staking, and growth loops.",
+    body: "Add retention loops around balances: rewards, staking, and growth loops.",
     icon: CircleDollarSign,
     items: [
       "Staking rewards",
@@ -219,7 +217,7 @@ export function RoadmapPageContent() {
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
               From core money movement and identity through savings, earn,
-              rewards, AI automation, then multi-chain and fiat rails — a
+              rewards, AI automation, then multi-chain and fiat rails. A
               product timeline for teams shipping real payment workflows.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
@@ -230,7 +228,7 @@ export function RoadmapPageContent() {
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/privSwiftPay">View privacy flows</Link>
+                <Link href="/swiftCircle">View Circle</Link>
               </Button>
             </div>
           </FadeUp>
@@ -261,7 +259,7 @@ export function RoadmapPageContent() {
           </CardHeader>
           <CardContent>
             <p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-              Natural language payments with guardrails — users instruct an
+              Natural language payments with guardrails. Users instruct an
               assistant to execute common financial tasks while SwiftPay keeps
               approvals, wallets, and transaction state visible.
             </p>

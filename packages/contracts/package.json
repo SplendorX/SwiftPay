@@ -9,7 +9,6 @@
     "test": "hardhat test",
     "test:earn": "hardhat test test/earn/SwiftPayVault.js",
     "deploy": "hardhat run contracts/deploy.js --network arcTestnet",
-    "deploy:escrow": "node contracts/deployEscrow.js",
     "deploy:swiftbatch": "node contracts/deploySwiftBatch.js",
     "deploy:swiftpaysend": "node contracts/deploySwiftPaySend.js",
     "deploy:swiftpaysend:mainnet": "node contracts/deploySwiftPaySend.js --mainnet",

@@ -5,14 +5,19 @@ import {
  AlertCircle,
  CheckCircle2,
  Copy,
+ Download,
  ExternalLink,
  Loader2,
  Plus,
+ ReceiptText,
  Send,
+ Share2,
+ ShieldCheck,
  Trash2,
  Upload,
  Users,
  Wallet,
+ X,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
@@ -36,6 +41,7 @@ import {
  useWriteContract,
 } from "wagmi";
 
+import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
@@ -61,7 +67,9 @@ import {
  swiftBatchFeeRecipient,
  swiftBatchMaxRecipients,
 } from "@/lib/contracts";
+import { drawSwiftPayBrand } from "@/lib/brand-canvas";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { activeCircleWallet } from "@/lib/business/provision-wallet";
 import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcTestnet } from "@/lib/wagmi";
 
@@ -71,6 +79,28 @@ type BatchRecipient = {
  amountUnits: bigint;
  label?: string;
  line: number;
+};
+
+type BatchReceipt = {
+ contractAddress: string;
+ explorerUrl: string | null;
+ feeAmount: string;
+ feeRecipient: string;
+ id: string;
+ mode: string;
+ payoutTotal: string;
+ recipientCount: number;
+ recipients: Array<{
+ address: Address;
+ amount: string;
+ label?: string;
+ line: number;
+ }>;
+ requiredApproval: string;
+ submittedAt: string;
+ token: ArcTokenSymbol;
+ txHash: string | null;
+ walletAddress: string;
 };
 
 type CircleContractChallenge = {
@@ -160,6 +190,121 @@ function formatTokenAmount(
  return `${Number(formatUnits(amount, decimals)).toLocaleString(undefined, {
  maximumFractionDigits: 6,
  })} ${symbol}`;
+}
+
+function formatBatchReceiptTime(value: string) {
+ return new Intl.DateTimeFormat(undefined, {
+ day: "numeric",
+ hour: "2-digit",
+ minute: "2-digit",
+ month: "short",
+ year: "numeric",
+ }).format(new Date(value));
+}
+
+function batchReceiptFileName(receipt: BatchReceipt) {
+ return `swiftpay-batchpay-${receipt.submittedAt.slice(0, 10)}.png`;
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement) {
+ return new Promise<Blob>((resolve, reject) => {
+ canvas.toBlob((blob) => {
+ if (!blob) {
+ reject(new Error("Receipt image could not be created."));
+ return;
+ }
+ resolve(blob);
+ }, "image/png");
+ });
+}
+
+function downloadPngBlob(blob: Blob, filename: string) {
+ const url = URL.createObjectURL(blob);
+ const link = document.createElement("a");
+ link.href = url;
+ link.download = filename;
+ document.body.appendChild(link);
+ link.click();
+ link.remove();
+ window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function buildBatchReceiptPng(receipt: BatchReceipt, withLogo = true) {
+ const width = 900;
+ const height = 1180;
+ const canvas = document.createElement("canvas");
+ canvas.width = width;
+ canvas.height = height;
+ const context = canvas.getContext("2d");
+ if (!context) throw new Error("Could not create the receipt.");
+
+ const fill = context.createLinearGradient(0, 0, width, height);
+ fill.addColorStop(0, "#17111c");
+ fill.addColorStop(1, "#21132f");
+ context.fillStyle = fill;
+ context.fillRect(0, 0, width, height);
+
+ context.fillStyle = "#fff9f0";
+ context.fillRect(36, 36, width - 72, height - 72);
+
+ const header = context.createLinearGradient(36, 36, width - 36, 220);
+ header.addColorStop(0, "#5b21b6");
+ header.addColorStop(1, "#21132f");
+ context.fillStyle = header;
+ context.fillRect(36, 36, width - 72, 168);
+
+ if (withLogo) {
+ await drawSwiftPayBrand(context, 64, 52, 72, { swiftFill: "#fff9f0" });
+ } else {
+ context.fillStyle = "#fff9f0";
+ context.font = "700 28px Sora, Arial, sans-serif";
+ context.fillText("SwiftPay", 64, 96);
+ }
+ context.fillStyle = "#fff9f0";
+ context.font = "600 18px Manrope, Arial, sans-serif";
+ context.fillText("BatchPay receipt", 154, 128);
+ context.font = "700 36px Sora, Arial, sans-serif";
+ context.fillText(`${receipt.payoutTotal} ${receipt.token}`, 64, 172);
+
+ context.fillStyle = "#17111c";
+ context.font = "700 16px Manrope, Arial, sans-serif";
+ const rows = [
+ ["Recipients", String(receipt.recipientCount)],
+ ["Platform fee", receipt.feeAmount],
+ ["Mode", receipt.mode],
+ ["Wallet", receipt.walletAddress],
+ ["Transaction", receipt.txHash ?? "Pending"],
+ ["Submitted", formatBatchReceiptTime(receipt.submittedAt)],
+ ];
+ let y = 260;
+ for (const [label, value] of rows) {
+ context.fillStyle = "#776e65";
+ context.font = "700 13px Manrope, Arial, sans-serif";
+ context.fillText(label.toUpperCase(), 64, y);
+ context.fillStyle = "#17111c";
+ context.font = "600 16px Manrope, Arial, sans-serif";
+ const text = value.length > 42 ? `${value.slice(0, 20)}…${value.slice(-10)}` : value;
+ context.fillText(text, 64, y + 24);
+ y += 64;
+ }
+
+ context.fillStyle = "#5b21b6";
+ context.font = "700 13px Manrope, Arial, sans-serif";
+ context.fillText("Generated by SwiftPay · BatchPay", 64, height - 72);
+
+ try {
+ return await canvasToPngBlob(canvas);
+ } catch {
+ if (withLogo) {
+ return buildBatchReceiptPng(receipt, false);
+ }
+ throw new Error("Receipt PNG could not be created.");
+ }
+}
+
+async function downloadBatchReceiptImage(receipt: BatchReceipt) {
+ const blob = await buildBatchReceiptPng(receipt);
+ downloadPngBlob(blob, batchReceiptFileName(receipt));
 }
 
 function parseRecipientRows(input: string, token: ArcTokenSymbol) {
@@ -314,6 +459,8 @@ export default function SwiftBatchPage() {
  const [explorerUrl, setExplorerUrl] = useState("");
  const [isPending, setIsPending] = useState(false);
  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+ const [batchReceipt, setBatchReceipt] = useState<BatchReceipt | null>(null);
+ const [successOpen, setSuccessOpen] = useState(false);
  const selectedTokenInfo = arcTestnetTokens[selectedToken];
  const parsedBatch = useMemo(
  () => parseRecipientRows(recipientText, selectedToken),
@@ -331,14 +478,21 @@ export default function SwiftBatchPage() {
  const feeAmountUnits =
  (totalAmountUnits * feeBasisPoints) / feeBasisPointsDenominator;
  const requiredAmountUnits = totalAmountUnits + feeAmountUnits;
- const circleWallet = circleWallets.find((wallet) =>
- wallet.address && isAddress(wallet.address),
+ const workspaceContext = useOptionalWorkspace();
+ const isBusinessWorkspace = workspaceContext?.workspace?.kind === "business";
+ const circleWallet = activeCircleWallet(
+ workspaceContext?.workspace ?? null,
+ circleWallets,
+ workspaceContext?.ownerWallet,
  );
  const circleAddress = circleWallet?.address
  ? (getAddress(circleWallet.address) as Address)
  : undefined;
- const walletAddress =
- walletMode === "circle" ? circleAddress : externalAddress;
+ const walletAddress = isBusinessWorkspace
+ ? circleAddress
+ : walletMode === "circle"
+ ? circleAddress
+ : externalAddress;
  const isEmbeddedWalletMode = walletMode === "circle";
  const isArcNetwork = chainId === arcTestnet.id;
  const circleTokenBalance = findCircleTokenBalance(
@@ -697,9 +851,52 @@ export default function SwiftBatchPage() {
  return result.txHash as Hash | undefined;
  }
 
+ function createBatchReceipt(txHash?: Hash): BatchReceipt {
+ const nextExplorerUrl = txHash
+ ? `${arcTestnet.blockExplorers.default.url}/tx/${txHash}`
+ : null;
+
+ return {
+ contractAddress: configuredSwiftBatchAddress
+ ? configuredSwiftBatchAddress
+ : "Not configured",
+ explorerUrl: nextExplorerUrl,
+ feeAmount: formatTokenAmount(
+ feeAmountUnits,
+ selectedTokenInfo.decimals,
+ selectedToken,
+ ),
+ feeRecipient: swiftBatchFeeRecipient || "Not configured",
+ id: txHash ?? `swiftbatch-${Date.now()}`,
+ mode: isEmbeddedWalletMode ? "Circle wallet" : "External wallet",
+ payoutTotal: formatTokenAmount(
+ totalAmountUnits,
+ selectedTokenInfo.decimals,
+ selectedToken,
+ ),
+ recipientCount: recipients.length,
+ recipients: recipients.map((recipient) => ({
+ address: recipient.address,
+ amount: recipient.amount,
+ label: recipient.label,
+ line: recipient.line,
+ })),
+ requiredApproval: formatTokenAmount(
+ requiredAmountUnits,
+ selectedTokenInfo.decimals,
+ selectedToken,
+ ),
+ submittedAt: new Date().toISOString(),
+ token: selectedToken,
+ txHash: txHash ?? null,
+ walletAddress: walletAddress ?? "Not connected",
+ };
+ }
+
  async function submitBatch() {
  setError(null);
  setExplorerUrl("");
+ setSuccessOpen(false);
 
  try {
  if (parsedBatch.errors.length > 0) {
@@ -729,9 +926,14 @@ export default function SwiftBatchPage() {
  ? await executeCircleBatch()
  : await executeExternalBatch();
 
- if (txHash) {
- setExplorerUrl(`${arcTestnet.blockExplorers.default.url}/tx/${txHash}`);
+ const receipt = createBatchReceipt(txHash);
+
+ if (receipt.explorerUrl) {
+ setExplorerUrl(receipt.explorerUrl);
  }
+
+ setBatchReceipt(receipt);
+ setSuccessOpen(true);
 
  setStatus(`${recipients.length} recipient batch submitted`);
  await refreshBalances();
@@ -806,6 +1008,52 @@ export default function SwiftBatchPage() {
  setStatus("SwiftBatch preview copied");
  }
 
+ async function downloadReceiptPng(receipt: BatchReceipt | null = batchReceipt) {
+ if (!receipt) return;
+ try {
+ await downloadBatchReceiptImage(receipt);
+ setStatus("Batch receipt downloaded");
+ } catch (error) {
+ setStatus(
+ error instanceof Error
+ ? error.message
+ : "Receipt PNG could not be downloaded.",
+ );
+ }
+ }
+
+ async function shareBatchReceipt(receipt: BatchReceipt | null = batchReceipt) {
+ if (!receipt) {
+ return;
+ }
+
+ try {
+ const blob = await buildBatchReceiptPng(receipt);
+ const file = new File([blob], batchReceiptFileName(receipt), {
+ type: "image/png",
+ });
+ if (navigator.canShare?.({ files: [file] })) {
+ await navigator.share({
+ files: [file],
+ title: "SwiftPay BatchPay receipt",
+ });
+ setStatus("Batch receipt shared");
+ return;
+ }
+ downloadPngBlob(blob, file.name);
+ setStatus("PNG downloaded. This browser cannot share image files.");
+ } catch (shareError) {
+ if (shareError instanceof DOMException && shareError.name === "AbortError") {
+ return;
+ }
+ setStatus(
+ shareError instanceof Error
+ ? shareError.message
+ : "Batch receipt could not be shared.",
+ );
+ }
+ }
+
  function handleCircleSessionCleared() {
  circleSdkRef.current = null;
  setCircleLogin(null);
@@ -829,7 +1077,7 @@ export default function SwiftBatchPage() {
  </>
  }
  subtitle="Enterprise batch settlement"
- title="SwiftBatch"
+ title="BatchPay"
  >
  <PlatformAccessGate>
  <section className="section-panel">
@@ -1162,6 +1410,134 @@ export default function SwiftBatchPage() {
  </section>
 
  <section className="surface-panel p-4 sm:p-5">
+ <div className="flex items-start justify-between gap-3">
+ <div>
+ <p className="eyebrow">Receipt</p>
+ <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground">
+ Batch receipt
+ </h2>
+ </div>
+ <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+ <ReceiptText className="h-5 w-5" />
+ </div>
+ </div>
+
+ {batchReceipt ? (
+ <>
+ <div className="mt-4 overflow-hidden rounded-xl border border-primary/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.10),rgba(99,102,241,0.08)_45%,transparent)] p-4">
+ <div className="flex items-start justify-between gap-3">
+ <div className="min-w-0">
+ <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
+ Submitted
+ </p>
+ <p className="mt-2 font-heading text-2xl font-semibold tracking-normal text-foreground">
+ {batchReceipt.payoutTotal}
+ </p>
+ <p className="mt-1 text-sm font-semibold text-muted-foreground">
+ {batchReceipt.recipientCount.toLocaleString()} recipients /{" "}
+ {batchReceipt.mode}
+ </p>
+ </div>
+ <TokenIcon className="h-9 w-9 rounded-full shadow-sm" symbol={batchReceipt.token} />
+ </div>
+
+ <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+ <div className="rounded-lg border border-border bg-card/80 px-3 py-2">
+ <p className="text-xs font-bold text-muted-foreground">Fee</p>
+ <p className="mt-1 font-black text-foreground">
+ {batchReceipt.feeAmount}
+ </p>
+ </div>
+ <div className="rounded-lg border border-border bg-card/80 px-3 py-2">
+ <p className="text-xs font-bold text-muted-foreground">Submitted</p>
+ <p className="mt-1 font-black text-foreground">
+ {formatBatchReceiptTime(batchReceipt.submittedAt)}
+ </p>
+ </div>
+ </div>
+
+ <div className="mt-4 grid gap-2 border-t border-border pt-3 text-xs font-semibold text-muted-foreground">
+ <div className="flex items-center gap-2">
+ <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+ <span>Contract: {shortenAddress(batchReceipt.contractAddress)}</span>
+ </div>
+ <div className="flex items-center gap-2">
+ <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+ <span>
+ Hash:{" "}
+ {batchReceipt.txHash
+ ? shortenAddress(batchReceipt.txHash)
+ : "Pending from wallet provider"}
+ </span>
+ </div>
+ </div>
+ </div>
+
+ <div className="mt-3 grid gap-2">
+ {batchReceipt.recipients.slice(0, 4).map((recipient) => (
+ <div
+ className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+ key={`${batchReceipt.id}-${recipient.line}-${recipient.address}`}
+ >
+ <div className="min-w-0">
+ <p className="truncate font-semibold text-foreground">
+ {recipient.label || `Line ${recipient.line}`}
+ </p>
+ <p className="truncate font-mono text-xs text-muted-foreground">
+ {recipient.address}
+ </p>
+ </div>
+ <span className="shrink-0 font-black text-foreground">
+ {recipient.amount} {batchReceipt.token}
+ </span>
+ </div>
+ ))}
+ {batchReceipt.recipients.length > 4 ? (
+ <div className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-center text-xs font-bold text-muted-foreground">
+ +{batchReceipt.recipients.length - 4} more recipients on this receipt
+ </div>
+ ) : null}
+ </div>
+
+ <div className="mt-4 grid gap-2 sm:grid-cols-2">
+ <button
+ className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
+ onClick={() => void shareBatchReceipt(batchReceipt)}
+ type="button"
+ >
+ <Share2 className="h-4 w-4" />
+ Share
+ </button>
+ <button
+ className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
+ onClick={() => void downloadReceiptPng(batchReceipt)}
+ type="button"
+ >
+ <Download className="h-4 w-4" />
+ Download PNG
+ </button>
+ {batchReceipt.explorerUrl ? (
+ <a
+ className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 sm:col-span-2"
+ href={batchReceipt.explorerUrl}
+ rel="noreferrer"
+ target="_blank"
+ >
+ <ExternalLink className="h-4 w-4" />
+ Open ArcScan receipt
+ </a>
+ ) : null}
+ </div>
+ </>
+ ) : (
+ <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-5 text-sm font-semibold leading-6 text-muted-foreground">
+ Successful SwiftBatch sends will generate a receipt here with totals,
+ fee, recipient highlights, and ArcScan context.
+ </div>
+ )}
+ </section>
+
+ <section className="surface-panel p-4 sm:p-5">
  <div className="flex items-center gap-3">
  <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-card text-swift-700 shadow-sm">
  {isEmbeddedWalletMode ? (
@@ -1183,7 +1559,7 @@ export default function SwiftBatchPage() {
  </div>
 
  <p className="mt-4 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
- Signed-in profile — batch transactions use this wallet only.
+ Signed-in profile. Batch transactions use this wallet only.
  </p>
 
  <button
@@ -1197,6 +1573,115 @@ export default function SwiftBatchPage() {
  </section>
  </aside>
  </div>
+
+ {successOpen && batchReceipt ? (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm dark:bg-background/70">
+ <div className="max-h-full w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-2xl">
+ <div className="mb-5 flex items-start justify-between gap-3">
+ <div className="flex min-w-0 items-start gap-3">
+ <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+ <CheckCircle2 className="h-6 w-6" />
+ </div>
+ <div className="min-w-0">
+ <p className="eyebrow">SwiftBatch complete</p>
+ <h2 className="mt-2 font-heading text-2xl font-semibold tracking-normal text-foreground">
+ Transaction successful
+ </h2>
+ <p className="mt-1 text-sm font-semibold leading-6 text-muted-foreground">
+ {batchReceipt.recipientCount.toLocaleString()} payouts were submitted on
+ Arc Testnet.
+ </p>
+ </div>
+ </div>
+ <button
+ className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground transition hover:border-primary/30 hover:bg-primary hover:text-primary-foreground"
+ onClick={() => setSuccessOpen(false)}
+ type="button"
+ >
+ <X className="h-4 w-4" />
+ </button>
+ </div>
+
+ <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+ <div className="flex items-start justify-between gap-3">
+ <div className="min-w-0">
+ <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
+ Batch total
+ </p>
+ <p className="mt-2 font-heading text-3xl font-semibold tracking-normal text-foreground">
+ {batchReceipt.payoutTotal}
+ </p>
+ <p className="mt-1 text-sm font-semibold text-muted-foreground">
+ Fee {batchReceipt.feeAmount} / {batchReceipt.mode}
+ </p>
+ </div>
+ <TokenIcon className="h-10 w-10 rounded-full shadow-sm" symbol={batchReceipt.token} />
+ </div>
+
+ <div className="mt-4 grid gap-2 rounded-lg border border-border bg-card/80 px-3 py-3 text-sm">
+ <div className="flex items-start justify-between gap-3">
+ <span className="font-bold text-muted-foreground">Wallet</span>
+ <span className="min-w-0 break-words text-right font-mono text-xs font-black text-foreground">
+ {shortenAddress(batchReceipt.walletAddress)}
+ </span>
+ </div>
+ <div className="flex items-start justify-between gap-3">
+ <span className="font-bold text-muted-foreground">Transaction</span>
+ <span className="min-w-0 break-words text-right font-mono text-xs font-black text-foreground">
+ {batchReceipt.txHash
+ ? shortenAddress(batchReceipt.txHash)
+ : "Pending from wallet provider"}
+ </span>
+ </div>
+ <div className="flex items-start justify-between gap-3">
+ <span className="font-bold text-muted-foreground">Submitted</span>
+ <span className="text-right font-black text-foreground">
+ {formatBatchReceiptTime(batchReceipt.submittedAt)}
+ </span>
+ </div>
+ </div>
+ </div>
+
+ <div className="mt-5 grid gap-2 sm:grid-cols-3">
+ <button
+ className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:border-primary/30 hover:text-primary active:translate-y-0"
+ onClick={() => void shareBatchReceipt(batchReceipt)}
+ type="button"
+ >
+ <Share2 className="h-4 w-4" />
+ Share
+ </button>
+ <button
+ className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0"
+ onClick={() => void downloadReceiptPng(batchReceipt)}
+ type="button"
+ >
+ <Download className="h-4 w-4" />
+ Download PNG
+ </button>
+ {batchReceipt.explorerUrl ? (
+ <a
+ className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:-translate-y-0.5 hover:border-primary/30 hover:text-primary active:translate-y-0"
+ href={batchReceipt.explorerUrl}
+ rel="noreferrer"
+ target="_blank"
+ >
+ ArcScan
+ <ExternalLink className="h-4 w-4" />
+ </a>
+ ) : (
+ <button
+ className="inline-flex h-11 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 text-sm font-semibold text-muted-foreground"
+ disabled
+ type="button"
+ >
+ ArcScan pending
+ </button>
+ )}
+ </div>
+ </div>
+ </div>
+ ) : null}
  </PlatformAccessGate>
  </PlatformChrome>
  );

@@ -67,7 +67,7 @@ export function SpendSaveSetupDialog({
           save: formatMoneyShort(formatUnitsToDecimal(saveUnits, decimals)),
         };
       } catch {
-        return { spend: formatMoneyShort(sample), save: "—" };
+        return { spend: formatMoneyShort(sample), save: "n/a" };
       }
     });
   }, [percentage]);
@@ -122,7 +122,7 @@ export function SpendSaveSetupDialog({
             <DialogTitle>Set up Spend&Save</DialogTitle>
             <DialogDescription>
               Automatically save a percentage whenever you make an eligible
-              payment. Your merchant still receives the full payment amount —
+              payment. Your merchant still receives the full payment amount.
               the savings is extra from your balance.
             </DialogDescription>
           </DialogHeader>

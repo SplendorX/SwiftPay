@@ -25,6 +25,38 @@ alter table public.profiles
   alter column username set not null,
   alter column auth_provider set not null;
 
+alter table public.profiles
+  add column if not exists bio text;
+
+alter table public.profiles
+  add column if not exists locale text not null default 'en';
+
+alter table public.profiles
+  add column if not exists onboarding_completed_at timestamptz;
+
+alter table public.profiles
+  add column if not exists account_type_selected boolean not null default false;
+
+alter table public.profiles
+  add column if not exists default_workspace_id uuid;
+
+alter table public.profiles
+  add column if not exists tour_completed_at timestamptz;
+
+alter table public.profiles
+  drop constraint if exists profiles_bio_len;
+
+alter table public.profiles
+  add constraint profiles_bio_len check (
+    bio is null or char_length(bio) <= 160
+  );
+
+alter table public.profiles
+  drop constraint if exists profiles_locale_len;
+
+alter table public.profiles
+  add constraint profiles_locale_len check (char_length(locale) between 2 and 12);
+
 create unique index if not exists profiles_username_lower_idx
   on public.profiles (lower(username));
 

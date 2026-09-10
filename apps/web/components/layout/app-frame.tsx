@@ -1,6 +1,8 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { useSidebar } from "@/components/layout/sidebar-context";
@@ -17,6 +19,8 @@ type AppFrameProps = {
 
 export function AppFrame({ children, subtitle, title }: AppFrameProps) {
   const { collapsed, retracted, toggleCollapsed } = useSidebar();
+  const pathname = usePathname();
+  const reduceMotion = useReducedMotion();
 
   return (
     <div className="app-frame">
@@ -52,14 +56,23 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
 
       <div className="app-main">
         <div className="app-page-title">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-            {title}
-          </h1>
+          <p className="app-page-kicker">SwiftPay</p>
+          <h1 className="font-heading">{title}</h1>
           {subtitle ? (
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+              {subtitle}
+            </p>
           ) : null}
         </div>
-        <div className="app-main-content">{children}</div>
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="app-main-content"
+          initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+          key={pathname}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {children}
+        </motion.div>
       </div>
     </div>
   );

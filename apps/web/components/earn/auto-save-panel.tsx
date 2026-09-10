@@ -13,7 +13,6 @@ import { maxUint256 } from "viem";
 
 import {
   readCircleLogin,
-  readCircleWallets,
   type CircleLoginResult,
 } from "@/lib/circle-session";
 import {
@@ -94,8 +93,14 @@ function snapshotKey(fields: EditableFields) {
 
 export function AutoSavePanel() {
   const { address: wagmiAddress } = useAccount();
-  const { address: platformAddress, isConnected, source } = usePlatformWallet();
-  const address = platformAddress ?? wagmiAddress;
+  const {
+    address: platformAddress,
+    circleWallet: platformCircleWallet,
+    isBusinessWorkspace,
+    isConnected,
+    source,
+  } = usePlatformWallet();
+  const address = platformAddress ?? (isBusinessWorkspace ? undefined : wagmiAddress);
   const circleSdkRef = useRef<W3SSdk | null>(null);
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
   const [circleSdkReady, setCircleSdkReady] = useState(false);
@@ -170,7 +175,7 @@ export function AutoSavePanel() {
   const isCircleMode = Boolean(
     source === "embedded" &&
       circleLogin &&
-      readCircleWallets()[0]?.id &&
+      platformCircleWallet?.id &&
       circleSdkReady,
   );
 
@@ -317,7 +322,7 @@ export function AutoSavePanel() {
     try {
       let hash: Hash | undefined;
       if (isCircleMode) {
-        const wallet = readCircleWallets()[0];
+        const wallet = platformCircleWallet;
         if (!circleLogin || !wallet?.id || !circleSdkRef.current) {
           throw new Error("Circle wallet is not ready.");
         }
@@ -357,7 +362,7 @@ export function AutoSavePanel() {
         hash = result.txHash;
         if (!hash) {
           throw new Error(
-            "Circle approval submitted. Waiting for the transaction hash — try again shortly.",
+            "Circle approval submitted. Waiting for the transaction hash. Try again shortly.",
           );
         }
       } else {
@@ -566,7 +571,7 @@ export function AutoSavePanel() {
                       ${ex.amount} · {ex.status}
                     </span>
                     {ex.skip_reason && (
-                      <span className="earn-footnote"> — {ex.skip_reason}</span>
+                      <span className="earn-footnote">. {ex.skip_reason}</span>
                     )}
                   </li>
                 ))}

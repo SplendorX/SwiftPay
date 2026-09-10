@@ -30,6 +30,7 @@ import {
 } from "wagmi";
 import { formatUnits, maxUint256, type Address, type Hash } from "viem";
 
+import { showSuccess } from "@/components/success-popup";
 import { AmountConfirmDialog } from "@/components/save/amount-confirm-dialog";
 import { CreatePocketDialog } from "@/components/save/create-pocket-dialog";
 import {
@@ -114,10 +115,12 @@ export function SwiftSaveHub() {
   const { address: wagmiAddress, connector } = useAccount();
   const {
     address: platformAddress,
+    isBusinessWorkspace,
     isConnected,
     source,
   } = usePlatformWallet();
-  const address = (platformAddress ?? wagmiAddress) as Address | undefined;
+  const address = (platformAddress ??
+    (isBusinessWorkspace ? undefined : wagmiAddress)) as Address | undefined;
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
   const { switchChainAsync } = useSwitchChain();
@@ -188,7 +191,7 @@ export function SwiftSaveHub() {
     useWaitForTransactionReceipt({ hash: pendingTxHash });
 
   const walletBalanceLabel = useMemo(() => {
-    if (walletTokenBalance === undefined) return "—";
+    if (walletTokenBalance === undefined) return "n/a";
     return `${formatMoneyShort(formatUnits(walletTokenBalance, token.decimals))} ${currency}`;
   }, [walletTokenBalance, token.decimals, currency]);
 
@@ -247,10 +250,10 @@ export function SwiftSaveHub() {
     const login = readCircleLogin();
     setCircleLogin(login);
     const wallets = readCircleWallets();
-    const primary =
-      wallets.find((w) => w.address?.toLowerCase() === address?.toLowerCase()) ??
-      wallets[0] ??
-      null;
+    const primary = address
+      ? wallets.find((w) => w.address?.toLowerCase() === address.toLowerCase()) ??
+        null
+      : null;
     setCircleWallet(primary);
 
     if (!login?.userToken || !login.encryptionKey) {
@@ -342,6 +345,11 @@ export function SwiftSaveHub() {
             txHash: hash,
           });
           setSuccess("Deposit confirmed on-chain and pocket updated.");
+          showSuccess({
+            eyebrow: "Save",
+            subtitle: "Deposit confirmed on-chain and pocket updated.",
+            title: "Deposit successful",
+          });
         } else {
           await confirmWithdraw(confirm.pocketId, {
             ownerWallet: owner,
@@ -350,6 +358,11 @@ export function SwiftSaveHub() {
             txHash: hash,
           });
           setSuccess("Withdrawal confirmed on-chain and pocket updated.");
+          showSuccess({
+            eyebrow: "Save",
+            subtitle: "Withdrawal confirmed on-chain and pocket updated.",
+            title: "Withdrawal successful",
+          });
         }
         setAmountMode(null);
         setActivePocket(null);
@@ -513,7 +526,7 @@ export function SwiftSaveHub() {
           });
           if (!result.txHash) {
             throw new Error(
-              "Circle deposit submitted without a hash yet. Check again shortly — reconciliation will finalize it.",
+              "Circle deposit submitted without a hash yet. Check again shortly. Reconciliation will finalize it.",
             );
           }
           await confirmDeposit(activePocket.id, {
@@ -523,6 +536,11 @@ export function SwiftSaveHub() {
             txHash: result.txHash,
           });
           setSuccess("Nice! Money was added to your pocket.");
+          showSuccess({
+            eyebrow: "Save",
+            subtitle: "Money was added to your pocket.",
+            title: "Deposit successful",
+          });
           setAmountMode(null);
           setActivePocket(null);
           await loadAll();
@@ -546,7 +564,7 @@ export function SwiftSaveHub() {
             pocketId: activePocket.id,
             transactionId: prepared.transaction.id,
           });
-          setSuccess("Deposit submitted — waiting for confirmation…");
+          setSuccess("Deposit submitted. Waiting for confirmation…");
         }
       } else {
         const prepared = await initiateWithdraw(activePocket.id, {
@@ -579,7 +597,12 @@ export function SwiftSaveHub() {
             transactionId: prepared.transaction.id,
             txHash: result.txHash,
           });
-          setSuccess("Withdrawal confirmed — funds are back in your wallet.");
+          setSuccess("Withdrawal confirmed. Funds are back in your wallet.");
+          showSuccess({
+            eyebrow: "Save",
+            subtitle: "Funds are back in your wallet.",
+            title: "Withdrawal successful",
+          });
           setAmountMode(null);
           setActivePocket(null);
           await loadAll();
@@ -602,7 +625,7 @@ export function SwiftSaveHub() {
             pocketId: activePocket.id,
             transactionId: prepared.transaction.id,
           });
-          setSuccess("Withdrawal submitted — waiting for confirmation…");
+          setSuccess("Withdrawal submitted. Waiting for confirmation…");
         }
       }
     } catch (err) {
@@ -967,7 +990,7 @@ export function SwiftSaveHub() {
               Your savings journey starts here.
             </h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Create a pocket for anything you’re saving towards — emergency
+              Create a pocket for anything you’re saving towards: emergency
               fund, vacation, laptop, rent, or a personal goal.
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">

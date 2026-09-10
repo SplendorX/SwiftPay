@@ -35,7 +35,7 @@ export function PerformanceCard({
           <dd>
             {summary?.hasHistory
               ? `$${formatUsdDisplay(summary.totalDeposited)}`
-              : "—"}
+              : "n/a"}
           </dd>
         </div>
         <div>
@@ -47,7 +47,7 @@ export function PerformanceCard({
           <dd className={earnedPositive ? "earn-earned-positive" : undefined}>
             {summary?.hasHistory
               ? `${earnedPositive ? "+" : ""}$${formatUsdDisplay(earned)}`
-              : "—"}
+              : "n/a"}
           </dd>
         </div>
         <div>
@@ -84,7 +84,7 @@ export function PerformanceCard({
           <dt>Strategy health</dt>
           <dd>
             {strategyHealthy === undefined
-              ? "—"
+              ? "n/a"
               : strategyHealthy
                 ? "Healthy"
                 : "Unhealthy"}
@@ -108,9 +108,9 @@ export function PerformanceCard({
 
       <p className="earn-footnote">
         {mode === "simulation"
-          ? "Simulation — not real yield. Figures do not represent economic returns."
+          ? "Simulation, not real yield. Figures do not represent economic returns."
           : summary?.note ??
-            "SwiftPay takes a performance fee only on positive yield above the vault high-water mark — never on deposits."}
+            "SwiftPay takes a performance fee only on positive yield above the vault high-water mark, never on deposits."}
       </p>
     </article>
   );

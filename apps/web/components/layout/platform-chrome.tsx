@@ -2,6 +2,11 @@
 
 import type { ReactNode } from "react";
 
+import { AccountProvider } from "@/components/account/account-provider";
+import {
+  OnboardingRedirect,
+  WorkspaceProvider,
+} from "@/components/business/workspace-provider";
 import { AppFrame } from "@/components/layout/app-frame";
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
@@ -20,13 +25,18 @@ export function PlatformChrome({
   title,
 }: PlatformChromeProps) {
   return (
-    <SidebarProvider>
-      <div className="platform-shell bg-background">
-        <AppHeader actions={actions} />
-        <AppFrame subtitle={subtitle} title={title}>
-          {children}
-        </AppFrame>
-      </div>
-    </SidebarProvider>
+    <WorkspaceProvider>
+      <AccountProvider>
+        <OnboardingRedirect />
+        <SidebarProvider>
+          <div className="platform-shell bg-background">
+            <AppHeader actions={actions} />
+            <AppFrame subtitle={subtitle} title={title}>
+              {children}
+            </AppFrame>
+          </div>
+        </SidebarProvider>
+      </AccountProvider>
+    </WorkspaceProvider>
   );
 }

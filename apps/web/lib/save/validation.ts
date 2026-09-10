@@ -59,7 +59,7 @@ export function normalizeImageUrl(value: unknown) {
   if (typeof value !== "string") return null;
   const url = value.trim();
   if (!url) return null;
-  if (url.length > 500) return null;
+  if (url.length > 250000) return null;
   if (
     !url.startsWith("https://") &&
     !url.startsWith("data:image/") &&

@@ -1,12 +1,23 @@
 import type { Address } from "viem";
 
-import { officialArcExplorerUrl, readContractAddress } from "@/lib/network";
+import {
+  isArcMainnet,
+  officialArcExplorerUrl,
+  readContractAddress,
+} from "@/lib/network";
 import { arcTestnet } from "@/lib/wagmi";
 
+/** Arc Testnet deploy in packages/contracts/deployments/swift-save-arcTestnet.json */
+const ARC_TESTNET_SWIFT_SAVE_VAULT =
+  "0xcBF3559D59b536cc3aB55C32e502F72Bd111588a" as Address;
+
 export function swiftSaveVaultAddress(): Address | null {
-  return readContractAddress(
+  const configured = readContractAddress(
     process.env.NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS,
   );
+  if (configured) return configured;
+  if (isArcMainnet()) return null;
+  return ARC_TESTNET_SWIFT_SAVE_VAULT;
 }
 
 export function isSwiftSaveVaultConfigured() {

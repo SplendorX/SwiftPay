@@ -17,7 +17,7 @@ type DashboardEarnSummaryProps = {
 };
 
 function formatMoney(units: bigint | undefined, decimals = 6): string {
-  if (units === undefined) return "—";
+  if (units === undefined) return "n/a";
   return formatUsdDisplay(formatUnitsToDecimal(units, decimals));
 }
 
@@ -28,8 +28,12 @@ export function DashboardEarnSummary({
   availableUsdc,
 }: DashboardEarnSummaryProps) {
   const { address: wagmiAddress } = useAccount();
-  const { address: platformAddress, isConnected } = usePlatformWallet();
-  const address = platformAddress ?? wagmiAddress;
+  const {
+    address: platformAddress,
+    isBusinessWorkspace,
+    isConnected,
+  } = usePlatformWallet();
+  const address = platformAddress ?? (isBusinessWorkspace ? undefined : wagmiAddress);
   const vault = earnConfig.vaultAddress;
   const mode = earnConfig.mode;
   const depositsEnabled = isEarnDepositEnabled(mode) && Boolean(vault);
@@ -79,19 +83,19 @@ export function DashboardEarnSummary({
         <div className="earn-dashboard-stat">
           <p className="earn-stat-label">Available to spend</p>
           <p className="earn-dashboard-value">
-            ${isConnected ? formatMoney(available, usdc.decimals) : "—"}
+            ${isConnected ? formatMoney(available, usdc.decimals) : "n/a"}
           </p>
         </div>
         <div className="earn-dashboard-stat">
           <p className="earn-stat-label">Earn</p>
           <p className="earn-dashboard-value">
-            ${isConnected ? formatMoney(earn, usdc.decimals) : "—"}
+            ${isConnected ? formatMoney(earn, usdc.decimals) : "n/a"}
           </p>
         </div>
         <div className="earn-dashboard-stat earn-dashboard-stat-total">
           <p className="earn-stat-label">Total</p>
           <p className="earn-dashboard-value">
-            ${isConnected ? formatMoney(total, usdc.decimals) : "—"}
+            ${isConnected ? formatMoney(total, usdc.decimals) : "n/a"}
           </p>
         </div>
       </div>
@@ -111,7 +115,7 @@ export function DashboardEarnSummary({
       </div>
 
       <p className="earn-footnote">
-        One account — spendable wallet USDC and Earn vault shares. Yield is
+        One account. Spendable wallet USDC and Earn vault shares. Yield is
         variable and not guaranteed.
       </p>
     </section>

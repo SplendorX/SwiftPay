@@ -1,7 +1,5 @@
 "use client";
 
-import { StyledSelect } from "@/components/ui/styled-select";
-
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   CalendarClock,
@@ -35,6 +33,14 @@ import {
 } from "wagmi";
 
 import { KpiCard } from "@/components/design/kpi-card";
+import {
+  RecurringScheduleFields,
+  createRecurringDraft,
+  datetimeLocalToIso,
+  startTimeError,
+  type RecurringScheduleDraft,
+} from "@/components/recurring-schedule-fields";
+import { showSuccess } from "@/components/success-popup";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
 import { Badge } from "@/components/ui/badge";
@@ -76,9 +82,7 @@ import {
   isCompletedDisplayStatus,
   isDueDisplayStatus,
   isProcessingDisplayStatus,
-  recurringFrequencies,
   type RecurringExecutionRecord,
-  type RecurringFrequency,
   type RecurringScheduleRecord,
 } from "@/lib/recurring-utils";
 import { ensureProfile, fetchProfile } from "@/lib/profile";
@@ -142,7 +146,7 @@ function extractCircleTransactionId(result: CircleChallengeResult | undefined) {
 }
 
 function shortenAddress(value?: string) {
-  if (!value) return "—";
+  if (!value) return "n/a";
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
@@ -184,12 +188,9 @@ export function SwiftRecurepayHub() {
   const [beneficiaryLabel, setBeneficiaryLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [token, setToken] = useState<ArcTokenSymbol>("USDC");
-  const [frequency, setFrequency] =
-    useState<RecurringFrequency>("monthly");
-  const [intervalDays, setIntervalDays] = useState("30");
   const [narration, setNarration] = useState("SwiftRecurepay schedule");
-  const [maxRuns, setMaxRuns] = useState("");
-  const [autopayEnabled, setAutopayEnabled] = useState(false);
+  const [recurringDraft, setRecurringDraft] =
+    useState<RecurringScheduleDraft>(createRecurringDraft);
   const [approvingScheduleId, setApprovingScheduleId] = useState<string | null>(
     null,
   );
@@ -518,6 +519,23 @@ export function SwiftRecurepayHub() {
       return;
     }
 
+    const startError = startTimeError(recurringDraft.startsAt);
+    if (startError) {
+      setError(startError);
+      return;
+    }
+
+    const startsAt = datetimeLocalToIso(recurringDraft.startsAt);
+    const endsAt = datetimeLocalToIso(recurringDraft.endsAt);
+    if (
+      startsAt &&
+      endsAt &&
+      new Date(endsAt).getTime() < new Date(startsAt).getTime()
+    ) {
+      setError("End time must be after the start time.");
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setSuccess(null);
@@ -525,18 +543,23 @@ export function SwiftRecurepayHub() {
     try {
       const schedule = await createRecurringSchedule({
         amount,
-        autopayEnabled: canUseAutopay ? autopayEnabled : undefined,
+        autopayEnabled: canUseAutopay ? recurringDraft.autopayEnabled : undefined,
         beneficiaryLabel: beneficiaryLabel || undefined,
         beneficiaryUsername: resolvedRecipientUsername ?? undefined,
         beneficiaryWallet: resolvedRecipientAddress,
         circleSocialUuid: requestContext.circleSocialUuid,
-        frequency,
+        endsAt: datetimeLocalToIso(recurringDraft.endsAt),
+        frequency: recurringDraft.frequency,
         intervalDays:
-          frequency === "custom" ? Number(intervalDays) || undefined : undefined,
-        maxRuns: maxRuns ? Number(maxRuns) : undefined,
+          recurringDraft.frequency === "custom"
+            ? Number(recurringDraft.intervalDays) || undefined
+            : undefined,
+        maxRuns: recurringDraft.maxRuns
+          ? Number(recurringDraft.maxRuns)
+          : undefined,
         narration,
         ownerWallet: ownerAddress,
-        startsAt: new Date().toISOString(),
+        startsAt: datetimeLocalToIso(recurringDraft.startsAt),
         tokenSymbol: token,
         walletMode: isEmbeddedWalletMode ? "circle" : "external",
       });
@@ -546,21 +569,51 @@ export function SwiftRecurepayHub() {
       setBeneficiaryLabel("");
       setAmount("");
 
-      if (autopayEnabled) {
+      if (recurringDraft.autopayEnabled) {
         try {
           await authorizeScheduleAutopay(schedule);
           await refreshData();
           setSuccess(
-            "Schedule created. Autopay is authorized — due payments run in the background without this page.",
+            "Schedule created. Autopay is authorized. Due payments run in the background without this page.",
           );
+          showSuccess({
+            amount: `${schedule.amount} ${schedule.token_symbol}`,
+            eyebrow: "RecurePay",
+            subtitle: "Autopay is authorized for background settlement.",
+            title: "Recurring payment created",
+          });
         } catch (authorizeError) {
           setSuccess("Schedule created. Authorize Autopay to enable background payments.");
+          showSuccess({
+            amount: `${schedule.amount} ${schedule.token_symbol}`,
+            eyebrow: "RecurePay",
+            subtitle: "Authorize Autopay from this page to enable background payments.",
+            title: "Recurring payment created",
+          });
           setError(getErrorMessage(authorizeError));
         }
       } else {
         setSuccess(
           "Schedule created. Use Pay now for a manual run, or authorize Autopay to let the backend execute when due.",
         );
+        showSuccess({
+          amount: `${schedule.amount} ${schedule.token_symbol}`,
+          eyebrow: "RecurePay",
+          rows: [
+            {
+              label: "Start",
+              value: new Date(schedule.starts_at).toLocaleString(),
+            },
+            {
+              label: "End",
+              value: schedule.ends_at
+                ? new Date(schedule.ends_at).toLocaleString()
+                : "Open",
+            },
+          ],
+          subtitle: "Manage this schedule from this page.",
+          title: "Recurring payment created",
+        });
       }
     } catch (createError) {
       setError(getErrorMessage(createError));
@@ -1002,6 +1055,12 @@ export function SwiftRecurepayHub() {
         ),
       );
       setSuccess(`Recurring payment sent (${shortenAddress(txHash)}).`);
+      showSuccess({
+        explorerUrl: `${arcTestnet.blockExplorers.default.url}/tx/${txHash}`,
+        eyebrow: "RecurePay",
+        subtitle: "The scheduled payment was submitted on Arc.",
+        title: "Payment successful",
+      });
     } catch (payError) {
       const message = getErrorMessage(payError);
 
@@ -1030,7 +1089,7 @@ export function SwiftRecurepayHub() {
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4 overflow-x-hidden">
       {!ownerAddress ? (
         <section className="rounded-lg border border-border bg-card px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1085,7 +1144,7 @@ export function SwiftRecurepayHub() {
             <p className="section-copy">
               Schedule USDC and EURC on Arc Testnet. Authorize Autopay once
               (token approval to the SwiftRecurepay executor). After that, due
-              payments run in the background — this page is not required.
+              payments run in the background. This page is not required.
             </p>
           </div>
           <Button
@@ -1136,8 +1195,8 @@ export function SwiftRecurepayHub() {
       </section>
 
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <section className="glass-panel p-4 sm:p-5">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_min(24rem,100%)]">
+        <section className="glass-panel min-w-0 overflow-x-hidden p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="section-eyebrow">Due queue</p>
@@ -1221,7 +1280,7 @@ export function SwiftRecurepayHub() {
           )}
         </section>
 
-        <section className="glass-panel p-4 sm:p-5">
+        <section className="glass-panel min-w-0 overflow-x-hidden p-4 sm:p-5">
           <div className="mb-4">
             <p className="section-eyebrow">Create</p>
             <h2 className="font-heading text-xl font-semibold">New schedule</h2>
@@ -1249,7 +1308,7 @@ export function SwiftRecurepayHub() {
               />
             </label>
 
-            <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
+            <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_11rem]">
               <label className="grid gap-2">
                 <span className="text-sm font-semibold">Amount</span>
                 <div className="field-shell flex h-11 items-center gap-2 px-3">
@@ -1267,31 +1326,6 @@ export function SwiftRecurepayHub() {
             </div>
 
             <label className="grid gap-2">
-              <span className="text-sm font-semibold">Frequency</span>
-              <StyledSelect
-                ariaLabel="Select recurring payment frequency"
-                className="w-full"
-                onChange={setFrequency}
-                options={recurringFrequencies.map((option) => ({
-                  label: formatFrequencyLabel(option),
-                  value: option,
-                }))}
-                value={frequency}
-              />
-            </label>
-
-            {frequency === "custom" ? (
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold">Interval days</span>
-                <Input
-                  inputMode="numeric"
-                  onChange={(event) => setIntervalDays(event.target.value)}
-                  value={intervalDays}
-                />
-              </label>
-            ) : null}
-
-            <label className="grid gap-2">
               <span className="text-sm font-semibold">Narration</span>
               <Input
                 onChange={(event) => setNarration(event.target.value)}
@@ -1299,34 +1333,11 @@ export function SwiftRecurepayHub() {
               />
             </label>
 
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Max runs (optional)</span>
-              <Input
-                inputMode="numeric"
-                onChange={(event) => setMaxRuns(event.target.value)}
-                placeholder="Unlimited"
-                value={maxRuns}
-              />
-            </label>
-
-            {canUseAutopay ? (
-              <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3">
-                <input
-                  checked={autopayEnabled}
-                  className="mt-1"
-                  onChange={(event) => setAutopayEnabled(event.target.checked)}
-                  type="checkbox"
-                />
-                <span className="grid gap-1">
-                  <span className="text-sm font-semibold">Authorize Autopay</span>
-                  <span className="text-xs text-muted-foreground">
-                    After create, you will approve the SwiftRecurepay executor
-                    once. Due payments then settle on the server while you are
-                    logged out. This does not store your private key.
-                  </span>
-                </span>
-              </label>
-            ) : null}
+            <RecurringScheduleFields
+              onChange={setRecurringDraft}
+              showAutopay={canUseAutopay}
+              value={recurringDraft}
+            />
 
             <Button
               disabled={
@@ -1393,7 +1404,7 @@ export function SwiftRecurepayHub() {
                       {new Date(schedule.next_run_at).getTime() <= Date.now() &&
                       schedule.autopay_enabled &&
                       schedule.authorization_status === "AUTHORIZED"
-                        ? "Due now — Autopay is queued in the background"
+                        ? "Due now. Autopay is queued in the background"
                         : `Next run ${new Date(schedule.next_run_at).toLocaleString()}`}
                       {" · "}
                       {schedule.run_count} completed
@@ -1506,7 +1517,7 @@ export function SwiftRecurepayHub() {
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Occurrence {execution.occurrence_number ?? "—"}
+                    Occurrence {execution.occurrence_number ?? "n/a"}
                     {execution.tx_hash
                       ? ` · ${execution.tx_hash.slice(0, 10)}…`
                       : ""}

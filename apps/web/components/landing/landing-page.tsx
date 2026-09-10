@@ -1,32 +1,47 @@
 "use client";
 
 import {
+  ArrowRight,
   ArrowUpRight,
   CalendarClock,
-  ChevronDown,
   CheckCircle2,
   CircleDollarSign,
+  ExternalLink,
+  FileCheck2,
+  Fingerprint,
+  FlaskConical,
   Layers,
-  LockKeyhole,
   PiggyBank,
-  RefreshCw,
   ReceiptText,
+  RefreshCw,
   ShieldCheck,
   TrendingUp,
   Users,
+  UsersRound,
   Wallet,
+  X,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
+import { FeatureStories } from "@/components/landing/feature-stories";
 import { HeroWelcome } from "@/components/landing/hero-welcome";
 import { LandingFooter } from "@/components/landing/landing-footer";
-import { LaunchAppLink } from "@/components/landing/launch-app-link";
+import {
+  LaunchAppLink,
+  signInModalEventName,
+} from "@/components/landing/launch-app-link";
 import { ProductShowcase } from "@/components/landing/product-showcase";
 import { SignInPanel } from "@/components/landing/sign-in-panel";
 import { FadeUp, Stagger, StaggerItem } from "@/components/design/motion";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 const productFlows = [
   {
@@ -36,10 +51,16 @@ const productFlows = [
     title: "Dashboard",
   },
   {
-    body: "Savings pockets and Spend&Save — no interest, just structured saving.",
+    body: "Private groups for chat, split payments, shared Save pockets, and multi-approval withdrawals.",
+    href: "/swiftCircle",
+    icon: UsersRound,
+    title: "Circle",
+  },
+  {
+    body: "Savings pockets and Spend&Save. No interest, just structured saving.",
     href: "/save",
     icon: PiggyBank,
-    title: "Swift+Save",
+    title: "Save",
   },
   {
     body: "Vault performance, earnings context, and Auto-Save controls for supported balances.",
@@ -69,13 +90,7 @@ const productFlows = [
     body: "Schedule recurring payments, authorize Autopay once, and let due settlements run in the background.",
     href: "/swiftRecurepay",
     icon: CalendarClock,
-    title: "SwiftRecurepay",
-  },
-  {
-    body: "Privacy-first claim codes with receiver-bound settlement on Arc.",
-    href: "/privSwiftPay",
-    icon: LockKeyhole,
-    title: "PrivSwiftPay",
+    title: "RecurePay",
   },
 ];
 
@@ -96,9 +111,27 @@ const demos = [
     title: "Payment requests",
   },
   {
-    description: "Recurring schedules, private claim codes, and savings rules share the same wallet profile.",
+    description: "Recurring schedules, invoices, and savings rules share the same wallet profile.",
     stat: "Profile scoped",
     title: "Automation suite",
+  },
+];
+
+const howItWorksSteps = [
+  {
+    detail: "Sign in with a Circle Google wallet or connect MetaMask / any Arc-compatible external wallet.",
+    label: "Connect your wallet",
+    step: "01",
+  },
+  {
+    detail: "Pick USDC or EURC, enter a username, wallet address, or upload a batch CSV for up to 500 recipients.",
+    label: "Choose amount and recipient",
+    step: "02",
+  },
+  {
+    detail: "Confirm the transaction. Gas is paid in USDC. Track status in real time and view the ArcScan receipt instantly.",
+    label: "Confirm and settle",
+    step: "03",
   },
 ];
 
@@ -110,7 +143,7 @@ const faqItems = [
   },
   {
     answer:
-      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, SwiftBatch, SwiftRecurepay, Payment requests, PrivSwiftPay, Docs, Roadmap, and Settings. The main product workflows are linked directly from the product section.",
+      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, SwiftBatch, RecurePay, Payment requests, Circle, Docs, Roadmap, and Settings. The main product workflows are linked directly from the product section.",
     question: "Which pages are available?",
   },
   {
@@ -120,8 +153,8 @@ const faqItems = [
   },
   {
     answer:
-      "Yes. Payment requests create links and QR codes, SwiftBatch handles CSV payouts up to 500 recipients, SwiftRecurepay manages recurring schedules, and PrivSwiftPay creates receiver-bound claim-code settlement flows.",
-    question: "Can I request, batch, schedule, or send privately?",
+      "Yes. Payment requests create links and QR codes, SwiftBatch handles CSV payouts up to 500 recipients, RecurePay manages recurring schedules, and Circle groups share chat, splits, and savings.",
+    question: "Can I request, batch, or schedule payments?",
   },
   {
     answer:
@@ -135,25 +168,102 @@ const faqItems = [
   },
 ];
 
+const whyItems = [
+  {
+    body: "USDC and EURC on Arc. Stable by default, not speculative.",
+    icon: CircleDollarSign,
+    title: "Stable by default",
+  },
+  {
+    body: "Send, batch, request, and privacy flows share one visual language.",
+    icon: Layers,
+    title: "Unified operations",
+  },
+  {
+    body: "Wallet-signed actions and ArcScan verification at every step.",
+    icon: ShieldCheck,
+    title: "Financial-grade trust",
+  },
+];
+
+/**
+ * Security & Trust claims.
+ *
+ * All claims are scoped to what the product actually does today on Arc Testnet.
+ * Items labelled "coming soon" are clearly marked.
+ * No claim should be made here that isn't verifiable in the running product.
+ */
+const trustItems = [
+  {
+    body: "Your funds are never held by SwiftPay. Every transaction is signed by your wallet and settled directly on Arc.",
+    icon: Fingerprint,
+    link: null,
+    linkLabel: null,
+    title: "Non-custodial",
+  },
+  {
+    body: "Smart contract source code is published on ArcScan. You can verify what the contract does before approving any transaction.",
+    icon: FileCheck2,
+    link: "https://testnet.arcscan.app",
+    linkLabel: "View on ArcScan",
+    title: "Verified contracts",
+  },
+  {
+    body: "SwiftPay currently runs on Arc Testnet. No real funds are at risk. A mainnet deployment will be announced separately.",
+    icon: FlaskConical,
+    link: null,
+    linkLabel: null,
+    title: "Testnet, no real funds",
+  },
+];
+
 export function LandingPage() {
+  const [signInOpen, setSignInOpen] = useState(false);
+
+  useEffect(() => {
+    function openSignIn() {
+      setSignInOpen(true);
+    }
+
+    function openFromHash() {
+      if (window.location.hash === "#sign-in") {
+        openSignIn();
+      }
+    }
+
+    openFromHash();
+    window.addEventListener(signInModalEventName, openSignIn);
+    window.addEventListener("hashchange", openFromHash);
+
+    return () => {
+      window.removeEventListener(signInModalEventName, openSignIn);
+      window.removeEventListener("hashchange", openFromHash);
+    };
+  }, []);
+
+  function closeSignIn() {
+    setSignInOpen(false);
+
+    if (window.location.hash === "#sign-in") {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }
+
   return (
     <MarketingShell>
-      <section className="marketing-hero">
+      {/* ── Hero ── */}
+      <section className="marketing-hero marketing-hero-with-showcase">
         <HeroWelcome />
-
-        <FadeUp className="marketing-hero-copy" delay={0.08}>
-          <SignInPanel />
-        </FadeUp>
+        <ProductShowcase placement="hero" />
       </section>
 
-      <ProductShowcase />
-
+      {/* ── Products ── */}
       <section className="marketing-section" id="products">
         <div className="marketing-section-header">
           <p className="section-eyebrow">Product</p>
-          <h2 className="section-title">One platform. Every payment workflow.</h2>
+          <h2 className="section-title">One platform. Everything Payments.</h2>
           <p className="section-copy">
-            Modules designed for settlement clarity — built for teams who need
+            Modules designed for settlement clarity, built for teams who need
             money to move, not contracts to inspect.
           </p>
         </div>
@@ -168,9 +278,9 @@ export function LandingPage() {
                   </div>
                   <h3 className="mt-3 font-heading text-base font-semibold">{flow.title}</h3>
                   <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{flow.body}</p>
-                  <span className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-semibold text-primary">
+                  <span className="marketing-bento-explore">
                     Explore
-                    <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </span>
                 </Link>
               </StaggerItem>
@@ -179,19 +289,20 @@ export function LandingPage() {
         </Stagger>
       </section>
 
+      {/* ── Demonstrations ── */}
       <section className="marketing-section marketing-section-muted">
         <div className="marketing-section-header">
           <p className="section-eyebrow">Demonstrations</p>
           <h2 className="section-title">See how money moves.</h2>
           <p className="section-copy">
             Realistic payment flows, transaction states, and settlement
-            visualizations — the way modern fintech products communicate trust.
+            visualizations, the way modern fintech products communicate trust.
           </p>
         </div>
         <Stagger className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {demos.map((demo) => (
             <StaggerItem key={demo.title}>
-              <article className="marketing-value-card h-full">
+              <article className="marketing-demo-card h-full">
                 <Badge className="mb-3" variant="outline">
                   {demo.stat}
                 </Badge>
@@ -205,6 +316,9 @@ export function LandingPage() {
         </Stagger>
       </section>
 
+      <FeatureStories />
+
+      {/* ── Why SwiftPay ── */}
       <section className="marketing-section">
         <div className="marketing-split">
           <FadeUp>
@@ -216,23 +330,7 @@ export function LandingPage() {
             </p>
           </FadeUp>
           <Stagger className="marketing-value-grid">
-            {[
-              {
-                body: "USDC and EURC on Arc — stable by default, not speculative.",
-                icon: CircleDollarSign,
-                title: "Stable by default",
-              },
-              {
-                body: "Send, batch, request, and privacy flows share one visual language.",
-                icon: Layers,
-                title: "Unified operations",
-              },
-              {
-                body: "Wallet-signed actions and ArcScan verification at every step.",
-                icon: ShieldCheck,
-                title: "Financial-grade trust",
-              },
-            ].map((item) => {
+            {whyItems.map((item) => {
               const Icon = item.icon;
               return (
                 <StaggerItem key={item.title}>
@@ -250,31 +348,82 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ── How It Works ── */}
       <section className="marketing-section marketing-section-muted" id="how-it-works">
-        <div className="marketing-split marketing-split-center">
-          <FadeUp>
-            <p className="section-eyebrow">How it works</p>
-            <h2 className="section-title">Wallet to settlement in three steps.</h2>
-          </FadeUp>
-          <div className="grid gap-2">
-            {[
-              "Connect with Google or an external wallet on Arc Testnet.",
-              "Choose USDC or EURC and enter your recipient or batch list.",
-              "Confirm, receive by QR, swap balances, or settle privately.",
-            ].map((step, index) => (
-              <FadeUp delay={index * 0.06} key={step}>
-                <div className="step-card">
-                  <span className="step-index">{index + 1}</span>
-                  <p className="text-sm font-medium">{step}</p>
-                  <CheckCircle2 className="ml-auto h-4 w-4 text-emerald-500" />
-                </div>
-              </FadeUp>
-            ))}
-          </div>
+        <div className="marketing-section-header">
+          <p className="section-eyebrow">How it works</p>
+          <h2 className="section-title">Wallet to settlement in three steps.</h2>
+          <p className="section-copy">
+            No new accounts. No bridge tokens. Connect your wallet and move
+            stablecoins with the same clarity as a bank transfer.
+          </p>
         </div>
+
+        <Stagger className="hiw-flow">
+          {howItWorksSteps.map((s, i) => (
+            <StaggerItem className="hiw-step" key={s.step}>
+              {/* connector line, hidden on the last item */}
+              {i < howItWorksSteps.length - 1 && (
+                <div className="hiw-connector" aria-hidden />
+              )}
+              <div className="hiw-step-number" aria-label={`Step ${s.step}`}>
+                {s.step}
+              </div>
+              <div className="hiw-step-body">
+                <div className="hiw-step-check" aria-hidden>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                </div>
+                <h3 className="hiw-step-label">{s.label}</h3>
+                <p className="hiw-step-detail">{s.detail}</p>
+              </div>
+            </StaggerItem>
+          ))}
+        </Stagger>
       </section>
 
-      <section className="marketing-section" id="faq">
+      {/* ── Security & Trust ── */}
+      <section className="marketing-section" id="security">
+        <div className="marketing-section-header">
+          <p className="section-eyebrow">Security &amp; Trust</p>
+          <h2 className="section-title">Wallet-signed. On-chain. Checkable.</h2>
+          <p className="section-copy">
+            You sign every payment. Settlement is public on Arc. The claims
+            below are true in the product today.
+          </p>
+        </div>
+        <Stagger className="marketing-trust-grid">
+          {trustItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <StaggerItem key={item.title}>
+                <div className="marketing-trust-badge">
+                  <div className="marketing-trust-badge-icon" aria-hidden>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="marketing-trust-badge-body">
+                    <p className="marketing-trust-badge-title">{item.title}</p>
+                    <p className="marketing-trust-badge-desc">{item.body}</p>
+                    {item.link && (
+                      <a
+                        className="marketing-contract-link"
+                        href={item.link}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {item.linkLabel}
+                        <ExternalLink className="h-3 w-3" aria-hidden />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </StaggerItem>
+            );
+          })}
+        </Stagger>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="marketing-section marketing-section-muted" id="faq">
         <div className="marketing-section-header">
           <p className="section-eyebrow">FAQ</p>
           <h2 className="section-title">Common SwiftPay questions.</h2>
@@ -283,42 +432,77 @@ export function LandingPage() {
             recurring, batch, private-send, and wallet profile workflows.
           </p>
         </div>
-        <Stagger className="marketing-faq-grid">
-          {faqItems.map((item) => (
-            <StaggerItem key={item.question}>
-              <details className="marketing-faq-item">
-                <summary>
-                  <span>{item.question}</span>
-                  <ChevronDown className="h-4 w-4 shrink-0" />
-                </summary>
-                <p>{item.answer}</p>
-              </details>
-            </StaggerItem>
+        <Accordion className="marketing-faq-accordion" collapsible type="single">
+          {faqItems.map((item, i) => (
+            <AccordionItem key={item.question} value={`faq-${i}`}>
+              <AccordionTrigger className="marketing-faq-trigger">
+                {item.question}
+              </AccordionTrigger>
+              <AccordionContent className="marketing-faq-content">
+                {item.answer}
+              </AccordionContent>
+            </AccordionItem>
           ))}
-        </Stagger>
+        </Accordion>
       </section>
 
+      {/* ── Footer CTA ── */}
       <section className="marketing-cta">
         <div className="marketing-cta-inner">
-          <div>
-            <p className="section-eyebrow text-primary-foreground/70">Get started</p>
-            <h2 className="font-heading text-2xl font-semibold tracking-tight text-primary-foreground sm:text-3xl">
-              Start building payment flows people trust.
-            </h2>
-            <p className="mt-2 max-w-xl text-sm leading-7 text-primary-foreground/80">
-              Infrastructure for real money movement — not just another crypto app.
+          <div className="marketing-cta-copy">
+            <p className="section-eyebrow">Get started</p>
+            <h2>Money Moves Better With SwiftPay.</h2>
+            <p className="mt-3 max-w-xl text-sm leading-7 sm:text-base">
+              One wallet. Instant settlement. Payments that feel finished the
+              moment you confirm.
             </p>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-              <Button asChild className="h-10 bg-background text-foreground hover:bg-background/90" size="lg">
-                <LaunchAppLink>Launch App</LaunchAppLink>
-              </Button>
+            <ul className="marketing-cta-points">
+              <li>USDC and EURC on Arc</li>
+              <li>Pay, Circle, RecurePay, Batch, Save</li>
+              <li>Gas paid in USDC</li>
+            </ul>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <LaunchAppLink className="hero-launch-btn">
+                Open SwiftPay
+                <ArrowRight className="h-4 w-4" />
+              </LaunchAppLink>
             </div>
           </div>
-          <TrendingUp className="hidden h-24 w-24 text-primary-foreground/12 lg:block" />
+          <div className="marketing-cta-media">
+            <img
+              alt="Sending a payment in SwiftPay"
+              draggable={false}
+              src="/landing/pay-mac.jpg"
+            />
+          </div>
         </div>
       </section>
 
       <LandingFooter />
+
+      {signInOpen ? (
+        <div
+          aria-modal="true"
+          className="sign-in-modal"
+          onClick={closeSignIn}
+          role="dialog"
+        >
+          <div
+            className="sign-in-modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              aria-label="Close sign in"
+              className="sign-in-modal-close"
+              onClick={closeSignIn}
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <SignInPanel />
+          </div>
+        </div>
+      ) : null}
     </MarketingShell>
   );
 }

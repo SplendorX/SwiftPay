@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { applyProviderConfirmation } from "@/lib/recurring/reconciliation";
 import { logRecurringEvent } from "@/lib/recurring/logging";
+import { processCircleWebhook } from "@/lib/swift-circle/webhooks";
 
 export const runtime = "nodejs";
 
@@ -113,7 +114,14 @@ export async function POST(request: NextRequest) {
       providerTransactionId: confirmation.providerTransactionId,
       reason: "reason" in result ? result.reason : undefined,
     });
-    return NextResponse.json({ ok: true, ...result });
+    const circleResult = await processCircleWebhook(payload).catch((error) => {
+      console.warn(
+        "[swift-circle-webhook]",
+        error instanceof Error ? error.message : "circle webhook failed",
+      );
+      return { ok: false };
+    });
+    return NextResponse.json({ ok: true, ...result, circle: circleResult });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Webhook processing failed.";

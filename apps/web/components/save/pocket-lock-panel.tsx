@@ -102,7 +102,7 @@ export function PocketLockPanel({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">
             {state.kind === "fixed"
-              ? "Lock ended — withdraw anytime"
+              ? "Lock ended. Withdraw anytime"
               : "Flexible pocket"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">

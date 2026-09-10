@@ -26,7 +26,7 @@ export function DashboardPreview() {
 
       <div className="dashboard-stage">
         <section className="section-panel dashboard-stage-balances">
-          <p className="dashboard-greeting">Welcome back</p>
+          <p className="dashboard-greeting">Welcome</p>
           <h2 className="section-title dashboard-funds-title">Your funds, ready</h2>
 
           <article className="portfolio-value-board dashboard-stage-portfolio relative overflow-hidden border border-border p-4">
@@ -37,9 +37,6 @@ export function DashboardPreview() {
                 </p>
                 <p className="mt-1 font-heading text-3xl font-semibold tracking-tight">
                   $12,840.50
-                </p>
-                <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                  Live USD · 0xA71C…9cE1
                 </p>
               </div>
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
