@@ -53,3 +53,6 @@ apps/web/terminals/
 
 # Local working docs (kept on disk, not published)
 docs/
+
+# Local generated artifacts
+output/
