@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 
 import { TokenIcon } from "@/components/token-icon";
@@ -194,6 +194,16 @@ function getGoogleOAuthDiagnosticSummary(diagnostic: GoogleOAuthDiagnostic) {
       : "Google did not return an ID token.";
 }
 
+function isDeviceIdTimeout(error: unknown) {
+  return getClientErrorMessage(error, "")
+    .toLowerCase()
+    .includes("failed to receive deviceid");
+}
+
+function getDeviceIdFailureMessage() {
+  return "Circle could not create a device ID. This happens before Google OAuth: the Circle Web SDK opens a hidden frame at pw-auth.circle.com and it did not respond in time. Disable blockers for this site, allow pw-auth.circle.com, then retry Continue with Google.";
+}
+
 function getGoogleLoginErrorMessage(
   error: unknown,
   fallback: string,
@@ -202,6 +212,10 @@ function getGoogleLoginErrorMessage(
 ) {
   const message = getClientErrorMessage(error, fallback);
   const normalized = message.toLowerCase();
+
+  if (isDeviceIdTimeout(error) || normalized.includes("device id")) {
+    return getDeviceIdFailureMessage();
+  }
 
   if (
     message.includes("155140") ||
@@ -283,6 +297,7 @@ export function CircleGoogleLogin({
   const setupCompletionStartedRef = useRef(false);
   const setupChallengePendingRef = useRef(false);
   const enterAppAfterLoginRef = useRef(false);
+  const deviceIdRequestRef = useRef<Promise<string> | null>(null);
   const envAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
   const googleClientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
@@ -313,15 +328,11 @@ export function CircleGoogleLogin({
   const primaryWallet = wallets[0];
   const isConfigured = Boolean(appId && googleClientId);
   const redirectUri = useMemo(() => {
-    if (configuredRedirectUri) {
-      return configuredRedirectUri;
-    }
-
     if (typeof window !== "undefined") {
       return window.location.origin;
     }
 
-    return "";
+    return configuredRedirectUri;
   }, [configuredRedirectUri]);
 
   useEffect(() => {
@@ -484,15 +495,62 @@ export function CircleGoogleLogin({
     };
   }, [appConfigChecked, appId, googleClientId, isConfigured, redirectUri]);
 
-  useEffect(() => {
-    if (!sdkReady || !sdkRef.current) {
-      return;
-    }
-
+  const resolveDeviceId = useCallback(async () => {
     const storedDeviceId = readStorage(storageKeys.deviceId);
 
     if (storedDeviceId) {
       setDeviceId(storedDeviceId);
+      return storedDeviceId;
+    }
+
+    if (deviceIdRequestRef.current) {
+      return deviceIdRequestRef.current;
+    }
+
+    const request = (async () => {
+      const sdk = sdkRef.current;
+
+      if (!sdk) {
+        throw new Error("Circle SDK is still loading.");
+      }
+
+      let lastError: unknown = new Error("Device ID could not be created.");
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const nextDeviceId = await sdk.getDeviceId();
+
+          if (!nextDeviceId) {
+            throw new Error("Circle did not return a device ID.");
+          }
+
+          setDeviceId(nextDeviceId);
+          writeStorage(storageKeys.deviceId, nextDeviceId);
+          return nextDeviceId;
+        } catch (error) {
+          lastError = error;
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, 750 * (attempt + 1));
+          });
+        }
+      }
+
+      throw lastError;
+    })();
+
+    deviceIdRequestRef.current = request;
+
+    try {
+      return await request;
+    } finally {
+      if (deviceIdRequestRef.current === request) {
+        deviceIdRequestRef.current = null;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sdkReady || !sdkRef.current) {
       return;
     }
 
@@ -500,18 +558,15 @@ export function CircleGoogleLogin({
 
     async function loadDeviceId() {
       try {
-        const nextDeviceId = await sdkRef.current?.getDeviceId();
-
-        if (!cancelled && nextDeviceId) {
-          setDeviceId(nextDeviceId);
-          writeStorage(storageKeys.deviceId, nextDeviceId);
-        }
+        await resolveDeviceId();
       } catch (deviceError) {
         if (!cancelled) {
           setError(
-            getClientErrorMessage(
+            getGoogleLoginErrorMessage(
               deviceError,
               "Device ID could not be created.",
+              redirectUri,
+              null,
             ),
           );
         }
@@ -523,7 +578,7 @@ export function CircleGoogleLogin({
     return () => {
       cancelled = true;
     };
-  }, [sdkReady]);
+  }, [redirectUri, resolveDeviceId, sdkReady]);
 
   async function loadBalances(userToken: string, walletId: string) {
     const payload = await callCircleWalletApi<{
@@ -669,7 +724,7 @@ export function CircleGoogleLogin({
       throw new Error("Circle SDK is still loading.");
     }
 
-    const nextDeviceId = deviceId || (await sdk.getDeviceId());
+    const nextDeviceId = await resolveDeviceId();
     setDeviceId(nextDeviceId);
     writeStorage(storageKeys.deviceId, nextDeviceId);
 
