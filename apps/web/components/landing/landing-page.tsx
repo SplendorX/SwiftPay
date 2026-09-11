@@ -143,7 +143,7 @@ const faqItems = [
   },
   {
     answer:
-      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, SwiftBatch, RecurePay, Payment requests, Circle, Docs, Roadmap, and Settings. The main product workflows are linked directly from the product section.",
+      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, SwiftBatch, RecurePay, Payment requests, Circle, Docs, and Settings. The main product workflows are linked directly from the product section.",
     question: "Which pages are available?",
   },
   {
@@ -225,8 +225,22 @@ export function LandingPage() {
       setSignInOpen(true);
     }
 
+    function hasGoogleLoginCallback() {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const queryParams = new URLSearchParams(window.location.search);
+      return Boolean(
+        hashParams.get("id_token") ||
+          hashParams.get("error") ||
+          hashParams.get("state") ||
+          queryParams.get("id_token") ||
+          queryParams.get("code") ||
+          queryParams.get("error") ||
+          queryParams.get("state"),
+      );
+    }
+
     function openFromHash() {
-      if (window.location.hash === "#sign-in") {
+      if (window.location.hash === "#sign-in" || hasGoogleLoginCallback()) {
         openSignIn();
       }
     }

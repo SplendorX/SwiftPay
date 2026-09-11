@@ -20,6 +20,7 @@ import {
   getCircleErrorMessage as getClientErrorMessage,
   getCircleLoginIdentity,
   readCircleLogin as readStoredLogin,
+  readCircleWallets,
   readCircleSessionStorage as readStorage,
   removeCircleSessionStorage as removeStorage,
   writeCircleLogin,
@@ -280,6 +281,7 @@ export function CircleGoogleLogin({
   const router = useRouter();
   const sdkRef = useRef<W3SSdk | null>(null);
   const setupCompletionStartedRef = useRef(false);
+  const setupChallengePendingRef = useRef(false);
   const enterAppAfterLoginRef = useRef(false);
   const envAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
   const googleClientId =
@@ -298,7 +300,9 @@ export function CircleGoogleLogin({
   const [loginResult, setLoginResult] = useState<CircleLoginResult | null>(
     null,
   );
-  const [wallets, setWallets] = useState<CircleWallet[]>([]);
+  const [wallets, setWallets] = useState<CircleWallet[]>(() =>
+    readCircleWallets(),
+  );
   const [balances, setBalances] = useState<CircleTokenBalance[]>([]);
   const [, setStatus] = useState("Circle wallet ready");
   const [error, setError] = useState<string | null>(null);
@@ -534,7 +538,7 @@ export function CircleGoogleLogin({
 
   async function loadWallets(
     userToken = loginResult?.userToken,
-    options: { showBusy?: boolean } = {},
+    options: { login?: CircleLoginResult | null; showBusy?: boolean } = {},
   ) {
     if (!userToken) {
       return null;
@@ -562,7 +566,7 @@ export function CircleGoogleLogin({
       const walletAddress = nextWallets[0]?.address;
 
       if (walletAddress) {
-        const identity = getCircleLoginIdentity(loginResult);
+        const identity = getCircleLoginIdentity(options.login ?? loginResult);
         void ensureProfile({
           authProvider: "google",
           circleSocialUuid: identity.socialUserUUID,
@@ -607,20 +611,32 @@ export function CircleGoogleLogin({
   }
 
   useEffect(() => {
-    if (!loginResult?.userToken || wallets.length > 0) {
-      return;
-    }
-
     if (
-      readStorage(storageKeys.setupIntent) !== "true" ||
-      setupCompletionStartedRef.current
+      !loginResult?.userToken ||
+      wallets.length > 0 ||
+      setupChallengePendingRef.current
     ) {
-      void loadWallets(loginResult.userToken);
       return;
     }
 
     void completeWalletSetup(loginResult);
   }, [loginResult, loginResult?.userToken, wallets.length]);
+
+  useEffect(() => {
+    const walletAddress = primaryWallet?.address;
+
+    if (!loginResult || !walletAddress) {
+      return;
+    }
+
+    const identity = getCircleLoginIdentity(loginResult);
+    void ensureProfile({
+      authProvider: "google",
+      circleSocialUuid: identity.socialUserUUID,
+      displayName: identity.name,
+      walletAddress,
+    }).catch(() => undefined);
+  }, [loginResult, primaryWallet?.address]);
 
   function updateSdkLoginConfig(tokens: DeviceTokenResponse) {
     sdkRef.current?.updateConfigs({
@@ -744,7 +760,11 @@ export function CircleGoogleLogin({
     }
   }
 
-  function executeChallenge(challengeId: string, auth: CircleLoginResult) {
+  function executeChallenge(
+    challengeId: string,
+    auth: CircleLoginResult,
+    options: { createWalletIfMissing?: boolean } = {},
+  ) {
     const sdk = sdkRef.current;
 
     if (!sdk) {
@@ -757,8 +777,10 @@ export function CircleGoogleLogin({
       userToken: auth.userToken,
     });
     setStatus("Opening wallet setup");
+    setupChallengePendingRef.current = true;
 
     sdk.execute(challengeId, (challengeError) => {
+      setupChallengePendingRef.current = false;
       if (challengeError) {
         const message = getClientErrorMessage(
           challengeError,
@@ -773,9 +795,82 @@ export function CircleGoogleLogin({
       setStatus("Wallet setup complete");
       removeStorage(storageKeys.setupIntent);
       window.setTimeout(() => {
-        void loadWallets(auth.userToken);
+        void (async () => {
+          const nextWallets = await loadWalletsWithRetry(auth.userToken, {
+            login: auth,
+          });
+
+          if (
+            options.createWalletIfMissing !== false &&
+            nextWallets &&
+            nextWallets.length === 0
+          ) {
+            await createArcWallet(auth);
+          }
+        })().catch((err) => {
+          setError(
+            getClientErrorMessage(
+              err,
+              "Circle wallet could not be loaded.",
+            ),
+          );
+          setStatus("Wallet setup failed");
+        });
       }, 1600);
     });
+  }
+
+  async function loadWalletsWithRetry(
+    userToken: string,
+    options: {
+      attempts?: number;
+      delayMs?: number;
+      login?: CircleLoginResult | null;
+    } = {},
+  ) {
+    const attempts = options.attempts ?? 5;
+    const delayMs = options.delayMs ?? 900;
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const nextWallets = await loadWallets(userToken, {
+        login: options.login,
+        showBusy: false,
+      });
+
+      if (nextWallets === null || nextWallets.length > 0) {
+        return nextWallets;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+    }
+
+    return [];
+  }
+
+  async function createArcWallet(auth: CircleLoginResult) {
+    setStatus("Creating Arc wallet");
+    const payload = await callCircleWalletApi<{ challengeId?: string }>(
+      "createWallet",
+      {
+        refId: `swiftpay-arc-${Date.now()}`,
+        userToken: auth.userToken,
+        walletName: "SwiftPay",
+      },
+    );
+
+    if (payload.challengeId) {
+      executeChallenge(payload.challengeId, auth, {
+        createWalletIfMissing: false,
+      });
+      return;
+    }
+
+    const nextWallets = await loadWalletsWithRetry(auth.userToken, {
+      login: auth,
+    });
+    if (!nextWallets || nextWallets.length === 0) {
+      throw new Error("Circle wallet setup started, but no Arc wallet is available yet. Refresh wallet in a moment.");
+    }
   }
 
   async function completeWalletSetup(auth: CircleLoginResult) {
@@ -795,6 +890,7 @@ export function CircleGoogleLogin({
     try {
       setStatus("Checking Circle wallet");
       const existingWallets = await loadWallets(auth.userToken, {
+        login: auth,
         showBusy: false,
       });
 
@@ -817,7 +913,14 @@ export function CircleGoogleLogin({
       );
 
       if (!payload.challengeId) {
-        await loadWallets(auth.userToken, { showBusy: false });
+        const initializedWallets = await loadWalletsWithRetry(auth.userToken, {
+          login: auth,
+        });
+        if (initializedWallets && initializedWallets.length > 0) {
+          removeStorage(storageKeys.setupIntent);
+          return;
+        }
+        await createArcWallet(auth);
         removeStorage(storageKeys.setupIntent);
         return;
       }
@@ -826,9 +929,24 @@ export function CircleGoogleLogin({
     } catch (walletError) {
       if (
         walletError instanceof CircleClientError &&
-        walletError.code === 155106
+        String(walletError.code) === "155106"
       ) {
-        await loadWallets(auth.userToken, { showBusy: false });
+        try {
+          const initializedWallets = await loadWalletsWithRetry(auth.userToken, {
+            login: auth,
+          });
+          if (!initializedWallets || initializedWallets.length === 0) {
+            await createArcWallet(auth);
+          }
+        } catch (recoveryError) {
+          setError(
+            getClientErrorMessage(
+              recoveryError,
+              "Circle wallet could not be loaded.",
+            ),
+          );
+          setStatus("Wallet setup failed");
+        }
         removeStorage(storageKeys.setupIntent);
         return;
       }
@@ -842,6 +960,7 @@ export function CircleGoogleLogin({
       setStatus("Wallet setup failed");
       removeStorage(storageKeys.setupIntent);
     } finally {
+      setupCompletionStartedRef.current = false;
       setIsBusy(false);
     }
   }
@@ -895,7 +1014,7 @@ export function CircleGoogleLogin({
       ) : (
         <Wallet className="h-4 w-4" />
       )}
-      Create Circle wallet
+      {isBusy ? "Setting up Circle wallet" : "Finish Circle wallet setup"}
     </button>
   );
 

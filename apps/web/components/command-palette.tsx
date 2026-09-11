@@ -12,7 +12,6 @@ import {
   TrendingUp,
   Users,
   UsersRound,
-  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -42,7 +41,6 @@ const navIcons: Record<string, typeof Command> = {
   "/swiftCircle": UsersRound,
   "/swiftRecurepay": CalendarClock,
   "/pay": Send,
-  "/roadmap": Zap,
   "/settings": Settings,
 };
 

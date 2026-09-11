@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
-import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { CircleInviteInbox } from "@/components/swift-circle/circle-invite-inbox";
 import { CircleAvatar } from "@/components/swift-circle/circle-visuals";
 import { Badge } from "@/components/ui/badge";
@@ -40,9 +39,11 @@ function errorMessage(error: unknown) {
 
 export function SwiftCircleList() {
   const { address: wagmiAddress } = useAccount();
-  const { address: platformAddress } = usePlatformWallet();
-  const ownerWallet = useOptionalWorkspace()?.ownerWallet;
-  const address = (ownerWallet ?? platformAddress ?? wagmiAddress)?.toLowerCase() ?? "";
+  const {
+    address: platformAddress,
+    circleSocialUuid: platformCircleSocialUuid,
+  } = usePlatformWallet();
+  const address = (platformAddress ?? wagmiAddress)?.toLowerCase() ?? "";
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
 
   const [circles, setCircles] = useState<CircleListItem[]>([]);
@@ -58,7 +59,9 @@ export function SwiftCircleList() {
   const [limits, setLimits] = useState<CirclePlatformLimits | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
-  const social = getCircleLoginIdentity(readCircleLogin())?.socialUserUUID;
+  const social =
+    platformCircleSocialUuid ??
+    getCircleLoginIdentity(readCircleLogin())?.socialUserUUID;
 
   const load = useCallback(async () => {
     if (!address) {
@@ -70,14 +73,16 @@ export function SwiftCircleList() {
     setLoading(true);
     setError(null);
     try {
-      const session = await fetchWalletSessionForAddress(address);
-      const isAuthed = Boolean(session.authenticated) || Boolean(social);
-      setAuthorized(isAuthed);
-      if (!isAuthed) {
-        setCircles([]);
-        setInbox([]);
-        return;
+      if (!social) {
+        const session = await fetchWalletSessionForAddress(address);
+        if (!session.authenticated) {
+          setAuthorized(false);
+          setCircles([]);
+          setInbox([]);
+          return;
+        }
       }
+      setAuthorized(true);
       const result = await fetchCircles(address, social);
       setCircles(result.circles);
       setInbox(result.inbox);
@@ -122,6 +127,11 @@ export function SwiftCircleList() {
     if (!address) return;
     setError(null);
     try {
+      if (social) {
+        setAuthorized(true);
+        await load();
+        return;
+      }
       await signInWalletSession({
         ownerWallet: address,
         signMessage: async (message) => signMessageAsync({ message }),

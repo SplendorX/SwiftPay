@@ -6,7 +6,6 @@ import { platformAccessCookieName } from "@/lib/platform-access";
 const protectedRouteMatchers = [
   "/dashboard",
   "/pay",
-  "/roadmap",
   "/settings",
   "/swap",
   "/swiftBatch",
@@ -41,7 +40,6 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/pay/:path*",
-    "/roadmap/:path*",
     "/settings/:path*",
     "/swap/:path*",
     "/swiftBatch/:path*",

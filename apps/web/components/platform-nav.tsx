@@ -12,7 +12,6 @@ import {
   TrendingUp,
   Users,
   UsersRound,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -46,7 +45,6 @@ export const platformNavItems = [
   { href: "/earn", label: "Earn", icon: TrendingUp },
   { href: "/swiftBatch", label: "BatchPay", icon: Users },
   { href: "/swiftRecurepay", label: "RecurePay", icon: CalendarClock },
-  { href: "/roadmap", label: "Roadmap", icon: Zap },
   { href: "/settings", label: "Settings", icon: Settings },
 ] satisfies Array<{
   businessOnly?: boolean;

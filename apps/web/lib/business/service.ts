@@ -813,20 +813,56 @@ export async function searchDirectory(query: string): Promise<DirectoryHit[]> {
   if (q.length < 1) return [];
 
   const supabase = businessDb();
-  const like = `%${q.replace(/[%_]/g, "")}%`;
+  const like = `%${q.replace(/[%,]/g, "")}%`;
 
   const identities = await supabase
     .from(businessTables.identities)
     .select("*")
-    .neq("kind", "business")
     .or(`username.ilike.${like},display_name.ilike.${like}`)
-    .limit(12);
+    .limit(16);
 
   if (identities.error) {
     throw new Error(readError(identities.error, "Search failed."));
   }
 
-  const hits = (identities.data ?? []) as PaymentIdentityRecord[];
+  const identityHits = (identities.data ?? []) as PaymentIdentityRecord[];
+  const seenUsernames = new Set(
+    identityHits.map((hit) => hit.username.toLowerCase()),
+  );
+  const profileSearch = await supabase
+    .from(businessTables.userProfiles)
+    .select("wallet_address,username,avatar_url,bio,display_name")
+    .or(`username.ilike.${like},display_name.ilike.${like}`)
+    .limit(12);
+
+  if (profileSearch.error) {
+    throw new Error(readError(profileSearch.error, "Search failed."));
+  }
+
+  const profileHits = (
+    (profileSearch.data ?? []) as Array<{
+      avatar_url: string | null;
+      bio: string | null;
+      display_name: string | null;
+      username: string;
+      wallet_address: string;
+    }>
+  )
+    .filter((row) => {
+      const username = row.username?.toLowerCase();
+      return Boolean(username) && !seenUsernames.has(username);
+    })
+    .map((row) => ({
+      created_at: "",
+      destination_wallet: row.wallet_address,
+      display_name: row.display_name,
+      kind: "individual" as const,
+      profile_wallet: row.wallet_address,
+      updated_at: "",
+      username: row.username,
+      workspace_id: null,
+    }));
+  const hits = [...identityHits, ...profileHits].slice(0, 16);
   const wallets = hits
     .map((hit) => hit.profile_wallet)
     .filter((value): value is string => Boolean(value));

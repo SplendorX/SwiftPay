@@ -19,6 +19,7 @@ import {
   walletModeEventName,
   type WalletMode,
 } from "@/lib/wallet-mode";
+import { ensureProfile } from "@/lib/profile";
 
 export function usePlatformWallet() {
   const { address: wagmiAddress, isConnected } = useAccount();
@@ -60,6 +61,17 @@ export function usePlatformWallet() {
     ],
   );
   const circleWalletAddress = circleWallet?.address ?? "";
+
+  useEffect(() => {
+    if (!circleLogin || !circleWalletAddress) return;
+    const identity = getCircleLoginIdentity(circleLogin);
+    void ensureProfile({
+      authProvider: "google",
+      circleSocialUuid: identity.socialUserUUID,
+      displayName: identity.name,
+      walletAddress: circleWalletAddress,
+    }).catch(() => undefined);
+  }, [circleLogin, circleWalletAddress]);
 
   const circleReady = Boolean(
     circleLogin && circleWalletAddress && isAddress(circleWalletAddress),

@@ -50,3 +50,6 @@ mcps/
 terminals/
 apps/web/terminals/
 .vercel
+
+# Local working docs (kept on disk, not published)
+docs/

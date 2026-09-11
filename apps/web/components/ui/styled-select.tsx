@@ -28,7 +28,10 @@ export function StyledSelect<T extends string>({
 
   return (
     <div
-      className={cn("relative max-w-full min-w-[min(9rem,100%)]", className)}
+      className={cn(
+        "styled-select-root relative max-w-full min-w-[min(9rem,100%)]",
+        className,
+      )}
       onBlur={(event) => {
         const nextTarget = event.relatedTarget as Node | null;
 
@@ -41,7 +44,7 @@ export function StyledSelect<T extends string>({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ariaLabel}
-        className="inline-flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 text-left text-sm font-semibold text-ink shadow-sm transition hover:border-swift-600/40 focus:outline-none focus:ring-2 focus:ring-swift-600/15"
+        className="styled-select-trigger inline-flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 text-left text-sm font-semibold text-ink shadow-sm transition hover:border-swift-600/40 focus:outline-none focus:ring-2 focus:ring-swift-600/15"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
@@ -55,14 +58,14 @@ export function StyledSelect<T extends string>({
       </button>
       {open ? (
         <div
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 overflow-hidden rounded-lg border border-border bg-card shadow-[0_18px_40px_-22px_rgba(15,23,42,0.28)]"
+          className="styled-select-menu absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 overflow-hidden rounded-lg border border-border bg-card shadow-[0_18px_40px_-22px_rgba(15,23,42,0.28)]"
           role="listbox"
         >
           {options.map((option) => (
             <button
               aria-selected={option.value === value}
               className={cn(
-                "flex w-full items-center px-4 py-3 text-left text-sm font-semibold transition hover:bg-swift-600/10 hover:text-swift-700 focus:bg-swift-600/10 focus:text-swift-700 focus:outline-none",
+                "styled-select-option flex w-full items-center px-4 py-3 text-left text-sm font-semibold transition hover:bg-swift-600/10 hover:text-swift-700 focus:bg-swift-600/10 focus:text-swift-700 focus:outline-none",
                 option.value === value
                   ? "bg-swift-600/10 text-swift-700"
                   : "text-ink",

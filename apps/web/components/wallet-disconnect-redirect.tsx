@@ -8,7 +8,7 @@ import { readCircleLogin } from "@/lib/circle-session";
 import { clearActivatedExternalProfile } from "@/lib/platform-access";
 import { endWalletSession } from "@/lib/wallet-auth-client";
 
-const publicRoutes = new Set(["/", "/roadmap"]);
+const publicRoutes = new Set(["/"]);
 
 export function WalletDisconnectRedirect() {
   const { isConnected, status } = useAccount();

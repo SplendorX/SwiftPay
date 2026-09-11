@@ -24,7 +24,6 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { showSuccess } from "@/components/success-popup";
 import {
   useAccount,
@@ -55,6 +54,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   callCircleWalletApi,
@@ -185,13 +185,36 @@ function chatMessagesUnchanged(
   return true;
 }
 
+type ActivityFilterValue =
+  | "all"
+  | "payment"
+  | "request"
+  | "save"
+  | "withdrawal"
+  | "member";
+
+const activityFilterOptions: Array<{
+  label: string;
+  value: ActivityFilterValue;
+}> = [
+  { label: "All", value: "all" },
+  { label: "Pay", value: "payment" },
+  { label: "Requests", value: "request" },
+  { label: "Save", value: "save" },
+  { label: "Withdrawals", value: "withdrawal" },
+  { label: "People", value: "member" },
+];
+
 export function SwiftCircleHub() {
   const params = useParams<{ id: string }>();
   const circleId = params.id;
   const { address: wagmiAddress } = useAccount();
-  const { address: platformAddress } = usePlatformWallet();
-  const ownerWallet = useOptionalWorkspace()?.ownerWallet;
-  const address = (ownerWallet ?? platformAddress ?? wagmiAddress)?.toLowerCase() ?? "";
+  const {
+    address: platformAddress,
+    circleSocialUuid: platformCircleSocialUuid,
+    circleWallet: platformCircleWallet,
+  } = usePlatformWallet();
+  const address = (platformAddress ?? wagmiAddress)?.toLowerCase() ?? "";
   const chainId = useChainId();
   const publicClient = usePublicClient();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
@@ -243,11 +266,14 @@ export function SwiftCircleHub() {
   const [circleWallet, setCircleWallet] = useState<CircleWallet | null>(null);
   const [circleSdkReady, setCircleSdkReady] = useState(false);
   const [editName, setEditName] = useState("");
-  const [activityFilter, setActivityFilter] = useState("all");
+  const [activityFilter, setActivityFilter] =
+    useState<ActivityFilterValue>("all");
   const [limits, setLimits] = useState<CirclePlatformLimits | null>(null);
   const [activeCount, setActiveCount] = useState(0);
 
-  const social = getCircleLoginIdentity(readCircleLogin())?.socialUserUUID;
+  const social =
+    platformCircleSocialUuid ??
+    getCircleLoginIdentity(circleLogin ?? readCircleLogin())?.socialUserUUID;
   const others = members.filter(
     (member) => member.status === "active" && member.user_wallet !== address,
   );
@@ -266,10 +292,12 @@ export function SwiftCircleHub() {
       setError(null);
     }
     try {
-      const session = await fetchWalletSessionForAddress(address);
-      if (!session.authenticated && !social) {
-        setError("Authorize this wallet to open the Circle.");
-        return;
+      if (!social) {
+        const session = await fetchWalletSessionForAddress(address);
+        if (!session.authenticated) {
+          setError("Authorize this wallet to open the Circle.");
+          return;
+        }
       }
       const detail = await fetchCircleDetail(circleId, address, social);
       setCircle(detail.circle);
@@ -333,7 +361,7 @@ export function SwiftCircleHub() {
   useEffect(() => {
     const login = readCircleLogin();
     setCircleLogin(login);
-    setCircleWallet(readCircleWallets()[0] ?? null);
+    setCircleWallet(platformCircleWallet ?? readCircleWallets()[0] ?? null);
     if (!login) {
       circleSdkRef.current = null;
       setCircleSdkReady(false);
@@ -356,7 +384,7 @@ export function SwiftCircleHub() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [platformCircleWallet]);
 
   const isCircleMode = Boolean(
     circleLogin && circleWallet?.id && circleSdkReady && circleSdkRef.current,
@@ -364,6 +392,10 @@ export function SwiftCircleHub() {
 
   async function authorize() {
     if (!address) return;
+    if (social) {
+      await load();
+      return;
+    }
     await signInWalletSession({
       ownerWallet: address,
       signMessage: async (message) => signMessageAsync({ message }),
@@ -2052,53 +2084,50 @@ export function SwiftCircleHub() {
                 <p className="kpi-label">Activity</p>
                 <h3 className="font-heading mt-1 text-lg font-semibold">Ledger of the room</h3>
               </div>
-              <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex min-w-[11rem] items-center gap-2 text-xs text-muted-foreground">
                 <Filter className="h-3.5 w-3.5" />
-                <select
-                  className="rounded-full border border-border bg-background px-2 py-1"
-                  onChange={(event) => setActivityFilter(event.target.value)}
+                <StyledSelect
+                  ariaLabel="Filter Circle activity"
+                  className="w-44"
+                  onChange={setActivityFilter}
+                  options={activityFilterOptions}
                   value={activityFilter}
-                >
-                  <option value="all">All</option>
-                  <option value="payment">Pay</option>
-                  <option value="request">Requests</option>
-                  <option value="save">Save</option>
-                  <option value="withdrawal">Withdrawals</option>
-                  <option value="member">People</option>
-                </select>
-              </label>
+                />
+              </div>
             </div>
             <div className="sc-activity-list mt-4">
-          {activity.filter((item) => {
-            if (activityFilter === "all") return true;
-            return item.activity_type.startsWith(activityFilter);
-          }).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No activity yet.</p>
-          ) : (
-            activity
-              .filter((item) => {
+              {activity.filter((item) => {
                 if (activityFilter === "all") return true;
                 return item.activity_type.startsWith(activityFilter);
-              })
-              .map((item) => (
-              <div className="sc-activity-row" key={item.id}>
-                <CircleAvatar
-                  label={item.actor_user_wallet ?? circle.name}
-                  size={36}
-                  src={
-                    members.find((member) => member.user_wallet === item.actor_user_wallet)
-                      ?.avatar_url
-                  }
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{item.summary}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(item.created_at).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
+              }).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No activity yet.</p>
+              ) : (
+                activity
+                  .filter((item) => {
+                    if (activityFilter === "all") return true;
+                    return item.activity_type.startsWith(activityFilter);
+                  })
+                  .map((item) => (
+                    <div className="sc-activity-row" key={item.id}>
+                      <CircleAvatar
+                        label={item.actor_user_wallet ?? circle.name}
+                        size={36}
+                        src={
+                          members.find(
+                            (member) =>
+                              member.user_wallet === item.actor_user_wallet,
+                          )?.avatar_url
+                        }
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{item.summary}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(item.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </section>
         </TabsContent>

@@ -11,7 +11,6 @@ import { LaunchAppLink } from "@/components/landing/launch-app-link";
 import { cn } from "@/lib/utils";
 
 const marketingLinks = [
-  { href: "/roadmap", label: "Roadmap" },
   { href: "#products", label: "Product" },
 ];
 

@@ -8,6 +8,7 @@ import { useAccount } from "wagmi";
 import {
   circleSessionEventName,
   readCircleLogin,
+  readCircleWallets,
 } from "@/lib/circle-session";
 import {
   platformAccessEventName,
@@ -24,7 +25,7 @@ function hasLiveSignedInAccount(input?: {
     return false;
   }
 
-  if (readCircleLogin()) {
+  if (readCircleLogin() && readCircleWallets().some((wallet) => wallet.address)) {
     return true;
   }
 
