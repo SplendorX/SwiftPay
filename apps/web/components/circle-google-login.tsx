@@ -298,6 +298,9 @@ export function CircleGoogleLogin({
   const setupChallengePendingRef = useRef(false);
   const enterAppAfterLoginRef = useRef(false);
   const deviceIdRequestRef = useRef<Promise<string> | null>(null);
+  const deviceTokenRequestRef = useRef<Promise<DeviceTokenResponse> | null>(
+    null,
+  );
   const envAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
   const googleClientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
@@ -529,9 +532,12 @@ export function CircleGoogleLogin({
           return nextDeviceId;
         } catch (error) {
           lastError = error;
-          await new Promise((resolve) => {
-            window.setTimeout(resolve, 750 * (attempt + 1));
-          });
+
+          if (attempt < 2) {
+            await new Promise((resolve) => {
+              window.setTimeout(resolve, 400 * (attempt + 1));
+            });
+          }
         }
       }
 
@@ -556,9 +562,9 @@ export function CircleGoogleLogin({
 
     let cancelled = false;
 
-    async function loadDeviceId() {
+    async function prepareCircleLogin() {
       try {
-        await resolveDeviceId();
+        await ensureDeviceToken();
       } catch (deviceError) {
         if (!cancelled) {
           setError(
@@ -573,7 +579,7 @@ export function CircleGoogleLogin({
       }
     }
 
-    void loadDeviceId();
+    void prepareCircleLogin();
 
     return () => {
       cancelled = true;
@@ -711,11 +717,25 @@ export function CircleGoogleLogin({
   }
 
   async function ensureDeviceToken(options: { forceRefresh?: boolean } = {}) {
-    if (!options.forceRefresh && deviceToken && deviceEncryptionKey) {
-      return {
-        deviceEncryptionKey,
-        deviceToken,
-      } satisfies DeviceTokenResponse;
+    if (!options.forceRefresh) {
+      const storedToken = deviceToken || readStorage(storageKeys.deviceToken);
+      const storedKey =
+        deviceEncryptionKey || readStorage(storageKeys.deviceEncryptionKey);
+
+      if (storedToken && storedKey) {
+        const stored = {
+          deviceEncryptionKey: storedKey,
+          deviceToken: storedToken,
+        } satisfies DeviceTokenResponse;
+        setDeviceToken(stored.deviceToken);
+        setDeviceEncryptionKey(stored.deviceEncryptionKey);
+        updateSdkLoginConfig(stored);
+        return stored;
+      }
+
+      if (deviceTokenRequestRef.current) {
+        return deviceTokenRequestRef.current;
+      }
     }
 
     const sdk = sdkRef.current;
@@ -724,24 +744,36 @@ export function CircleGoogleLogin({
       throw new Error("Circle SDK is still loading.");
     }
 
-    const nextDeviceId = await resolveDeviceId();
-    setDeviceId(nextDeviceId);
-    writeStorage(storageKeys.deviceId, nextDeviceId);
+    const request = (async () => {
+      const nextDeviceId = await resolveDeviceId();
+      setDeviceId(nextDeviceId);
+      writeStorage(storageKeys.deviceId, nextDeviceId);
 
-    const tokens = await callCircleWalletApi<DeviceTokenResponse>(
-      "createDeviceToken",
-      {
-        deviceId: nextDeviceId,
-      },
-    );
+      const tokens = await callCircleWalletApi<DeviceTokenResponse>(
+        "createDeviceToken",
+        {
+          deviceId: nextDeviceId,
+        },
+      );
 
-    setDeviceToken(tokens.deviceToken);
-    setDeviceEncryptionKey(tokens.deviceEncryptionKey);
-    writeStorage(storageKeys.deviceToken, tokens.deviceToken);
-    writeStorage(storageKeys.deviceEncryptionKey, tokens.deviceEncryptionKey);
-    updateSdkLoginConfig(tokens);
+      setDeviceToken(tokens.deviceToken);
+      setDeviceEncryptionKey(tokens.deviceEncryptionKey);
+      writeStorage(storageKeys.deviceToken, tokens.deviceToken);
+      writeStorage(storageKeys.deviceEncryptionKey, tokens.deviceEncryptionKey);
+      updateSdkLoginConfig(tokens);
 
-    return tokens;
+      return tokens;
+    })();
+
+    deviceTokenRequestRef.current = request;
+
+    try {
+      return await request;
+    } finally {
+      if (deviceTokenRequestRef.current === request) {
+        deviceTokenRequestRef.current = null;
+      }
+    }
   }
 
   async function handleGoogleLogin() {
@@ -787,7 +819,7 @@ export function CircleGoogleLogin({
     }
 
     try {
-      const tokens = await ensureDeviceToken({ forceRefresh: true });
+      const tokens = await ensureDeviceToken();
       updateSdkLoginConfig(tokens);
       setupCompletionStartedRef.current = false;
       writeStorage(storageKeys.setupIntent, "true");
