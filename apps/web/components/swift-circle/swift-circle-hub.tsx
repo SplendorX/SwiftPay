@@ -804,7 +804,7 @@ export function SwiftCircleHub() {
   }
 
   return (
-    <div className="sc-room">
+    <div className="sc-room w-full min-w-0">
       <div className="section-panel min-w-0 sc-room-head">
         <div className="relative z-[1] grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
           <Link
@@ -871,7 +871,12 @@ export function SwiftCircleHub() {
         </p>
       ) : null}
 
-      <Tabs className="sc-room-tabs min-w-0" onValueChange={setTab} value={tab}>
+      <Tabs
+        className="sc-room-tabs flex w-full min-w-0 flex-col"
+        onValueChange={setTab}
+        value={tab}
+      >
+        <div className="sc-chip-nav-wrap">
         <div className="sc-chip-nav">
           {(
             [
@@ -896,6 +901,7 @@ export function SwiftCircleHub() {
               {label}
             </button>
           ))}
+        </div>
         </div>
         <TabsList className="sr-only">
           <TabsTrigger value="home">Room</TabsTrigger>

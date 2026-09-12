@@ -17,7 +17,7 @@ type AppHeaderProps = {
 
 export function AppHeader({ actions, className }: AppHeaderProps) {
   return (
-    <header className={cn("app-topbar", className)}>
+    <header className={cn("app-topbar w-full min-w-0", className)}>
       <div className="app-topbar-inner">
         <div className="app-sidebar-toggle">
           <SidebarToggle />

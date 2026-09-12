@@ -26,7 +26,7 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
   const isCircleRoom = /^\/swiftCircle\/[^/]+$/.test(pathname);
 
   return (
-    <div className="app-frame">
+    <div className="app-frame w-full min-w-0">
       <aside
         aria-hidden={retracted}
         className={cn(
@@ -57,7 +57,7 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
         </div>
       </aside>
 
-      <div className={cn("app-main", isCircleRoom && "app-main-circle-room")}>
+      <div className={cn("app-main min-w-0 w-full", isCircleRoom && "app-main-circle-room")}>
         <div className={cn("app-page-title", isCircleRoom && "app-page-title-circle-room")}>
           <p className="app-page-kicker">SwiftPay</p>
           <h1 className="font-heading">{title}</h1>
@@ -69,7 +69,7 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
         </div>
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className="app-main-content"
+          className="app-main-content min-w-0 w-full"
           initial={reduceMotion ? false : { opacity: 0, y: 24 }}
           key={pathname}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}

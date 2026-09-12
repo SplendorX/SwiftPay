@@ -38,7 +38,7 @@ export function PlatformChrome({
       <AccountProvider>
         <OnboardingRedirect />
         <SidebarProvider>
-          <div className="platform-shell bg-background">
+          <div className="platform-shell w-full min-w-0 bg-background">
             <AppHeader actions={actions} />
             <AppFrame subtitle={resolvedSubtitle} title={resolvedTitle}>
               {children}
