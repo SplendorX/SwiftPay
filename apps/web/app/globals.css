@@ -2431,6 +2431,127 @@ select:focus {
   }
 }
 
+@media (max-width: 1023px) {
+  .app-page-title-circle-room {
+    display: none;
+  }
+
+  .app-main-circle-room {
+    overflow: hidden;
+  }
+
+  .app-main-circle-room .app-main-content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0.5rem;
+  }
+
+  .app-main-circle-room .app-main-content > * {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+}
+
+.sc-room {
+  display: grid;
+  min-width: 0;
+  gap: 0.85rem;
+  overflow-x: hidden;
+}
+
+.sc-room-head {
+  padding: 0.75rem 0.85rem;
+}
+
+.sc-room-tabs {
+  min-width: 0;
+}
+
+.sc-tab-chat {
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .sc-room {
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    flex-direction: column;
+    gap: 0.7rem;
+    overflow: hidden;
+  }
+
+  .sc-room-head {
+    flex-shrink: 0;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .sc-group-name {
+    font-size: 1.05rem;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+
+  .sc-chip-nav {
+    flex-shrink: 0;
+    touch-action: pan-x;
+  }
+
+  .sc-chip {
+    height: 2rem;
+    padding: 0 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .sc-room-tabs {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sc-room-tabs [data-slot="tabs-content"] {
+    min-height: 0;
+    overflow: auto;
+    margin-top: 0.7rem;
+    overscroll-behavior: contain;
+  }
+
+  .sc-tab-chat {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sc-tab-chat[hidden],
+  .sc-tab-chat[data-state="inactive"] {
+    display: none;
+  }
+
+  .sc-tab-chat .sc-chat {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  .sc-list-row {
+    min-width: 0;
+    padding: 0.75rem;
+  }
+
+  .sc-list-row .sc-avatar {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+}
+
 .drawer-slide-panel {
   background: var(--popover);
   color: var(--popover-foreground);
@@ -3631,6 +3752,7 @@ html[data-theme="dark"] .earn-balance-earned {
   padding: 0.15rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sc-chip-nav::-webkit-scrollbar {

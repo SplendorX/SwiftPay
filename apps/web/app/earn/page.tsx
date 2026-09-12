@@ -28,6 +28,7 @@ import { EarnModeBanner } from "@/components/earn/earn-mode-banner";
 import { EarnTransactions } from "@/components/earn/earn-transactions";
 import { PerformanceCard } from "@/components/earn/performance-card";
 import { YieldChart } from "@/components/earn/yield-chart";
+import { useT } from "@/components/locale-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
@@ -77,6 +78,7 @@ function shorten(address?: string | null) {
 }
 
 function EarnPageInner() {
+  const t = useT();
   const searchParams = useSearchParams();
   const { address: wagmiAddress } = useAccount();
   const {
@@ -671,13 +673,9 @@ function EarnPageInner() {
           <section className="section-panel">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="section-eyebrow">SwiftPay Earn</p>
-                <h1 className="section-title">Make your idle USDC work.</h1>
-                <p className="section-copy">
-                  Earn variable yield on your USDC while keeping your money
-                  accessible. Yield comes from Aave when a live market is
-                  configured, never from fake balances.
-                </p>
+                <p className="section-eyebrow">{t("earn.eyebrow")}</p>
+                <h1 className="section-title">{t("earn.heading")}</h1>
+                <p className="section-copy">{t("earn.body")}</p>
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
                 <p className="font-mono text-xs text-muted-foreground">

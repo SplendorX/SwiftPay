@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 
+import { useT } from "@/components/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,13 +34,8 @@ import {
   walletSessionChangedEventName,
 } from "@/lib/wallet-auth-client";
 
-const categoryMeta: Record<AlertCategory, { label: string; hint: string }> = {
-  payments: { label: "Money in", hint: "Incoming transfers" },
-  requests: { label: "Requests", hint: "Pay requests and declines" },
-  savings: { label: "Savings", hint: "Pockets, Spend&Save, locks" },
-};
-
 export function AlertsSettings() {
+  const t = useT();
   const { address: wagmiAddress, isConnected } = useAccount();
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
   const [circleWalletAddress, setCircleWalletAddress] = useState("");
@@ -204,9 +200,9 @@ export function AlertsSettings() {
       setReadCount((count) => count + unreadCount);
       setUnreadCount(0);
       emitNotificationsChanged();
-      toast.success("All alerts marked read");
+      toast.success(t("settings.allMarkedRead"));
     } catch {
-      toast.error("Could not mark alerts read");
+      toast.error(t("settings.couldNotMarkRead"));
     } finally {
       setActing(null);
     }
@@ -227,7 +223,7 @@ export function AlertsSettings() {
       if (typeof result.unreadCount === "number") {
         setUnreadCount(result.unreadCount);
       }
-      toast.success("Cleared read notifications", {
+      toast.success(t("settings.clearedRead"), {
         description:
           result.deleted > 0
             ? `${result.deleted} read notification${result.deleted === 1 ? "" : "s"} removed.`
@@ -251,22 +247,21 @@ export function AlertsSettings() {
       <section className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold">How you get pinged</p>
+            <p className="text-sm font-semibold">{t("settings.howPinged")}</p>
             <p className="text-xs text-muted-foreground">
-              These rules only change toasts and what the bell highlights.
-              On-chain money still arrives.
+              {t("settings.howPingedBody")}
             </p>
           </div>
           {quietNow ? (
-            <Badge variant="secondary">Quiet hours on</Badge>
+            <Badge variant="secondary">{t("settings.quietHoursOn")}</Badge>
           ) : null}
         </div>
 
         <label className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm">
           <span>
-            <span className="font-medium">Live toasts</span>
+            <span className="font-medium">{t("settings.liveToasts")}</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              Pop a notice when money, a claim, or a request lands.
+              {t("settings.liveToastsBody")}
             </span>
           </span>
           <input
@@ -281,9 +276,9 @@ export function AlertsSettings() {
         <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
           <label className="flex items-center justify-between gap-3 text-sm">
             <span>
-              <span className="font-medium">Quiet hours</span>
+              <span className="font-medium">{t("settings.quietHours")}</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Mute toasts overnight. The inbox still fills.
+                {t("settings.quietHoursBody")}
               </span>
             </span>
             <input
@@ -300,7 +295,7 @@ export function AlertsSettings() {
           {prefs.quietHoursEnabled ? (
             <div className="mt-2 grid grid-cols-2 gap-2">
               <label className="text-xs text-muted-foreground">
-                From
+                {t("common.from")}
                 <Input
                   className="mt-1 h-9"
                   onChange={(event) =>
@@ -314,7 +309,7 @@ export function AlertsSettings() {
                 />
               </label>
               <label className="text-xs text-muted-foreground">
-                Until
+                {t("common.until")}
                 <Input
                   className="mt-1 h-9"
                   onChange={(event) =>
@@ -338,9 +333,19 @@ export function AlertsSettings() {
               key={key}
             >
               <span>
-                <span className="font-medium">{categoryMeta[key].label}</span>
+                <span className="font-medium">
+                  {key === "payments"
+                    ? t("settings.moneyIn")
+                    : key === "requests"
+                      ? t("settings.requests")
+                      : t("settings.savings")}
+                </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {categoryMeta[key].hint}
+                  {key === "payments"
+                    ? t("settings.moneyInHint")
+                    : key === "requests"
+                      ? t("settings.requestsHint")
+                      : t("settings.savingsHint")}
                 </span>
               </span>
               <input
@@ -363,47 +368,46 @@ export function AlertsSettings() {
 
       <section className="space-y-3 rounded-xl border border-border/80 bg-background p-3">
         <div>
-          <p className="text-sm font-semibold">Clear read notifications</p>
+          <p className="text-sm font-semibold">{t("settings.clearReadTitle")}</p>
           <p className="text-xs text-muted-foreground">
-            The bell only shows messages. Clearing happens here so deleted
-            alerts stay gone.
+            {t("settings.clearReadBody")}
           </p>
         </div>
 
         {!hasIdentity ? (
           <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center">
             <Bell className="mx-auto h-8 w-8 text-muted-foreground/60" />
-            <p className="mt-3 text-sm font-medium">Connect to manage alerts</p>
+            <p className="mt-3 text-sm font-medium">{t("settings.connectToManage")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Sign in with Google or an external wallet to clear notifications.
+              {t("settings.connectToManageBody")}
             </p>
           </div>
         ) : authHint && !walletAuthorized ? (
           <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center">
             <Bell className="mx-auto h-8 w-8 text-muted-foreground/60" />
-            <p className="mt-3 text-sm font-medium">Authorize wallet</p>
+            <p className="mt-3 text-sm font-medium">{t("settings.authorizeWalletTitle")}</p>
             <p className="mt-1 text-xs text-muted-foreground">{authHint}</p>
           </div>
         ) : (
           <>
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="rounded-xl border border-border/80 px-3 py-2.5">
-                <p className="text-[11px] text-muted-foreground">Unread</p>
+                <p className="text-[11px] text-muted-foreground">{t("settings.unread")}</p>
                 <p className="mt-1 text-lg font-semibold tracking-tight">
                   {loading ? "n/a" : unreadCount}
                 </p>
                 <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Clock3 className="h-3 w-3" />
-                  Still in the bell
+                  {t("settings.stillInBell")}
                 </p>
               </div>
               <div className="rounded-xl border border-border/80 px-3 py-2.5">
-                <p className="text-[11px] text-muted-foreground">Read</p>
+                <p className="text-[11px] text-muted-foreground">{t("settings.read")}</p>
                 <p className="mt-1 text-lg font-semibold tracking-tight">
                   {loading ? "n/a" : readCount}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Safe to clear
+                  {t("settings.safeToClear")}
                 </p>
               </div>
             </div>
@@ -421,7 +425,7 @@ export function AlertsSettings() {
                 ) : (
                   <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                Mark all read
+                {t("settings.markAllRead")}
               </Button>
               <Button
                 disabled={!hasIdentity || readCount === 0 || acting !== null}
@@ -435,7 +439,7 @@ export function AlertsSettings() {
                 ) : (
                   <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                Clear read
+                {t("settings.clearRead")}
               </Button>
             </div>
           </>

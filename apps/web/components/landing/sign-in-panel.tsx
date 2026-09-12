@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
 import { CircleGoogleLogin } from "@/components/circle-google-login";
+import { useT } from "@/components/locale-provider";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/wallet-auth-client";
 
 export function SignInPanel() {
+  const t = useT();
   const router = useRouter();
   const { address, isConnected, connector } = useAccount();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
@@ -115,20 +117,19 @@ export function SignInPanel() {
   return (
     <div className="sign-in-panel" id="sign-in">
       <div className="sign-in-panel-header">
-        <p className="section-eyebrow">Get started</p>
+        <p className="section-eyebrow">{t("signin.getStarted")}</p>
         <h2 className="mt-1 font-heading text-xl font-semibold tracking-tight">
-          Choose how to sign in
+          {t("signin.chooseHow")}
         </h2>
       </div>
 
       <div className="sign-in-option">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">External wallet</p>
+          <p className="text-sm font-semibold">{t("signin.externalWallet")}</p>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          MetaMask, WalletConnect, and other Arc-compatible wallets. Connect,
-          then authorize with a signature to continue.
+          {t("signin.externalWalletBody")}
         </p>
         <div className="mt-3">
           <WalletConnectButton
@@ -150,7 +151,7 @@ export function SignInPanel() {
             {walletAuthorized ? (
               <Button asChild className="w-full" size="lg">
                 <Link href="/dashboard">
-                  Continue to dashboard
+                  {t("signin.continueDashboard")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -169,13 +170,13 @@ export function SignInPanel() {
                     <ShieldCheck className="h-4 w-4" />
                   )}
                   {isCheckingSession
-                    ? "Checking authorization…"
+                    ? t("signin.checkingAuth")
                     : isAuthorizing || isSigning
-                      ? "Confirm in wallet…"
-                      : "Authorize wallet"}
+                      ? t("signin.confirmInWallet")
+                      : t("common.authorizeWallet")}
                 </Button>
                 <p className="text-center text-[11px] text-muted-foreground">
-                  Sign the message in your wallet to unlock the dashboard.
+                  {t("signin.authorizeHint")}
                 </p>
                 {/* Disabled affordance so users see Continue exists but is locked */}
                 <Button
@@ -186,7 +187,7 @@ export function SignInPanel() {
                   type="button"
                   variant="outline"
                 >
-                  Continue to dashboard
+                  {t("signin.continueDashboard")}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </>
@@ -198,7 +199,7 @@ export function SignInPanel() {
       <div className="sign-in-divider">
         <Separator className="flex-1" />
         <span className="text-xs font-semibold text-muted-foreground uppercase">
-          or
+          {t("common.or")}
         </span>
         <Separator className="flex-1" />
       </div>

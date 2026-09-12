@@ -42,6 +42,7 @@ import {
 } from "wagmi";
 
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
+import { useT } from "@/components/locale-provider";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
@@ -438,6 +439,7 @@ function getCircleTransactionHash(value: CircleContractChallenge | CircleChallen
 }
 
 export default function SwiftBatchPage() {
+ const t = useT();
  const circleSdkRef = useRef<W3SSdk | null>(null);
  const csvInputRef = useRef<HTMLInputElement | null>(null);
  const { address: externalAddress, isConnected } = useAccount();
@@ -1083,12 +1085,15 @@ export default function SwiftBatchPage() {
  <section className="section-panel">
  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
  <div className="max-w-3xl">
- <span className="soft-pill soft-pill-live">One-call payouts</span>
+ <span className="soft-pill soft-pill-live">{t("batch.oneCall")}</span>
  <h1 className="section-title mt-4">
- Batch settlement
+ {t("batch.heading")}
  </h1>
  <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-muted-foreground">
- Send one token to up to {swiftBatchMaxRecipients} recipients with a {swiftBatchFeeBasisPoints / 100}% platform fee routed in the same contract call.
+ {t("batch.body", {
+   count: swiftBatchMaxRecipients,
+   fee: swiftBatchFeeBasisPoints / 100,
+ })}
  </p>
  </div>
 
@@ -1100,11 +1105,11 @@ export default function SwiftBatchPage() {
  </span>
  </div>
  <div className="flex items-center justify-between gap-3">
- <span className="font-bold text-muted-foreground">Contract</span>
+ <span className="font-bold text-muted-foreground">{t("common.contract")}</span>
  <span className="font-mono text-xs font-black text-foreground">
  {configuredSwiftBatchAddress
  ? shortenAddress(configuredSwiftBatchAddress)
- : "Not set"}
+ : t("common.notSet")}
  </span>
  </div>
  </div>

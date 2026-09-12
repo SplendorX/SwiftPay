@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
+import { useT } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { upgradeAccountClient } from "@/lib/account/client";
 
 export function AccountTypeSettings() {
+  const t = useT();
   const context = useOptionalAccount();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -18,16 +20,16 @@ export function AccountTypeSettings() {
   const [error, setError] = useState<string | null>(null);
 
   if (!context?.account) {
-    return <p className="text-sm text-muted-foreground">Connect a wallet to see account type.</p>;
+    return <p className="text-sm text-muted-foreground">{t("settings.connectToSeeType")}</p>;
   }
 
   if (context.isBusiness) {
     return (
       <div>
-        <p className="text-sm font-semibold">Account type</p>
-        <p className="mt-1 text-sm text-muted-foreground">Business</p>
+        <p className="text-sm font-semibold">{t("settings.accountType")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("common.business")}</p>
         <p className="mt-3 text-xs text-muted-foreground">
-          Business accounts cannot be changed back to Personal.
+          {t("settings.cannotRevert")}
         </p>
       </div>
     );
@@ -53,22 +55,20 @@ export function AccountTypeSettings() {
 
   return (
     <div>
-      <p className="text-sm font-semibold">Account type</p>
-      <p className="mt-1 text-sm text-muted-foreground">Personal</p>
+      <p className="text-sm font-semibold">{t("settings.accountType")}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{t("common.personal")}</p>
       {!open ? (
         <Button className="mt-4" onClick={() => setOpen(true)} variant="outline">
-          Upgrade to Business
+          {t("settings.upgradeToBusiness")}
         </Button>
       ) : (
         <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground">
-            Business accounts add a professional profile, Overview, and invoices.
-            Your existing wallet, balances, and activity stay the same. This cannot
-            be reversed.
+            {t("settings.upgradeBody")}
           </p>
           <Input
             onChange={(event) => setName(event.target.value)}
-            placeholder="Business name"
+            placeholder={t("common.businessName")}
             value={name}
           />
           <label className="flex items-start gap-2 text-sm">
@@ -77,12 +77,11 @@ export function AccountTypeSettings() {
               onChange={(event) => setConfirmed(event.target.checked)}
               type="checkbox"
             />
-            I’m upgrading this account to Business and understand that this change
-            cannot be reversed.
+            {t("settings.upgradeConfirm")}
           </label>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button disabled={busy || !name.trim() || !confirmed} onClick={() => void upgrade()}>
-            Upgrade to Business
+            {t("settings.upgradeToBusiness")}
           </Button>
         </div>
       )}

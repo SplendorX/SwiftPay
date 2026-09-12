@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useAccountContext } from "@/components/account/account-provider";
+import { useT } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
 import { fetchBusinessOverview } from "@/lib/account/client";
 import { formatMoney, profileCompletionPercent } from "@/lib/account/money";
@@ -15,6 +16,7 @@ function formatStatus(status: string) {
 }
 
 export function BusinessOverview() {
+  const t = useT();
   const { account, ownerWallet, profile } = useAccountContext();
   const { address, isConnected } = usePlatformWallet();
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
@@ -36,7 +38,7 @@ export function BusinessOverview() {
   if (account && account.account_type !== "BUSINESS") {
     return (
       <div className="section-panel p-8">
-        <h2 className="font-heading text-2xl">Business Overview</h2>
+        <h2 className="font-heading text-2xl">{t("business.overview")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Overview is available after you upgrade this account to Business.
         </p>
@@ -94,7 +96,7 @@ export function BusinessOverview() {
 
       <section className="section-panel p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-heading text-lg">Recent invoices</h3>
+          <h3 className="font-heading text-lg">{t("business.recentInvoices")}</h3>
           <Button asChild size="sm" variant="ghost">
             <Link href="/business/invoices">View invoices</Link>
           </Button>

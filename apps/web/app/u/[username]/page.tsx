@@ -58,10 +58,18 @@ export default function PublicProfilePage() {
           </p>
           <div className="mt-6 flex gap-3">
             <Button asChild>
-              <Link href={`/dashboard?to=@${profile.username}`}>Pay</Link>
+              <Link href={`/dashboard?to=@${encodeURIComponent(profile.username)}`}>
+                Pay
+              </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href={profile.kind === "business" ? "/business/invoices" : `/pay?to=@${profile.username}`}>
+              <Link
+                href={
+                  profile.kind === "business"
+                    ? "/business/invoices"
+                    : `/pay?username=${encodeURIComponent(profile.username)}`
+                }
+              >
                 {profile.kind === "business" ? "Request invoice" : "Request"}
               </Link>
             </Button>

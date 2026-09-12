@@ -3,6 +3,7 @@
 import { Bell, Building2, Languages, MonitorSmartphone, Palette, Wallet } from "lucide-react";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
+import { useT } from "@/components/locale-provider";
 import { AccountTypeSettings } from "@/components/settings/account-type-settings";
 
 import { AlertsSettings } from "@/components/settings/alerts-settings";
@@ -13,43 +14,29 @@ import { SessionDeviceManagement } from "@/components/settings/session-device-ma
 import { SettingsCollapsibleCard } from "@/components/settings/settings-collapsible-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+export function SettingsPageIntro() {
+  const t = useT();
+
+  return (
+    <div>
+      <p className="section-eyebrow">{t("settings.preferencesEyebrow")}</p>
+      <h2 className="section-title">{t("settings.preferencesTitle")}</h2>
+      <p className="section-copy">{t("settings.preferencesCopy")}</p>
+    </div>
+  );
+}
+
 export function SettingsSections() {
   const isBusiness = useOptionalAccount()?.isBusiness ?? false;
+  const t = useT();
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <SettingsCollapsibleCard
-        body="Dark, light, or system. Light mode can switch between cashmere and liquid glass."
-        icon={Palette}
-        sectionId="appearance"
-        title="Appearance"
-      >
-        <div className="grid gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold">Theme</p>
-            <ThemeToggle />
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-semibold">Light surface</p>
-            <LightSurfacePicker />
-          </div>
-        </div>
-      </SettingsCollapsibleCard>
-
-      <SettingsCollapsibleCard
-        body="Choose the language used for onboarding and account copy. This is stored on your device and profile."
-        icon={Languages}
-        sectionId="language"
-        title="Language"
-      >
-        <LanguageSettings />
-      </SettingsCollapsibleCard>
-
-      <SettingsCollapsibleCard
-        body="Personal accounts can upgrade to Business. The same wallet and activity stay in place. Business cannot be reversed."
+        body={t("settings.accountBody")}
         icon={Building2}
         sectionId="account-type"
-        title="Account"
+        title={t("settings.accountTitle")}
       >
         <AccountTypeSettings />
       </SettingsCollapsibleCard>
@@ -57,30 +44,57 @@ export function SettingsSections() {
       <SettingsCollapsibleCard
         body={
           isBusiness
-            ? "Edit your business name, description, logo, and public business details."
-            : "Edit your username, bio, and photo."
+            ? t("settings.profileBodyBusiness")
+            : t("settings.profileBody")
         }
         icon={Wallet}
         sectionId="wallet-profile"
-        title="Profile"
+        title={t("settings.profileTitle")}
       >
         <AccountProfileSettings />
       </SettingsCollapsibleCard>
 
       <SettingsCollapsibleCard
-        body="Review active sessions in this browser, manage wallet sign-in, and sign out from shared devices."
+        body={t("settings.appearanceBody")}
+        icon={Palette}
+        sectionId="appearance"
+        title={t("settings.appearanceTitle")}
+      >
+        <div className="grid gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-semibold">{t("settings.theme")}</p>
+            <ThemeToggle />
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-semibold">{t("settings.lightSurface")}</p>
+            <LightSurfacePicker />
+          </div>
+        </div>
+      </SettingsCollapsibleCard>
+
+      <SettingsCollapsibleCard
+        body={t("settings.languageBody")}
+        icon={Languages}
+        sectionId="language"
+        title={t("settings.languageTitle")}
+      >
+        <LanguageSettings />
+      </SettingsCollapsibleCard>
+
+      <SettingsCollapsibleCard
+        body={t("settings.sessionsBody")}
         icon={MonitorSmartphone}
         sectionId="sessions-devices"
-        title="Sessions & devices"
+        title={t("settings.sessionsTitle")}
       >
         <SessionDeviceManagement embedded />
       </SettingsCollapsibleCard>
 
       <SettingsCollapsibleCard
-        body="Toast rules, quiet hours, and clearing read notification messages."
+        body={t("settings.alertsBody")}
         icon={Bell}
         sectionId="alerts"
-        title="Alerts"
+        title={t("settings.alertsTitle")}
       >
         <AlertsSettings />
       </SettingsCollapsibleCard>

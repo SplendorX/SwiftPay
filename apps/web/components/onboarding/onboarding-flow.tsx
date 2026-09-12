@@ -8,29 +8,25 @@ import { PlatformBrand } from "@/components/brand/platform-brand";
 import { useBusinessActor } from "@/components/business/use-business-actor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLocale, useT } from "@/components/locale-provider";
 import { completeAccountOnboardingClient, fetchAccountState } from "@/lib/account/client";
-import {
-  APP_LOCALES,
-  applyAppLocale,
-  localeStorageKey,
-  onboardingCopy,
-  type AppLocale,
-} from "@/lib/locales";
+import { APP_LOCALES } from "@/lib/locales";
 import { profileImageAccept, resizeProfileImageFile } from "@/lib/profile-image";
 import { ensureProfile, validateUsername } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
 type Step = "language" | "account" | "personal" | "business";
 
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Something went wrong.";
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
 export function OnboardingFlow() {
   const router = useRouter();
+  const t = useT();
+  const { locale, setLocale } = useLocale();
   const { circleSocialUuid, ownerWallet } = useBusinessActor();
   const [step, setStep] = useState<Step>("language");
-  const [locale, setLocale] = useState<AppLocale>("en");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -42,19 +38,6 @@ export function OnboardingFlow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-
-  const copy = onboardingCopy(locale);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(localeStorageKey);
-    if (stored && APP_LOCALES.some((item) => item.id === stored)) {
-      setLocale(stored as AppLocale);
-    }
-  }, []);
-
-  useEffect(() => {
-    applyAppLocale(locale);
-  }, [locale]);
 
   useEffect(() => {
     if (!ownerWallet) return;
@@ -78,7 +61,7 @@ export function OnboardingFlow() {
         setUsername(state.account.username);
         setBio(state.account.bio ?? "");
       } catch (err) {
-        if (!cancelled) setError(errorMessage(err));
+        if (!cancelled) setError(errorMessage(err, t("common.somethingWentWrong")));
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -88,11 +71,11 @@ export function OnboardingFlow() {
     return () => {
       cancelled = true;
     };
-  }, [circleSocialUuid, ownerWallet, router]);
+  }, [circleSocialUuid, ownerWallet, router, t]);
 
   const usernameError = useMemo(
-    () => (username.trim() ? validateUsername(username) : "Enter a username."),
-    [username],
+    () => (username.trim() ? validateUsername(username) : t("onboarding.enterUsername")),
+    [t, username],
   );
 
   async function finish(accountKind: "personal" | "business") {
@@ -119,7 +102,7 @@ export function OnboardingFlow() {
         result.account.account_type === "BUSINESS" ? "/business" : "/dashboard",
       );
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, t("common.somethingWentWrong")));
     } finally {
       setBusy(false);
     }
@@ -134,7 +117,7 @@ export function OnboardingFlow() {
     try {
       setLogoUrl(await resizeProfileImageFile(file));
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, t("common.somethingWentWrong")));
     } finally {
       setLogoBusy(false);
     }
@@ -146,9 +129,9 @@ export function OnboardingFlow() {
         <div className="flex justify-center">
           <PlatformBrand />
         </div>
-        <h1 className="mt-4 font-heading text-3xl">Connect to continue</h1>
+        <h1 className="mt-4 font-heading text-3xl">{t("onboarding.connectToContinue")}</h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          Sign in to set up your account, language, and payment identity.
+          {t("onboarding.connectToContinueBody")}
         </p>
       </div>
     );
@@ -157,20 +140,20 @@ export function OnboardingFlow() {
   if (!ready) {
     return (
       <div className="mx-auto max-w-lg px-6 py-24 text-center text-sm text-muted-foreground">
-        Preparing your account…
+        {t("onboarding.preparingAccount")}
       </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-16 sm:py-20">
-      <p className="eyebrow">{copy.languageEyebrow}</p>
+      <p className="eyebrow">{t("onboarding.languageEyebrow")}</p>
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
       {step === "language" ? (
         <section>
-          <h1 className="mt-3 font-heading text-3xl sm:text-4xl">{copy.languageTitle}</h1>
-          <p className="mt-3 max-w-xl text-sm text-muted-foreground">{copy.languageSubtitle}</p>
+          <h1 className="mt-3 font-heading text-3xl sm:text-4xl">{t("onboarding.languageTitle")}</h1>
+          <p className="mt-3 max-w-xl text-sm text-muted-foreground">{t("onboarding.languageSubtitle")}</p>
           <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {APP_LOCALES.map((item) => {
               const selected = item.id === locale;
@@ -194,16 +177,16 @@ export function OnboardingFlow() {
             })}
           </div>
           <Button className="mt-8 h-11 px-6" onClick={() => setStep("account")}>
-            {copy.continue}
+            {t("onboarding.continue")}
           </Button>
         </section>
       ) : null}
 
       {step === "account" ? (
         <section>
-          <h1 className="mt-2 font-heading text-3xl">How will you use SwiftPay?</h1>
+          <h1 className="mt-2 font-heading text-3xl">{t("onboarding.howWillYouUse")}</h1>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-            Choose Personal or Business first. Profile fields after this match the account you pick.
+            {t("onboarding.howWillYouUseBody")}
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <button
@@ -212,17 +195,17 @@ export function OnboardingFlow() {
               type="button"
             >
               <UserRound className="h-5 w-5 text-primary" />
-              <h2 className="mt-4 font-heading text-xl">Personal</h2>
+              <h2 className="mt-4 font-heading text-xl">{t("onboarding.personalTitle")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Everyday payments, sending money, saving, earning, and managing personal finances.
+                {t("onboarding.personalDescription")}
               </p>
               <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
-                <li>Send & receive</li>
-                <li>Pay requests</li>
-                <li>Save, Earn, Swap</li>
-                <li>BatchPay, RecurePay, Circle</li>
+                <li>{t("onboarding.personalBullet1")}</li>
+                <li>{t("onboarding.personalBullet2")}</li>
+                <li>{t("onboarding.personalBullet3")}</li>
+                <li>{t("onboarding.personalBullet4")}</li>
               </ul>
-              <p className="mt-5 text-sm font-medium text-primary">Continue with Personal</p>
+              <p className="mt-5 text-sm font-medium text-primary">{t("onboarding.continuePersonal")}</p>
             </button>
             <button
               className="rounded-2xl border border-border bg-card p-6 text-left transition hover:border-primary/40"
@@ -230,33 +213,33 @@ export function OnboardingFlow() {
               type="button"
             >
               <Briefcase className="h-5 w-5 text-primary" />
-              <h2 className="mt-4 font-heading text-xl">Business</h2>
+              <h2 className="mt-4 font-heading text-xl">{t("onboarding.businessCardTitle")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                A professional SwiftPay workspace for businesses, freelancers, and organizations.
+                {t("onboarding.businessCardDescription")}
               </p>
               <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
-                <li>Professional business profile</li>
-                <li>Professional Overview</li>
-                <li>Invoices</li>
-                <li>Everything in Personal, same wallet</li>
+                <li>{t("onboarding.businessBullet1")}</li>
+                <li>{t("onboarding.businessBullet2")}</li>
+                <li>{t("onboarding.businessBullet3")}</li>
+                <li>{t("onboarding.businessBullet4")}</li>
               </ul>
-              <p className="mt-5 text-sm font-medium text-primary">Continue with Business</p>
+              <p className="mt-5 text-sm font-medium text-primary">{t("onboarding.continueBusiness")}</p>
             </button>
           </div>
           <Button className="mt-6" onClick={() => setStep("language")} variant="ghost">
-            Back
+            {t("common.back")}
           </Button>
         </section>
       ) : null}
 
       {step === "personal" ? (
         <section className="max-w-lg">
-          <h1 className="mt-2 font-heading text-3xl">{copy.profileTitle}</h1>
+          <h1 className="mt-2 font-heading text-3xl">{t("onboarding.profileTitle")}</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            This username is how others send, request, and find you on SwiftPay.
+            {t("onboarding.profileSubtitle")}
           </p>
           <label className="mt-8 block text-sm font-medium">
-            {copy.username}
+            {t("onboarding.username")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setUsername(event.target.value)}
@@ -268,24 +251,24 @@ export function OnboardingFlow() {
             <p className="mt-2 text-xs text-muted-foreground">{usernameError}</p>
           ) : null}
           <label className="mt-5 block text-sm font-medium">
-            {copy.bio}
+            {t("onboarding.bio")}
             <textarea
               className="mt-2 min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               maxLength={160}
               onChange={(event) => setBio(event.target.value.slice(0, 160))}
-              placeholder="Optional. 160 characters."
+              placeholder={t("onboarding.bioHint")}
               value={bio}
             />
           </label>
           <div className="mt-8 flex gap-3">
             <Button onClick={() => setStep("account")} variant="outline">
-              Back
+              {t("common.back")}
             </Button>
             <Button
               disabled={busy || Boolean(usernameError)}
               onClick={() => void finish("personal")}
             >
-              Continue with Personal
+              {t("onboarding.continuePersonal")}
             </Button>
           </div>
         </section>
@@ -293,12 +276,12 @@ export function OnboardingFlow() {
 
       {step === "business" ? (
         <section className="max-w-lg">
-          <h1 className="font-heading text-3xl">Create your business profile</h1>
+          <h1 className="font-heading text-3xl">{t("onboarding.createBusinessProfile")}</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Set the public identity customers see on invoices. You can edit this later in Settings.
+            {t("onboarding.createBusinessProfileBody")}
           </p>
           <label className="mt-8 block text-sm font-medium">
-            Username
+            {t("common.username")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setUsername(event.target.value)}
@@ -310,7 +293,7 @@ export function OnboardingFlow() {
             <p className="mt-2 text-xs text-muted-foreground">{usernameError}</p>
           ) : null}
           <label className="mt-5 block text-sm font-medium">
-            Business name
+            {t("common.businessName")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setBusinessName(event.target.value)}
@@ -319,7 +302,7 @@ export function OnboardingFlow() {
             />
           </label>
           <label className="mt-5 block text-sm font-medium">
-            Category
+            {t("common.category")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setCategory(event.target.value)}
@@ -328,7 +311,7 @@ export function OnboardingFlow() {
             />
           </label>
           <label className="mt-5 block text-sm font-medium">
-            Description
+            {t("common.description")}
             <textarea
               className="mt-2 min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
               maxLength={280}
@@ -338,7 +321,7 @@ export function OnboardingFlow() {
             />
           </label>
           <label className="mt-5 block text-sm font-medium">
-            Website
+            {t("common.website")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setWebsite(event.target.value)}
@@ -347,17 +330,21 @@ export function OnboardingFlow() {
             />
           </label>
           <div className="mt-5">
-            <p className="text-sm font-medium">Logo</p>
+            <p className="text-sm font-medium">{t("common.logo")}</p>
             <div className="mt-2 flex items-center gap-3">
               {logoUrl ? (
                 <img alt="" className="h-14 w-14 rounded-2xl object-cover" src={logoUrl} />
               ) : (
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed text-xs text-muted-foreground">
-                  Logo
+                  {t("common.logo")}
                 </div>
               )}
               <label className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-border px-3 text-sm font-medium">
-                {logoBusy ? "Processing…" : logoUrl ? "Change logo" : "Upload logo"}
+                {logoBusy
+                  ? t("common.processing")
+                  : logoUrl
+                    ? t("common.changeLogo")
+                    : t("common.uploadLogo")}
                 <input
                   accept={profileImageAccept}
                   className="sr-only"
@@ -370,13 +357,13 @@ export function OnboardingFlow() {
           </div>
           <div className="mt-8 flex gap-3">
             <Button onClick={() => setStep("account")} variant="outline">
-              Back
+              {t("common.back")}
             </Button>
             <Button
               disabled={busy || Boolean(usernameError) || !businessName.trim()}
               onClick={() => void finish("business")}
             >
-              Create Business profile
+              {t("onboarding.createBusinessCta")}
             </Button>
           </div>
         </section>

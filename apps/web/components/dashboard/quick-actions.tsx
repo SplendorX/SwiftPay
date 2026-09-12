@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { useT } from "@/components/locale-provider";
 import { cn } from "@/lib/utils";
 
 const actions: Array<{
@@ -32,6 +33,18 @@ const actions: Array<{
 ];
 
 export function QuickActions({ className }: { className?: string }) {
+  const t = useT();
+  const labels: Record<string, string> = {
+    "#send": t("dashboard.sendPayment"),
+    "/swiftCircle": t("nav.circle"),
+    "/save": t("nav.save"),
+    "/earn": t("nav.earn"),
+    "/pay": t("dashboard.requestPayment"),
+    "/swiftBatch": t("nav.batchPay"),
+    "/swiftRecurepay": t("nav.recurePay"),
+    "/swap": t("nav.swap"),
+  };
+
   return (
     <div className={cn("quick-actions-grid", className)}>
       {actions.map((action, index) => {
@@ -48,7 +61,7 @@ export function QuickActions({ className }: { className?: string }) {
               href={action.href}
             >
               <Icon className="h-4 w-4" />
-              <span>{action.label}</span>
+              <span>{labels[action.href] ?? action.label}</span>
             </Link>
           </motion.div>
         );

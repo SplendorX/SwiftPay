@@ -18,6 +18,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
+import { useT } from "@/components/locale-provider";
+import { navLabelKeys } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export const platformNavItems = [
@@ -59,16 +61,18 @@ const shouldPrefetchPlatformRoutes = process.env.NODE_ENV === "production";
 
 export function PlatformNav({ className }: { className?: string }) {
   const pathname = usePathname();
+  const t = useT();
   const isBusiness = useOptionalAccount()?.isBusiness ?? false;
   const items = platformNavItems.filter((item) => !item.businessOnly || isBusiness);
 
   return (
-    <nav aria-label="Platform" className={cn("app-nav", className)}>
+    <nav aria-label={t("common.platformNav")} className={cn("app-nav", className)}>
       {items.map((item) => {
         const isActive =
           pathname === item.href ||
           (item.href !== "/business" && pathname.startsWith(`${item.href}/`));
         const Icon = item.icon;
+        const labelKey = navLabelKeys[item.href as keyof typeof navLabelKeys];
 
         return (
           <Link
@@ -82,7 +86,7 @@ export function PlatformNav({ className }: { className?: string }) {
             prefetch={shouldPrefetchPlatformRoutes}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{labelKey ? t(labelKey) : item.label}</span>
           </Link>
         );
       })}

@@ -24,6 +24,7 @@ import {
 import { formatUnits, isAddress, parseUnits, type Address } from "viem";
 
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
+import { useT } from "@/components/locale-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
@@ -93,6 +94,7 @@ type CircleChallengeResult = {
 };
 
 function SwapContent() {
+ const t = useT();
  const circleSdkRef = useRef<W3SSdk | null>(null);
  const {
  address: accountAddress,
@@ -620,7 +622,7 @@ function SwapContent() {
  href="/dashboard"
  >
  <ArrowLeft className="h-4 w-4" />
- Dashboard
+ {t("swap.dashboard")}
  </Link>
  <CircleFaucetLink />
  <ProfileMenu
@@ -640,14 +642,12 @@ function SwapContent() {
  <section className="section-panel">
  <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
  <div>
- <p className="section-eyebrow">Swap</p>
+ <p className="section-eyebrow">{t("swap.eyebrow")}</p>
  <h1 className="section-title">
- Convert balances
+ {t("swap.heading")}
  </h1>
  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
- Choose the stablecoin pair, get a Circle quote, and execute the
- swap from the connected wallet. A 0.3% platform fee is included
- in the swap.
+ {t("swap.body")}
  </p>
  </div>
 
@@ -663,7 +663,7 @@ function SwapContent() {
  : ""
  }`}
  />
- Refresh
+ {t("common.refresh")}
  </button>
  </div>
 

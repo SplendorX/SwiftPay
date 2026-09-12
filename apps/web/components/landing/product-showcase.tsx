@@ -19,21 +19,17 @@ import { PlatformBrand } from "@/components/brand/platform-brand";
 import { HeroBrandDisplay } from "@/components/landing/hero-brand-display";
 import { FadeUp } from "@/components/design/motion";
 import { TokenIcon } from "@/components/token-icon";
+import { useT } from "@/components/locale-provider";
 
-const slides = [
-  { id: "swap", label: "Swap" },
-  { id: "send", label: "Send" },
-  { id: "request", label: "Request" },
-] as const;
-
-const sidebarItems = [
-  { icon: LayoutDashboard, id: "dashboard", label: "Dashboard" },
-  { icon: RefreshCw, id: "swap", label: "Swap" },
-  { icon: Send, id: "send", label: "Send" },
-  { icon: ReceiptText, id: "request", label: "Request" },
-  { icon: Users, id: "batch", label: "SwiftBatch" },
-  { icon: PiggyBank, id: "save", label: "Swift+Save" },
-  { icon: CalendarClock, id: "recure", label: "RecurePay" },
+const slideIds = ["swap", "send", "request"] as const;
+const sidebarDefs = [
+  { icon: LayoutDashboard, id: "dashboard" },
+  { icon: RefreshCw, id: "swap" },
+  { icon: Send, id: "send" },
+  { icon: ReceiptText, id: "request" },
+  { icon: Users, id: "batch" },
+  { icon: PiggyBank, id: "save" },
+  { icon: CalendarClock, id: "recure" },
 ] as const;
 
 function ScreenShell({
@@ -70,16 +66,17 @@ function ScreenShell({
 
 
 function SwapScreen() {
+  const t = useT();
   return (
     <ScreenShell
-      action="Get quote"
-      copy="Exchange USDC and EURC on Arc Testnet with Circle-powered routes."
-      title="Swap"
+      action={t("landing.showcaseGetQuote")}
+      copy={t("landing.showcaseSwapCopy")}
+      title={t("nav.swap")}
     >
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            You pay
+            {t("landing.showcaseYouPay")}
           </p>
           <p className="font-heading text-xl font-semibold">1.00</p>
         </div>
@@ -96,7 +93,7 @@ function SwapScreen() {
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            You receive
+            {t("landing.showcaseYouReceive")}
           </p>
           <motion.p
             animate={{ opacity: [0.75, 1, 0.75] }}
@@ -116,21 +113,22 @@ function SwapScreen() {
 }
 
 function SendScreen() {
+  const t = useT();
   return (
     <ScreenShell
-      action="Send payment"
-      copy="Pay a username or wallet on Arc. Gas is paid in USDC."
-      title="Send"
+      action={t("landing.showcaseSendPayment")}
+      copy={t("landing.showcaseSendCopy")}
+      title={t("common.send")}
     >
       <div className="rounded-xl border border-border bg-background px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-          Recipient
+          {t("common.recipient")}
         </p>
         <p className="mt-1 text-sm font-semibold">@ada.payments</p>
       </div>
       <div className="rounded-xl border border-border bg-background px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-          Amount
+          {t("common.amount")}
         </p>
         <p className="mt-1 inline-flex items-center gap-2 text-sm font-semibold">
           <TokenIcon className="h-4 w-4 rounded-full" symbol="USDC" />
@@ -139,7 +137,7 @@ function SendScreen() {
       </div>
       <div className="rounded-xl border border-border bg-background px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-          Network
+          {t("landing.showcaseNetwork")}
         </p>
         <p className="mt-1 text-sm font-semibold">Arc Testnet</p>
       </div>
@@ -148,15 +146,16 @@ function SendScreen() {
 }
 
 function RequestScreen() {
+  const t = useT();
   return (
     <ScreenShell
-      action="Send request"
-      copy="Create a payment link or QR and track it from the collection hub."
-      title="Request"
+      action={t("landing.showcaseSendRequest")}
+      copy={t("landing.showcaseRequestCopy")}
+      title={t("nav.request")}
     >
       <div className="rounded-xl border border-border bg-background px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-          Ask for
+          {t("landing.showcaseAskFor")}
         </p>
         <p className="mt-1 inline-flex items-center gap-2 text-sm font-semibold">
           <TokenIcon className="h-4 w-4 rounded-full" symbol="EURC" />
@@ -165,22 +164,49 @@ function RequestScreen() {
       </div>
       <div className="rounded-xl border border-border bg-background px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-          Send request to
+          {t("landing.showcaseSendRequestTo")}
         </p>
         <p className="mt-1 text-sm font-semibold">@studio.west</p>
       </div>
       <div className="rounded-xl border border-border bg-background px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-          Expires
+          {t("landing.showcaseExpires")}
         </p>
-        <p className="mt-1 text-sm font-semibold">24 hours</p>
+        <p className="mt-1 text-sm font-semibold">{t("landing.showcaseExpiresValue")}</p>
       </div>
     </ScreenShell>
   );
 }
 
 function PreviewBoard() {
+  const t = useT();
   const [index, setIndex] = useState(0);
+  const slides = slideIds.map((id) => ({
+    id,
+    label:
+      id === "swap"
+        ? t("nav.swap")
+        : id === "send"
+          ? t("common.send")
+          : t("nav.request"),
+  }));
+  const sidebarItems = sidebarDefs.map((item) => ({
+    ...item,
+    label:
+      item.id === "dashboard"
+        ? t("nav.dashboard")
+        : item.id === "swap"
+          ? t("nav.swap")
+          : item.id === "send"
+            ? t("common.send")
+            : item.id === "request"
+              ? t("nav.request")
+              : item.id === "batch"
+                ? t("nav.batchPay")
+                : item.id === "save"
+                  ? t("nav.save")
+                  : t("nav.recurePay"),
+  }));
   const active = slides[index];
 
   useEffect(() => {
@@ -188,7 +214,7 @@ function PreviewBoard() {
       setIndex((current) => (current + 1) % slides.length);
     }, 4200);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   return (
     <div className="flex w-full flex-col items-center gap-3">

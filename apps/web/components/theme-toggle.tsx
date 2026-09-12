@@ -3,6 +3,7 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useT } from "@/components/locale-provider";
 import {
   applyLightSurface,
   lightSurfaceStorageKey,
@@ -35,6 +36,7 @@ function applyTheme(pref: ThemePref) {
 }
 
 export function ThemeToggle() {
+  const t = useT();
   const [pref, setPref] = useState<ThemePref>("dark");
 
   useEffect(() => {
@@ -59,14 +61,14 @@ export function ThemeToggle() {
   }
 
   const options: Array<{ value: ThemePref; icon: typeof Moon; label: string }> = [
-    { value: "dark", icon: Moon, label: "Dark" },
-    { value: "light", icon: Sun, label: "Light" },
-    { value: "system", icon: Monitor, label: "System" },
+    { value: "dark", icon: Moon, label: t("settings.dark") },
+    { value: "light", icon: Sun, label: t("settings.light") },
+    { value: "system", icon: Monitor, label: t("settings.system") },
   ];
 
   return (
     <div
-      aria-label="Theme"
+      aria-label={t("settings.theme")}
       className="inline-flex items-center rounded-full border border-border bg-card/80 p-0.5"
       role="group"
     >

@@ -1,42 +1,41 @@
 "use client";
 
 import { FadeUp } from "@/components/design/motion";
-
-const stories = [
-  {
-    body: "Send USDC or EURC in a few taps. Recipients resolve from a username or a wallet, fees stay visible, and Arc confirms before the next breath.",
-    image: "/landing/pay-mac.jpg",
-    imageAlt: "Person sending a SwiftPay payment from a MacBook",
-    kicker: "Pay",
-    title: "Send once. Settle instantly.",
-  },
-  {
-    body: "Circle turns a group into a money room. Split, request, and save together while chat stays in the same place as the funds.",
-    flip: true,
-    image: "/landing/circle-mac.jpg",
-    imageAlt: "A group working together around laptops at a shared table",
-    kicker: "Circle",
-    title: "Move money as a group, not a spreadsheet.",
-  },
-  {
-    body: "Turn a payment into a schedule. Set frequency, start time, and end time, then manage every run from RecurePay.",
-    image: "/landing/schedule-mac.jpg",
-    imageAlt: "Person in bed with a laptop, scheduling a recurring payment",
-    kicker: "RecurePay",
-    title: "Set it once. It keeps moving.",
-  },
-];
+import { useT } from "@/components/locale-provider";
 
 export function FeatureStories() {
+  const t = useT();
+  const stories = [
+    {
+      body: t("landing.storyPayBody"),
+      image: "/landing/pay-mac.jpg",
+      imageAlt: t("landing.storyPayAlt"),
+      kicker: t("landing.storyPayKicker"),
+      title: t("landing.storyPayTitle"),
+    },
+    {
+      body: t("landing.storyCircleBody"),
+      flip: true,
+      image: "/landing/circle-mac.jpg",
+      imageAlt: t("landing.storyCircleAlt"),
+      kicker: t("landing.storyCircleKicker"),
+      title: t("landing.storyCircleTitle"),
+    },
+    {
+      body: t("landing.storyRecureBody"),
+      image: "/landing/schedule-mac.jpg",
+      imageAlt: t("landing.storyRecureAlt"),
+      kicker: t("landing.storyRecureKicker"),
+      title: t("landing.storyRecureTitle"),
+    },
+  ];
+
   return (
     <section className="marketing-section" id="stories">
       <div className="marketing-section-header">
-        <p className="section-eyebrow">In action</p>
-        <h2 className="section-title">Pay, Circle, and RecurePay.</h2>
-        <p className="section-copy">
-          Send a payment, run a group, or put money on a schedule. Same wallet.
-          Same USDC and EURC.
-        </p>
+        <p className="section-eyebrow">{t("landing.storiesEyebrow")}</p>
+        <h2 className="section-title">{t("landing.storiesTitle")}</h2>
+        <p className="section-copy">{t("landing.storiesCopy")}</p>
       </div>
       <div className="landing-story-grid">
         {stories.map((story) => (

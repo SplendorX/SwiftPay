@@ -1,6 +1,9 @@
+import { isAddress } from "viem";
+
 import { PayPageShell } from "@/components/pages/pay-page-shell";
-import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import { PaymentCollectionHub } from "@/components/pay/payment-collection-hub";
+import { normalizeUsername } from "@/lib/profile-utils";
+import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 
 type PayPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -27,11 +30,16 @@ function normalizeToken(value: string): ArcTokenSymbol {
 
 export default async function PayPage({ searchParams }: PayPageProps) {
   const params = await searchParams;
-  const username = readParam(params, "username");
-  const recipient =
+  const usernameParam = normalizeUsername(readParam(params, "username"));
+  const recipientParam =
     readParam(params, "to") ||
     readParam(params, "recipient") ||
     readParam(params, "wallet");
+  const recipientIsAddress = isAddress(recipientParam);
+  const username =
+    usernameParam ||
+    (!recipientIsAddress ? normalizeUsername(recipientParam) : "");
+  const recipient = recipientIsAddress ? recipientParam : "";
   const amount = readParam(params, "amount");
   const note = readParam(params, "note") || readParam(params, "memo");
   const token = normalizeToken(readParam(params, "token"));

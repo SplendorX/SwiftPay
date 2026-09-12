@@ -804,58 +804,63 @@ export function SwiftCircleHub() {
   }
 
   return (
-    <div className="grid min-w-0 gap-4 overflow-x-hidden">
-      <div className="section-panel min-w-0">
-        <div className="relative z-[1] grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+    <div className="sc-room">
+      <div className="section-panel min-w-0 sc-room-head">
+        <div className="relative z-[1] grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
           <Link
+            aria-label="Back to Circles"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] border border-border bg-card text-muted-foreground hover:text-foreground"
             href="/swiftCircle"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <CircleAvatar
               className="shrink-0"
               label={circle.name}
-              size={44}
+              size={40}
               src={circle.image_url}
             />
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <h2 className="sc-group-name">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="sc-group-name truncate">
                   {circle.name}
                 </h2>
-                <Badge variant="secondary">{role}</Badge>
+                <Badge className="shrink-0" variant="secondary">{role}</Badge>
                 {circle.financial_frozen ? (
-                  <Badge variant="destructive">Frozen</Badge>
+                  <Badge className="shrink-0" variant="destructive">Frozen</Badge>
                 ) : null}
               </div>
-              <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+              <p className="mt-0.5 hidden text-sm text-muted-foreground sm:line-clamp-1 sm:block">
                 {circle.description || "Private group for chat, pay, requests, and shared Save."}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <CircleAvatarStack
-                  people={activeMembers.map((member) => ({
-                    label: memberLabel(member),
-                    src: member.avatar_url,
-                    key: member.user_wallet,
-                  }))}
-                  size={26}
-                />
-                <span className="text-xs font-semibold text-muted-foreground">
+              <div className="mt-1 flex min-w-0 items-center gap-2">
+                <div className="hidden min-w-0 sm:block">
+                  <CircleAvatarStack
+                    people={activeMembers.map((member) => ({
+                      label: memberLabel(member),
+                      src: member.avatar_url,
+                      key: member.user_wallet,
+                    }))}
+                    size={22}
+                  />
+                </div>
+                <span className="truncate text-xs font-semibold text-muted-foreground">
                   {activeCount} members
                 </span>
               </div>
             </div>
           </div>
           <Button
+            aria-label="Refresh"
+            className="shrink-0"
             disabled={busy}
             onClick={() => void load()}
             size="sm"
             variant="outline"
           >
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            <RefreshCw className={`h-3.5 w-3.5 sm:mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
@@ -866,15 +871,15 @@ export function SwiftCircleHub() {
         </p>
       ) : null}
 
-      <Tabs className="min-w-0" onValueChange={setTab} value={tab}>
+      <Tabs className="sc-room-tabs min-w-0" onValueChange={setTab} value={tab}>
         <div className="sc-chip-nav">
           {(
             [
-              ["chat", "Circle Chat", MessageCircle],
+              ["chat", "Chat", MessageCircle],
               ["home", "Room", Home],
-              ["pay", "Circle Pay", Wallet],
-              ["requests", "Circle Requests", HandCoins],
-              ["save", "Circle Save", PiggyBank],
+              ["pay", "Pay", Wallet],
+              ["requests", "Requests", HandCoins],
+              ["save", "Save", PiggyBank],
               ["members", "People", Users],
               ["activity", "Activity", Activity],
               ["settings", "Settings", Settings2],
@@ -973,7 +978,7 @@ export function SwiftCircleHub() {
           </div>
         </TabsContent>
 
-        <TabsContent className="mt-4" value="chat">
+        <TabsContent className="sc-tab-chat mt-4" value="chat">
           <div className="sc-chat">
             <div
               className="sc-chat-thread"

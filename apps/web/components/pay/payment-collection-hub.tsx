@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
 import { FadeUp } from "@/components/design/motion";
+import { useT } from "@/components/locale-provider";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
@@ -205,15 +206,21 @@ export function PaymentCollectionHub({
   initialNote,
   initialToken,
   initialUsername = "",
+  initialWalletAddress,
 }: PaymentCollectionHubProps) {
+  const t = useT();
   const { address: connectedWallet, isConnected, source } = usePlatformWallet();
   const [origin, setOrigin] = useState("");
   const [requesterUsername, setRequesterUsername] = useState<string | null>(
     null,
   );
-  const [shareUsername, setShareUsername] = useState(
-    initialUsername ? normalizeUsername(initialUsername) : "",
+  const prefilledUsername = normalizeUsername(
+    initialUsername ||
+      (initialWalletAddress && !isAddress(initialWalletAddress)
+        ? initialWalletAddress
+        : ""),
   );
+  const [shareUsername, setShareUsername] = useState(prefilledUsername);
   const [usernameHistory, setUsernameHistory] = useState<string[]>([]);
   const [amount, setAmount] = useState(initialAmount);
   const [note, setNote] = useState(initialNote);
@@ -589,12 +596,12 @@ export function PaymentCollectionHub({
 
       <div className="collection-hub-grid">
         <section className="section-panel">
-          <p className="section-eyebrow">Create request</p>
-          <h2 className="section-title">Ask someone to pay you</h2>
+          <p className="section-eyebrow">{t("pay.createRequest")}</p>
+          <h2 className="section-title">{t("pay.askSomeone")}</h2>
 
           <div className="mt-5 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-sm font-semibold">Send request to</span>
+              <span className="text-sm font-semibold">{t("pay.sendRequestTo")}</span>
               <div className="field-shell flex h-11 items-center gap-2 px-3">
                 <AtSign className="h-4 w-4 text-primary" />
                 <Input
@@ -602,7 +609,10 @@ export function PaymentCollectionHub({
                   className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
                   onChange={(event) => {
                     setShareUsername(
-                      event.target.value.toLowerCase().replace(/\s/g, ""),
+                      event.target.value
+                        .toLowerCase()
+                        .replace(/^@+/, "")
+                        .replace(/\s/g, ""),
                     );
                     setShareError(null);
                     setShareStatus(null);
@@ -779,8 +789,8 @@ export function PaymentCollectionHub({
         <aside className="section-panel">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="section-eyebrow">QR code</p>
-              <h2 className="section-title">Scan to pay</h2>
+              <p className="section-eyebrow">{t("pay.qrCode")}</p>
+              <h2 className="section-title">{t("pay.scanToPay")}</h2>
             </div>
             <QrCode className="h-5 w-5 text-primary" />
           </div>

@@ -12,7 +12,7 @@ const reservedUsernames = new Set([
 ]);
 
 export function normalizeUsername(value: string) {
-  return value.trim().toLowerCase();
+  return value.trim().replace(/^@+/, "").toLowerCase();
 }
 
 export function validateUsername(value: string) {

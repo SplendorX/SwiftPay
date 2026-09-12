@@ -12,6 +12,7 @@ import {
 import { useEffect, useState, type ChangeEvent } from "react";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
+import { useT } from "@/components/locale-provider";
 import { useBusinessActor } from "@/components/business/use-business-actor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import {
 } from "@/lib/profile";
 
 export function AccountProfileSettings() {
+  const t = useT();
   const accountContext = useOptionalAccount();
   const { circleSocialUuid, ownerWallet } = useBusinessActor();
   const isBusiness = accountContext?.isBusiness ?? false;
@@ -113,7 +115,7 @@ export function AccountProfileSettings() {
 
   async function save() {
     if (!ownerWallet) {
-      setError("Connect a wallet before saving your profile.");
+      setError(t("settings.connectBeforeSave"));
       return;
     }
     const usernameError = validateUsername(username);
@@ -122,7 +124,7 @@ export function AccountProfileSettings() {
       return;
     }
     if (isBusiness && !businessName.trim()) {
-      setError("Enter a business name.");
+      setError(t("settings.enterBusinessName"));
       return;
     }
     setBusy(true);
@@ -157,7 +159,7 @@ export function AccountProfileSettings() {
       window.dispatchEvent(
         new CustomEvent(profileUpdatedEventName, { detail: updated }),
       );
-      setSuccess("Profile updated.");
+      setSuccess(t("settings.profileUpdated"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Profile could not be updated.");
     } finally {
@@ -168,7 +170,7 @@ export function AccountProfileSettings() {
   if (!ownerWallet) {
     return (
       <p className="text-sm text-muted-foreground">
-        Connect a wallet to edit this profile.
+        {t("settings.connectToEdit")}
       </p>
     );
   }
@@ -177,7 +179,7 @@ export function AccountProfileSettings() {
     return (
       <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Loading profile…
+        {t("settings.loadingProfile")}
       </div>
     );
   }
@@ -187,7 +189,7 @@ export function AccountProfileSettings() {
   return (
     <div className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {isBusiness ? "Business profile" : "Personal profile"}
+        {isBusiness ? t("settings.businessProfile") : t("settings.personalProfile")}
       </p>
 
       <div className="rounded-lg border border-border bg-muted/30 p-3">
@@ -201,9 +203,9 @@ export function AccountProfileSettings() {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium">
-              {isBusiness ? "Business logo" : "Profile picture"}
+              {isBusiness ? t("settings.businessLogo") : t("settings.profilePicture")}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, or WebP. 5 MB max.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("settings.imageHint")}</p>
           </div>
           {image ? (
             <button
@@ -212,7 +214,7 @@ export function AccountProfileSettings() {
               type="button"
             >
               <X className="h-3.5 w-3.5" />
-              Clear
+              {t("common.clear")}
             </button>
           ) : null}
         </div>
@@ -230,13 +232,17 @@ export function AccountProfileSettings() {
             htmlFor="account-profile-image"
           >
             {imageBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-            {imageBusy ? "Processing…" : image ? "Change photo" : "Upload photo"}
+            {imageBusy
+              ? t("common.processing")
+              : image
+                ? t("common.changePhoto")
+                : t("common.uploadPhoto")}
           </label>
         </div>
       </div>
 
       <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        Username
+        {t("common.username")}
         <div className="relative mt-2">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
             @
@@ -252,7 +258,7 @@ export function AccountProfileSettings() {
       {profile?.username ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
           <p className="truncate text-xs text-muted-foreground">
-            Public handle{" "}
+            {t("settings.publicHandle")}{" "}
             <span className="font-semibold text-foreground">
               {formatUsernameLabel(profile.username)}
             </span>
@@ -267,7 +273,7 @@ export function AccountProfileSettings() {
             type="button"
           >
             {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copied" : "Copy"}
+            {copied ? t("common.copied") : t("common.copy")}
           </button>
         </div>
       ) : null}
@@ -275,7 +281,7 @@ export function AccountProfileSettings() {
       {isBusiness ? (
         <>
           <label className="block text-sm font-medium">
-            Business name
+            {t("common.businessName")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setBusinessName(event.target.value)}
@@ -283,7 +289,7 @@ export function AccountProfileSettings() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Description
+            {t("common.description")}
             <textarea
               className="mt-2 min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
               maxLength={280}
@@ -292,7 +298,7 @@ export function AccountProfileSettings() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Category
+            {t("common.category")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setCategory(event.target.value)}
@@ -300,7 +306,7 @@ export function AccountProfileSettings() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Website
+            {t("common.website")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setWebsite(event.target.value)}
@@ -309,7 +315,7 @@ export function AccountProfileSettings() {
             />
           </label>
           <label className="block text-sm font-medium">
-            Contact email
+            {t("common.contactEmail")}
             <Input
               className="mt-2 h-11"
               onChange={(event) => setContactEmail(event.target.value)}
@@ -318,7 +324,7 @@ export function AccountProfileSettings() {
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm font-medium">
-              Country
+              {t("common.country")}
               <Input
                 className="mt-2 h-11"
                 onChange={(event) => setCountry(event.target.value)}
@@ -326,7 +332,7 @@ export function AccountProfileSettings() {
               />
             </label>
             <label className="block text-sm font-medium">
-              Phone
+              {t("common.phone")}
               <Input
                 className="mt-2 h-11"
                 onChange={(event) => setPhone(event.target.value)}
@@ -337,7 +343,7 @@ export function AccountProfileSettings() {
         </>
       ) : (
         <label className="block text-sm font-medium">
-          Bio
+          {t("common.bio")}
           <textarea
             className="mt-2 min-h-24 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
             maxLength={160}
@@ -352,7 +358,7 @@ export function AccountProfileSettings() {
 
       <Button disabled={busy || imageBusy} onClick={() => void save()} type="button">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        Save profile
+        {t("settings.saveProfile")}
       </Button>
     </div>
   );

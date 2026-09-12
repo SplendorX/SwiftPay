@@ -17,7 +17,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
+import { useT } from "@/components/locale-provider";
 import { platformNavItems } from "@/components/platform-nav";
+import { navLabelKeys } from "@/lib/i18n";
 import { searchPeople } from "@/lib/business/client";
 import type { DirectoryHit } from "@/lib/business/types";
 import {
@@ -45,6 +47,7 @@ const navIcons: Record<string, typeof Command> = {
 };
 
 export function CommandPaletteTrigger({ className }: { className?: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export function CommandPaletteTrigger({ className }: { className?: string }) {
   return (
     <>
       <button
-        aria-label="Search people and pages"
+        aria-label={t("search.peopleAndPagesAria")}
         className={cn(
           "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-background/70 text-muted-foreground shadow-sm transition hover:border-primary/30 hover:bg-background hover:text-foreground sm:h-11 sm:w-auto sm:gap-2 sm:px-3 sm:text-xs sm:font-medium",
           className,
@@ -78,7 +81,7 @@ export function CommandPaletteTrigger({ className }: { className?: string }) {
         type="button"
       >
         <Search className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Search people & pages</span>
+        <span className="hidden sm:inline">{t("search.peopleAndPages")}</span>
         <kbd className="hidden rounded border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] sm:inline">
           ⌘K
         </kbd>
@@ -96,15 +99,20 @@ export function CommandPalette({
   open: boolean;
 }) {
   const router = useRouter();
+  const t = useT();
   const isBusiness = useOptionalAccount()?.isBusiness ?? false;
   const [query, setQuery] = useState("");
   const [people, setPeople] = useState<DirectoryHit[]>([]);
   const commandItems = platformNavItems.filter(
     (item) => !item.businessOnly || isBusiness,
   );
+  const labeledItems = commandItems.map((item) => {
+    const labelKey = navLabelKeys[item.href as keyof typeof navLabelKeys];
+    return { ...item, translatedLabel: labelKey ? t(labelKey) : item.label };
+  });
 
-  const filtered = commandItems.filter((item) =>
-    item.label.toLowerCase().includes(query.toLowerCase()),
+  const filtered = labeledItems.filter((item) =>
+    item.translatedLabel.toLowerCase().includes(query.toLowerCase()),
   );
 
   useEffect(() => {
@@ -134,16 +142,16 @@ export function CommandPalette({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg" showCloseButton>
         <DialogHeader className="border-b border-border px-4 py-3">
-          <DialogTitle className="text-sm">Search</DialogTitle>
+          <DialogTitle className="text-sm">{t("search.title")}</DialogTitle>
           <DialogDescription className="sr-only">
-            Search people, businesses, and pages
+            {t("search.description")}
           </DialogDescription>
           <div className="relative mt-2">
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search @username, businesses, or pages"
+              placeholder={t("search.placeholder")}
               value={query}
             />
           </div>
@@ -152,7 +160,7 @@ export function CommandPalette({
           {people.length > 0 ? (
             <div className="pb-2">
               <p className="px-3 pb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                People & businesses
+                {t("search.peopleBusinesses")}
               </p>
               {people.map((person) => (
                 <button
@@ -173,7 +181,7 @@ export function CommandPalette({
                   {person.displayName}
                   <span className="text-xs text-muted-foreground">
                     @{person.username}
-                    {person.kind === "business" ? " · Business" : ""}
+                    {person.kind === "business" ? ` · ${t("common.business")}` : ""}
                   </span>
                 </button>
               ))}
@@ -189,13 +197,13 @@ export function CommandPalette({
                 type="button"
               >
                 <Icon className="h-4 w-4 text-muted-foreground" />
-                {item.label}
+                {item.translatedLabel}
               </button>
             );
           })}
           {filtered.length === 0 && people.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-              No matching pages
+              {t("search.noMatchingPages")}
             </p>
           ) : null}
         </div>

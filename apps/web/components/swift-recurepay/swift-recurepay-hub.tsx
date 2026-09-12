@@ -33,6 +33,7 @@ import {
 } from "wagmi";
 
 import { KpiCard } from "@/components/design/kpi-card";
+import { useT } from "@/components/locale-provider";
 import {
   RecurringScheduleFields,
   createRecurringDraft,
@@ -163,6 +164,7 @@ function getErrorMessage(error: unknown) {
 }
 
 export function SwiftRecurepayHub() {
+  const t = useT();
   const { address, connector, isConnected } = useAccount();
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
@@ -1139,13 +1141,9 @@ export function SwiftRecurepayHub() {
       <section className="section-panel">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="section-eyebrow">SwiftRecurepay</p>
-            <h1 className="section-title">Recurring stablecoin payments</h1>
-            <p className="section-copy">
-              Schedule USDC and EURC on Arc Testnet. Authorize Autopay once
-              (token approval to the SwiftRecurepay executor). After that, due
-              payments run in the background. This page is not required.
-            </p>
+            <p className="section-eyebrow">{t("recure.eyebrow")}</p>
+            <h1 className="section-title">{t("recure.heading")}</h1>
+            <p className="section-copy">{t("recure.body")}</p>
           </div>
           <Button
             disabled={!canAccessRecurring || isLoading}
@@ -1199,7 +1197,7 @@ export function SwiftRecurepayHub() {
         <section className="glass-panel min-w-0 overflow-x-hidden p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="section-eyebrow">Due queue</p>
+              <p className="section-eyebrow">{t("recure.dueQueue")}</p>
               <h2 className="font-heading text-xl font-semibold">Payments ready to send</h2>
             </div>
             <Badge variant={dueExecutions.length > 0 ? "secondary" : "outline"}>
@@ -1282,7 +1280,7 @@ export function SwiftRecurepayHub() {
 
         <section className="glass-panel min-w-0 overflow-x-hidden p-4 sm:p-5">
           <div className="mb-4">
-            <p className="section-eyebrow">Create</p>
+            <p className="section-eyebrow">{t("recure.create")}</p>
             <h2 className="font-heading text-xl font-semibold">New schedule</h2>
           </div>
 
@@ -1363,8 +1361,8 @@ export function SwiftRecurepayHub() {
 
       <section className="section-panel">
         <div className="mb-4">
-          <p className="section-eyebrow">Schedules</p>
-          <h2 className="section-title">Managed recurring payments</h2>
+          <p className="section-eyebrow">{t("recure.schedules")}</p>
+          <h2 className="section-title">{t("recure.managed")}</h2>
         </div>
 
         {schedules.length === 0 ? (
@@ -1496,8 +1494,8 @@ export function SwiftRecurepayHub() {
       {processingExecutions.length > 0 ? (
         <section className="section-panel">
           <div className="mb-4">
-            <p className="section-eyebrow">In flight</p>
-            <h2 className="section-title">Processing Autopay</h2>
+            <p className="section-eyebrow">{t("recure.inFlight")}</p>
+            <h2 className="section-title">{t("recure.processing")}</h2>
           </div>
           <div className="grid gap-3">
             {processingExecutions.map((execution) => {
@@ -1531,8 +1529,8 @@ export function SwiftRecurepayHub() {
 
       <section className="section-panel">
         <div className="mb-4">
-          <p className="section-eyebrow">History</p>
-          <h2 className="section-title">Execution history</h2>
+          <p className="section-eyebrow">{t("recure.history")}</p>
+          <h2 className="section-title">{t("recure.executionHistory")}</h2>
         </div>
         {historyExecutions.length === 0 ? (
           <p className="text-sm text-muted-foreground">

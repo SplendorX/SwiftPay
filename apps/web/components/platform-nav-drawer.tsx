@@ -7,13 +7,16 @@ import { useEffect, useState } from "react";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
+import { useT } from "@/components/locale-provider";
 import { platformNavItems } from "@/components/platform-nav";
+import { navLabelKeys } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const shouldPrefetchPlatformRoutes = process.env.NODE_ENV === "production";
 
 export function PlatformNavDrawer() {
   const pathname = usePathname();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const isBusiness = useOptionalAccount()?.isBusiness ?? false;
   const items = platformNavItems.filter((item) => !item.businessOnly || isBusiness);
@@ -38,7 +41,7 @@ export function PlatformNavDrawer() {
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label="Open navigation"
+        aria-label={t("common.openNav")}
         className={cn(
           "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold shadow-sm transition",
           open
@@ -46,7 +49,7 @@ export function PlatformNavDrawer() {
             : "border-border bg-background text-foreground hover:border-primary/30",
         )}
         onClick={() => setOpen((value) => !value)}
-        title="Navigation"
+        title={t("common.navigation")}
         type="button"
       >
         {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -58,7 +61,7 @@ export function PlatformNavDrawer() {
           onClick={() => setOpen(false)}
         >
           <aside
-            aria-label="Platform navigation"
+            aria-label={t("common.platformNav")}
             aria-modal="true"
             className="drawer-slide-panel absolute top-3 right-3 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
             onClick={(event) => event.stopPropagation()}
@@ -67,7 +70,7 @@ export function PlatformNavDrawer() {
             <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
               <SidebarBrand />
               <button
-                aria-label="Close navigation"
+                aria-label={t("common.closeNav")}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background"
                 onClick={() => setOpen(false)}
                 type="button"
@@ -76,13 +79,14 @@ export function PlatformNavDrawer() {
               </button>
             </div>
 
-            <nav aria-label="Slide navigation" className="grid gap-1.5">
+            <nav aria-label={t("common.slideNav")} className="grid gap-1.5">
               {items.map((item) => {
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/business" &&
                     pathname.startsWith(`${item.href}/`));
                 const Icon = item.icon;
+                const labelKey = navLabelKeys[item.href as keyof typeof navLabelKeys];
 
                 return (
                   <Link
@@ -100,7 +104,7 @@ export function PlatformNavDrawer() {
                   >
                     <span className="inline-flex min-w-0 items-center gap-3">
                       <Icon className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate">{labelKey ? t(labelKey) : item.label}</span>
                     </span>
                     <ChevronRight
                       className={cn(

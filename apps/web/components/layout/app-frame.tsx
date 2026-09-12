@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { useSidebar } from "@/components/layout/sidebar-context";
+import { useT } from "@/components/locale-provider";
 import { PlatformNav } from "@/components/platform-nav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,8 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
   const { collapsed, retracted, toggleCollapsed } = useSidebar();
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
+  const t = useT();
+  const isCircleRoom = /^\/swiftCircle\/[^/]+$/.test(pathname);
 
   return (
     <div className="app-frame">
@@ -47,15 +50,15 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
             ) : (
               <>
                 <PanelLeftClose className="h-4 w-4" />
-                <span>Collapse</span>
+                <span>{t("common.collapse")}</span>
               </>
             )}
           </Button>
         </div>
       </aside>
 
-      <div className="app-main">
-        <div className="app-page-title">
+      <div className={cn("app-main", isCircleRoom && "app-main-circle-room")}>
+        <div className={cn("app-page-title", isCircleRoom && "app-page-title-circle-room")}>
           <p className="app-page-kicker">SwiftPay</p>
           <h1 className="font-heading">{title}</h1>
           {subtitle ? (

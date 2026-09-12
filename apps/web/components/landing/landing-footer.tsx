@@ -1,23 +1,10 @@
+"use client";
+
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { XLogoLink } from "@/components/brand/x-logo-link";
 import { circleFaucetUrl } from "@/components/circle-faucet-link";
 import { LaunchAppLink } from "@/components/landing/launch-app-link";
-
-const siteLinks = [
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#products", label: "Features" },
-  { href: "#faq", label: "FAQ" },
-];
-
-const appLinks = [
-  { href: "/swap", label: "Swap" },
-  { href: "/dashboard", label: "Send" },
-  { href: "/pay", label: "Payment links" },
-  { href: "/swiftRecurepay", label: "Scheduled payments" },
-  { href: "/swiftBatch", label: "Batch settlement" },
-];
-
-const appLaunchLabel = "Open SwiftPay";
+import { useT } from "@/components/locale-provider";
 
 const resourceLinks = [
   { href: "https://www.arc.io/", label: "Arc Network" },
@@ -57,20 +44,31 @@ function FooterColumn({
 }
 
 export function LandingFooter() {
+  const t = useT();
+  const siteLinks = [
+    { href: "#how-it-works", label: t("landing.footerHowItWorks") },
+    { href: "#products", label: t("landing.footerFeatures") },
+    { href: "#faq", label: t("landing.footerFaq") },
+  ];
+  const appLinks = [
+    { href: "/swap", label: t("nav.swap") },
+    { href: "/dashboard", label: t("common.send") },
+    { href: "/pay", label: t("landing.footerPaymentLinks") },
+    { href: "/swiftRecurepay", label: t("landing.footerScheduled") },
+    { href: "/swiftBatch", label: t("landing.footerBatch") },
+  ];
+
   return (
     <footer className="marketing-footer">
       <div className="marketing-footer-grid">
         <div className="marketing-footer-brand">
           <PlatformBrand />
-          <p>
-            Do more with USDC. Swap, send, request, batch, save, and schedule
-            stablecoin payments from one wallet on Arc.
-          </p>
+          <p>{t("landing.footerTagline")}</p>
           <XLogoLink />
         </div>
-        <FooterColumn heading="Site" links={siteLinks} />
+        <FooterColumn heading={t("landing.footerSite")} links={siteLinks} />
         <div className="marketing-footer-col">
-          <p className="marketing-footer-heading">App</p>
+          <p className="marketing-footer-heading">{t("landing.footerApp")}</p>
           <ul>
             {appLinks.map((link) => (
               <li key={link.href}>
@@ -78,16 +76,14 @@ export function LandingFooter() {
               </li>
             ))}
             <li>
-              <LaunchAppLink>{appLaunchLabel}</LaunchAppLink>
+              <LaunchAppLink>{t("common.openSwiftPay")}</LaunchAppLink>
             </li>
           </ul>
         </div>
-        <FooterColumn heading="Resources" links={resourceLinks} />
+        <FooterColumn heading={t("landing.footerResources")} links={resourceLinks} />
       </div>
       <div className="marketing-footer-bottom">
-        <p className="marketing-footer-legal">
-          © 2026 SwiftPay. The stablecoin payment layer
-        </p>
+        <p className="marketing-footer-legal">{t("landing.footerLegal")}</p>
       </div>
     </footer>
   );

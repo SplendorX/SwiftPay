@@ -8,14 +8,13 @@ import { PlatformBrand } from "@/components/brand/platform-brand";
 import { XLogoLink } from "@/components/brand/x-logo-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LaunchAppLink } from "@/components/landing/launch-app-link";
+import { useT } from "@/components/locale-provider";
 import { cn } from "@/lib/utils";
-
-const marketingLinks = [
-  { href: "#products", label: "Product" },
-];
 
 export function MarketingNav() {
   const pathname = usePathname();
+  const t = useT();
+  const marketingLinks = [{ href: "#products", label: t("common.product") }];
 
   return (
     <header className="marketing-nav">
@@ -45,7 +44,7 @@ export function MarketingNav() {
           <XLogoLink />
           <ThemeToggle />
           <LaunchAppLink className="hero-launch-btn marketing-nav-launch">
-            Open SwiftPay
+            {t("common.openSwiftPay")}
             <ArrowRight className="h-4 w-4" />
           </LaunchAppLink>
         </div>

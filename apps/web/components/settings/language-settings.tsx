@@ -1,29 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 import { useBusinessActor } from "@/components/business/use-business-actor";
+import { useLocale } from "@/components/locale-provider";
 import { cn } from "@/lib/utils";
-import {
-  APP_LOCALES,
-  applyAppLocale,
-  readStoredLocale,
-  type AppLocale,
-} from "@/lib/locales";
+import { APP_LOCALES, type AppLocale } from "@/lib/locales";
 
 export function LanguageSettings() {
   const { circleSocialUuid, ownerWallet } = useBusinessActor();
-  const [locale, setLocale] = useState<AppLocale>("en");
-
-  useEffect(() => {
-    const next = readStoredLocale();
-    setLocale(next);
-    applyAppLocale(next);
-  }, []);
+  const { locale, setLocale } = useLocale();
 
   async function selectLocale(next: AppLocale) {
     setLocale(next);
-    applyAppLocale(next);
     if (!ownerWallet) return;
     try {
       await fetch("/api/profile", {

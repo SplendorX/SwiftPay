@@ -30,6 +30,7 @@ import {
 } from "wagmi";
 import { formatUnits, maxUint256, type Address, type Hash } from "viem";
 
+import { useT } from "@/components/locale-provider";
 import { showSuccess } from "@/components/success-popup";
 import { AmountConfirmDialog } from "@/components/save/amount-confirm-dialog";
 import { CreatePocketDialog } from "@/components/save/create-pocket-dialog";
@@ -112,6 +113,7 @@ function getErrorMessage(error: unknown) {
 }
 
 export function SwiftSaveHub() {
+  const t = useT();
   const { address: wagmiAddress, connector } = useAccount();
   const {
     address: platformAddress,
@@ -717,9 +719,9 @@ export function SwiftSaveHub() {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card/40 p-10 text-center">
         <PiggyBank className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-lg font-semibold">Connect to use Swift+Save</h2>
+        <h2 className="mt-4 text-lg font-semibold">{t("save.connectToUse")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sign in with Google or an external wallet to create savings pockets.
+          {t("save.connectToUseBody")}
         </p>
       </div>
     );
@@ -732,14 +734,13 @@ export function SwiftSaveHub() {
           <div className="max-w-xl space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               <PiggyBank className="h-3.5 w-3.5" />
-              Non-interest savings
+              {t("save.nonInterest")}
             </div>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Build your savings, one payment at a time.
+              {t("save.heading")}
             </h1>
             <p className="text-sm text-muted-foreground sm:text-base">
-              Put money aside for something. Create a savings pocket, or save a
-              little automatically whenever you spend.
+              {t("save.body")}
             </p>
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -759,7 +760,7 @@ export function SwiftSaveHub() {
                 ) : (
                   <KeyRound className="mr-2 h-4 w-4" />
                 )}
-                Authorize wallet
+                {t("common.authorizeWallet")}
               </Button>
             ) : (
               <Badge variant="secondary" className="h-9 px-3">
@@ -878,7 +879,7 @@ export function SwiftSaveHub() {
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-lg">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold">Spend&Save</h2>
+              <h2 className="text-base font-semibold">{t("save.spendSave")}</h2>
               <Badge variant={spendSaveActive ? "default" : "secondary"}>
                 {spendSaveActive
                   ? "ACTIVE"
@@ -959,7 +960,7 @@ export function SwiftSaveHub() {
       {/* Pockets grid */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Pockets</h2>
+          <h2 className="text-base font-semibold">{t("save.pockets")}</h2>
           {pockets.length > 0 ? (
             <Button
               disabled={!isWalletAuthenticated}

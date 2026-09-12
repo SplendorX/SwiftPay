@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
+import { useT } from "@/components/locale-provider";
 import { CircleInviteInbox } from "@/components/swift-circle/circle-invite-inbox";
 import { CircleAvatar } from "@/components/swift-circle/circle-visuals";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ function errorMessage(error: unknown) {
 }
 
 export function SwiftCircleList() {
+  const t = useT();
   const { address: wagmiAddress } = useAccount();
   const {
     address: platformAddress,
@@ -200,11 +202,11 @@ export function SwiftCircleList() {
       {!authorized ? (
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="text-sm text-muted-foreground">
-            Authorize this wallet to load your Circles and invitations.
+            {t("circle.authorizeToLoad")}
           </p>
           <Button className="mt-3" disabled={isSigning} onClick={() => void authorize()}>
             {isSigning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Authorize wallet
+            {t("common.authorizeWallet")}
           </Button>
         </div>
       ) : null}
@@ -212,15 +214,15 @@ export function SwiftCircleList() {
       {authorized ? (
         <section className="section-panel">
           <div className="relative z-[1]">
-          <p className="section-eyebrow">Inbox</p>
-          <h2 className="section-title">Invitations</h2>
+          <p className="section-eyebrow">{t("circle.inbox")}</p>
+          <h2 className="section-title">{t("circle.invitations")}</h2>
           <p className="section-copy">
-            Accept or decline Circle invites here, from a notification, or from the dashboard inbox.
+            {t("circle.invitationsBody")}
           </p>
           <div className="mt-3">
             <CircleInviteInbox
               busyId={busyId}
-              emptyLabel="No pending invitations."
+              emptyLabel={t("circle.noPending")}
               highlightId={highlightId}
               invitations={inbox}
               onAccept={(id) => void respond(id, "accept")}
@@ -232,18 +234,18 @@ export function SwiftCircleList() {
       ) : null}
 
       <section className="section-panel">
-        <p className="section-eyebrow">Create</p>
+        <p className="section-eyebrow">{t("circle.create")}</p>
         <div className="flex items-center gap-2">
           <Plus className="h-4 w-4 text-primary" />
-          <h2 className="section-title mt-0">Start a Circle</h2>
+          <h2 className="section-title mt-0">{t("circle.startCircle")}</h2>
         </div>
         <p className="section-copy">
-          Private by default. Invite members by SwiftPay username.
+          {t("circle.startCircleBody")}
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Input
             onChange={(event) => setName(event.target.value)}
-            placeholder="Circle name"
+            placeholder={t("circle.circleName")}
             value={name}
           />
           <Input
@@ -297,13 +299,13 @@ export function SwiftCircleList() {
                 src={circle.image_url}
               />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="truncate font-heading text-base font-semibold">
+                <div className="flex min-w-0 items-center gap-2">
+                  <h3 className="min-w-0 truncate font-heading text-base font-semibold">
                     {circle.name}
                   </h3>
-                  <Badge variant="secondary">{circle.role}</Badge>
+                  <Badge className="shrink-0" variant="secondary">{circle.role}</Badge>
                   {circle.financial_frozen ? (
-                    <Badge variant="destructive">Frozen</Badge>
+                    <Badge className="shrink-0" variant="destructive">Frozen</Badge>
                   ) : null}
                 </div>
                 <p className="mt-0.5 truncate text-sm text-muted-foreground">
@@ -313,7 +315,7 @@ export function SwiftCircleList() {
                     : " · Open chat"}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="shrink-0 text-right">
                 <p className="font-heading text-sm font-semibold">
                   {formatUsd(circle.save_balance)}
                 </p>

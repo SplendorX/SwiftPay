@@ -46,6 +46,7 @@ import {
   type ProfileRecord,
 } from "@/lib/profile";
 import { useOptionalAccount } from "@/components/account/account-provider";
+import { useT } from "@/components/locale-provider";
 import { resolvePlatformWalletMode } from "@/lib/wallet-mode";
 
 export type WalletMode = "circle" | "external";
@@ -148,6 +149,7 @@ export function ProfileMenu({
   onWalletModeChange,
   walletMode,
 }: ProfileMenuProps) {
+  const t = useT();
   const router = useRouter();
   const accountContext = useOptionalAccount();
   const isBusinessAccount = accountContext?.isBusiness ?? false;
@@ -204,7 +206,7 @@ export function ProfileMenu({
   const profileProviderLabel = activeLogin
     ? identity.provider
     : externalAddress
-      ? "External wallet"
+      ? t("profile.externalWallet")
       : "Google";
   const profilePrimaryLabel = isBusinessAccount
     ? businessProfile?.business_name || accountRecord?.username || "Business"
@@ -214,13 +216,13 @@ export function ProfileMenu({
       ? googleLabel
       : externalAddress
         ? isActivatedExternalWallet
-          ? "Wallet profile active"
-          : "Wallet connected"
+          ? t("profile.walletProfileActive")
+          : t("profile.walletConnected")
         : googleLabel;
   const profileSecondaryLabel = isBusinessAccount
     ? accountRecord?.username
       ? `@${accountRecord.username}`
-      : "Business account"
+      : t("profile.businessAccount")
     : profile?.username
     ? activeLogin
       ? (identity.email ?? identity.name ?? "")
@@ -240,7 +242,9 @@ export function ProfileMenu({
       (!isActivatedExternalWallet || activeMode !== "external"),
   );
   const externalWalletActionLabel =
-    activeMode === "external" ? "Continue with this wallet" : "Switch to wallet";
+    activeMode === "external"
+      ? t("profile.continueWithWallet")
+      : t("profile.switchToWallet");
 
   useEffect(() => {
     function refreshStoredLogin() {
@@ -538,7 +542,7 @@ export function ProfileMenu({
                   </p>
                   {profile?.username ? (
                     <button
-                      aria-label="Copy username"
+                      aria-label={t("profile.copyUsername")}
                       className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:border-primary/30 hover:text-primary"
                       onClick={() => void copyUsername(profile.username)}
                       type="button"
@@ -627,7 +631,7 @@ export function ProfileMenu({
                 type="button"
               >
                 <LogOut className="h-4 w-4" />
-                Sign out Google
+                {t("profile.signOutGoogle")}
               </button>
             ) : (
               <Link

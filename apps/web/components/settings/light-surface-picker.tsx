@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useT } from "@/components/locale-provider";
+
 export const lightSurfaceStorageKey = "swiftpay.light-surface";
 export type LightSurface = "cream" | "glass";
 
@@ -10,6 +12,7 @@ export function applyLightSurface(surface: LightSurface) {
 }
 
 export function LightSurfacePicker() {
+  const t = useT();
   const [surface, setSurface] = useState<LightSurface>("cream");
 
   useEffect(() => {
@@ -31,15 +34,15 @@ export function LightSurfacePicker() {
         [
           {
             value: "cream" as const,
-            title: "Cashmere",
-            body: "Warm parchment light, the original SwiftPay surface.",
+            title: t("settings.cashmere"),
+            body: t("settings.cashmereBody"),
             swatch: "#f4ebdd",
             inset: "#fff9f0",
           },
           {
             value: "glass" as const,
-            title: "Liquid Glass",
-            body: "White frost, specular edges, and a clear-glass lift.",
+            title: t("settings.liquidGlass"),
+            body: t("settings.liquidGlassBody"),
             swatch: "#f7f8fc",
             inset: "rgba(255,255,255,0.72)",
           },

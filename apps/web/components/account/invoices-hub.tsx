@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { InvoiceDocument } from "@/components/account/invoice-document";
+import { useT } from "@/components/locale-provider";
 import { useAccountContext } from "@/components/account/account-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ function invoiceLink(invoice: InvoiceRecord) {
 }
 
 export function InvoicesHub() {
+  const t = useT();
   const { isBusiness, ownerWallet, profile, account } = useAccountContext();
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export function InvoicesHub() {
   if (!isBusiness) {
     return (
       <div className="section-panel p-8">
-        <h2 className="font-heading text-2xl">Invoices</h2>
+        <h2 className="font-heading text-2xl">{t("business.invoices")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Only Business accounts can create invoices.
         </p>
@@ -183,7 +185,7 @@ export function InvoicesHub() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-heading text-3xl">Invoices</h2>
+          <h2 className="font-heading text-3xl">{t("business.invoices")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Create a professional invoice, share the payment link, and track settlement.
           </p>
@@ -197,7 +199,7 @@ export function InvoicesHub() {
       {creating ? (
         <section className="section-panel space-y-6 p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="font-heading text-xl">New invoice</h3>
+            <h3 className="font-heading text-xl">{t("business.newInvoice")}</h3>
             <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Step {step + 1} of 4
             </p>

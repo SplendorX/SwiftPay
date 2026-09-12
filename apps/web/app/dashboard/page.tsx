@@ -67,6 +67,7 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
+import { useT } from "@/components/locale-provider";
 import { ProfileMenu } from "@/components/profile-menu";
 import { TokenIcon } from "@/components/token-icon";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
@@ -986,6 +987,7 @@ export function DashboardContent({
 }: {
   preview?: boolean;
 } = {}) {
+  const t = useT();
   const searchParams = useSearchParams();
   const dashboardPrefillQuery = searchParams.toString();
   const incomingRequestId =
@@ -3379,7 +3381,7 @@ export function DashboardContent({
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="dashboard-greeting">
-                Welcome
+                {t("dashboard.welcome")}
                 {dashboardGreetingName ? (
                   <>
                     ,{" "}
@@ -3390,12 +3392,14 @@ export function DashboardContent({
                 ) : null}
               </p>
               <h1 className="section-title dashboard-funds-title">
-                {isBusinessWorkspace ? "Business balance" : "Your funds, ready"}
+                {isBusinessWorkspace
+                  ? t("dashboard.businessBalance")
+                  : t("dashboard.yourFunds")}
               </h1>
               <p className="section-copy">
                 {isBusinessWorkspace
                   ? `${activeWorkspace?.name ?? "Business"} · @${activeWorkspace?.username ?? "business"} · Arc`
-                  : "Live portfolio, token balances, and settlement activity on Arc Testnet."}
+                  : t("dashboard.livePortfolio")}
               </p>
             </div>
             <p className="font-mono text-xs text-muted-foreground">
@@ -3774,10 +3778,12 @@ export function DashboardContent({
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="font-ui text-sm font-semibold text-swift-700">
-                  Transaction receipt
+                  {t("dashboard.transactionReceipt")}
                 </p>
                 <h2 className="font-heading text-2xl font-semibold tracking-normal text-ink">
-                  {receiptTransfer.direction === "out" ? "Sent" : "Received"}{" "}
+                  {receiptTransfer.direction === "out"
+                    ? t("dashboard.sent")
+                    : t("dashboard.received")}{" "}
                   {receiptTransfer.symbol}
                 </h2>
               </div>
@@ -3797,7 +3803,7 @@ export function DashboardContent({
                     SwiftPay
                   </p>
                   <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] text-muted">
-                    Arc Testnet receipt
+                    {t("dashboard.arcReceipt")}
                   </p>
                 </div>
                 <span
@@ -3807,7 +3813,9 @@ export function DashboardContent({
                       : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                   }`}
                 >
-                  {receiptTransfer.direction === "out" ? "Sent" : "Received"}
+                  {receiptTransfer.direction === "out"
+                    ? t("dashboard.sent")
+                    : t("dashboard.received")}
                 </span>
               </div>
 
