@@ -123,6 +123,23 @@ export async function updateBusinessProfile(input: {
     profileUpdates.social_links = input.socialLinks;
   }
 
+  const currentProfile = await supabase
+    .from(businessTables.profiles)
+    .select("description, logo_url, website")
+    .eq("workspace_id", workspace.id)
+    .maybeSingle();
+
+  const finalDesc = profileUpdates.description !== undefined ? profileUpdates.description : currentProfile.data?.description;
+  const finalLogo = profileUpdates.logo_url !== undefined ? profileUpdates.logo_url : currentProfile.data?.logo_url;
+  const finalWebsite = profileUpdates.website !== undefined ? profileUpdates.website : currentProfile.data?.website;
+
+  const isComplete = Boolean(
+    typeof finalDesc === "string" && finalDesc.trim() &&
+    typeof finalLogo === "string" && finalLogo.trim() &&
+    typeof finalWebsite === "string" && finalWebsite.trim()
+  );
+  profileUpdates.verification_status = isComplete ? "VERIFIED" : "UNVERIFIED";
+
   const profile = await supabase
     .from(businessTables.profiles)
     .update(profileUpdates)

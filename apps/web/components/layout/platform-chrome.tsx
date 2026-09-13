@@ -13,6 +13,7 @@ import { pageCopyForPath } from "@/lib/i18n";
 type PlatformChromeProps = {
   actions?: ReactNode;
   children: ReactNode;
+  hideHeader?: boolean;
   subtitle?: string;
   title: string;
 };
@@ -20,6 +21,7 @@ type PlatformChromeProps = {
 export function PlatformChrome({
   actions,
   children,
+  hideHeader,
   subtitle,
   title,
 }: PlatformChromeProps) {
@@ -35,7 +37,11 @@ export function PlatformChrome({
       <SidebarProvider>
         <div className="platform-shell w-full min-w-0 bg-background">
           <AppHeader actions={actions} />
-          <AppFrame subtitle={resolvedSubtitle} title={resolvedTitle}>
+          <AppFrame
+            hideHeader={hideHeader}
+            subtitle={resolvedSubtitle}
+            title={resolvedTitle}
+          >
             {children}
           </AppFrame>
         </div>

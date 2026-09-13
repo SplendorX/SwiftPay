@@ -14,11 +14,12 @@ import { cn } from "@/lib/utils";
 type AppFrameProps = {
   actions?: ReactNode;
   children: ReactNode;
+  hideHeader?: boolean;
   subtitle?: string;
   title: string;
 };
 
-export function AppFrame({ children, subtitle, title }: AppFrameProps) {
+export function AppFrame({ children, hideHeader, subtitle, title }: AppFrameProps) {
   const { collapsed, retracted, toggleCollapsed } = useSidebar();
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
@@ -58,14 +59,16 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
       </aside>
 
       <div className={cn("app-main min-w-0 w-full", isCircleRoom && "app-main-circle-room")}>
-        <div className={cn("app-page-title", isCircleRoom && "app-page-title-circle-room")}>
-          <h1 className="font-heading">{title}</h1>
-          {subtitle ? (
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
+        {!hideHeader ? (
+          <div className={cn("app-page-title", isCircleRoom && "app-page-title-circle-room")}>
+            <h1 className="font-heading">{title}</h1>
+            {subtitle ? (
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <motion.div
           animate={{ opacity: 1, y: 0 }}
           className="app-main-content min-w-0 w-full"

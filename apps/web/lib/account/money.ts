@@ -20,6 +20,7 @@ export function roundMoney(value: number) {
 }
 
 export function profileCompletionPercent(profile: {
+  business_name?: string | null;
   description: string | null;
   logo_url: string | null;
   website: string | null;
@@ -30,7 +31,9 @@ export function profileCompletionPercent(profile: {
     ["website", profile.website],
     ["description", profile.description],
   ] as const;
-  const missing = checks.filter(([, value]) => !value).map(([key]) => key);
+  const missing = checks
+    .filter(([, value]) => !value || (typeof value === "string" && !value.trim()))
+    .map(([key]) => key);
   return {
     missing,
     percent: Math.round(((checks.length - missing.length) / checks.length) * 100),

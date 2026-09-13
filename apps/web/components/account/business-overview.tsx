@@ -1,46 +1,153 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { formatUnits, isAddress } from "viem";
+import { useReadContract } from "wagmi";
 
 import { useAccountContext } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
 import { fetchBusinessOverview } from "@/lib/account/client";
-import { formatMoney, profileCompletionPercent } from "@/lib/account/money";
+import { profileCompletionPercent } from "@/lib/account/money";
 import type { InvoiceRecord, InvoiceSummary } from "@/lib/account/types";
 import { fetchPayrollDashboard } from "@/lib/payroll/client";
 import type { PayrollDashboardSummary } from "@/lib/payroll/types";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
+import { erc20Abi } from "@/lib/contracts";
+import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTestnet } from "@/lib/wagmi";
+import type { WalletTransfer } from "@/lib/arcscan-history";
 
-function formatStatus(status: string) {
-  return status.toLowerCase().replace(/_/g, " ");
-}
+import { BusinessPageHeader } from "@/components/business/overview/business-page-header";
+import { BusinessBalanceCard } from "@/components/business/overview/business-balance-card";
+import { BusinessQuickActions } from "@/components/business/overview/business-quick-actions";
+import { BusinessMetricsGrid } from "@/components/business/overview/business-metrics-grid";
+import { CashFlowCard } from "@/components/business/overview/cash-flow-card";
+import { BusinessActivityCard } from "@/components/business/overview/business-activity-card";
+import { BusinessInsightsCard } from "@/components/business/overview/business-insights-card";
+import { InvoiceOverviewCard } from "@/components/business/overview/invoice-overview-card";
+import { TeamPaymentsCard } from "@/components/business/overview/team-payments-card";
+import { BusinessHealthCard } from "@/components/business/overview/business-health-card";
+import { BusinessOverviewSkeleton } from "@/components/business/overview/business-overview-skeleton";
+import {
+  buildRealOverviewData,
+  computeRealCashFlow,
+} from "@/components/business/overview/overview-data";
 
 export function BusinessOverview() {
   const t = useT();
-  const { account, ownerWallet, profile } = useAccountContext();
-  const { address, isConnected } = usePlatformWallet();
+  const { account, loading: accountLoading, ownerWallet, profile } = useAccountContext();
+  const { address } = usePlatformWallet();
+
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [payrollSummary, setPayrollSummary] = useState<PayrollDashboardSummary | null>(null);
+  const [transfers, setTransfers] = useState<WalletTransfer[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 1. Fetch live database records (Invoices & Payroll)
   useEffect(() => {
-    if (!ownerWallet) return;
-    void fetchBusinessOverview(ownerWallet)
-      .then((payload) => {
-        setSummary(payload.summary);
-        setInvoices(payload.invoices);
-      })
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Could not load overview."),
-      );
+    if (!ownerWallet) {
+      setLoadingData(false);
+      return;
+    }
 
-    void fetchPayrollDashboard(ownerWallet)
-      .then(setPayrollSummary)
-      .catch(() => undefined);
+    setLoadingData(true);
+    let isMounted = true;
+
+    Promise.allSettled([
+      fetchBusinessOverview(ownerWallet),
+      fetchPayrollDashboard(ownerWallet),
+    ])
+      .then(([overviewResult, payrollResult]) => {
+        if (!isMounted) return;
+
+        if (overviewResult.status === "fulfilled") {
+          setSummary(overviewResult.value.summary);
+          setInvoices(overviewResult.value.invoices);
+        } else {
+          setError("Could not load full business overview.");
+        }
+
+        if (payrollResult.status === "fulfilled") {
+          setPayrollSummary(payrollResult.value);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoadingData(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [ownerWallet]);
+
+  // 2. Fetch real on-chain transfer history from ArcScan for active business wallet
+  useEffect(() => {
+    const targetAddress = address || ownerWallet;
+    if (!targetAddress || !isAddress(targetAddress)) {
+      setTransfers([]);
+      return;
+    }
+
+    let isMounted = true;
+    fetch(`/api/arcscan/history?address=${targetAddress}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { items?: WalletTransfer[] }) => {
+        if (isMounted && Array.isArray(data.items)) {
+          setTransfers(data.items);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setTransfers([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [address, ownerWallet]);
+
+  // 3. Read real on-chain token balances on Arc Testnet
+  const activeAddress = (address || ownerWallet) as `0x${string}` | undefined;
+  const isAddressValid = Boolean(activeAddress && isAddress(activeAddress));
+
+  const { data: rawUsdcBalance } = useReadContract({
+    address: arcTestnetTokens.USDC.address,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: isAddressValid ? [activeAddress!] : undefined,
+    chainId: arcTestnet.id,
+    query: { enabled: isAddressValid },
+  });
+
+  const { data: rawEurcBalance } = useReadContract({
+    address: arcTestnetTokens.EURC.address,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: isAddressValid ? [activeAddress!] : undefined,
+    chainId: arcTestnet.id,
+    query: { enabled: isAddressValid },
+  });
+
+  const usdcBalance = useMemo(() => {
+    if (typeof rawUsdcBalance === "bigint") {
+      return parseFloat(formatUnits(rawUsdcBalance, arcTestnetTokens.USDC.decimals)) || 0;
+    }
+    return 0;
+  }, [rawUsdcBalance]);
+
+  const eurcBalance = useMemo(() => {
+    if (typeof rawEurcBalance === "bigint") {
+      return parseFloat(formatUnits(rawEurcBalance, arcTestnetTokens.EURC.decimals)) || 0;
+    }
+    return 0;
+  }, [rawEurcBalance]);
+
+  if (accountLoading || (ownerWallet && loadingData && !summary && invoices.length === 0)) {
+    return <BusinessOverviewSkeleton />;
+  }
 
   if (account && account.account_type !== "BUSINESS") {
     return (
@@ -57,139 +164,86 @@ export function BusinessOverview() {
   }
 
   const completion = profileCompletionPercent(profile);
+  const businessDisplayName = profile?.business_name || account?.username || "SwiftPay Business";
+
+  // 4. Compute 100% REAL data models without dummy placeholders
+  const {
+    balanceData,
+    metrics,
+    activities,
+    insights,
+    invoiceOverview,
+    teamPayments,
+    financialHealth,
+  } = buildRealOverviewData({
+    usdcBalance,
+    eurcBalance,
+    summary,
+    invoices,
+    payrollSummary,
+    transfers,
+    walletAddress: activeAddress,
+  });
+
+  const cashFlowSummaries = computeRealCashFlow({
+    transfers,
+    invoices,
+    payrollSummary,
+  });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">Professional overview</p>
-          <h2 className="font-heading text-3xl">{profile?.business_name ?? account?.username}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            @{account?.username}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/business/invoices">Create invoice</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/dashboard#send">Send</Link>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-8 pb-12">
+      {/* 1. Page Header with Title, Subtitle, and Verified Business Badge (only if 100% complete) */}
+      <BusinessPageHeader
+        businessName={businessDisplayName}
+        isVerified={completion.percent === 100}
+      />
 
-      {completion.percent < 100 ? (
-        <div className="section-panel flex items-center justify-between gap-4 p-4">
+      {/* Profile Completion Callout (if not 100% complete) */}
+      {completion.percent < 100 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
           <div>
-            <p className="text-sm font-semibold">Business profile {completion.percent}% complete</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Missing: {completion.missing.join(", ") || "none"}
+            <p className="text-sm font-semibold text-foreground">
+              Business profile {completion.percent}% complete
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Missing details: {completion.missing.join(", ") || "none"}
             </p>
           </div>
-          <Button asChild variant="outline">
+          <Button asChild size="sm" variant="outline" className="border-border">
             <Link href="/business/profile">Complete profile</Link>
           </Button>
         </div>
-      ) : null}
+      )}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Wallet" value={isConnected && address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "Connect wallet"} />
-        <Metric label="Total invoiced" value={formatMoney(summary?.totalInvoiced ?? 0)} />
-        <Metric label="Paid invoices" value={formatMoney(summary?.paid ?? 0)} />
-        <Metric label="Outstanding" value={formatMoney((summary?.pending ?? 0) + (summary?.overdue ?? 0))} />
+      {/* 2. Primary Financial Command Center (Total Business Balance, Assets, Liquidity) */}
+      <BusinessBalanceCard data={balanceData} />
+
+      {/* 3. Primary Action Bar (Send Payment in Imperial Purple #5B21B6, Create Invoice, Request, Pay Team, BatchPay) */}
+      <BusinessQuickActions />
+
+      {/* 4. Business Metrics Grid (Revenue Received, Payments Sent, Outstanding Invoices, Scheduled Payments) */}
+      <BusinessMetricsGrid metrics={metrics} />
+
+      {/* 5. Cash Flow Section (Dual curve interactive chart, 7D/30D/3M/1Y tabs, incoming/outgoing/net summary) */}
+      <CashFlowCard summariesByPeriod={cashFlowSummaries} />
+
+      {/* 6. Two-Column Business Operations Section (Business Activity & Business Insights) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <BusinessActivityCard activities={activities} />
+        <BusinessInsightsCard insights={insights} />
       </div>
 
-      <section className="section-panel p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Team Payroll
-              </span>
-              {payrollSummary?.activeTeamMembersCount ? (
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                  {payrollSummary.activeTeamMembersCount} active
-                </span>
-              ) : null}
-            </div>
-            <h3 className="mt-1 font-heading text-xl">Payroll Overview</h3>
-          </div>
-          <Button asChild size="sm">
-            <Link href="/business/payroll">Open Payroll</Link>
-          </Button>
-        </div>
+      {/* 7. Two-Column Invoices & Team Payments Section */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <InvoiceOverviewCard data={invoiceOverview} />
+        <TeamPaymentsCard data={teamPayments} />
+      </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-card/60 p-3">
-            <p className="text-xs text-muted-foreground">Upcoming Payroll</p>
-            <p className="mt-1 font-heading text-lg">
-              {payrollSummary?.nextPayrollAmount
-                ? `${payrollSummary.nextPayrollAmount} USDC`
-                : "None scheduled"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card/60 p-3">
-            <p className="text-xs text-muted-foreground">Next Date</p>
-            <p className="mt-1 font-heading text-lg">
-              {payrollSummary?.nextPayrollDate
-                ? new Date(payrollSummary.nextPayrollDate).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  })
-                : "No date set"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card/60 p-3">
-            <p className="text-xs text-muted-foreground">Last Payroll</p>
-            <p className="mt-1 font-heading text-lg capitalize">
-              {payrollSummary?.lastPayrollStatus
-                ? `${payrollSummary.lastPayrollStatus.toLowerCase().replace(/_/g, " ")}${
-                    payrollSummary.lastPayrollAmount
-                      ? ` (${payrollSummary.lastPayrollAmount} USDC)`
-                      : ""
-                  }`
-                : "No prior runs"}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section-panel p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-heading text-lg">{t("business.recentInvoices")}</h3>
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/business/invoices">View invoices</Link>
-          </Button>
-        </div>
-        {invoices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Your business activity will appear here.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {invoices.map((invoice) => (
-              <li className="flex items-center justify-between py-3 text-sm" key={invoice.id}>
-                <div>
-                  <p className="font-medium">{invoice.invoice_number}</p>
-                  <p className="text-muted-foreground">
-                    {invoice.customer_name || "Customer"} · {formatStatus(invoice.status)}
-                  </p>
-                </div>
-                <p className="font-semibold">{formatMoney(invoice.total, invoice.currency)}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="section-panel p-4">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-2 font-heading text-xl">{value}</p>
+      {/* 8. Business Financial Health Section (4 Pillars: Cash Position, Payment Activity, Invoice Collection, Obligations) */}
+      <BusinessHealthCard data={financialHealth} />
     </div>
   );
 }

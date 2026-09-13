@@ -95,6 +95,11 @@ async function upsertBusinessProfile(
   if (!name || name.length > 80) {
     throw accountErrors.invalid("Enter a business name up to 80 characters.");
   }
+  const isComplete = Boolean(
+    input.logoUrl?.trim() &&
+    input.website?.trim() &&
+    input.description?.trim()
+  );
   const payload = {
     business_name: name,
     category: input.category ?? null,
@@ -104,6 +109,7 @@ async function upsertBusinessProfile(
     description: input.description ?? null,
     logo_url: input.logoUrl ?? null,
     updated_at: nowIso(),
+    verification_status: isComplete ? "VERIFIED" : "UNVERIFIED",
     wallet_address: wallet.toLowerCase(),
     website: input.website ?? null,
   };
@@ -123,7 +129,7 @@ async function upsertBusinessProfile(
   }
   const created = await supabase
     .from(accountTables.businessProfiles)
-    .insert({ ...payload, created_at: nowIso(), verification_status: "UNVERIFIED" })
+    .insert({ ...payload, created_at: nowIso() })
     .select("*")
     .single();
   if (created.error) {
