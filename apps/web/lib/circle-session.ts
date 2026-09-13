@@ -134,7 +134,7 @@ export function removeCircleSessionStorage(key: string) {
   } catch {}
 
   try {
-    document.cookie = `${encodeURIComponent(key)}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+    document.cookie = `${encodeURIComponent(key)}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
   } catch {}
 }
 
@@ -198,20 +198,25 @@ export function clearCircleSession(options: { clearDevice?: boolean } = {}) {
   }
 
   const clearDevice = options.clearDevice ?? true;
-  window.sessionStorage.removeItem(circleStorageKeys.login);
-  window.sessionStorage.removeItem(circleStorageKeys.setupIntent);
-  window.sessionStorage.removeItem(circleStorageKeys.enterApp);
-  window.sessionStorage.removeItem(circleStorageKeys.wallets);
+  removeCircleSessionStorage(circleStorageKeys.login);
+  removeCircleSessionStorage(circleStorageKeys.setupIntent);
+  removeCircleSessionStorage(circleStorageKeys.enterApp);
+  removeCircleSessionStorage(circleStorageKeys.wallets);
 
   if (clearDevice) {
-    window.sessionStorage.removeItem(circleStorageKeys.deviceEncryptionKey);
-    window.sessionStorage.removeItem(circleStorageKeys.deviceId);
-    window.sessionStorage.removeItem(circleStorageKeys.deviceToken);
+    removeCircleSessionStorage(circleStorageKeys.deviceEncryptionKey);
+    removeCircleSessionStorage(circleStorageKeys.deviceId);
+    removeCircleSessionStorage(circleStorageKeys.deviceToken);
   }
 
   circleOAuthStorageKeys.forEach((key) => {
-    window.localStorage.removeItem(key);
+    removeCircleSessionStorage(key);
   });
+
+  try {
+    window.localStorage.removeItem("swiftpay.activeWorkspaceId");
+    window.localStorage.removeItem("swiftpay.preferredWalletMode");
+  } catch {}
 
   clearPlatformProfileConnected();
   notifyCircleSessionChanged();

@@ -45,6 +45,8 @@ import {
   profileUpdatedEventName,
   type ProfileRecord,
 } from "@/lib/profile";
+import { useDisconnect } from "wagmi";
+import { endWalletSession } from "@/lib/wallet-auth-client";
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
 import { resolvePlatformWalletMode } from "@/lib/wallet-mode";
@@ -151,6 +153,7 @@ export function ProfileMenu({
 }: ProfileMenuProps) {
   const t = useT();
   const router = useRouter();
+  const { disconnect } = useDisconnect();
   const accountContext = useOptionalAccount();
   const isBusinessAccount = accountContext?.isBusiness ?? false;
   const businessProfile = accountContext?.profile ?? null;
@@ -440,14 +443,22 @@ export function ProfileMenu({
   ]);
 
   function handleSignOut() {
-    clearCircleSession();
+    clearCircleSession({ clearDevice: true });
     clearActivatedExternalProfile();
+    try {
+      window.localStorage.removeItem("swiftpay.activeWorkspaceId");
+      window.localStorage.removeItem("swiftpay.preferredWalletMode");
+    } catch {}
+    void endWalletSession().catch(() => undefined);
+    try {
+      disconnect();
+    } catch {}
     setOpen(false);
     setStoredLogin(null);
     setLoadedCircleWalletAddress("");
     setProfile(null);
     onCircleSessionCleared?.();
-    router.replace("/");
+    window.location.assign("/");
   }
 
   function selectExternalWallet() {

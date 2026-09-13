@@ -12,6 +12,7 @@ import {
 } from "@/lib/circle-session";
 import { useOptionalAccount } from "@/components/account/account-provider";
 import {
+  hasPlatformAccessCookie,
   platformAccessEventName,
   readActivatedExternalProfile,
 } from "@/lib/platform-access";
@@ -23,6 +24,10 @@ function hasLiveSignedInAccount(input?: {
   isConnected?: boolean;
 }) {
   if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (!hasPlatformAccessCookie()) {
     return false;
   }
 

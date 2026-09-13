@@ -330,7 +330,7 @@ export function SessionDeviceManagement({
       await endWalletSession().catch(() => undefined);
       clearActivatedExternalProfile();
       await disconnectAsync();
-      router.replace("/");
+      window.location.assign("/");
     } catch (disconnectError) {
       setError(
         disconnectError instanceof Error
@@ -352,7 +352,7 @@ export function SessionDeviceManagement({
       await disconnectAsync().catch(() => undefined);
       refreshLocalState();
       setWalletSession({ authenticated: false });
-      router.replace("/");
+      window.location.assign("/");
     } catch (signOutError) {
       setError(
         signOutError instanceof Error
