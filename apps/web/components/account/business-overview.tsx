@@ -53,6 +53,7 @@ export function BusinessOverview() {
   const { address, circleSocialUuid: walletCircleUuid } = usePlatformWallet();
 
   const effectiveSocialUuid = circleSocialUuid || walletCircleUuid;
+  const activeWallet = (ownerWallet || address)?.toLowerCase() ?? null;
 
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
@@ -66,7 +67,7 @@ export function BusinessOverview() {
 
   // 1. Fetch live database records (Invoices & Payroll)
   useEffect(() => {
-    if (!ownerWallet) {
+    if (!activeWallet) {
       setLoadingData(false);
       return;
     }
@@ -75,8 +76,8 @@ export function BusinessOverview() {
     let isMounted = true;
 
     Promise.allSettled([
-      fetchBusinessOverview(ownerWallet, effectiveSocialUuid),
-      fetchPayrollDashboard(ownerWallet, effectiveSocialUuid),
+      fetchBusinessOverview(activeWallet, effectiveSocialUuid),
+      fetchPayrollDashboard(activeWallet, effectiveSocialUuid),
     ])
       .then(([overviewResult, payrollResult]) => {
         if (!isMounted) return;
@@ -102,7 +103,7 @@ export function BusinessOverview() {
     return () => {
       isMounted = false;
     };
-  }, [effectiveSocialUuid, ownerWallet]);
+  }, [effectiveSocialUuid, activeWallet]);
 
   // 2. Fetch real on-chain transfer history from ArcScan for active business wallet
   const targetAddress = (address || ownerWallet) as `0x${string}` | undefined;
@@ -250,7 +251,7 @@ export function BusinessOverview() {
     return 0;
   }, [rawEurcBalance, directEurcBalance]);
 
-  if (accountLoading || (ownerWallet && loadingData && !summary && invoices.length === 0)) {
+  if (accountLoading || (activeWallet && loadingData && !summary && invoices.length === 0)) {
     return <BusinessOverviewSkeleton />;
   }
 

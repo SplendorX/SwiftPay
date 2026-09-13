@@ -62,12 +62,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
-      await ensureProfile({
-        authProvider: circleSocialUuid ? "google" : "external",
-        circleSocialUuid,
-        walletAddress: ownerWallet,
-      }).catch(() => undefined);
-
       const state = await fetchOnboardingState(ownerWallet, circleSocialUuid);
       setProfile(state.profile);
       setWorkspaces(state.workspaces);

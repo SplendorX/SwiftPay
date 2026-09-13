@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -33,6 +34,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<AccountRecord | null>(null);
   const [profile, setProfile] = useState<BusinessAccountProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const accountRef = useRef<AccountRecord | null>(null);
+  accountRef.current = account;
 
   const refresh = useCallback(async () => {
     if (!ownerWallet) {
@@ -41,7 +44,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!accountRef.current) {
+      setLoading(true);
+    }
     try {
       const state = await fetchAccountState(ownerWallet, circleSocialUuid);
       setAccount(state.account);

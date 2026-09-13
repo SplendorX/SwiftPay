@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAddress, isAddress, type Address } from "viem";
 import { useAccount } from "wagmi";
 
@@ -62,8 +62,11 @@ export function usePlatformWallet() {
   );
   const circleWalletAddress = circleWallet?.address ?? "";
 
+  const ensuredWalletRef = useRef<string | null>(null);
   useEffect(() => {
     if (!circleLogin || !circleWalletAddress) return;
+    if (ensuredWalletRef.current === circleWalletAddress) return;
+    ensuredWalletRef.current = circleWalletAddress;
     const identity = getCircleLoginIdentity(circleLogin);
     void ensureProfile({
       authProvider: "google",

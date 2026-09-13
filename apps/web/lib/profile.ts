@@ -136,7 +136,6 @@ export async function ensureProfile(input: EnsureProfileInput) {
   }
 
   const payload = (await response.json()) as { profile: ProfileRecord };
-  notifyProfileUpdated(payload.profile);
   return payload.profile;
 }
 

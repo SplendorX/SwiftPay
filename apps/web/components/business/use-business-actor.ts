@@ -5,10 +5,12 @@ import { useAccount } from "wagmi";
 import { isAddress } from "viem";
 
 import {
+  callCircleWalletApi,
   circleSessionEventName,
   getCircleLoginIdentity,
   readCircleLogin,
   readCircleWallets,
+  writeCircleWallets,
   type CircleLoginResult,
   type CircleWallet,
 } from "@/lib/circle-session";
@@ -46,6 +48,26 @@ export function useBusinessActor() {
       window.removeEventListener("storage", refresh);
     };
   }, []);
+
+  useEffect(() => {
+    if (!login?.userToken || wallets.length > 0) return;
+    let isMounted = true;
+    callCircleWalletApi<{ wallets?: CircleWallet[] }>("listWallets", {
+      userToken: login.userToken,
+    })
+      .then((payload) => {
+        if (!isMounted) return;
+        const nextWallets = payload?.wallets ?? [];
+        if (nextWallets.length > 0) {
+          writeCircleWallets(nextWallets);
+          setWallets(nextWallets);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isMounted = false;
+    };
+  }, [login?.userToken, wallets.length]);
 
   const circleAddress = wallets.find(
     (wallet) => wallet.address && isAddress(wallet.address),
