@@ -10,6 +10,7 @@ import {
   readCircleLogin,
   readCircleWallets,
 } from "@/lib/circle-session";
+import { useOptionalAccount } from "@/components/account/account-provider";
 import {
   platformAccessEventName,
   readActivatedExternalProfile,
@@ -74,15 +75,18 @@ export function LaunchAppLink({
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const signedIn = useHasSignedIn();
+  const accountContext = useOptionalAccount();
+  const isBusiness = accountContext?.isBusiness ?? false;
+  const targetHref = signedIn ? (isBusiness ? "/business" : "/dashboard") : "/#sign-in";
 
   return (
     <Link
       className={className}
-      href={signedIn ? "/dashboard" : "/#sign-in"}
+      href={targetHref}
       onClick={(event) => {
         event.preventDefault();
         if (hasLiveSignedInAccount({ address, isConnected })) {
-          router.push("/dashboard");
+          router.push(isBusiness ? "/business" : "/dashboard");
           return;
         }
 

@@ -13,6 +13,8 @@ import {
 import { useBusinessActor } from "@/components/business/use-business-actor";
 import { fetchAccountState } from "@/lib/account/client";
 import type { AccountRecord, BusinessAccountProfile } from "@/lib/account/types";
+import { profileUpdatedEventName } from "@/lib/profile";
+import { walletSessionChangedEventName } from "@/lib/wallet-auth-client";
 
 type AccountContextValue = {
   account: AccountRecord | null;
@@ -54,6 +56,27 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
+
+    function onProfileOrSessionChange() {
+      void refresh();
+    }
+
+    window.addEventListener(profileUpdatedEventName, onProfileOrSessionChange);
+    window.addEventListener(
+      walletSessionChangedEventName,
+      onProfileOrSessionChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        profileUpdatedEventName,
+        onProfileOrSessionChange,
+      );
+      window.removeEventListener(
+        walletSessionChangedEventName,
+        onProfileOrSessionChange,
+      );
+    };
   }, [refresh]);
 
   const value = useMemo(

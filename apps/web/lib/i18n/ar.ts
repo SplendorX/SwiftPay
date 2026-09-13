@@ -434,6 +434,7 @@ export const ar: Messages = {
     externalWalletBody:
       "MetaMask وWalletConnect ومحافظ أخرى متوافقة مع Arc. اربط ثم فوّض بتوقيع للمتابعة.",
     continueDashboard: "المتابعة إلى لوحة التحكم",
+    continueBusiness: "المتابعة إلى لوحة الأعمال",
     checkingAuth: "جارٍ التحقق من التفويض…",
     confirmInWallet: "أكّد في المحفظة…",
     authorizeHint: "وقّع الرسالة في محفظتك لفتح لوحة التحكم.",

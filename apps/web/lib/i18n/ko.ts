@@ -387,6 +387,7 @@ export const ko: Messages = {
     externalWallet: "외부 지갑",
     externalWalletBody: "MetaMask, WalletConnect 및 기타 Arc 호환 지갑. 연결한 뒤 서명으로 승인해 계속하세요.",
     continueDashboard: "대시보드로 계속",
+    continueBusiness: "비즈니스 허브로 계속",
     checkingAuth: "승인 확인 중…",
     confirmInWallet: "지갑에서 확인…",
     authorizeHint: "지갑에서 메시지에 서명해 대시보드를 잠금 해제하세요.",

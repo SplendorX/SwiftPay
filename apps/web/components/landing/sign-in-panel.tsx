@@ -7,12 +7,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
 import { CircleGoogleLogin } from "@/components/circle-google-login";
+import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { fetchAccountState } from "@/lib/account/client";
 import { writeActivatedExternalProfile } from "@/lib/platform-access";
 import { ensureProfile } from "@/lib/profile";
+import { writePreferredWalletMode } from "@/lib/wallet-mode";
 import {
   fetchWalletSessionForAddress,
   signInWalletSession,
@@ -22,6 +25,9 @@ import {
 export function SignInPanel() {
   const t = useT();
   const router = useRouter();
+  const accountContext = useOptionalAccount();
+  const isBusinessAccount = accountContext?.isBusiness ?? false;
+  const destinationHref = isBusinessAccount ? "/business" : "/dashboard";
   const { address, isConnected, connector } = useAccount();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const [externalConnectStarted, setExternalConnectStarted] = useState(false);
@@ -86,6 +92,7 @@ export function SignInPanel() {
     setIsAuthorizing(true);
     setAuthError(null);
     try {
+      writePreferredWalletMode("external");
       writeActivatedExternalProfile(address);
       await ensureProfile({
         authProvider: "external",
@@ -98,7 +105,19 @@ export function SignInPanel() {
         signMessage: (message) => signMessageAsync({ message }),
       });
       setWalletAuthorized(true);
-      router.replace("/dashboard");
+
+      let destination = "/dashboard";
+      try {
+        const state = await fetchAccountState(address);
+        if (!state.account.account_type_selected) {
+          destination = "/onboarding";
+        } else if (state.account.account_type === "BUSINESS") {
+          destination = "/business";
+        }
+      } catch {
+        // fallback to /dashboard
+      }
+      router.replace(destination);
     } catch (error) {
       setWalletAuthorized(false);
       setAuthError(
@@ -150,8 +169,10 @@ export function SignInPanel() {
 
             {walletAuthorized ? (
               <Button asChild className="w-full" size="lg">
-                <Link href="/dashboard">
-                  {t("signin.continueDashboard")}
+                <Link href={destinationHref}>
+                  {isBusinessAccount
+                    ? t("signin.continueBusiness") || "Continue to Business Hub"
+                    : t("signin.continueDashboard")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>

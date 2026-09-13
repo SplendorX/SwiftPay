@@ -16,6 +16,7 @@ import {
 } from "@/lib/circle-session";
 import {
   ensurePlatformAccessCookie,
+  hasPlatformAccessCookie,
   platformAccessEventName,
   readActivatedExternalProfile,
 } from "@/lib/platform-access";
@@ -34,6 +35,10 @@ function readImmediateAccess(): AccessState | null {
   }
 
   if (readCircleLogin()) {
+    return "allowed";
+  }
+
+  if (readActivatedExternalProfile() && hasPlatformAccessCookie()) {
     return "allowed";
   }
 
@@ -77,9 +82,10 @@ export function PlatformAccessProvider({ children }: { children: ReactNode }) {
       const connected = isConnected && address ? address.toLowerCase() : "";
 
       if (!connected || !activated || activated !== connected) {
+        const delayMs = activated ? 4000 : 900;
         lockTimeoutId = window.setTimeout(() => {
           if (!cancelled) setAccess("locked");
-        }, 900);
+        }, delayMs);
         return;
       }
 

@@ -15,13 +15,22 @@ export function WalletDisconnectRedirect() {
   const pathname = usePathname();
   const router = useRouter();
   const wasConnectedRef = useRef(false);
+  const disconnectTimeoutRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (status === "connecting" || status === "reconnecting") {
+      if (disconnectTimeoutRef.current !== undefined) {
+        window.clearTimeout(disconnectTimeoutRef.current);
+        disconnectTimeoutRef.current = undefined;
+      }
       return;
     }
 
     if (isConnected) {
+      if (disconnectTimeoutRef.current !== undefined) {
+        window.clearTimeout(disconnectTimeoutRef.current);
+        disconnectTimeoutRef.current = undefined;
+      }
       wasConnectedRef.current = true;
       return;
     }
@@ -30,18 +39,31 @@ export function WalletDisconnectRedirect() {
       return;
     }
 
-    wasConnectedRef.current = false;
-
     if (readCircleLogin()) {
       return;
     }
 
-    clearActivatedExternalProfile();
-    void endWalletSession().catch(() => undefined);
+    // Debounce disconnect so that transient state changes during page reload,
+    // account switching, or chain validation do not prematurely clear the session.
+    if (disconnectTimeoutRef.current === undefined) {
+      disconnectTimeoutRef.current = window.setTimeout(() => {
+        disconnectTimeoutRef.current = undefined;
+        wasConnectedRef.current = false;
+        clearActivatedExternalProfile();
+        void endWalletSession().catch(() => undefined);
 
-    if (!publicRoutes.has(pathname)) {
-      router.replace("/");
+        if (!publicRoutes.has(pathname)) {
+          router.replace("/");
+        }
+      }, 1500);
     }
+
+    return () => {
+      if (disconnectTimeoutRef.current !== undefined) {
+        window.clearTimeout(disconnectTimeoutRef.current);
+        disconnectTimeoutRef.current = undefined;
+      }
+    };
   }, [isConnected, pathname, router, status]);
 
   return null;

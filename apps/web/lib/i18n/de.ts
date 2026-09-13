@@ -434,6 +434,7 @@ export const de: Messages = {
     externalWalletBody:
       "MetaMask, WalletConnect und andere Arc-kompatible Wallets. Verbinden, dann mit einer Signatur autorisieren.",
     continueDashboard: "Weiter zum Dashboard",
+    continueBusiness: "Weiter zum Business-Hub",
     checkingAuth: "Autorisierung wird geprüft…",
     confirmInWallet: "In der Wallet bestätigen…",
     authorizeHint: "Signiere die Nachricht in deiner Wallet, um das Dashboard freizuschalten.",

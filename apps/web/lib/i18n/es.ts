@@ -435,6 +435,7 @@ export const es: Messages = {
     externalWalletBody:
       "MetaMask, WalletConnect y otras billeteras compatibles con Arc. Conecta y autoriza con una firma para continuar.",
     continueDashboard: "Continuar al panel",
+    continueBusiness: "Continuar al panel de empresas",
     checkingAuth: "Comprobando autorización…",
     confirmInWallet: "Confirma en la billetera…",
     authorizeHint: "Firma el mensaje en tu billetera para desbloquear el panel.",

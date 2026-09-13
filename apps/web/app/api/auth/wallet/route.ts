@@ -15,6 +15,7 @@ import {
   walletChallengeCookieName,
   walletSessionCookieName,
 } from "@/lib/wallet-session";
+import { platformAccessCookieName } from "@/lib/platform-access";
 
 export const runtime = "nodejs";
 
@@ -192,6 +193,13 @@ export async function POST(request: NextRequest) {
     sameSite: "lax",
     secure: secureCookie,
   });
+  response.cookies.set(platformAccessCookieName, "1", {
+    httpOnly: false,
+    maxAge: Math.floor(walletAuthSessionTtlMs / 1000),
+    path: "/",
+    sameSite: "lax",
+    secure: secureCookie,
+  });
   response.cookies.delete(walletChallengeCookieName);
 
   return response;
@@ -209,6 +217,7 @@ export async function DELETE() {
 
   response.cookies.delete(walletChallengeCookieName);
   response.cookies.delete(walletSessionCookieName);
+  response.cookies.delete(platformAccessCookieName);
 
   return response;
 }

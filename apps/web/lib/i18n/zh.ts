@@ -387,6 +387,7 @@ export const zh: Messages = {
     externalWallet: "外部钱包",
     externalWalletBody: "MetaMask、WalletConnect 及其他兼容 Arc 的钱包。连接后用签名授权以继续。",
     continueDashboard: "继续前往仪表盘",
+    continueBusiness: "继续前往企业中心",
     checkingAuth: "正在检查授权…",
     confirmInWallet: "请在钱包中确认…",
     authorizeHint: "在钱包中签署消息以解锁仪表盘。",

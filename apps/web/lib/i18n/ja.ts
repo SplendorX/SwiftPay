@@ -387,6 +387,7 @@ export const ja: Messages = {
     externalWallet: "外部ウォレット",
     externalWalletBody: "MetaMask、WalletConnect、その他の Arc 対応ウォレット。接続し、署名で承認して続けます。",
     continueDashboard: "ダッシュボードへ進む",
+    continueBusiness: "ビジネスハブへ進む",
     checkingAuth: "承認を確認中…",
     confirmInWallet: "ウォレットで確認…",
     authorizeHint: "ウォレットでメッセージに署名してダッシュボードを解除します。",

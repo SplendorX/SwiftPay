@@ -435,6 +435,7 @@ export const en = {
     externalWalletBody:
       "MetaMask, WalletConnect, and other Arc-compatible wallets. Connect, then authorize with a signature to continue.",
     continueDashboard: "Continue to dashboard",
+    continueBusiness: "Continue to Business Hub",
     checkingAuth: "Checking authorization…",
     confirmInWallet: "Confirm in wallet…",
     authorizeHint: "Sign the message in your wallet to unlock the dashboard.",

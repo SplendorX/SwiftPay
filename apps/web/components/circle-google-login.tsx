@@ -31,8 +31,11 @@ import {
   type CircleTokenBalance,
   type CircleWallet,
 } from "@/lib/circle-session";
+import { useOptionalAccount } from "@/components/account/account-provider";
+import { fetchAccountState } from "@/lib/account/client";
 import { ensureProfile } from "@/lib/profile";
 import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
+import { writePreferredWalletMode } from "@/lib/wallet-mode";
 
 type DeviceTokenResponse = {
   deviceEncryptionKey: string;
@@ -293,6 +296,8 @@ export function CircleGoogleLogin({
   showRefreshWallet = true,
 }: CircleGoogleLoginProps) {
   const router = useRouter();
+  const accountContext = useOptionalAccount();
+  const isBusinessAccount = accountContext?.isBusiness ?? false;
   const sdkRef = useRef<W3SSdk | null>(null);
   const setupCompletionStartedRef = useRef(false);
   const setupChallengePendingRef = useRef(false);
@@ -647,7 +652,25 @@ export function CircleGoogleLogin({
         ) {
           enterAppAfterLoginRef.current = false;
           removeStorage(storageKeys.enterApp);
-          router.replace("/dashboard");
+          writePreferredWalletMode("circle");
+          let destination = "/dashboard";
+          try {
+            const identity = getCircleLoginIdentity(options.login ?? loginResult);
+            if (walletAddress) {
+              const state = await fetchAccountState(
+                walletAddress,
+                identity.socialUserUUID,
+              );
+              if (!state.account.account_type_selected) {
+                destination = "/onboarding";
+              } else if (state.account.account_type === "BUSINESS") {
+                destination = "/business";
+              }
+            }
+          } catch {
+            // fallback to /dashboard
+          }
+          router.replace(destination);
         }
       } else {
         setBalances([]);
@@ -1084,9 +1107,9 @@ export function CircleGoogleLogin({
   ) : primaryWallet ? (
     <Link
       className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-      href="/dashboard"
+      href={isBusinessAccount ? "/business" : "/dashboard"}
     >
-      Open dashboard
+      {isBusinessAccount ? "Open Business Hub" : "Open dashboard"}
       <ArrowRight className="h-4 w-4" />
     </Link>
   ) : (
