@@ -18,6 +18,7 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
 import {
   createPayrollGroupClient,
@@ -105,15 +106,7 @@ export default function PayrollGroupsPage() {
   return (
     <PlatformAccessGate>
       <PlatformChrome
-        actions={
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => setIsModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Create Group
-            </Button>
-            <PlatformProfileControls />
-          </div>
-        }
+        actions={<PlatformProfileControls />}
         subtitle="Organize team members into departments or regional teams."
         title="Payroll Groups"
       >
@@ -130,6 +123,18 @@ export default function PayrollGroupsPage() {
           <p className="text-sm text-muted-foreground">
             Payroll Groups are purely organizational. All payouts originate from your Business wallet, enabling group-based payroll runs (e.g. Engineering, Contractors, Operations).
           </p>
+        </div>
+
+        {/* Groups Action Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Teams & Departments</h2>
+            <p className="text-xs text-muted-foreground">Manage organizational groups for targeted payroll runs.</p>
+          </div>
+          <Button size="sm" onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Create Group
+          </Button>
         </div>
 
         {loading ? (
@@ -221,15 +226,18 @@ export default function PayrollGroupsPage() {
 
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">Default Schedule</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={defaultSchedule}
-                    onChange={(e) => setDefaultSchedule(e.target.value)}
-                  >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="BIWEEKLY">Biweekly</option>
-                    <option value="WEEKLY">Weekly</option>
-                  </select>
+                  <div className="mt-1">
+                    <StyledSelect
+                      ariaLabel="Default Schedule"
+                      onChange={(val) => setDefaultSchedule(val)}
+                      options={[
+                        { label: "Monthly", value: "MONTHLY" },
+                        { label: "Biweekly", value: "BIWEEKLY" },
+                        { label: "Weekly", value: "WEEKLY" },
+                      ]}
+                      value={defaultSchedule}
+                    />
+                  </div>
                 </div>
 
                 <div>

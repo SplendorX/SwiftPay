@@ -16,6 +16,7 @@ import { useT } from "@/components/locale-provider";
 import { useAccountContext } from "@/components/account/account-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StyledSelect } from "@/components/ui/styled-select";
 import {
   cancelInvoiceClient,
   createInvoiceClient,
@@ -233,17 +234,19 @@ export function InvoicesHub() {
                   value={invoiceNumber}
                 />
               </label>
-              <label className="text-sm font-medium">
-                Currency
-                <select
-                  className="mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                  onChange={(event) => setCurrency(event.target.value as BusinessAsset)}
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Currency</span>
+                <StyledSelect
+                  ariaLabel="Invoice currency"
+                  onChange={(val) => setCurrency(val as BusinessAsset)}
+                  options={[
+                    { label: "USDC", value: "USDC" },
+                    { label: "EURC", value: "EURC" },
+                  ]}
+                  triggerClassName="h-11"
                   value={currency}
-                >
-                  <option value="USDC">USDC</option>
-                  <option value="EURC">EURC</option>
-                </select>
-              </label>
+                />
+              </div>
               <label className="text-sm font-medium">
                 Issue date
                 <Input
@@ -537,21 +540,21 @@ export function InvoicesHub() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-muted-foreground">
-                <tr>
-                  <th className="py-2">Invoice</th>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+          <div className="max-h-[30rem] overflow-auto rounded-lg">
+            <table className="w-full min-w-[42rem] text-left text-sm">
+              <thead className="sticky top-0 z-10 bg-card text-muted-foreground shadow-sm">
+                <tr className="border-b border-border">
+                  <th className="py-2.5 px-3">Invoice</th>
+                  <th className="px-3">Customer</th>
+                  <th className="px-3">Amount</th>
+                  <th className="px-3">Status</th>
+                  <th className="px-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {invoices.map((invoice) => (
-                  <tr className="border-t border-border" key={invoice.id}>
-                    <td className="py-3 font-medium">
+                  <tr className="border-t border-border hover:bg-muted/30 transition-colors" key={invoice.id}>
+                    <td className="py-3 px-3 font-medium">
                       <a
                         className="underline-offset-2 hover:underline"
                         href={invoiceLink(invoice)}
@@ -561,7 +564,7 @@ export function InvoicesHub() {
                         {invoice.invoice_number}
                       </a>
                     </td>
-                    <td>
+                    <td className="px-3">
                       <div>{invoice.customer_name || "—"}</div>
                       {invoice.customer_username ? (
                         <div className="text-xs text-muted-foreground">
@@ -569,19 +572,20 @@ export function InvoicesHub() {
                         </div>
                       ) : null}
                     </td>
-                    <td>{formatInvoiceMoney(invoice.total, invoice.currency)}</td>
-                    <td className="capitalize">
+                    <td className="px-3">{formatInvoiceMoney(invoice.total, invoice.currency)}</td>
+                    <td className="capitalize px-3">
                       {invoiceStatusLabel(invoice.status, invoice.overpayment)}
                     </td>
-                    <td>
+                    <td className="px-3">
                       <div className="flex flex-wrap gap-2">
                         <button
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary"
+                          className="inline-flex items-center justify-center rounded-md p-1.5 text-primary hover:bg-primary/10 transition-colors"
                           onClick={() => void copyLink(invoice)}
+                          title="Copy payment link"
+                          aria-label="Copy payment link"
                           type="button"
                         >
-                          <Copy className="h-3.5 w-3.5" />
-                          Copy payment link
+                          <Copy className="h-4 w-4" />
                         </button>
                         <button
                           className="inline-flex items-center gap-1 text-xs font-semibold"

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 
-import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu } from "@/components/profile-menu";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import {
@@ -54,21 +53,18 @@ export function PlatformProfileControls() {
   }, [address, isConnected]);
 
   return (
-    <>
-      <CircleFaucetLink />
-      <ProfileMenu
-        externalAddress={isConnected ? address : undefined}
-        externalWalletAction={
-          <WalletConnectButton
-            onConnectIntent={() => setExternalConnectStarted(true)}
-          />
-        }
-        onWalletModeChange={(mode) => {
-          writePreferredWalletMode(mode);
-          setWalletMode(mode);
-        }}
-        walletMode={walletMode}
-      />
-    </>
+    <ProfileMenu
+      externalAddress={isConnected ? address : undefined}
+      externalWalletAction={
+        <WalletConnectButton
+          onConnectIntent={() => setExternalConnectStarted(true)}
+        />
+      }
+      onWalletModeChange={(mode) => {
+        writePreferredWalletMode(mode);
+        setWalletMode(mode);
+      }}
+      walletMode={walletMode}
+    />
   );
 }

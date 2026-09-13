@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { cookieToInitialState, WagmiProvider } from "wagmi";
 
+import { AccountProvider } from "@/components/account/account-provider";
+import { WorkspaceProvider } from "@/components/business/workspace-provider";
 import { LocaleProvider } from "@/components/locale-provider";
 import { PlatformAccessProvider } from "@/components/platform-access-gate";
 import { SuccessPopupHost } from "@/components/success-popup";
@@ -31,10 +33,14 @@ export function Providers({
       <QueryClientProvider client={queryClient}>
         <LocaleProvider>
           <PlatformAccessProvider>
-            <WalletSessionBootstrap />
-            <WalletDisconnectRedirect />
-            {children}
-            <SuccessPopupHost />
+            <WorkspaceProvider>
+              <AccountProvider>
+                <WalletSessionBootstrap />
+                <WalletDisconnectRedirect />
+                {children}
+                <SuccessPopupHost />
+              </AccountProvider>
+            </WorkspaceProvider>
           </PlatformAccessProvider>
         </LocaleProvider>
       </QueryClientProvider>

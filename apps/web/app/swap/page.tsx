@@ -27,7 +27,6 @@ import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { useT } from "@/components/locale-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
-import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { ProfileMenu } from "@/components/profile-menu";
 import { showSuccess } from "@/components/success-popup";
 import { TokenSelect } from "@/components/design/token-select";
@@ -624,7 +623,6 @@ function SwapContent() {
  <ArrowLeft className="h-4 w-4" />
  {t("swap.dashboard")}
  </Link>
- <CircleFaucetLink />
  <ProfileMenu
  circleLogin={circleLogin}
  circleWalletAddress={circleAddress}

@@ -72,12 +72,19 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
 
+const fallbackAccountContext: AccountContextValue = {
+  account: null,
+  circleSocialUuid: undefined,
+  isBusiness: false,
+  loading: false,
+  ownerWallet: null,
+  profile: null,
+  refresh: async () => {},
+};
+
 export function useAccountContext() {
   const value = useContext(AccountContext);
-  if (!value) {
-    throw new Error("useAccountContext must be used inside AccountProvider.");
-  }
-  return value;
+  return value ?? fallbackAccountContext;
 }
 
 export function useOptionalAccount() {

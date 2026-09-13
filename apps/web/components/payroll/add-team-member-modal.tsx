@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AtSign, Check, Loader2, UserRound, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { createTeamMemberClient } from "@/lib/payroll/client";
 import type { MemberType, PaymentDestinationType, PaymentFrequency, TeamMemberRecord } from "@/lib/payroll/types";
 
@@ -327,16 +328,19 @@ export function AddTeamMemberModal({
 
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Payment Frequency</label>
-              <select
-                className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value as PaymentFrequency)}
-              >
-                <option value="MONTHLY">Monthly</option>
-                <option value="BIWEEKLY">Biweekly</option>
-                <option value="WEEKLY">Weekly</option>
-                <option value="MANUAL">Manual / On-demand</option>
-              </select>
+              <div className="mt-1">
+                <StyledSelect
+                  ariaLabel="Payment Frequency"
+                  onChange={(val) => setFrequency(val as PaymentFrequency)}
+                  options={[
+                    { label: "Monthly", value: "MONTHLY" },
+                    { label: "Biweekly", value: "BIWEEKLY" },
+                    { label: "Weekly", value: "WEEKLY" },
+                    { label: "Manual / On-demand", value: "MANUAL" },
+                  ]}
+                  value={frequency}
+                />
+              </div>
             </div>
           </div>
         )}

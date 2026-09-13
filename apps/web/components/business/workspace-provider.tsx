@@ -154,12 +154,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const fallbackWorkspaceContext: WorkspaceContextValue = {
+  actorReady: false,
+  circleSocialUuid: undefined,
+  invitations: [],
+  loading: false,
+  ownerWallet: null,
+  profile: null,
+  refresh: async () => {},
+  setWorkspace: async () => {},
+  workspace: null,
+  workspaces: [],
+};
+
 export function useWorkspace() {
   const value = useContext(WorkspaceContext);
-  if (!value) {
-    throw new Error("useWorkspace must be used inside WorkspaceProvider.");
-  }
-  return value;
+  return value ?? fallbackWorkspaceContext;
 }
 
 export function useOptionalWorkspace() {

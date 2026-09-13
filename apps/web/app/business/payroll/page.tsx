@@ -78,7 +78,18 @@ export default function PayrollDashboardPage() {
   return (
     <PlatformAccessGate>
       <PlatformChrome
-        actions={
+        actions={<PlatformProfileControls />}
+        subtitle="Manage your team and run payments from one place."
+        title="Payroll"
+      >
+        <PayrollSubnav />
+
+        {/* Page Body Action Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Overview</h2>
+            <p className="text-sm text-muted-foreground">Monitor team compensation, upcoming payroll, and automated runs.</p>
+          </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setIsAddModalOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" />
@@ -90,13 +101,8 @@ export default function PayrollDashboardPage() {
                 Run Payroll
               </Link>
             </Button>
-            <PlatformProfileControls />
           </div>
-        }
-        subtitle="Manage your team and run payments from one place."
-        title="Payroll"
-      >
-        <PayrollSubnav />
+        </div>
 
         {error ? (
           <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-3">
@@ -249,7 +255,7 @@ export default function PayrollDashboardPage() {
               </Button>
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="max-h-[22rem] overflow-y-auto divide-y divide-border pr-1">
               {summary.recentRuns.map((run) => (
                 <div
                   key={run.id}

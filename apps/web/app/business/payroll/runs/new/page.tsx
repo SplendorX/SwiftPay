@@ -26,6 +26,7 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StyledSelect } from "@/components/ui/styled-select";
 import {
   calculateItemAmounts,
   calculateRunTotals,
@@ -257,18 +258,20 @@ export default function NewPayrollRunPage() {
 
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">Target Group</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={selectedGroupId}
-                    onChange={(e) => handleGroupChange(e.target.value)}
-                  >
-                    <option value="">All Active Team Members ({allMembers.length})</option>
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name} ({g.members_count ?? 0} members)
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <StyledSelect
+                      ariaLabel="Target Group"
+                      onChange={(val) => handleGroupChange(val)}
+                      options={[
+                        { label: `All Active Team Members (${allMembers.length})`, value: "" },
+                        ...groups.map((g) => ({
+                          label: `${g.name} (${g.members_count ?? 0} members)`,
+                          value: g.id,
+                        })),
+                      ]}
+                      value={selectedGroupId}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -40,6 +40,7 @@ import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
+import { showSuccess } from "@/components/success-popup";
 import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
 import { TokenIcon } from "@/components/token-icon";
 import {
@@ -156,14 +157,16 @@ export default function PayrollRunDetailPage({
   }, [activeBalanceFormatted, run]);
 
   async function loadData() {
-    if (!ownerWallet) return;
+    if (!ownerWallet) return null;
     setLoading(true);
     try {
       const data = await fetchPayrollRun(ownerWallet, id, circleSocialUuid ?? undefined);
       setRun(data);
       setError(null);
+      return data;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load payroll run.");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -284,7 +287,7 @@ export default function PayrollRunDetailPage({
 
       // Record execution in backend
       setProcessingStatus("Reconciling payroll status…");
-      await executePayrollRunClient(
+      const executed = await executePayrollRunClient(
         ownerWallet,
         run.id,
         {
@@ -297,6 +300,23 @@ export default function PayrollRunDetailPage({
 
       await loadData();
       await refetchExternalBalance();
+
+      if (executed && executed.status === "COMPLETED") {
+        showSuccess({
+          eyebrow: "Payroll Settled",
+          title: "Payroll Run Completed",
+          subtitle: "Successfully settled payments for all recipients.",
+          amount: `${executed.total_amount} ${executed.asset}`,
+          explorerUrl: batchHash ? `https://testnet.arcscan.io/tx/${batchHash}` : undefined,
+          rows: [
+            { label: "Payroll Run", value: executed.name },
+            { label: "Recipients", value: `${executed.recipient_count}` },
+            { label: "Platform Fee", value: `${executed.total_fees} ${executed.asset}` },
+            { label: "Total Required", value: `${executed.total_required} ${executed.asset}` },
+            { label: "Status", value: "Completed" },
+          ],
+        });
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Payroll execution failed.");
     } finally {
@@ -322,7 +342,22 @@ export default function PayrollRunDetailPage({
         },
         circleSocialUuid ?? undefined,
       );
-      await loadData();
+      const reloaded = await loadData();
+      if (reloaded && reloaded.status === "COMPLETED") {
+        showSuccess({
+          eyebrow: "Payroll Settled",
+          title: "Payroll Run Completed",
+          subtitle: "All retry payments have settled successfully.",
+          amount: `${reloaded.total_amount} ${reloaded.asset}`,
+          rows: [
+            { label: "Payroll Run", value: reloaded.name },
+            { label: "Recipients", value: `${reloaded.recipient_count}` },
+            { label: "Platform Fee", value: `${reloaded.total_fees} ${reloaded.asset}` },
+            { label: "Total Required", value: `${reloaded.total_required} ${reloaded.asset}` },
+            { label: "Status", value: "Completed" },
+          ],
+        });
+      }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Retry failed.");
     } finally {

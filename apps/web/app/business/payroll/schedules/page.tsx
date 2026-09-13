@@ -19,6 +19,7 @@ import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
 import {
   createPayrollScheduleClient,
@@ -108,15 +109,7 @@ export default function PayrollSchedulesPage() {
   return (
     <PlatformAccessGate>
       <PlatformChrome
-        actions={
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => setIsModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Create Schedule
-            </Button>
-            <PlatformProfileControls />
-          </div>
-        }
+        actions={<PlatformProfileControls />}
         subtitle="Automated recurring payroll cadence."
         title="Payroll Schedules"
       >
@@ -138,6 +131,18 @@ export default function PayrollSchedulesPage() {
             </span>
             Schedules generate ready payroll runs for your review and approval. Payments are never automatically debited without authorized Business approval.
           </div>
+        </div>
+
+        {/* Schedules Action Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Active Schedules</h2>
+            <p className="text-xs text-muted-foreground">Automated payroll run generation cadence.</p>
+          </div>
+          <Button size="sm" onClick={() => setIsModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Create Schedule
+          </Button>
         </div>
 
         {loading ? (
@@ -243,31 +248,36 @@ export default function PayrollSchedulesPage() {
               <form onSubmit={handleCreateSchedule} className="mt-4 space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">Frequency *</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={frequency}
-                    onChange={(e) => setFrequency(e.target.value as PaymentFrequency)}
-                  >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="BIWEEKLY">Biweekly</option>
-                    <option value="WEEKLY">Weekly</option>
-                  </select>
+                  <div className="mt-1">
+                    <StyledSelect
+                      ariaLabel="Frequency"
+                      onChange={(val) => setFrequency(val as PaymentFrequency)}
+                      options={[
+                        { label: "Monthly", value: "MONTHLY" },
+                        { label: "Biweekly", value: "BIWEEKLY" },
+                        { label: "Weekly", value: "WEEKLY" },
+                      ]}
+                      value={frequency}
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">Apply to Group</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={groupId}
-                    onChange={(e) => setGroupId(e.target.value)}
-                  >
-                    <option value="">Entire Team (All Active Members)</option>
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <StyledSelect
+                      ariaLabel="Apply to Group"
+                      onChange={(val) => setGroupId(val)}
+                      options={[
+                        { label: "Entire Team (All Active Members)", value: "" },
+                        ...groups.map((g) => ({
+                          label: g.name,
+                          value: g.id,
+                        })),
+                      ]}
+                      value={groupId}
+                    />
+                  </div>
                 </div>
 
                 {frequency === "MONTHLY" && (

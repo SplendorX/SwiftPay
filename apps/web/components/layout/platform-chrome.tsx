@@ -3,11 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { AccountProvider } from "@/components/account/account-provider";
-import {
-  OnboardingRedirect,
-  WorkspaceProvider,
-} from "@/components/business/workspace-provider";
+import { OnboardingRedirect } from "@/components/business/workspace-provider";
 import { AppFrame } from "@/components/layout/app-frame";
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
@@ -34,18 +30,16 @@ export function PlatformChrome({
   const resolvedSubtitle = copy?.subtitle ? t(copy.subtitle) : subtitle;
 
   return (
-    <WorkspaceProvider>
-      <AccountProvider>
-        <OnboardingRedirect />
-        <SidebarProvider>
-          <div className="platform-shell w-full min-w-0 bg-background">
-            <AppHeader actions={actions} />
-            <AppFrame subtitle={resolvedSubtitle} title={resolvedTitle}>
-              {children}
-            </AppFrame>
-          </div>
-        </SidebarProvider>
-      </AccountProvider>
-    </WorkspaceProvider>
+    <>
+      <OnboardingRedirect />
+      <SidebarProvider>
+        <div className="platform-shell w-full min-w-0 bg-background">
+          <AppHeader actions={actions} />
+          <AppFrame subtitle={resolvedSubtitle} title={resolvedTitle}>
+            {children}
+          </AppFrame>
+        </div>
+      </SidebarProvider>
+    </>
   );
 }

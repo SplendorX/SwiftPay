@@ -48,7 +48,6 @@ import {
 } from "@/components/batch/batch-people-composer";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { useT } from "@/components/locale-provider";
-import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { ProfileMenu } from "@/components/profile-menu";
@@ -927,8 +926,6 @@ export default function SwiftBatchPage() {
  return (
  <PlatformChrome
  actions={
- <>
- <CircleFaucetLink />
  <ProfileMenu
  circleLogin={circleLogin}
  circleWalletAddress={circleAddress}
@@ -936,7 +933,6 @@ export default function SwiftBatchPage() {
  onCircleSessionCleared={handleCircleSessionCleared}
  walletMode={walletMode}
  />
- </>
  }
  subtitle="Enterprise batch settlement"
  title="BatchPay"

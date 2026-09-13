@@ -164,3 +164,38 @@ create table if not exists public.payroll_audit_logs (
 
 create index if not exists payroll_audit_logs_account_idx
   on public.payroll_audit_logs (account_id, created_at desc);
+
+-- ─── Row Level Security & Service Role Grants ─────────────────────────────────
+
+alter table public.payroll_team_members enable row level security;
+alter table public.payroll_groups enable row level security;
+alter table public.payroll_group_members enable row level security;
+alter table public.payroll_schedules enable row level security;
+alter table public.payroll_runs enable row level security;
+alter table public.payroll_items enable row level security;
+alter table public.payroll_adjustments enable row level security;
+alter table public.payroll_executions enable row level security;
+alter table public.payroll_audit_logs enable row level security;
+
+grant usage on schema public to postgres, anon, authenticated, service_role;
+
+grant all privileges on table public.payroll_team_members to postgres, service_role;
+grant all privileges on table public.payroll_groups to postgres, service_role;
+grant all privileges on table public.payroll_group_members to postgres, service_role;
+grant all privileges on table public.payroll_schedules to postgres, service_role;
+grant all privileges on table public.payroll_runs to postgres, service_role;
+grant all privileges on table public.payroll_items to postgres, service_role;
+grant all privileges on table public.payroll_adjustments to postgres, service_role;
+grant all privileges on table public.payroll_executions to postgres, service_role;
+grant all privileges on table public.payroll_audit_logs to postgres, service_role;
+
+grant select, insert, update, delete on table public.payroll_team_members to service_role;
+grant select, insert, update, delete on table public.payroll_groups to service_role;
+grant select, insert, update, delete on table public.payroll_group_members to service_role;
+grant select, insert, update, delete on table public.payroll_schedules to service_role;
+grant select, insert, update, delete on table public.payroll_runs to service_role;
+grant select, insert, update, delete on table public.payroll_items to service_role;
+grant select, insert, update, delete on table public.payroll_adjustments to service_role;
+grant select, insert, update, delete on table public.payroll_executions to service_role;
+grant select, insert, update, delete on table public.payroll_audit_logs to service_role;
+

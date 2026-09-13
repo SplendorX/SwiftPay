@@ -25,6 +25,7 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { AddTeamMemberModal } from "@/components/payroll/add-team-member-modal";
 import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
 import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
@@ -119,15 +120,7 @@ export default function TeamManagementPage() {
   return (
     <PlatformAccessGate>
       <PlatformChrome
-        actions={
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Team Member
-            </Button>
-            <PlatformProfileControls />
-          </div>
-        }
+        actions={<PlatformProfileControls />}
         subtitle="Manage employees, contractors, and payment setups."
         title="Team Members"
       >
@@ -152,27 +145,36 @@ export default function TeamManagementPage() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <select
-              className="h-10 rounded-lg border border-border bg-card px-3 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+          <div className="flex flex-wrap items-center gap-2">
+            <StyledSelect
+              ariaLabel="Filter by status"
+              onChange={(val) => setStatusFilter(val)}
+              options={[
+                { label: "All Statuses", value: "ALL" },
+                { label: "Active", value: "ACTIVE" },
+                { label: "Paused", value: "PAUSED" },
+                { label: "Archived", value: "ARCHIVED" },
+              ]}
+              triggerClassName="w-36"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="PAUSED">Paused</option>
-              <option value="ARCHIVED">Archived</option>
-            </select>
+            />
 
-            <select
-              className="h-10 rounded-lg border border-border bg-card px-3 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+            <StyledSelect
+              ariaLabel="Filter by member type"
+              onChange={(val) => setTypeFilter(val)}
+              options={[
+                { label: "All Types", value: "ALL" },
+                { label: "Employees", value: "EMPLOYEE" },
+                { label: "Contractors", value: "CONTRACTOR" },
+              ]}
+              triggerClassName="w-36"
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            >
-              <option value="ALL">All Types</option>
-              <option value="EMPLOYEE">Employees</option>
-              <option value="CONTRACTOR">Contractors</option>
-            </select>
+            />
+
+            <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add Team Member
+            </Button>
           </div>
         </div>
 
@@ -202,7 +204,7 @@ export default function TeamManagementPage() {
               </Button>
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="max-h-[30rem] overflow-y-auto divide-y divide-border">
               {filteredMembers.map((member) => (
                 <div
                   key={member.id}

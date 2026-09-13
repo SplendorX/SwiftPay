@@ -65,7 +65,6 @@ import { DashboardEarnSummary } from "@/components/earn/dashboard-earn-summary";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
-import { CircleFaucetLink } from "@/components/circle-faucet-link";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
 import { useT } from "@/components/locale-provider";
 import { ProfileMenu } from "@/components/profile-menu";
@@ -3755,18 +3754,15 @@ export function DashboardContent({
   return (
     <PlatformChrome
       actions={
-        <>
-          <CircleFaucetLink />
-          <ProfileMenu
-            circleLogin={circleLogin}
-            circleWalletAddress={circleAddress}
-            externalAddress={externalAddress}
-            externalWalletAction={<WalletConnectButton />}
-            onCircleSessionCleared={handleCircleSessionCleared}
-            onWalletModeChange={setWalletMode}
-            walletMode={walletMode}
-          />
-        </>
+        <ProfileMenu
+          circleLogin={circleLogin}
+          circleWalletAddress={circleAddress}
+          externalAddress={externalAddress}
+          externalWalletAction={<WalletConnectButton />}
+          onCircleSessionCleared={handleCircleSessionCleared}
+          onWalletModeChange={setWalletMode}
+          walletMode={walletMode}
+        />
       }
       subtitle="Financial command center"
       title="Dashboard"

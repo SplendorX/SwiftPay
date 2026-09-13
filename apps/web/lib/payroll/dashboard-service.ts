@@ -8,9 +8,10 @@ export async function getPayrollDashboardSummary(accountId: string): Promise<Pay
   // 1. Active team members count
   const { count: activeCount, error: countError } = await supabase
     .from(payrollTables.teamMembers)
-    .select("id", { count: "exact", head: true })
+    .select("id", { count: "exact" })
     .eq("account_id", acc)
-    .eq("status", "ACTIVE");
+    .eq("status", "ACTIVE")
+    .limit(1);
 
   if (countError) {
     throw new Error(readPayrollDbError(countError, "Could not load payroll team count."));

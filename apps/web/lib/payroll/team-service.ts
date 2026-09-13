@@ -1,5 +1,5 @@
 import { getAddress, isAddress } from "viem";
-import { fetchProfileByUsername } from "@/lib/profile";
+import { normalizeUsername, validateUsername } from "@/lib/profile-utils";
 import { payrollDb, payrollTables, readPayrollDbError } from "@/lib/payroll/db";
 import { payrollErrors } from "@/lib/payroll/errors";
 import type {
@@ -9,6 +9,29 @@ import type {
   TeamMemberRecord,
   TeamMemberStatus,
 } from "@/lib/payroll/types";
+
+const profilesTable = process.env.SUPABASE_PROFILES_TABLE ?? "profiles";
+
+async function findProfileByUsernameServer(
+  username: string,
+): Promise<{ username: string; wallet_address: string } | null> {
+  const normalized = normalizeUsername(username);
+  if (validateUsername(normalized)) {
+    return null;
+  }
+  const supabase = payrollDb();
+  const { data, error } = await supabase
+    .from(profilesTable)
+    .select("username, wallet_address")
+    .ilike("username", normalized)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+  return data as { username: string; wallet_address: string };
+}
 
 export type CreateTeamMemberInput = {
   accountId: string;
@@ -47,7 +70,7 @@ export async function resolveDestination(input: {
     if (!raw) {
       throw payrollErrors.invalidDestination("Enter a SwiftPay username.");
     }
-    const profile = await fetchProfileByUsername(raw);
+    const profile = await findProfileByUsernameServer(raw);
     if (!profile || !isAddress(profile.wallet_address)) {
       throw payrollErrors.invalidDestination(`SwiftPay user @${raw} was not found.`);
     }
