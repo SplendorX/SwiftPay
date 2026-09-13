@@ -506,7 +506,7 @@ export default function PayrollRunDetailPage({
     }
 
     if (!configuredBatchAddress) {
-      setError("SwiftBatch contract address is not configured.");
+      setError("BatchPay contract address is not configured.");
       return;
     }
 
@@ -526,7 +526,7 @@ export default function PayrollRunDetailPage({
         if (!payingWalletAddress) {
           throw new Error("Business Circle wallet address not found.");
         }
-        setProcessingStatus(`Checking ${tokenSymbol} allowance for SwiftBatch…`);
+        setProcessingStatus(`Checking ${tokenSymbol} allowance for BatchPay…`);
         const allowance = (await arcPublicClient.readContract({
           address: tokenInfo.address,
           abi: erc20Abi,
@@ -535,7 +535,7 @@ export default function PayrollRunDetailPage({
         })) as bigint;
 
         if (allowance < requiredTotalUnits) {
-          setProcessingStatus(`Approving ${tokenSymbol} for SwiftBatch…`);
+          setProcessingStatus(`Approving ${tokenSymbol} for BatchPay…`);
           await executeCircleContract({
             callData: encodeFunctionData({
               abi: erc20Abi,
@@ -549,7 +549,7 @@ export default function PayrollRunDetailPage({
           await waitForAllowance(payingWalletAddress, tokenInfo.address, requiredTotalUnits);
         }
 
-        setProcessingStatus("Executing SwiftBatch settlement via Circle…");
+        setProcessingStatus("Executing BatchPay settlement via Circle…");
         const execResult = await executeCircleContract({
           callData: encodeFunctionData({
             abi: swiftBatchAbi,
@@ -557,7 +557,7 @@ export default function PayrollRunDetailPage({
             args: [tokenInfo.address, recipientsList, amountsList],
           }),
           contractAddress: configuredBatchAddress,
-          label: "Execute Payroll Batch",
+          label: "Execute BatchPay Settlement",
           refId: `payroll-batch-${run.id}-${Date.now()}`,
         });
 
@@ -572,7 +572,7 @@ export default function PayrollRunDetailPage({
           await switchChainAsync({ chainId: arcTestnet.id });
         }
 
-        setProcessingStatus(`Checking ${tokenSymbol} allowance for SwiftBatch…`);
+        setProcessingStatus(`Checking ${tokenSymbol} allowance for BatchPay…`);
         const allowance = (await arcPublicClient.readContract({
           address: tokenInfo.address,
           abi: erc20Abi,
@@ -581,7 +581,7 @@ export default function PayrollRunDetailPage({
         })) as bigint;
 
         if (allowance < requiredTotalUnits) {
-          setProcessingStatus(`Approving ${tokenSymbol} for SwiftBatch…`);
+          setProcessingStatus(`Approving ${tokenSymbol} for BatchPay…`);
           const approveHash = await writeContractAsync({
             address: tokenInfo.address,
             abi: erc20Abi,
@@ -593,7 +593,7 @@ export default function PayrollRunDetailPage({
           await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
         }
 
-        setProcessingStatus("Executing SwiftBatch settlement transaction…");
+        setProcessingStatus("Executing BatchPay settlement transaction…");
         batchHash = await writeContractAsync({
           address: configuredBatchAddress,
           abi: swiftBatchAbi,

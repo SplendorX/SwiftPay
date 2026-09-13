@@ -314,13 +314,13 @@ export const zh: Messages = {
       "用仪表盘查看投资组合价值、代币余额、直接发送、受益人、交易收据和钱包活动。发送面板按逐步付款流程组织。",
     faq2Q: "有哪些页面？",
     faq2A:
-      "SwiftPay 包括仪表盘、Swift+Save、收益、兑换、SwiftBatch、RecurePay、付款请求、Circle、文档和设置。主要产品流程从产品区直接链接。",
+      "SwiftPay 包括仪表盘、Swift+Save、收益、兑换、BatchPay、RecurePay、付款请求、Circle、文档和设置。主要产品流程从产品区直接链接。",
     faq3Q: "Swift+Save 和收益有何不同？",
     faq3A:
       "Swift+Save 创建无利息储蓄口袋和 Spend&Save 规则。收益是独立的，显示金库表现、收益背景，以及支持时的自动储蓄。",
     faq4Q: "我可以收款、批量或安排付款吗？",
     faq4A:
-      "可以。付款请求创建链接和二维码，SwiftBatch 处理最多 500 人的 CSV 付款，RecurePay 管理定期计划，Circle 群组共享聊天、分账和储蓄。",
+      "可以。付款请求创建链接和二维码，BatchPay 处理最多 500 人的 CSV 付款，RecurePay 管理定期计划，Circle 群组共享聊天、分账和储蓄。",
     faq5Q: "用户如何管理钱包资料？",
     faq5A: "使用 Circle Google 钱包登录或连接外部钱包。设置中可在本机编辑钱包资料、用户名和头像。",
     faq6Q: "SwiftPay 使用什么网络和资产？",

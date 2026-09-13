@@ -11,6 +11,8 @@ const protectedRouteMatchers = [
   "/settings",
   "/swap",
   "/swiftBatch",
+  "/batchpay",
+  "/batchPay",
   "/swiftRecurepay",
 ];
 
@@ -49,6 +51,8 @@ export const config = {
     "/settings/:path*",
     "/swap/:path*",
     "/swiftBatch/:path*",
+    "/batchpay/:path*",
+    "/batchPay/:path*",
     "/swiftRecurepay/:path*",
   ],
 };

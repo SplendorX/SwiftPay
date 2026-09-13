@@ -1252,7 +1252,7 @@ export function SwiftCircleHub() {
                   {String(
                     (review.execution as { method?: string; recipientCount?: number } | undefined)
                       ?.method === "swiftbatch"
-                      ? `SwiftBatch · ${(review.execution as { recipientCount?: number }).recipientCount} recipients`
+                      ? `BatchPay · ${(review.execution as { recipientCount?: number }).recipientCount} recipients`
                       : "Single payment",
                   )}
                 </p>
@@ -1289,7 +1289,7 @@ export function SwiftCircleHub() {
                           !execution.callData ||
                           !execution.spender
                         ) {
-                          throw new Error("SwiftBatch payload is missing.");
+                          throw new Error("BatchPay payload is missing.");
                         }
                         if (chainId !== arcTestnet.id) {
                           await switchChainAsync({ chainId: arcTestnet.id });

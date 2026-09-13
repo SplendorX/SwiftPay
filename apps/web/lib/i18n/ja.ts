@@ -314,13 +314,13 @@ export const ja: Messages = {
       "ポートフォリオ価値、トークン残高、直接送金、受益者、レシート、ウォレット活動に使います。送金パネルはステップ形式の支払いフローです。",
     faq2Q: "どのページがありますか？",
     faq2A:
-      "SwiftPay にはダッシュボード、Swift+Save、運用、スワップ、SwiftBatch、RecurePay、支払いリクエスト、Circle、Docs、設定があります。主要フローはプロダクト欄から直接リンクされます。",
+      "SwiftPay にはダッシュボード、Swift+Save、運用、スワップ、BatchPay、RecurePay、支払いリクエスト、Circle、Docs、設定があります。主要フローはプロダクト欄から直接リンクされます。",
     faq3Q: "Swift+Save と運用の違いは？",
     faq3A:
       "Swift+Save は無利息の貯蓄ポケットと Spend&Save ルールを作ります。運用は別で、ボールト実績、収益の文脈、対応時の Auto-Save を表示します。",
     faq4Q: "リクエスト、一括、予定支払いはできますか？",
     faq4A:
-      "はい。リクエストはリンクと QR を作り、SwiftBatch は最大 500 人の CSV 支払い、RecurePay は定期予定、Circle はチャット、割り勘、貯蓄を共有します。",
+      "はい。リクエストはリンクと QR を作り、BatchPay は最大 500 人の CSV 支払い、RecurePay は定期予定、Circle はチャット、割り勘、貯蓄を共有します。",
     faq5Q: "ウォレットプロフィールはどう管理しますか？",
     faq5A: "Circle Google ウォレットでサインインするか、外部ウォレットを接続。設定で端末からプロフィール、ユーザー名、写真を編集できます。",
     faq6Q: "SwiftPay はどのネットワークと資産を使いますか？",

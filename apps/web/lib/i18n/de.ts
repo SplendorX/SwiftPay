@@ -355,13 +355,13 @@ export const de: Messages = {
       "Nutze das Dashboard für Portfoliowert, Token-Salden, Direktüberweisungen, Begünstigte, Belege und Aktivität. Das Senden ist als schrittweiser Zahlungsfluss organisiert.",
     faq2Q: "Welche Seiten gibt es?",
     faq2A:
-      "SwiftPay umfasst Dashboard, Swift+Save, Ertrag, Swap, SwiftBatch, RecurePay, Zahlungsanfragen, Circle, Docs und Einstellungen. Die Hauptabläufe sind direkt aus dem Produktbereich verlinkt.",
+      "SwiftPay umfasst Dashboard, Swift+Save, Ertrag, Swap, BatchPay, RecurePay, Zahlungsanfragen, Circle, Docs und Einstellungen. Die Hauptabläufe sind direkt aus dem Produktbereich verlinkt.",
     faq3Q: "Worin unterscheiden sich Swift+Save und Ertrag?",
     faq3A:
       "Swift+Save erstellt zinslose Sparfächer und Spend&Save-Regeln. Ertrag ist getrennt und zeigt Vault-Performance, Ertragskontext und Auto-Save, wo unterstützt.",
     faq4Q: "Kann ich anfordern, in Batches zahlen oder Zahlungen planen?",
     faq4A:
-      "Ja. Anfragen erzeugen Links und QR, SwiftBatch macht CSV-Auszahlungen bis 500 Empfänger, RecurePay verwaltet Zeitpläne, Circle teilt Chat, Splits und Sparen.",
+      "Ja. Anfragen erzeugen Links und QR, BatchPay macht CSV-Auszahlungen bis 500 Empfänger, RecurePay verwaltet Zeitpläne, Circle teilt Chat, Splits und Sparen.",
     faq5Q: "Wie verwalten Nutzer ihr Wallet-Profil?",
     faq5A:
       "Melde dich mit einer Circle-Google-Wallet an oder verbinde eine externe Wallet. In den Einstellungen lassen sich Profil, Nutzername und Foto auf dem Gerät bearbeiten.",

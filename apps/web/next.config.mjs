@@ -59,6 +59,14 @@ const nextConfig = {
 
     return config;
   },
+  async rewrites() {
+    return [
+      { source: "/batchpay", destination: "/swiftBatch" },
+      { source: "/batchpay/:path*", destination: "/swiftBatch/:path*" },
+      { source: "/batchPay", destination: "/swiftBatch" },
+      { source: "/batchPay/:path*", destination: "/swiftBatch/:path*" },
+    ];
+  },
 };
 
 export default nextConfig;

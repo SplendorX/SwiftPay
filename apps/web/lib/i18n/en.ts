@@ -356,13 +356,13 @@ export const en = {
       "Use the dashboard for portfolio value, token balances, direct sends, beneficiaries, transaction receipts, and wallet activity. The send panel is organized as a step-by-step payment flow.",
     faq2Q: "Which pages are available?",
     faq2A:
-      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, SwiftBatch, RecurePay, Payment requests, Circle, Docs, and Settings. The main product workflows are linked directly from the product section.",
+      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, BatchPay, RecurePay, Payment requests, Circle, Docs, and Settings. The main product workflows are linked directly from the product section.",
     faq3Q: "How are Swift+Save and Earn different?",
     faq3A:
       "Swift+Save creates non-interest savings pockets and Spend&Save rules. Earn is separate and shows vault performance, earnings context, and Auto-Save controls where supported.",
     faq4Q: "Can I request, batch, or schedule payments?",
     faq4A:
-      "Yes. Payment requests create links and QR codes, SwiftBatch handles CSV payouts up to 500 recipients, RecurePay manages recurring schedules, and Circle groups share chat, splits, and savings.",
+      "Yes. Payment requests create links and QR codes, BatchPay handles CSV payouts up to 500 recipients, RecurePay manages recurring schedules, and Circle groups share chat, splits, and savings.",
     faq5Q: "How do users manage their wallet profile?",
     faq5A:
       "Sign in with a Circle Google wallet or connect an external wallet. Settings lets users edit their wallet profile, username, and profile photo from their local device.",

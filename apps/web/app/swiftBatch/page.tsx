@@ -181,7 +181,7 @@ function getErrorMessage(error: unknown) {
  }
  }
 
- return "SwiftBatch transaction failed.";
+  return "BatchPay transaction failed.";
 }
 
 function formatTokenAmount(
@@ -640,7 +640,7 @@ export default function SwiftBatchPage() {
  function requireSwiftBatchAddress() {
  if (!configuredSwiftBatchAddress) {
  throw new Error(
- "SwiftBatch is not configured. Deploy SwiftBatch and set NEXT_PUBLIC_SWIFTBATCH_ADDRESS.",
+ "BatchPay is not configured. Deploy BatchPay and set NEXT_PUBLIC_SWIFTBATCH_ADDRESS.",
  );
  }
 
@@ -669,7 +669,7 @@ export default function SwiftBatchPage() {
  const allowance = await readAllowance(externalAddress, tokenAddress);
 
  if (allowance < requiredAmountUnits) {
- setStatus(`Approve ${selectedToken} for SwiftBatch`);
+ setStatus(`Approve ${selectedToken} for BatchPay`);
  const approvalHash = await writeContractAsync({
  address: tokenAddress,
  abi: erc20Abi,
@@ -685,7 +685,7 @@ export default function SwiftBatchPage() {
  await waitForAllowance(externalAddress, tokenAddress, requiredAmountUnits);
  }
 
- setStatus("Send SwiftBatch transaction");
+ setStatus("Send BatchPay transaction");
  const hash = await writeContractAsync({
  address: batchAddress,
  abi: swiftBatchAbi,
@@ -712,7 +712,7 @@ export default function SwiftBatchPage() {
  const allowance = await readAllowance(circleAddress, tokenAddress);
 
  if (allowance < requiredAmountUnits) {
- setStatus(`Approve ${selectedToken} for SwiftBatch`);
+ setStatus(`Approve ${selectedToken} for BatchPay`);
  await executeCircleContract({
  callData: encodeFunctionData({
  abi: erc20Abi,
@@ -721,12 +721,12 @@ export default function SwiftBatchPage() {
  }),
  contractAddress: tokenAddress,
  label: `Approve ${selectedToken}`,
- refId: `swiftbatch-approve-${selectedToken}-${Date.now()}`,
+ refId: `batchpay-approve-${selectedToken}-${Date.now()}`,
  });
  await waitForAllowance(circleAddress, tokenAddress, requiredAmountUnits);
  }
 
- setStatus("Create SwiftBatch transaction");
+ setStatus("Create BatchPay transaction");
  const result = await executeCircleContract({
  callData: encodeFunctionData({
  abi: swiftBatchAbi,
@@ -734,8 +734,8 @@ export default function SwiftBatchPage() {
  args: getBatchArgs(),
  }),
  contractAddress: batchAddress,
- label: "Send SwiftBatch",
- refId: `swiftbatch-send-${Date.now()}`,
+ label: "Send BatchPay",
+ refId: `batchpay-send-${Date.now()}`,
  });
 
  return result.txHash as Hash | undefined;
@@ -804,7 +804,7 @@ export default function SwiftBatchPage() {
  }
 
  if (recipients.length > swiftBatchMaxRecipients) {
- throw new Error(`SwiftBatch supports up to ${swiftBatchMaxRecipients} recipients.`);
+ throw new Error(`BatchPay supports up to ${swiftBatchMaxRecipients} recipients.`);
  }
 
  if (!walletAddress) {
@@ -816,7 +816,7 @@ export default function SwiftBatchPage() {
  }
 
  setIsPending(true);
- setStatus("Preparing SwiftBatch");
+ setStatus("Preparing BatchPay");
 
  const txHash = isEmbeddedWalletMode
  ? await executeCircleBatch()
@@ -835,7 +835,7 @@ export default function SwiftBatchPage() {
  await refreshBalances();
  } catch (submitError) {
  setError(getErrorMessage(submitError));
- setStatus("SwiftBatch failed");
+ setStatus("BatchPay failed");
  } finally {
  setIsPending(false);
  }
@@ -843,7 +843,7 @@ export default function SwiftBatchPage() {
 
  async function copyPreview() {
  const preview = [
- `SwiftBatch ${selectedToken}`,
+ `BatchPay ${selectedToken}`,
  `Recipients: ${recipients.length}`,
  `Payout total: ${formatTokenAmount(totalAmountUnits, selectedTokenInfo.decimals, selectedToken)}`,
  `Platform fee: ${formatTokenAmount(feeAmountUnits, selectedTokenInfo.decimals, selectedToken)}`,
@@ -851,7 +851,7 @@ export default function SwiftBatchPage() {
  ].join("\n");
 
  await navigator.clipboard.writeText(preview);
- setStatus("SwiftBatch preview copied");
+ setStatus("BatchPay preview copied");
  }
 
  async function downloadReceiptPng(receipt: BatchReceipt | null = batchReceipt) {
@@ -1351,7 +1351,7 @@ export default function SwiftBatchPage() {
  </>
  ) : (
  <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-5 text-sm font-semibold leading-6 text-muted-foreground">
- Successful SwiftBatch sends will generate a receipt here with totals,
+ Successful BatchPay sends will generate a receipt here with totals,
  fee, recipient highlights, and ArcScan context.
  </div>
  )}
@@ -1403,7 +1403,7 @@ export default function SwiftBatchPage() {
  <CheckCircle2 className="h-6 w-6" />
  </div>
  <div className="min-w-0">
- <p className="eyebrow">SwiftBatch complete</p>
+ <p className="eyebrow">BatchPay complete</p>
  <h2 className="mt-2 font-heading text-2xl font-semibold tracking-normal text-foreground">
  Transaction successful
  </h2>

@@ -314,13 +314,13 @@ export const ko: Messages = {
       "포트폴리오 가치, 토큰 잔액, 직접 송금, 수취인, 거래 영수증, 지갑 활동에 대시보드를 쓰세요. 보내기 패널은 단계별 결제 흐름입니다.",
     faq2Q: "어떤 페이지가 있나요?",
     faq2A:
-      "SwiftPay에는 대시보드, Swift+Save, 수익, 스왑, SwiftBatch, RecurePay, 결제 요청, Circle, Docs, 설정이 있습니다. 주요 제품 흐름은 제품 섹션에서 바로 연결됩니다.",
+      "SwiftPay에는 대시보드, Swift+Save, 수익, 스왑, BatchPay, RecurePay, 결제 요청, Circle, Docs, 설정이 있습니다. 주요 제품 흐름은 제품 섹션에서 바로 연결됩니다.",
     faq3Q: "Swift+Save와 수익은 어떻게 다른가요?",
     faq3A:
       "Swift+Save는 무이자 저축 포켓과 Spend&Save 규칙을 만듭니다. 수익은 별도이며 볼트 성과, 수익 맥락, 지원 시 Auto-Save를 보여 줍니다.",
     faq4Q: "요청, 일괄, 예약 결제를 할 수 있나요?",
     faq4A:
-      "네. 결제 요청은 링크와 QR을 만들고, SwiftBatch는 최대 500명 CSV 지급을 처리하고, RecurePay는 반복 일정을 관리하며, Circle은 채팅, 더치페이, 저축을 공유합니다.",
+      "네. 결제 요청은 링크와 QR을 만들고, BatchPay는 최대 500명 CSV 지급을 처리하고, RecurePay는 반복 일정을 관리하며, Circle은 채팅, 더치페이, 저축을 공유합니다.",
     faq5Q: "사용자는 지갑 프로필을 어떻게 관리하나요?",
     faq5A: "Circle Google 지갑으로 로그인하거나 외부 지갑을 연결하세요. 설정에서 기기에서 지갑 프로필, 사용자 이름, 사진을 수정할 수 있습니다.",
     faq6Q: "SwiftPay는 어떤 네트워크와 자산을 쓰나요?",

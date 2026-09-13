@@ -355,13 +355,13 @@ export const pt: Messages = {
       "Use o painel para o valor da carteira, saldos de tokens, envios diretos, beneficiários, recibos e atividade. O envio está organizado como um fluxo de pagamento por passos.",
     faq2Q: "Que páginas estão disponíveis?",
     faq2A:
-      "O SwiftPay inclui Painel, Swift+Save, Rendimento, Swap, SwiftBatch, RecurePay, pedidos de pagamento, Circle, Docs e Definições. Os fluxos principais estão ligados na secção de produto.",
+      "O SwiftPay inclui Painel, Swift+Save, Rendimento, Swap, BatchPay, RecurePay, pedidos de pagamento, Circle, Docs e Definições. Os fluxos principais estão ligados na secção de produto.",
     faq3Q: "Qual é a diferença entre Swift+Save e Rendimento?",
     faq3A:
       "O Swift+Save cria bolsos de poupança sem juros e regras Spend&Save. O Rendimento é separado e mostra o vault, os ganhos e o Auto-Save quando suportado.",
     faq4Q: "Posso pedir, pagar em lote ou agendar pagamentos?",
     faq4A:
-      "Sim. Os pedidos criam links e QR, o SwiftBatch trata pagamentos CSV até 500 destinatários, o RecurePay gere agendamentos e o Circle partilha chat, divisões e poupança.",
+      "Sim. Os pedidos criam links e QR, o BatchPay trata pagamentos CSV até 500 destinatários, o RecurePay gere agendamentos e o Circle partilha chat, divisões e poupança.",
     faq5Q: "Como se gere o perfil da carteira?",
     faq5A:
       "Inicie sessão com uma carteira Circle Google ou ligue uma carteira externa. Nas Definições edita o perfil, o utilizador e a foto no dispositivo.",
