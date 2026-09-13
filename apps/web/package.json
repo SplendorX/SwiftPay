@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:turbo": "next dev --turbopack",
+    "dev:webpack": "next dev --webpack",
     "dev:clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; try { rmSync('.next', { recursive: true, force: true }); } catch {}\" && next dev --turbopack",
     "build": "next build",
     "start": "next start",
