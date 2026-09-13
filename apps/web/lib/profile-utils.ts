@@ -1,3 +1,5 @@
+import { getAddress, isAddress } from "viem";
+
 const usernamePattern = /^[a-z][a-z0-9_]{2,19}$/;
 
 const reservedUsernames = new Set([
@@ -72,6 +74,10 @@ export function parseRecipientInput(value: string): ParsedRecipientInput {
 
   if (!trimmed) {
     return { kind: "empty" };
+  }
+
+  if (isAddress(trimmed)) {
+    return { kind: "address", address: getAddress(trimmed).toLowerCase() };
   }
 
   if (trimmed.startsWith("0x") || trimmed.startsWith("0X")) {

@@ -59,7 +59,6 @@ export function AppFrame({ children, subtitle, title }: AppFrameProps) {
 
       <div className={cn("app-main min-w-0 w-full", isCircleRoom && "app-main-circle-room")}>
         <div className={cn("app-page-title", isCircleRoom && "app-page-title-circle-room")}>
-          <p className="app-page-kicker">SwiftPay</p>
           <h1 className="font-heading">{title}</h1>
           {subtitle ? (
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">

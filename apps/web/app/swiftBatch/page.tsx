@@ -7,20 +7,20 @@ import {
  Copy,
  Download,
  ExternalLink,
+ FileUp,
  Loader2,
- Plus,
  ReceiptText,
+ RefreshCw,
  Send,
  Share2,
  ShieldCheck,
  Trash2,
- Upload,
  Users,
  Wallet,
  X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
  createPublicClient,
  encodeFunctionData,
@@ -41,6 +41,11 @@ import {
  useWriteContract,
 } from "wagmi";
 
+import {
+ BatchPeopleComposer,
+ type BatchComposerResult,
+ type BatchPeopleComposerHandle,
+} from "@/components/batch/batch-people-composer";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { useT } from "@/components/locale-provider";
 import { CircleFaucetLink } from "@/components/circle-faucet-link";
@@ -80,6 +85,7 @@ type BatchRecipient = {
  amountUnits: bigint;
  label?: string;
  line: number;
+ username?: string;
 };
 
 type BatchReceipt = {
@@ -128,10 +134,6 @@ type CircleChallengeResult = {
  txHash?: string;
 };
 
-const sampleRecipients = [
- "0xA71CE15C5A0F4B9d7217B8A7A2E6d9D3F55A9cE1, 1.25, Operations",
- "0x43d3ec372cb6fc158d7bc78377042d01d3a3b790, 2.00, Contractor",
-].join("\n");
 const zeroAmount = BigInt(0);
 const feeBasisPointsDenominator = BigInt(10_000);
 const feeBasisPoints = BigInt(swiftBatchFeeBasisPoints);
@@ -308,123 +310,6 @@ async function downloadBatchReceiptImage(receipt: BatchReceipt) {
  downloadPngBlob(blob, batchReceiptFileName(receipt));
 }
 
-function parseRecipientRows(input: string, token: ArcTokenSymbol) {
- const decimals = arcTestnetTokens[token].decimals;
- const recipients: BatchRecipient[] = [];
- const errors: string[] = [];
-
- input
- .split(/\r?\n/)
- .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
- .filter(({ line }) => line.length > 0)
- .forEach(({ line, lineNumber }) => {
- const parts = line.includes(",")
- ? line.split(",").map((part) => part.trim())
- : line.split(/\s+/).map((part) => part.trim());
- const [rawAddress, rawAmount, ...labelParts] = parts;
-
- if (!rawAddress || !rawAmount) {
- errors.push(`Line ${lineNumber}: address and amount are required.`);
- return;
- }
-
- if (!isAddress(rawAddress)) {
- errors.push(`Line ${lineNumber}: invalid recipient address.`);
- return;
- }
-
- let amountUnits: bigint;
-
- try {
- amountUnits = parseUnits(rawAmount, decimals);
- } catch {
- errors.push(`Line ${lineNumber}: invalid amount.`);
- return;
- }
-
- if (amountUnits <= zeroAmount) {
- errors.push(`Line ${lineNumber}: amount must be greater than zero.`);
- return;
- }
-
- recipients.push({
- address: getAddress(rawAddress) as Address,
- amount: rawAmount,
- amountUnits,
- label: labelParts.join(", ").trim() || undefined,
- line: lineNumber,
- });
- });
-
- if (recipients.length > swiftBatchMaxRecipients) {
- errors.push(`SwiftBatch supports up to ${swiftBatchMaxRecipients} recipients.`);
- }
-
- return { errors, recipients };
-}
-
-function parseCsvLine(line: string) {
- const values: string[] = [];
- let current = "";
- let inQuotes = false;
-
- for (let index = 0; index < line.length; index += 1) {
- const char = line[index];
-
- if (char === '"') {
- if (inQuotes && line[index + 1] === '"') {
- current += '"';
- index += 1;
- } else {
- inQuotes = !inQuotes;
- }
- continue;
- }
-
- if (char === "," && !inQuotes) {
- values.push(current.trim());
- current = "";
- continue;
- }
-
- current += char;
- }
-
- values.push(current.trim());
- return values;
-}
-
-function csvToRecipientText(csv: string) {
- const lines = csv
- .split(/\r?\n/)
- .map((line) => line.trim())
- .filter(Boolean);
- const rows: string[] = [];
-
- lines.forEach((line, index) => {
- const columns = parseCsvLine(line);
-
- if (columns.length < 2) {
- return;
- }
-
- const [address, amount, ...labelParts] = columns;
- const looksLikeHeader =
- index === 0 &&
- /address|wallet|recipient/i.test(address) &&
- /amount|value|sum/i.test(amount);
-
- if (looksLikeHeader) {
- return;
- }
-
- const label = labelParts.join(", ").trim();
- rows.push(label ? `${address}, ${amount}, ${label}` : `${address}, ${amount}`);
- });
-
- return rows.join("\n");
-}
-
 function getCircleChallengeId(challenge: CircleContractChallenge) {
  return (
  challenge.challengeId ??
@@ -441,7 +326,8 @@ function getCircleTransactionHash(value: CircleContractChallenge | CircleChallen
 export default function SwiftBatchPage() {
  const t = useT();
  const circleSdkRef = useRef<W3SSdk | null>(null);
- const csvInputRef = useRef<HTMLInputElement | null>(null);
+ const composerRef = useRef<BatchPeopleComposerHandle | null>(null);
+ const fileInputRef = useRef<HTMLInputElement | null>(null);
  const { address: externalAddress, isConnected } = useAccount();
  const chainId = useChainId();
  const { switchChainAsync } = useSwitchChain();
@@ -455,20 +341,22 @@ export default function SwiftBatchPage() {
  [],
  );
  const [selectedToken, setSelectedToken] = useState<ArcTokenSymbol>("USDC");
- const [recipientText, setRecipientText] = useState(sampleRecipients);
  const [status, setStatus] = useState("Ready");
+ const [composer, setComposer] = useState<BatchComposerResult>({
+ errors: [],
+ recipients: [],
+ resolving: false,
+ });
  const [error, setError] = useState<string | null>(null);
  const [explorerUrl, setExplorerUrl] = useState("");
  const [isPending, setIsPending] = useState(false);
- const [csvFileName, setCsvFileName] = useState<string | null>(null);
  const [batchReceipt, setBatchReceipt] = useState<BatchReceipt | null>(null);
  const [successOpen, setSuccessOpen] = useState(false);
  const selectedTokenInfo = arcTestnetTokens[selectedToken];
- const parsedBatch = useMemo(
- () => parseRecipientRows(recipientText, selectedToken),
- [recipientText, selectedToken],
- );
- const recipients = parsedBatch.recipients;
+ const handleComposerChange = useCallback((next: BatchComposerResult) => {
+ setComposer(next);
+ }, []);
+ const recipients = composer.recipients as BatchRecipient[];
  const totalAmountUnits = useMemo(
  () =>
  recipients.reduce(
@@ -536,7 +424,8 @@ export default function SwiftBatchPage() {
  walletAddress &&
  recipients.length > 0 &&
  recipients.length <= swiftBatchMaxRecipients &&
- parsedBatch.errors.length === 0 &&
+ composer.errors.length === 0 &&
+ !composer.resolving &&
  requiredAmountUnits > zeroAmount &&
  hasEnoughBalance &&
  !isPending,
@@ -880,7 +769,9 @@ export default function SwiftBatchPage() {
  recipients: recipients.map((recipient) => ({
  address: recipient.address,
  amount: recipient.amount,
- label: recipient.label,
+ label: recipient.username
+ ? `@${recipient.username}${recipient.label ? ` · ${recipient.label}` : ""}`
+ : recipient.label,
  line: recipient.line,
  })),
  requiredApproval: formatTokenAmount(
@@ -901,8 +792,12 @@ export default function SwiftBatchPage() {
  setSuccessOpen(false);
 
  try {
- if (parsedBatch.errors.length > 0) {
- throw new Error(parsedBatch.errors[0]);
+ if (composer.resolving) {
+ throw new Error("Wait for usernames to resolve before sending.");
+ }
+
+ if (composer.errors.length > 0) {
+ throw new Error(composer.errors[0]);
  }
 
  if (recipients.length === 0) {
@@ -945,56 +840,6 @@ export default function SwiftBatchPage() {
  } finally {
  setIsPending(false);
  }
- }
-
- function addRecipientRow() {
- setRecipientText((current) =>
- `${current.trim()}\n0x0000000000000000000000000000000000000000, 1.00`.trim(),
- );
- }
-
- function handleCsvUpload(event: ChangeEvent<HTMLInputElement>) {
- const file = event.target.files?.[0];
-
- if (!file) {
- return;
- }
-
- if (!file.name.toLowerCase().endsWith(".csv")) {
- setError("Upload a .csv file with address, amount, and optional label columns.");
- event.target.value = "";
- return;
- }
-
- const reader = new FileReader();
-
- reader.onload = () => {
- const csv = typeof reader.result === "string" ? reader.result : "";
-
- if (!csv.trim()) {
- setError("The CSV file is empty.");
- return;
- }
-
- const nextText = csvToRecipientText(csv);
-
- if (!nextText.trim()) {
- setError("No valid recipient rows were found in the CSV file.");
- return;
- }
-
- setRecipientText(nextText);
- setCsvFileName(file.name);
- setError(null);
- setStatus(`Loaded ${file.name}`);
- };
-
- reader.onerror = () => {
- setError("Could not read the CSV file. Try again.");
- };
-
- reader.readAsText(file);
- event.target.value = "";
  }
 
  async function copyPreview() {
@@ -1054,6 +899,21 @@ export default function SwiftBatchPage() {
  : "Batch receipt could not be shared.",
  );
  }
+ }
+
+ function handleCsvUpload(event: React.ChangeEvent<HTMLInputElement>) {
+ const file = event.target.files?.[0];
+ if (!file) return;
+ const reader = new FileReader();
+ reader.onload = (e) => {
+ const text = e.target?.result;
+ if (typeof text !== "string") return;
+ const count = composerRef.current?.importText(text) ?? 0;
+ setStatus(count > 0 ? `Imported ${count} recipient${count > 1 ? "s" : ""} from CSV` : "No valid rows found in CSV");
+ };
+ reader.readAsText(file);
+ // Reset the input so re-uploading the same file triggers onChange
+ event.target.value = "";
  }
 
  function handleCircleSessionCleared() {
@@ -1118,80 +978,41 @@ export default function SwiftBatchPage() {
 
  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
  <section className="surface-panel p-4 sm:p-5">
- <div className="flex flex-wrap items-center justify-between gap-3">
- <div>
- <p className="eyebrow">Recipients</p>
- <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground">
- Batch list
- </h2>
- </div>
- <div className="flex flex-wrap gap-2">
  <input
- accept=".csv,text/csv"
- className="hidden"
- onChange={handleCsvUpload}
- ref={csvInputRef}
- type="file"
+  accept=".csv,.txt"
+  className="hidden"
+  onChange={handleCsvUpload}
+  ref={fileInputRef}
+  type="file"
  />
- <button
- className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-primary px-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0"
- onClick={() => csvInputRef.current?.click()}
- type="button"
- >
- <Upload className="h-4 w-4" />
- Upload CSV
- </button>
- <button
- className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
- onClick={() => setRecipientText(sampleRecipients)}
- type="button"
- >
- Sample
- </button>
- <button
- className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
- onClick={addRecipientRow}
- type="button"
- >
- <Plus className="h-4 w-4" />
- Add row
- </button>
- <button
- className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-bold text-rose-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-100 active:translate-y-0"
- onClick={() => {
- setRecipientText("");
- setCsvFileName(null);
- }}
- type="button"
- >
- <Trash2 className="h-4 w-4" />
- Clear
- </button>
- </div>
- </div>
 
- <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
- <label className="grid gap-2">
- <div className="flex flex-wrap items-center justify-between gap-2">
- <span className="text-sm font-black text-foreground">
- Recipient rows
- </span>
- {csvFileName ? (
- <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
- {csvFileName}
- </span>
- ) : null}
- </div>
- <p className="text-xs text-muted-foreground">
- Upload a CSV with columns: address, amount, label (optional). You can still edit rows below.
- </p>
- <textarea
- className="field-shell min-h-[22rem] resize-y px-3 py-3 font-mono text-sm font-semibold text-foreground outline-none"
- onChange={(event) => setRecipientText(event.target.value)}
- placeholder="address, amount, label"
- value={recipientText}
+ <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+ <BatchPeopleComposer
+  actions={
+   <>
+    <button
+     className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
+     onClick={() => fileInputRef.current?.click()}
+     type="button"
+    >
+     <FileUp className="h-4 w-4" />
+     CSV
+    </button>
+    <button
+     className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-bold text-rose-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-100 active:translate-y-0"
+     onClick={() => composerRef.current?.clear()}
+     type="button"
+    >
+     <Trash2 className="h-4 w-4" />
+     Clear
+    </button>
+   </>
+  }
+  maxRecipients={swiftBatchMaxRecipients}
+  onResolvedChange={handleComposerChange}
+  ref={composerRef}
+  token={selectedToken}
  />
- </label>
 
  <div className="grid content-start gap-3">
  <TokenSelect
@@ -1216,7 +1037,7 @@ export default function SwiftBatchPage() {
 
  <div className="surface-card grid gap-2 p-3 text-sm">
  <div className="flex items-center justify-between gap-2">
- <span className="font-bold text-muted-foreground">Parsed</span>
+ <span className="font-bold text-muted-foreground">Ready</span>
  <span className="font-black text-foreground">
  {recipients.length}
  </span>
@@ -1237,18 +1058,18 @@ export default function SwiftBatchPage() {
  </div>
  </div>
 
- {parsedBatch.errors.length > 0 ? (
+ {composer.errors.length > 0 ? (
  <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-bold text-rose-700">
  <div className="flex items-start gap-2">
  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
  <div className="min-w-0">
- {parsedBatch.errors.slice(0, 4).map((rowError) => (
+ {composer.errors.slice(0, 4).map((rowError) => (
  <p className="break-words" key={rowError}>
  {rowError}
  </p>
  ))}
- {parsedBatch.errors.length > 4 ? (
- <p>{parsedBatch.errors.length - 4} more issue(s)</p>
+ {composer.errors.length > 4 ? (
+ <p>{composer.errors.length - 4} more issue(s)</p>
  ) : null}
  </div>
  </div>
@@ -1258,8 +1079,8 @@ export default function SwiftBatchPage() {
  {recipients.length > 0 ? (
  <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
  <div className="grid grid-cols-[4rem_minmax(0,1fr)_8rem] gap-3 border-b border-border px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
- <span>Line</span>
- <span>Recipient</span>
+ <span>#</span>
+ <span>Person</span>
  <span className="text-right">Amount</span>
  </div>
  <div className="max-h-72 overflow-y-auto">
@@ -1272,14 +1093,12 @@ export default function SwiftBatchPage() {
  {recipient.line}
  </span>
  <div className="min-w-0">
- <p className="truncate font-mono text-xs font-black text-foreground">
- {recipient.address}
+ <p className="truncate text-sm font-black text-foreground">
+ {recipient.username ? `@${recipient.username}` : recipient.address}
  </p>
- {recipient.label ? (
- <p className="mt-1 truncate text-xs font-bold text-muted-foreground">
- {recipient.label}
+ <p className="mt-1 truncate font-mono text-[11px] font-bold text-muted-foreground">
+ {recipient.username ? recipient.address : recipient.label}
  </p>
- ) : null}
  </div>
  <span className="text-right font-black text-foreground">
  {recipient.amount}
@@ -1383,7 +1202,7 @@ export default function SwiftBatchPage() {
  ) : (
  <Send className="h-4 w-4" />
  )}
- {isPending ? "Processing" : "Send SwiftBatch"}
+ {isPending ? "Processing" : composer.resolving ? "Resolving people" : "Send BatchPay"}
  </button>
 
  <div className="mt-4 rounded-lg border border-border bg-card px-3 py-3">
@@ -1572,7 +1391,7 @@ export default function SwiftBatchPage() {
  onClick={() => void refreshBalances()}
  type="button"
  >
- <Upload className="h-4 w-4" />
+ <RefreshCw className="h-4 w-4" />
  Refresh balances
  </button>
  </section>
