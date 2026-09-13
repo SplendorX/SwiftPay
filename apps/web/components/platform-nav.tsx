@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Banknote,
   Briefcase,
   CalendarClock,
   FileText,
@@ -38,6 +39,12 @@ export const platformNavItems = [
     href: "/business/invoices",
     label: "Invoices",
     icon: FileText,
+    businessOnly: true,
+  },
+  {
+    href: "/business/payroll",
+    label: "Payroll",
+    icon: Banknote,
     businessOnly: true,
   },
   { href: "/pay", label: "Request", icon: Send },

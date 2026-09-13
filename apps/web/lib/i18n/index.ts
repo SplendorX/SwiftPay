@@ -92,6 +92,9 @@ export function pageCopyForPath(pathname: string): PageCopy | null {
       subtitle: "pages.businessProfileSubtitle",
     };
   }
+  if (pathname.startsWith("/business/payroll")) {
+    return { title: "pages.payrollTitle", subtitle: "pages.payrollSubtitle" };
+  }
   if (pathname === "/business" || pathname.startsWith("/business/")) {
     return { title: "pages.overviewTitle", subtitle: "pages.overviewSubtitle" };
   }
@@ -139,6 +142,7 @@ export const navLabelKeys = {
   "/dashboard": "nav.dashboard",
   "/business": "nav.overview",
   "/business/invoices": "nav.invoices",
+  "/business/payroll": "nav.payroll",
   "/pay": "nav.request",
   "/swap": "nav.swap",
   "/swiftCircle": "nav.circle",

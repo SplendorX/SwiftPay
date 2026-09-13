@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { fetchBusinessOverview } from "@/lib/account/client";
 import { formatMoney, profileCompletionPercent } from "@/lib/account/money";
 import type { InvoiceRecord, InvoiceSummary } from "@/lib/account/types";
+import { fetchPayrollDashboard } from "@/lib/payroll/client";
+import type { PayrollDashboardSummary } from "@/lib/payroll/types";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 
 function formatStatus(status: string) {
@@ -21,6 +23,7 @@ export function BusinessOverview() {
   const { address, isConnected } = usePlatformWallet();
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
+  const [payrollSummary, setPayrollSummary] = useState<PayrollDashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,6 +36,10 @@ export function BusinessOverview() {
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : "Could not load overview."),
       );
+
+    void fetchPayrollDashboard(ownerWallet)
+      .then(setPayrollSummary)
+      .catch(() => undefined);
   }, [ownerWallet]);
 
   if (account && account.account_type !== "BUSINESS") {
@@ -93,6 +100,61 @@ export function BusinessOverview() {
         <Metric label="Paid invoices" value={formatMoney(summary?.paid ?? 0)} />
         <Metric label="Outstanding" value={formatMoney((summary?.pending ?? 0) + (summary?.overdue ?? 0))} />
       </div>
+
+      <section className="section-panel p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Team Payroll
+              </span>
+              {payrollSummary?.activeTeamMembersCount ? (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                  {payrollSummary.activeTeamMembersCount} active
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-1 font-heading text-xl">Payroll Overview</h3>
+          </div>
+          <Button asChild size="sm">
+            <Link href="/business/payroll">Open Payroll</Link>
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-xs text-muted-foreground">Upcoming Payroll</p>
+            <p className="mt-1 font-heading text-lg">
+              {payrollSummary?.nextPayrollAmount
+                ? `${payrollSummary.nextPayrollAmount} USDC`
+                : "None scheduled"}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-xs text-muted-foreground">Next Date</p>
+            <p className="mt-1 font-heading text-lg">
+              {payrollSummary?.nextPayrollDate
+                ? new Date(payrollSummary.nextPayrollDate).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "No date set"}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-xs text-muted-foreground">Last Payroll</p>
+            <p className="mt-1 font-heading text-lg capitalize">
+              {payrollSummary?.lastPayrollStatus
+                ? `${payrollSummary.lastPayrollStatus.toLowerCase().replace(/_/g, " ")}${
+                    payrollSummary.lastPayrollAmount
+                      ? ` (${payrollSummary.lastPayrollAmount} USDC)`
+                      : ""
+                  }`
+                : "No prior runs"}
+            </p>
+          </div>
+        </div>
+      </section>
 
       <section className="section-panel p-5">
         <div className="mb-4 flex items-center justify-between">

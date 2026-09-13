@@ -16,6 +16,7 @@ import type { AccountRecord, BusinessAccountProfile } from "@/lib/account/types"
 
 type AccountContextValue = {
   account: AccountRecord | null;
+  circleSocialUuid?: string;
   isBusiness: boolean;
   loading: boolean;
   ownerWallet: string | null;
@@ -58,13 +59,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       account,
+      circleSocialUuid,
       isBusiness: account?.account_type === "BUSINESS",
       loading,
       ownerWallet,
       profile,
       refresh,
     }),
-    [account, loading, ownerWallet, profile, refresh],
+    [account, circleSocialUuid, loading, ownerWallet, profile, refresh],
   );
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;

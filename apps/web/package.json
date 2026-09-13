@@ -10,10 +10,11 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "pnpm run typecheck && pnpm run test:save && pnpm run test:recurring && pnpm run test:circle",
+    "test": "pnpm run typecheck && pnpm run test:save && pnpm run test:recurring && pnpm run test:circle && pnpm run test:payroll",
     "test:save": "node --test lib/save/__tests__/decimal-target.test.mjs lib/save/__tests__/security-integration.test.mjs lib/save/__tests__/lock.test.mjs",
     "test:recurring": "node --test lib/recurring/__tests__/autonomous-autopay.test.mjs",
-    "test:circle": "node --test lib/swift-circle/__tests__/swift-circle.test.mjs"
+    "test:circle": "node --test lib/swift-circle/__tests__/swift-circle.test.mjs",
+    "test:payroll": "node --test lib/payroll/__tests__/payroll.test.mjs"
   },
   "dependencies": {
     "@circle-fin/adapter-circle-wallets": "^1.3.0",
