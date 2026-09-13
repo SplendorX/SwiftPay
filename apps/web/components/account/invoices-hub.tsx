@@ -4,16 +4,19 @@ import {
   Copy,
   Eye,
   Link2,
+  Loader2,
   Plus,
   Share2,
   Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { InvoiceDocument } from "@/components/account/invoice-document";
 import { useT } from "@/components/locale-provider";
 import { useAccountContext } from "@/components/account/account-provider";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StyledSelect } from "@/components/ui/styled-select";
@@ -57,14 +60,33 @@ function invoiceLink(invoice: InvoiceRecord) {
 
 export function InvoicesHub() {
   const t = useT();
-  const { isBusiness, ownerWallet, profile, account } = useAccountContext();
+  const {
+    account,
+    circleSocialUuid: accountSocialUuid,
+    isBusiness,
+    loading: accountLoading,
+    ownerWallet,
+    profile,
+  } = useAccountContext();
+  const {
+    address,
+    circleSocialUuid: walletSocialUuid,
+    isBusinessWorkspace,
+  } = usePlatformWallet();
+
+  const effectiveSocialUuid = accountSocialUuid || walletSocialUuid;
+  const activeWallet = (ownerWallet || address)?.toLowerCase() ?? null;
+  const isBusinessAccount =
+    isBusiness || isBusinessWorkspace || account?.account_type === "BUSINESS";
+
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false);
   const [step, setStep] = useState(0);
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [issueDate, setIssueDate] = useState(todayIso);
+  const [issueDate, setIssueDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState("");
   const [currency, setCurrency] = useState<BusinessAsset>("USDC");
   const [notes, setNotes] = useState("");
@@ -79,24 +101,46 @@ export function InvoicesHub() {
   const totals = useMemo(() => previewInvoiceTotals(items), [items]);
 
   async function load() {
-    if (!ownerWallet) return;
-    const payload = await fetchInvoices(ownerWallet);
-    setInvoices(payload.invoices);
+    if (!activeWallet) {
+      setLoadingInvoices(false);
+      return;
+    }
+    setLoadingInvoices(true);
+    try {
+      const payload = await fetchInvoices(activeWallet, 1, effectiveSocialUuid);
+      setInvoices(payload.invoices);
+      setError(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not load invoices.");
+    } finally {
+      setLoadingInvoices(false);
+    }
   }
 
   useEffect(() => {
-    void load().catch((err: unknown) =>
-      setError(err instanceof Error ? err.message : "Could not load invoices."),
-    );
-  }, [ownerWallet]);
+    if (activeWallet) {
+      void load();
+    }
+  }, [activeWallet, effectiveSocialUuid]);
 
-  if (!isBusiness) {
+  if (accountLoading && !account) {
+    return (
+      <div className="section-panel flex items-center justify-center p-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!accountLoading && !isBusinessAccount) {
     return (
       <div className="section-panel p-8">
         <h2 className="font-heading text-2xl">{t("business.invoices")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Only Business accounts can create invoices.
         </p>
+        <Button asChild className="mt-5">
+          <Link href="/settings#account-type">Upgrade to Business</Link>
+        </Button>
       </div>
     );
   }
@@ -117,24 +161,28 @@ export function InvoicesHub() {
   }
 
   async function create() {
-    if (!ownerWallet) return;
+    if (!activeWallet) return;
     setBusy(true);
     setError(null);
     try {
-      const created = await createInvoiceClient(ownerWallet, {
-        allowPartialPayment: allowPartial,
-        currency,
-        customerEmail,
-        customerName,
-        customerUsername: customerUsername.replace(/^@+/, ""),
-        dueDate,
-        invoiceNumber,
-        issueDate,
-        items: items.filter((item) => item.description.trim() && item.unitPrice),
-        notes,
-        origin: window.location.origin,
-        paymentTerms,
-      });
+      const created = await createInvoiceClient(
+        activeWallet,
+        {
+          allowPartialPayment: allowPartial,
+          currency,
+          customerEmail,
+          customerName,
+          customerUsername: customerUsername.replace(/^@+/, ""),
+          dueDate,
+          invoiceNumber,
+          issueDate,
+          items: items.filter((item) => item.description.trim() && item.unitPrice),
+          notes,
+          origin: window.location.origin,
+          paymentTerms,
+        },
+        effectiveSocialUuid,
+      );
       toast.success(
         created.invoice.customer_username
           ? `${created.invoice.invoice_number} sent to @${created.invoice.customer_username}`
@@ -152,9 +200,13 @@ export function InvoicesHub() {
 
   async function copyLink(invoice: InvoiceRecord) {
     let next = invoice;
-    if (invoice.status === "DRAFT" && ownerWallet) {
+    if (invoice.status === "DRAFT" && activeWallet) {
       try {
-        const sent = await sendInvoiceClient(ownerWallet, invoice.id);
+        const sent = await sendInvoiceClient(
+          activeWallet,
+          invoice.id,
+          effectiveSocialUuid,
+        );
         next = sent.invoice;
         await load();
       } catch {
@@ -196,6 +248,19 @@ export function InvoicesHub() {
           Create invoice
         </Button>
       </div>
+
+      {error && !creating ? (
+        <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          <span>{error}</span>
+          <button
+            className="text-xs font-semibold hover:underline"
+            onClick={() => setError(null)}
+            type="button"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       {creating ? (
         <section className="section-panel space-y-6 p-5 sm:p-6">
@@ -532,7 +597,12 @@ export function InvoicesHub() {
       ) : null}
 
       <section className="section-panel p-5">
-        {invoices.length === 0 ? (
+        {loadingInvoices && invoices.length === 0 ? (
+          <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading invoices…
+          </div>
+        ) : invoices.length === 0 ? (
           <div>
             <p className="font-medium">Create your first invoice</p>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -595,11 +665,15 @@ export function InvoicesHub() {
                           <Share2 className="h-3.5 w-3.5" />
                           Share
                         </button>
-                        {ownerWallet ? (
+                        {activeWallet ? (
                           <button
                             className="inline-flex items-center gap-1 text-xs font-semibold"
                             onClick={() =>
-                              void fetchInvoice(ownerWallet, invoice.id)
+                              void fetchInvoice(
+                                activeWallet,
+                                invoice.id,
+                                effectiveSocialUuid,
+                              )
                                 .then((payload) => setPreview(payload.invoice))
                                 .catch((err: unknown) =>
                                   setError(
@@ -613,11 +687,15 @@ export function InvoicesHub() {
                             Preview
                           </button>
                         ) : null}
-                        {invoice.status === "DRAFT" && ownerWallet ? (
+                        {invoice.status === "DRAFT" && activeWallet ? (
                           <button
                             className="inline-flex items-center gap-1 text-xs font-semibold"
                             onClick={() =>
-                              void sendInvoiceClient(ownerWallet, invoice.id)
+                              void sendInvoiceClient(
+                                activeWallet,
+                                invoice.id,
+                                effectiveSocialUuid,
+                              )
                                 .then(async () => {
                                   toast.success(
                                     invoice.customer_username
@@ -638,11 +716,15 @@ export function InvoicesHub() {
                         ) : null}
                         {invoice.status !== "PAID" &&
                         invoice.status !== "CANCELLED" &&
-                        ownerWallet ? (
+                        activeWallet ? (
                           <button
                             className="text-xs text-destructive"
                             onClick={() =>
-                              void cancelInvoiceClient(ownerWallet, invoice.id).then(load)
+                              void cancelInvoiceClient(
+                                activeWallet,
+                                invoice.id,
+                                effectiveSocialUuid,
+                              ).then(load)
                             }
                             type="button"
                           >
