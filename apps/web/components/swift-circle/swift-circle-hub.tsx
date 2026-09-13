@@ -55,7 +55,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StyledSelect } from "@/components/ui/styled-select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   callCircleWalletApi,
   getCircleLoginIdentity,
@@ -876,8 +876,7 @@ export function SwiftCircleHub() {
         onValueChange={setTab}
         value={tab}
       >
-        <div className="sc-chip-nav-wrap">
-        <div className="sc-chip-nav">
+        <div className="sc-chip-nav" role="tablist">
           {(
             [
               ["chat", "Chat", MessageCircle],
@@ -891,10 +890,12 @@ export function SwiftCircleHub() {
             ] as const
           ).map(([value, label, Icon]) => (
             <button
+              aria-selected={tab === value}
               className="sc-chip"
               data-active={tab === value}
               key={value}
               onClick={() => setTab(value)}
+              role="tab"
               type="button"
             >
               <Icon className="h-3.5 w-3.5" />
@@ -902,17 +903,6 @@ export function SwiftCircleHub() {
             </button>
           ))}
         </div>
-        </div>
-        <TabsList className="sr-only">
-          <TabsTrigger value="home">Room</TabsTrigger>
-          <TabsTrigger value="chat">Circle Chat</TabsTrigger>
-          <TabsTrigger value="pay">Circle Pay</TabsTrigger>
-          <TabsTrigger value="requests">Circle Requests</TabsTrigger>
-          <TabsTrigger value="save">Circle Save</TabsTrigger>
-          <TabsTrigger value="members">People</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
 
         <TabsContent className="mt-4" value="home">
           <div className="sc-room-grid">

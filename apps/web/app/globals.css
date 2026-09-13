@@ -2507,21 +2507,6 @@ select:focus {
   flex-direction: column;
 }
 
-.sc-chip-nav-wrap {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.sc-chip-nav-wrap::-webkit-scrollbar {
-  display: none;
-}
-
 .sc-tab-chat {
   width: 100%;
   min-width: 0;
@@ -2548,10 +2533,10 @@ select:focus {
   }
 
   .sc-chip-nav {
-    width: max-content;
-    max-width: none;
-    flex-shrink: 0;
-    touch-action: pan-x;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
   }
 
   .sc-chip {
@@ -3801,8 +3786,10 @@ html[data-theme="dark"] .earn-balance-earned {
 
 .sc-chip-nav {
   display: flex;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
   gap: 0.4rem;
   padding: 0.15rem;
 }
@@ -3838,6 +3825,9 @@ html[data-theme="dark"] .earn-balance-earned {
 .sc-chat {
   display: grid;
   grid-template-rows: 1fr auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 28rem;
   max-height: min(70vh, 640px);
   overflow: hidden;
@@ -3947,6 +3937,7 @@ html[data-theme="dark"] .earn-balance-earned {
 .sc-money-card {
   align-self: center;
   width: min(100%, 22rem);
+  max-width: 100%;
   margin: 0.45rem auto;
   border: 1px solid color-mix(in oklch, var(--primary) 22%, var(--border));
   border-radius: 1.1rem;
