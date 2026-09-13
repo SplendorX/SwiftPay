@@ -514,7 +514,7 @@ export function ProfileMenu({
 
       {open ? (
         <div
-          className="fixed left-2 right-2 top-20 z-[100] max-h-[calc(100vh-6rem)] w-auto overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg sm:left-auto sm:right-4 sm:w-[min(22rem,calc(100vw-2rem))] lg:absolute lg:right-0 lg:top-[calc(100%+0.5rem)]"
+          className="fixed left-2 right-2 top-20 z-[120] max-h-[calc(100vh-6rem)] w-auto overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg sm:left-auto sm:right-4 sm:w-[min(22rem,calc(100vw-2rem))]"
           role="menu"
         >
           <div className="rounded-lg border border-border bg-muted px-3 py-3">

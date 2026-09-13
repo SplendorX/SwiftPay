@@ -2209,7 +2209,6 @@ select:focus {
   height: 100dvh;
   flex-direction: column;
   overflow: hidden;
-  overflow-x: clip;
 }
 
 .app-frame {
@@ -2337,7 +2336,7 @@ select:focus {
   flex: 1 1 auto;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: clip;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -2363,6 +2362,7 @@ select:focus {
   max-width: 100%;
   min-width: 0;
   flex-shrink: 0;
+  overflow: visible;
   border-bottom: 1px solid var(--border);
   background: var(--sidebar);
   backdrop-filter: blur(16px);
@@ -2375,7 +2375,7 @@ select:focus {
   min-width: 0;
   align-items: center;
   gap: 0.75rem;
-  overflow: hidden;
+  overflow: visible;
   padding: 0.625rem 1rem;
 }
 
@@ -2453,32 +2453,21 @@ select:focus {
   }
 
   .app-main-circle-room {
-    overflow: hidden;
-    overflow-x: clip;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .app-main-circle-room .app-main-content {
-    display: flex;
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    flex: 1 1 auto;
-    flex-direction: column;
-    align-items: stretch;
-    overflow: hidden;
-    overflow-x: clip;
     padding-bottom: 0.5rem;
   }
 
   .app-main-circle-room .app-main-content > * {
-    display: flex;
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    min-height: 0;
-    flex: 1 1 auto;
-    flex-direction: column;
-    align-self: stretch;
   }
 }
 
@@ -2489,7 +2478,6 @@ select:focus {
   min-width: 0;
   flex-direction: column;
   gap: 0.85rem;
-  overflow-x: clip;
 }
 
 .sc-room-head {
@@ -2517,8 +2505,6 @@ select:focus {
     min-height: 0;
     flex: 1 1 auto;
     gap: 0.7rem;
-    overflow: hidden;
-    overflow-x: clip;
   }
 
   .sc-room-head {
@@ -2548,17 +2534,15 @@ select:focus {
   .sc-room-tabs {
     min-height: 0;
     flex: 1 1 auto;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .sc-room-tabs [data-slot="tabs-content"] {
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    min-height: 0;
-    overflow: auto;
+    overflow: visible;
     margin-top: 0.7rem;
-    overscroll-behavior: contain;
   }
 
   .sc-tab-chat {

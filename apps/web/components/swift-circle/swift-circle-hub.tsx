@@ -2133,12 +2133,12 @@ export function SwiftCircleHub() {
           </section>
         </TabsContent>
 
-        <TabsContent className="mt-4 grid gap-4" value="settings">
-          {hasPermission(role, "edit_circle") ? (
-            <div className="sc-board">
-              <h3 className="font-heading font-semibold">Circle profile</h3>
-              <div className="mt-4 flex items-center gap-4">
-                <CircleAvatar label={circle.name} size={72} src={circle.image_url} />
+        <TabsContent className="mt-4 grid gap-4 overflow-visible" value="settings">
+          <div className="sc-board">
+            <h3 className="font-heading font-semibold">Circle profile</h3>
+            <div className="mt-4 flex items-center gap-4">
+              <CircleAvatar label={circle.name} size={72} src={circle.image_url} />
+              {hasPermission(role, "edit_circle") ? (
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-3 py-2 text-sm">
                   <Camera className="h-4 w-4" />
                   Update photo
@@ -2162,30 +2162,39 @@ export function SwiftCircleHub() {
                     type="file"
                   />
                 </label>
-              </div>
-              <Input
-                className="mt-3"
-                onChange={(event) => setEditName(event.target.value)}
-                value={editName}
-              />
-              <Button
-                className="mt-3"
-                disabled={busy}
-                onClick={() =>
-                  void run("Circle updated", async () => {
-                    await updateCircleClient(
-                      circleId,
-                      address,
-                      { name: editName },
-                      social,
-                    );
-                  })
-                }
-              >
-                Save name
-              </Button>
+              ) : (
+                <div className="min-w-0">
+                  <p className="font-heading text-lg font-semibold">{circle.name}</p>
+                  <p className="text-sm capitalize text-muted-foreground">{role}</p>
+                </div>
+              )}
             </div>
-          ) : null}
+            {hasPermission(role, "edit_circle") ? (
+              <>
+                <Input
+                  className="mt-3"
+                  onChange={(event) => setEditName(event.target.value)}
+                  value={editName}
+                />
+                <Button
+                  className="mt-3"
+                  disabled={busy}
+                  onClick={() =>
+                    void run("Circle updated", async () => {
+                      await updateCircleClient(
+                        circleId,
+                        address,
+                        { name: editName },
+                        social,
+                      );
+                    })
+                  }
+                >
+                  Save name
+                </Button>
+              </>
+            ) : null}
+          </div>
           {hasPermission(role, "freeze") ? (
             <Button
               disabled={busy}
