@@ -212,6 +212,8 @@ function getGoogleLoginErrorMessage(
   fallback: string,
   redirectUri: string,
   diagnostic: GoogleOAuthDiagnostic | null,
+  appId?: string,
+  googleClientId?: string,
 ) {
   const message = getClientErrorMessage(error, fallback);
   const normalized = message.toLowerCase();
@@ -243,7 +245,11 @@ function getGoogleLoginErrorMessage(
       diagnostic?.stateMatches === true &&
       diagnostic?.nonceMatches === true
     ) {
-      return "Google returned a token that matches the local app config, and the app is using the App ID associated with CIRCLE_API_KEY. Circle is still rejecting the token, so the Google Client ID (Web) is not saved/enabled in that Circle User Controlled Wallets Social Login configuration.";
+      const targetAppId = appId || "7789a0b7-98b7-5b2e-a241-d21cd429e086";
+      const targetClientId =
+        googleClientId ||
+        "1023300772086-uee9er206u5qrb9u276kodm5fdhg0rgc.apps.googleusercontent.com";
+      return `Circle rejected the token (Code: 155140). The Google ID token matches your local app config, but Circle rejected it. Please verify in Circle Console (console.circle.com > User-Controlled Wallets > Social Logins) that Google login is toggled ON for App ID ${targetAppId} with Web Client ID: ${targetClientId}.`;
     }
 
     return `Circle rejected the Google sign-in token. In Circle Console, set the Google Client ID (Web) to the same Web OAuth client used by NEXT_PUBLIC_GOOGLE_CLIENT_ID, use the App ID from that same Circle configuration, and add ${redirectHint} as an authorized redirect URI in Google Cloud. Restart the dev server after changing env values.`;
@@ -410,10 +416,30 @@ export function CircleGoogleLogin({
           setOauthDiagnostic(nextOauthDiagnostic);
         }
 
-        const storedDeviceToken = readStorage(storageKeys.deviceToken);
-        const storedDeviceEncryptionKey = readStorage(
+        let storedDeviceToken = readStorage(storageKeys.deviceToken);
+        let storedDeviceEncryptionKey = readStorage(
           storageKeys.deviceEncryptionKey,
         );
+
+        const hasRedirectHash = Boolean(
+          typeof window !== "undefined" &&
+            window.location.hash &&
+            window.location.hash.includes("id_token"),
+        );
+
+        if (
+          hasRedirectHash &&
+          (!storedDeviceToken || !storedDeviceEncryptionKey)
+        ) {
+          try {
+            const freshTokens = await ensureDeviceToken({ forceRefresh: true });
+            storedDeviceToken = freshTokens.deviceToken;
+            storedDeviceEncryptionKey = freshTokens.deviceEncryptionKey;
+          } catch (tokenErr) {
+            console.warn("Could not ensure device token on redirect", tokenErr);
+          }
+        }
+
         const storedLogin = readStoredLogin();
         const sdkConfigs = {
           appSettings: {
@@ -441,6 +467,8 @@ export function CircleGoogleLogin({
               "Google login failed.",
               redirectUri,
               diagnostic,
+              appId,
+              googleClientId,
             );
             removeStorage(storageKeys.setupIntent);
             setOauthDiagnostic(diagnostic);
@@ -578,6 +606,8 @@ export function CircleGoogleLogin({
               "Device ID could not be created.",
               redirectUri,
               null,
+              appId,
+              googleClientId,
             ),
           );
         }
@@ -633,7 +663,7 @@ export function CircleGoogleLogin({
 
       if (walletAddress) {
         const identity = getCircleLoginIdentity(options.login ?? loginResult);
-        void ensureProfile({
+        await ensureProfile({
           authProvider: "google",
           circleSocialUuid: identity.socialUserUUID,
           displayName: identity.name,
@@ -653,7 +683,7 @@ export function CircleGoogleLogin({
           enterAppAfterLoginRef.current = false;
           removeStorage(storageKeys.enterApp);
           writePreferredWalletMode("circle");
-          let destination = "/dashboard";
+          let destination = "/onboarding";
           try {
             const identity = getCircleLoginIdentity(options.login ?? loginResult);
             if (walletAddress) {
@@ -661,14 +691,17 @@ export function CircleGoogleLogin({
                 walletAddress,
                 identity.socialUserUUID,
               );
-              if (!state.account.account_type_selected) {
+              if (state.account.account_type_selected) {
+                destination =
+                  state.account.account_type === "BUSINESS"
+                    ? "/business"
+                    : "/dashboard";
+              } else {
                 destination = "/onboarding";
-              } else if (state.account.account_type === "BUSINESS") {
-                destination = "/business";
               }
             }
           } catch {
-            // fallback to /dashboard
+            destination = "/onboarding";
           }
           router.replace(destination);
         }
@@ -842,7 +875,7 @@ export function CircleGoogleLogin({
     }
 
     try {
-      const tokens = await ensureDeviceToken();
+      const tokens = await ensureDeviceToken({ forceRefresh: true });
       updateSdkLoginConfig(tokens);
       setupCompletionStartedRef.current = false;
       writeStorage(storageKeys.setupIntent, "true");
@@ -862,6 +895,8 @@ export function CircleGoogleLogin({
           "Google login could not start.",
           redirectUri,
           diagnostic,
+          appId,
+          googleClientId,
         ),
       );
       setStatus("Google login unavailable");
@@ -1107,9 +1142,19 @@ export function CircleGoogleLogin({
   ) : primaryWallet ? (
     <Link
       className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-      href={isBusinessAccount ? "/business" : "/dashboard"}
+      href={
+        accountContext?.account?.account_type_selected === false
+          ? "/onboarding"
+          : isBusinessAccount
+            ? "/business"
+            : "/dashboard"
+      }
     >
-      {isBusinessAccount ? "Open Business Hub" : "Open dashboard"}
+      {accountContext?.account?.account_type_selected === false
+        ? "Complete onboarding"
+        : isBusinessAccount
+          ? "Open Business Hub"
+          : "Open dashboard"}
       <ArrowRight className="h-4 w-4" />
     </Link>
   ) : (
@@ -1219,6 +1264,23 @@ export function CircleGoogleLogin({
         <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-800 dark:text-amber-200">
           Google token diagnostic:{" "}
           {getGoogleOAuthDiagnosticSummary(oauthDiagnostic)}
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="mt-2 flex justify-end">
+          <button
+            className="text-xs font-semibold text-primary underline underline-offset-4 transition hover:opacity-80"
+            onClick={() => {
+              setError(null);
+              setOauthDiagnostic(null);
+              removeStorage(googleOAuthDiagnosticStorageKey);
+              void handleGoogleLogin();
+            }}
+            type="button"
+          >
+            Clear and Retry Google Login
+          </button>
         </div>
       ) : null}
 

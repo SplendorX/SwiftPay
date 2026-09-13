@@ -77,7 +77,14 @@ export function LaunchAppLink({
   const signedIn = useHasSignedIn();
   const accountContext = useOptionalAccount();
   const isBusiness = accountContext?.isBusiness ?? false;
-  const targetHref = signedIn ? (isBusiness ? "/business" : "/dashboard") : "/#sign-in";
+  const hasSelectedAccountType = accountContext?.account?.account_type_selected;
+  const targetHref = signedIn
+    ? !hasSelectedAccountType
+      ? "/onboarding"
+      : isBusiness
+        ? "/business"
+        : "/dashboard"
+    : "/#sign-in";
 
   return (
     <Link
@@ -86,6 +93,10 @@ export function LaunchAppLink({
       onClick={(event) => {
         event.preventDefault();
         if (hasLiveSignedInAccount({ address, isConnected })) {
+          if (!hasSelectedAccountType) {
+            router.push("/onboarding");
+            return;
+          }
           router.push(isBusiness ? "/business" : "/dashboard");
           return;
         }

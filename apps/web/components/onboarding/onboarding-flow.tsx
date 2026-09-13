@@ -6,13 +6,16 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { useBusinessActor } from "@/components/business/use-business-actor";
+import { useOptionalAccount } from "@/components/account/account-provider";
+import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocale, useT } from "@/components/locale-provider";
 import { completeAccountOnboardingClient, fetchAccountState } from "@/lib/account/client";
 import { APP_LOCALES } from "@/lib/locales";
 import { profileImageAccept, resizeProfileImageFile } from "@/lib/profile-image";
-import { ensureProfile, validateUsername } from "@/lib/profile";
+import { ensureProfile, notifyProfileUpdated, validateUsername } from "@/lib/profile";
+import { walletSessionChangedEventName } from "@/lib/wallet-auth-client";
 import { cn } from "@/lib/utils";
 
 type Step = "language" | "account" | "personal" | "business";
@@ -26,6 +29,8 @@ export function OnboardingFlow() {
   const t = useT();
   const { locale, setLocale } = useLocale();
   const { circleSocialUuid, ownerWallet } = useBusinessActor();
+  const accountContext = useOptionalAccount();
+  const workspaceContext = useOptionalWorkspace();
   const [step, setStep] = useState<Step>("language");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -53,6 +58,24 @@ export function OnboardingFlow() {
         const state = await fetchAccountState(ownerWallet!, circleSocialUuid);
         if (cancelled) return;
         if (state.account.account_type_selected) {
+          notifyProfileUpdated({
+            avatar_url: state.account.avatar_url,
+            bio: state.account.bio,
+            display_name: state.account.display_name,
+            username: state.account.username,
+            wallet_address: ownerWallet!,
+          });
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent(walletSessionChangedEventName, {
+                detail: { ownerWallet },
+              }),
+            );
+          }
+          await Promise.allSettled([
+            accountContext?.refresh?.(),
+            workspaceContext?.refresh?.(),
+          ]);
           router.replace(
             state.account.account_type === "BUSINESS" ? "/business" : "/dashboard",
           );
@@ -71,7 +94,7 @@ export function OnboardingFlow() {
     return () => {
       cancelled = true;
     };
-  }, [circleSocialUuid, ownerWallet, router, t]);
+  }, [accountContext, circleSocialUuid, ownerWallet, router, t, workspaceContext]);
 
   const usernameError = useMemo(
     () => (username.trim() ? validateUsername(username) : t("onboarding.enterUsername")),
@@ -98,9 +121,31 @@ export function OnboardingFlow() {
         },
         circleSocialUuid,
       );
-      router.replace(
-        result.account.account_type === "BUSINESS" ? "/business" : "/dashboard",
-      );
+
+      notifyProfileUpdated({
+        avatar_url: result.account.avatar_url,
+        bio: result.account.bio,
+        display_name: result.account.display_name,
+        username: result.account.username,
+        wallet_address: ownerWallet,
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent(walletSessionChangedEventName, {
+            detail: { ownerWallet },
+          }),
+        );
+      }
+
+      await Promise.allSettled([
+        accountContext?.refresh?.(),
+        workspaceContext?.refresh?.(),
+      ]);
+
+      const destination =
+        result.account.account_type === "BUSINESS" ? "/business" : "/dashboard";
+      router.replace(destination);
     } catch (err) {
       setError(errorMessage(err, t("common.somethingWentWrong")));
     } finally {

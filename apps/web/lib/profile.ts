@@ -35,7 +35,7 @@ export type EnsureProfileInput = {
   walletAddress: string;
 };
 
-function notifyProfileUpdated(profile: ProfileRecord) {
+export function notifyProfileUpdated(profile: Partial<ProfileRecord> & { wallet_address: string }) {
   if (typeof window === "undefined") {
     return;
   }

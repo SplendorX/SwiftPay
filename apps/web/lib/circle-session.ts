@@ -82,7 +82,24 @@ export function readCircleSessionStorage(key: string) {
     return "";
   }
 
-  return window.sessionStorage.getItem(key) ?? "";
+  try {
+    const sessionVal = window.sessionStorage.getItem(key);
+    if (sessionVal) return sessionVal;
+  } catch {}
+
+  try {
+    const localVal = window.localStorage.getItem(key);
+    if (localVal) return localVal;
+  } catch {}
+
+  try {
+    const cookieMatch = document.cookie.match(
+      new RegExp(`(?:^|; )${encodeURIComponent(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`),
+    );
+    if (cookieMatch) return decodeURIComponent(cookieMatch[1]);
+  } catch {}
+
+  return "";
 }
 
 export function writeCircleSessionStorage(key: string, value: string) {
@@ -90,7 +107,17 @@ export function writeCircleSessionStorage(key: string, value: string) {
     return;
   }
 
-  window.sessionStorage.setItem(key, value);
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {}
+
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {}
+
+  try {
+    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=86400; SameSite=Lax`;
+  } catch {}
 }
 
 export function removeCircleSessionStorage(key: string) {
@@ -98,7 +125,17 @@ export function removeCircleSessionStorage(key: string) {
     return;
   }
 
-  window.sessionStorage.removeItem(key);
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {}
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {}
+
+  try {
+    document.cookie = `${encodeURIComponent(key)}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+  } catch {}
 }
 
 export function readCircleLogin() {

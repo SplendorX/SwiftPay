@@ -22,7 +22,9 @@ import type {
 } from "@/lib/business/types";
 import type { OnboardingProfile } from "@/lib/business/service";
 import { applyAppLocale } from "@/lib/locales";
-import { ensureProfile } from "@/lib/profile";
+import { ensureProfile, profileUpdatedEventName } from "@/lib/profile";
+import { walletSessionChangedEventName } from "@/lib/wallet-auth-client";
+import { useOptionalAccount } from "@/components/account/account-provider";
 
 const storageKey = "swiftpay.activeWorkspaceId";
 
@@ -96,6 +98,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void refresh();
+
+    function onProfileOrSessionChange() {
+      void refresh();
+    }
+
+    window.addEventListener(profileUpdatedEventName, onProfileOrSessionChange);
+    window.addEventListener(
+      walletSessionChangedEventName,
+      onProfileOrSessionChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        profileUpdatedEventName,
+        onProfileOrSessionChange,
+      );
+      window.removeEventListener(
+        walletSessionChangedEventName,
+        onProfileOrSessionChange,
+      );
+    };
   }, [refresh]);
 
   const setWorkspace = useCallback(
@@ -180,14 +203,29 @@ export function OnboardingRedirect() {
   const pathname = usePathname();
   const router = useRouter();
   const context = useOptionalWorkspace();
+  const accountContext = useOptionalAccount();
 
   useEffect(() => {
-    if (!context || context.loading || !context.ownerWallet) return;
+    if (!context || !context.ownerWallet) return;
     if (pathname.startsWith("/onboarding")) return;
-    if (context.profile && !context.profile.account_type_selected) {
+    if (context.loading || accountContext?.loading) return;
+
+    const accountSelected = accountContext?.account?.account_type_selected;
+    const workspaceSelected = context.profile?.account_type_selected;
+
+    // If either context has confirmed that account onboarding is finished, never redirect to onboarding
+    if (accountSelected === true || workspaceSelected === true) {
+      return;
+    }
+
+    // Only redirect if at least one profile is loaded and confirmed not selected
+    if (
+      (accountContext?.account && accountSelected === false) ||
+      (context.profile && workspaceSelected === false)
+    ) {
       router.replace("/onboarding");
     }
-  }, [context, pathname, router]);
+  }, [accountContext?.account, accountContext?.loading, context?.loading, context?.ownerWallet, context?.profile, pathname, router]);
 
   return null;
 }

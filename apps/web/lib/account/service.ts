@@ -148,11 +148,8 @@ async function setAccountType(input: {
   if (input.previousType === "BUSINESS" && input.newType === "PERSONAL") {
     throw accountErrors.invalidTransition();
   }
-  if (input.previousType === input.newType) {
-    return;
-  }
   const supabase = accountDb();
-  const mutation = await supabase
+  let mutation = await supabase
     .from(accountTables.profiles)
     .update({
       account_type: input.newType,
@@ -161,10 +158,25 @@ async function setAccountType(input: {
       updated_at: nowIso(),
     })
     .eq("wallet_address", input.wallet);
+  if (mutation.error && /account_type/i.test(mutation.error.message ?? "")) {
+    mutation = await supabase
+      .from(accountTables.profiles)
+      .update({
+        account_type_selected: true,
+        updated_at: nowIso(),
+      })
+      .eq("wallet_address", input.wallet);
+  }
   if (mutation.error) {
     throw new Error(readAccountDbError(mutation.error, "Could not update account type."));
   }
-  await writeHistory(input);
+  if (input.previousType !== input.newType) {
+    try {
+      await writeHistory(input);
+    } catch {
+      // Ignore history write error if table is unmigrated
+    }
+  }
 }
 
 export async function completeAccountOnboarding(input: {
@@ -187,17 +199,37 @@ export async function completeAccountOnboarding(input: {
   const username = normalizeUsername(input.username);
   const usernameError = validateUsername(username);
   if (usernameError) throw accountErrors.invalid(usernameError);
+  const targetType: AccountType = input.accountKind === "business" ? "BUSINESS" : "PERSONAL";
   const supabase = accountDb();
-  await supabase
+
+  const profileUpdates: Record<string, unknown> = {
+    account_type: targetType,
+    account_type_selected: true,
+    account_upgraded_at: targetType === "BUSINESS" ? nowIso() : null,
+    bio: typeof input.bio === "string" ? input.bio.trim().slice(0, 160) || null : account.bio,
+    locale: input.locale || account.locale,
+    onboarding_completed_at: nowIso(),
+    updated_at: nowIso(),
+    username,
+  };
+
+  let profileMutation = await supabase
     .from(accountTables.profiles)
-    .update({
-      bio: typeof input.bio === "string" ? input.bio.trim().slice(0, 160) || null : account.bio,
-      locale: input.locale || account.locale,
-      onboarding_completed_at: nowIso(),
-      username,
-      updated_at: nowIso(),
-    })
+    .update(profileUpdates)
     .eq("wallet_address", actorWallet);
+
+  if (profileMutation.error && /account_type/i.test(profileMutation.error.message ?? "")) {
+    delete profileUpdates.account_type;
+    delete profileUpdates.account_upgraded_at;
+    profileMutation = await supabase
+      .from(accountTables.profiles)
+      .update(profileUpdates)
+      .eq("wallet_address", actorWallet);
+  }
+
+  if (profileMutation.error) {
+    throw new Error(readAccountDbError(profileMutation.error, "Could not finish onboarding."));
+  }
 
   if (input.accountKind === "business") {
     await upsertBusinessProfile(actorWallet, {
@@ -207,27 +239,19 @@ export async function completeAccountOnboarding(input: {
       logoUrl: input.logoUrl ?? null,
       website: input.website ?? null,
     });
-    await setAccountType({
-      actorWallet,
-      newType: "BUSINESS",
-      previousType: account.account_type,
-      reason: "USER_ONBOARDING",
-      wallet: actorWallet,
-    });
-  } else {
-    await setAccountType({
-      actorWallet,
-      newType: "PERSONAL",
-      previousType: account.account_type === "BUSINESS" ? "BUSINESS" : "PERSONAL",
-      reason: "USER_ONBOARDING",
-      wallet: actorWallet,
-    });
-    if (account.account_type !== "BUSINESS") {
-      const supabaseProfile = accountDb();
-      await supabaseProfile
-        .from(accountTables.profiles)
-        .update({ account_type_selected: true, updated_at: nowIso() })
-        .eq("wallet_address", actorWallet);
+  }
+
+  if (account.account_type !== targetType) {
+    try {
+      await writeHistory({
+        actorWallet,
+        newType: targetType,
+        previousType: account.account_type,
+        reason: "USER_ONBOARDING",
+        wallet: actorWallet,
+      });
+    } catch {
+      // Ignore history write error if table is unmigrated
     }
   }
 

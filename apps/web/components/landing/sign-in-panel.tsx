@@ -27,7 +27,12 @@ export function SignInPanel() {
   const router = useRouter();
   const accountContext = useOptionalAccount();
   const isBusinessAccount = accountContext?.isBusiness ?? false;
-  const destinationHref = isBusinessAccount ? "/business" : "/dashboard";
+  const hasSelectedAccountType = accountContext?.account?.account_type_selected;
+  const destinationHref = !hasSelectedAccountType
+    ? "/onboarding"
+    : isBusinessAccount
+      ? "/business"
+      : "/dashboard";
   const { address, isConnected, connector } = useAccount();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const [externalConnectStarted, setExternalConnectStarted] = useState(false);
@@ -106,16 +111,19 @@ export function SignInPanel() {
       });
       setWalletAuthorized(true);
 
-      let destination = "/dashboard";
+      let destination = "/onboarding";
       try {
         const state = await fetchAccountState(address);
-        if (!state.account.account_type_selected) {
+        if (state.account.account_type_selected) {
+          destination =
+            state.account.account_type === "BUSINESS"
+              ? "/business"
+              : "/dashboard";
+        } else {
           destination = "/onboarding";
-        } else if (state.account.account_type === "BUSINESS") {
-          destination = "/business";
         }
       } catch {
-        // fallback to /dashboard
+        destination = "/onboarding";
       }
       router.replace(destination);
     } catch (error) {
@@ -170,9 +178,11 @@ export function SignInPanel() {
             {walletAuthorized ? (
               <Button asChild className="w-full" size="lg">
                 <Link href={destinationHref}>
-                  {isBusinessAccount
-                    ? t("signin.continueBusiness") || "Continue to Business Hub"
-                    : t("signin.continueDashboard")}
+                  {!hasSelectedAccountType
+                    ? "Complete onboarding"
+                    : isBusinessAccount
+                      ? t("signin.continueBusiness") || "Continue to Business Hub"
+                      : t("signin.continueDashboard")}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
