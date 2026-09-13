@@ -80,6 +80,14 @@ export function usePlatformWallet() {
     isConnected && wagmiAddress && isAddress(wagmiAddress),
   );
 
+  const fallbackOwnerAddress = useMemo(() => {
+    const owner = workspaceContext?.ownerWallet;
+    if (owner && isAddress(owner)) {
+      return getAddress(owner).toLowerCase() as Address;
+    }
+    return undefined;
+  }, [workspaceContext?.ownerWallet]);
+
   const address = useMemo((): Address | undefined => {
     const circleAddress =
       circleReady && circleWalletAddress
@@ -91,7 +99,7 @@ export function usePlatformWallet() {
         : undefined;
 
     if (isBusinessWorkspace) {
-      return circleAddress;
+      return circleAddress ?? fallbackOwnerAddress ?? externalAddress;
     }
 
     if (preferredMode === "external" && externalAddress) {
@@ -102,11 +110,12 @@ export function usePlatformWallet() {
       return circleAddress;
     }
 
-    return circleAddress ?? externalAddress;
+    return circleAddress ?? fallbackOwnerAddress ?? externalAddress;
   }, [
     circleReady,
     circleWalletAddress,
     externalReady,
+    fallbackOwnerAddress,
     isBusinessWorkspace,
     preferredMode,
     wagmiAddress,
@@ -137,8 +146,11 @@ export function usePlatformWallet() {
   }, [circleReady, externalReady, isBusinessWorkspace, preferredMode]);
 
   const circleSocialUuid = useMemo(
-    () => getCircleLoginIdentity(circleLogin)?.socialUserUUID ?? undefined,
-    [circleLogin],
+    () =>
+      getCircleLoginIdentity(circleLogin)?.socialUserUUID ??
+      workspaceContext?.circleSocialUuid ??
+      undefined,
+    [circleLogin, workspaceContext?.circleSocialUuid],
   );
 
   return {
@@ -146,7 +158,7 @@ export function usePlatformWallet() {
     circleSocialUuid,
     circleWallet,
     isBusinessWorkspace,
-    isConnected: Boolean(address),
+    isConnected: Boolean(address || workspaceContext?.ownerWallet),
     needsBusinessWallet: isBusinessWorkspace && !circleWallet,
     source,
   };

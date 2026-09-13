@@ -1099,10 +1099,20 @@ export function DashboardContent({
     isMounted && isAccountConnected ? accountAddress : undefined;
   const circleWallet = useMemo(() => {
     if (isBusinessWorkspace) {
-      return dedicatedBusinessWallet(
-        activeWorkspace,
-        circleWallets,
-        workspaceContext?.ownerWallet,
+      return (
+        dedicatedBusinessWallet(
+          activeWorkspace,
+          circleWallets,
+          workspaceContext?.ownerWallet,
+        ) ??
+        (workspaceContext?.ownerWallet
+          ? circleWallets.find(
+              (w) =>
+                w.address?.toLowerCase() ===
+                workspaceContext.ownerWallet?.toLowerCase(),
+            )
+          : null) ??
+        circleWallets[0]
       );
     }
     return circleWallets[0];

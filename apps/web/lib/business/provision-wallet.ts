@@ -45,7 +45,13 @@ export function activeCircleWallet(
   ownerWallet?: string | null,
 ) {
   if (workspace?.kind === "business") {
-    return dedicatedBusinessWallet(workspace, wallets, ownerWallet);
+    return (
+      dedicatedBusinessWallet(workspace, wallets, ownerWallet) ??
+      (ownerWallet
+        ? wallets.find((wallet) => wallet.address?.toLowerCase() === ownerWallet.toLowerCase())
+        : null) ??
+      personalCircleWallet(wallets)
+    );
   }
   return personalCircleWallet(wallets);
 }
