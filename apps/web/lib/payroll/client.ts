@@ -19,16 +19,22 @@ import type {
 
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
-  let payload: T & { message?: string };
+  let payload: (T & { message?: string; error?: string }) | null = null;
   try {
-    payload = JSON.parse(text) as T & { message?: string };
+    payload = JSON.parse(text);
   } catch {
-    throw new Error(`Invalid JSON response (${response.status}).`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error("The requested payroll endpoint or resource was not found (404). Please ensure the backend route is available.");
+      }
+      throw new Error(`Server returned ${response.status} ${response.statusText || "error"}.`);
+    }
+    throw new Error(`Invalid server response (${response.status}).`);
   }
   if (!response.ok) {
-    throw new Error(payload.message ?? `Request failed (${response.status}).`);
+    throw new Error(payload?.message ?? payload?.error ?? `Request failed (${response.status}).`);
   }
-  return payload;
+  return payload as T;
 }
 
 function withWallet(path: string, ownerWallet: string, extra?: Record<string, string | undefined>) {

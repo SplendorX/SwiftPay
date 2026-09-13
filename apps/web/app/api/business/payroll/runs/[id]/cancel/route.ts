@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { requireBusinessAccount } from "@/lib/account/auth";
-import { jsonBusinessError, jsonOk, readActor } from "@/lib/business/http";
+import { jsonBusinessError, jsonOk, readActor, readJsonBody } from "@/lib/business/http";
 import { cancelPayrollRun } from "@/lib/payroll/payroll-service";
 
 export const runtime = "nodejs";
@@ -11,7 +11,8 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
-    const { actorWallet, circleSocialUuid } = await readActor(request);
+    const body = await readJsonBody(request);
+    const { actorWallet, circleSocialUuid } = await readActor(request, body);
     await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
 
     const cancelled = await cancelPayrollRun(actorWallet, id, actorWallet);

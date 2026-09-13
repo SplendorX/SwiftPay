@@ -15,11 +15,18 @@ export async function POST(
     const { actorWallet, circleSocialUuid } = await readActor(request, body);
     await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
 
+    const metadata =
+      (body?.metadata as Record<string, unknown>) ?? {
+        confirmedAt: body?.confirmedAt,
+        confirmedBy: body?.confirmedBy,
+        balanceVerified: body?.balanceVerified,
+      };
+
     const approved = await approvePayrollRun(
       actorWallet,
       id,
       actorWallet,
-      (body?.metadata as Record<string, unknown>) ?? {},
+      metadata,
     );
     return jsonOk(approved);
   } catch (error) {

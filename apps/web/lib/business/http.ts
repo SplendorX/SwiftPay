@@ -4,6 +4,7 @@ import { isBusinessHttpError } from "@/lib/business/errors";
 import { requireActorWallet } from "@/lib/business/auth";
 import { readIdempotencyKey } from "@/lib/save/idempotency";
 import { CircleHttpError } from "@/lib/swift-circle/errors";
+import { isPayrollError } from "@/lib/payroll/errors";
 
 export async function readJsonBody(request: NextRequest) {
   try {
@@ -18,7 +19,7 @@ export function jsonOk(body: unknown, status = 200) {
 }
 
 export function jsonBusinessError(error: unknown) {
-  if (isBusinessHttpError(error) || error instanceof CircleHttpError) {
+  if (isBusinessHttpError(error) || error instanceof CircleHttpError || isPayrollError(error)) {
     return NextResponse.json(
       { message: error.userMessage, code: error.code },
       { status: error.status },

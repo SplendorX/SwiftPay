@@ -54,16 +54,28 @@ import type {
   PayrollItemRecord,
   PayrollRunRecord,
 } from "@/lib/payroll/types";
+import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
   callCircleWalletApi,
   findCircleTokenBalance,
   readCircleLogin,
   readCircleWallets,
+  writeCircleWallets,
   type CircleClientErrorPayload,
   type CircleLoginResult,
   type CircleTokenBalance,
   type CircleWallet,
 } from "@/lib/circle-session";
+import {
+  extractCircleTransactionId,
+  extractCircleTxHash,
+  recoverCircleTxHash,
+} from "@/lib/circle-tx";
+import {
+  dedicatedBusinessWallet,
+  personalCircleWallet,
+} from "@/lib/business/provision-wallet";
+import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import {
   erc20Abi,
   swiftBatchAbi,
@@ -75,6 +87,43 @@ import { drawSwiftPayBrand } from "@/lib/brand-canvas";
 import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcTestnet } from "@/lib/wagmi";
+
+type CircleContractChallenge = {
+  challengeId?: string;
+  data?: {
+    challengeId?: string;
+    id?: string;
+    transactionId?: string;
+    txHash?: string;
+  };
+  id?: string;
+  transactionId?: string;
+  txHash?: string;
+};
+
+type CircleChallengeResult = {
+  data?: {
+    id?: string;
+    transactionId?: string;
+    txHash?: string;
+  };
+  id?: string;
+  transactionId?: string;
+  txHash?: string;
+};
+
+function getCircleChallengeId(challenge: CircleContractChallenge) {
+  return (
+    challenge.challengeId ??
+    challenge.data?.challengeId ??
+    challenge.id ??
+    challenge.data?.id
+  );
+}
+
+function getCircleTransactionHash(value: CircleContractChallenge | CircleChallengeResult) {
+  return value.txHash ?? value.data?.txHash;
+}
 
 const arcPublicClient = createPublicClient({
   chain: arcTestnet,
@@ -97,7 +146,9 @@ export default function PayrollRunDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const circleSdkRef = useRef<W3SSdk | null>(null);
   const { ownerWallet, circleSocialUuid } = useAccountContext();
+  const workspaceContext = useOptionalWorkspace();
   const { address: externalAddress, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -115,32 +166,134 @@ export default function PayrollRunDetailPage({
   const [confirmStatementChecked, setConfirmStatementChecked] = useState(false);
 
   // Circle wallet state
+  const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
   const [circleWallets, setCircleWallets] = useState<CircleWallet[]>([]);
   const [circleBalances, setCircleBalances] = useState<CircleTokenBalance[]>([]);
+  const [directBalanceBigInt, setDirectBalanceBigInt] = useState<bigint | null>(null);
+
+  // Determine active wallet address
+  const circleWallet = useMemo(() => {
+    const dedicated = dedicatedBusinessWallet(
+      workspaceContext?.workspace ?? null,
+      circleWallets,
+      ownerWallet ?? undefined,
+    );
+    return (
+      dedicated ??
+      circleWallets.find((w) => w.address?.toLowerCase() === ownerWallet?.toLowerCase()) ??
+      personalCircleWallet(circleWallets)
+    );
+  }, [workspaceContext?.workspace, circleWallets, ownerWallet]);
+
+  const circleAddress = circleWallet?.address
+    ? (getAddress(circleWallet.address) as Address)
+    : undefined;
+
+  const isCircleMode =
+    walletMode === "circle" ||
+    (!externalAddress && Boolean(circleAddress || circleLogin || circleSocialUuid || ownerWallet));
+
+  const payingWalletAddress = (
+    isCircleMode
+      ? (circleAddress || ownerWallet || externalAddress)
+      : (externalAddress || circleAddress || ownerWallet)
+  ) as Address | undefined;
+
+  const isPayingAddressValid = Boolean(payingWalletAddress && isAddress(payingWalletAddress));
 
   // Token & balance verification
   const tokenSymbol: ArcTokenSymbol = (run?.asset as ArcTokenSymbol) || "USDC";
   const tokenInfo = arcTestnetTokens[tokenSymbol] || arcTestnetTokens["USDC"];
 
-  const { data: externalBalanceBigInt, refetch: refetchExternalBalance } = useReadContract({
+  const { data: wagmiBalanceBigInt, refetch: refetchWagmiBalance } = useReadContract({
     address: tokenInfo.address,
     abi: erc20Abi,
     functionName: "balanceOf",
-    args: externalAddress ? [externalAddress] : undefined,
+    args: isPayingAddressValid ? [getAddress(payingWalletAddress!)] : undefined,
     chainId: arcTestnet.id,
-    query: { enabled: Boolean(externalAddress) },
+    query: { enabled: isPayingAddressValid },
   });
 
-  const circleTokenBal = findCircleTokenBalance(circleBalances, tokenSymbol);
-  const activeBalanceFormatted = useMemo(() => {
-    if (walletMode === "circle") {
-      return circleTokenBal?.amount || "0";
+  const refreshDirectBalance = useCallback(async () => {
+    if (!payingWalletAddress || !isAddress(payingWalletAddress)) return;
+    try {
+      const bal = (await arcPublicClient.readContract({
+        address: tokenInfo.address,
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [getAddress(payingWalletAddress)],
+      })) as bigint;
+      setDirectBalanceBigInt(bal);
+    } catch (err) {
+      console.warn("Direct balance check failed:", err);
     }
-    if (typeof externalBalanceBigInt === "bigint") {
-      return formatUnits(externalBalanceBigInt, tokenInfo.decimals);
+  }, [payingWalletAddress, tokenInfo.address]);
+
+  const refreshCircleData = useCallback(async () => {
+    const login = readCircleLogin();
+    if (!login) return;
+    setCircleLogin(login);
+
+    let wallets = readCircleWallets();
+    if (wallets.length === 0) {
+      try {
+        const payload = await callCircleWalletApi<{ wallets?: CircleWallet[] }>(
+          "listWallets",
+          { userToken: login.userToken },
+        );
+        wallets = payload.wallets ?? [];
+        if (wallets.length > 0) {
+          writeCircleWallets(wallets);
+          setCircleWallets(wallets);
+        }
+      } catch {
+        // ignore
+      }
+    } else {
+      setCircleWallets(wallets);
+    }
+
+    const target =
+      wallets.find((w) => w.address?.toLowerCase() === ownerWallet?.toLowerCase()) ??
+      wallets[0];
+
+    if (target?.id) {
+      try {
+        const balPayload = await callCircleWalletApi<{
+          tokenBalances?: CircleTokenBalance[];
+        }>("getTokenBalance", {
+          userToken: login.userToken,
+          walletId: target.id,
+        });
+        if (balPayload?.tokenBalances) {
+          setCircleBalances(balPayload.tokenBalances);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [ownerWallet]);
+
+  useEffect(() => {
+    void refreshDirectBalance();
+    void refreshCircleData();
+  }, [refreshDirectBalance, refreshCircleData]);
+
+  const circleTokenBal = findCircleTokenBalance(circleBalances, tokenSymbol);
+
+  const activeBalanceFormatted = useMemo(() => {
+    const rawBigInt =
+      directBalanceBigInt ??
+      (typeof wagmiBalanceBigInt === "bigint" ? wagmiBalanceBigInt : null);
+
+    if (rawBigInt !== null) {
+      return formatUnits(rawBigInt, tokenInfo.decimals);
+    }
+    if (circleTokenBal?.amount) {
+      return circleTokenBal.amount;
     }
     return "0";
-  }, [walletMode, circleTokenBal, externalBalanceBigInt, tokenInfo.decimals]);
+  }, [directBalanceBigInt, wagmiBalanceBigInt, circleTokenBal, tokenInfo.decimals]);
 
   const hasInsufficientBalance = useMemo(() => {
     if (!run) return false;
@@ -217,6 +370,131 @@ export default function PayrollRunDetailPage({
     }
   }
 
+  // Circle SDK helper
+  async function ensureCircleSdk(login: CircleLoginResult | null = circleLogin) {
+    if (!login) {
+      throw new Error("Circle wallet confirmation is not ready.");
+    }
+    if (circleSdkRef.current) {
+      return circleSdkRef.current;
+    }
+    const appId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
+    if (!appId) {
+      throw new Error("Circle wallet confirmation is not configured.");
+    }
+    const { W3SSdk: CircleW3SSdk } = await import("@circle-fin/w3s-pw-web-sdk");
+    const sdk = new CircleW3SSdk({
+      appSettings: { appId },
+      authentication: {
+        encryptionKey: login.encryptionKey,
+        userToken: login.userToken,
+      },
+    });
+    circleSdkRef.current = sdk;
+    return sdk;
+  }
+
+  async function executeCircleChallenge(challengeId: string, label: string) {
+    if (!circleLogin) {
+      throw new Error("Circle wallet confirmation is not ready.");
+    }
+    const sdk = await ensureCircleSdk(circleLogin);
+    sdk.setAuthentication({
+      encryptionKey: circleLogin.encryptionKey,
+      userToken: circleLogin.userToken,
+    });
+    setProcessingStatus(`Confirm ${label} in Circle wallet…`);
+    return new Promise<CircleChallengeResult>((resolve, reject) => {
+      sdk.execute(challengeId, (challengeError, result) => {
+        if (challengeError) {
+          reject(new Error((challengeError as { message?: string }).message || "Circle confirmation failed."));
+          return;
+        }
+        resolve((result ?? {}) as CircleChallengeResult);
+      });
+    });
+  }
+
+  async function executeCircleContract({
+    callData,
+    contractAddress,
+    label,
+    refId,
+  }: {
+    callData: Hex;
+    contractAddress: Address;
+    label: string;
+    refId: string;
+  }) {
+    if (!circleLogin) {
+      throw new Error("Circle login session is not ready.");
+    }
+    const activeCircle =
+      circleWallet ??
+      circleWallets.find((w) => w.address?.toLowerCase() === payingWalletAddress?.toLowerCase()) ??
+      circleWallets[0];
+
+    if (!activeCircle?.id) {
+      throw new Error("Circle wallet not found.");
+    }
+
+    const challenge = await callCircleWalletApi<CircleContractChallenge>(
+      "createContractExecution",
+      {
+        callData,
+        contractAddress,
+        feeLevel: "HIGH",
+        refId,
+        userToken: circleLogin.userToken,
+        walletId: activeCircle.id,
+      },
+    );
+    const challengeId = getCircleChallengeId(challenge);
+    if (!challengeId) {
+      const txHash = getCircleTransactionHash(challenge);
+      if (txHash) return { txHash };
+      throw new Error("Circle did not return a contract challenge.");
+    }
+
+    const result = await executeCircleChallenge(challengeId, label);
+    const immediateHash = getCircleTransactionHash(result) ?? getCircleTransactionHash(challenge);
+    const transactionId =
+      challenge.transactionId ??
+      challenge.data?.transactionId ??
+      result.transactionId ??
+      result.data?.transactionId ??
+      challengeId;
+
+    if (immediateHash) {
+      return { txHash: immediateHash, transactionId };
+    }
+
+    setProcessingStatus("Waiting for Circle settlement…");
+    const recovered = await recoverCircleTxHash({
+      transactionId,
+      userToken: circleLogin.userToken,
+      walletId: activeCircle.id,
+      attempts: 8,
+    });
+
+    return { txHash: recovered ?? undefined, transactionId };
+  }
+
+  async function waitForAllowance(owner: Address, token: Address, amount: bigint) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const allowance = (await arcPublicClient.readContract({
+        address: token,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [owner, configuredBatchAddress!],
+      })) as bigint;
+
+      if (allowance >= amount) return;
+      setProcessingStatus("Waiting for approval confirmation…");
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
   // Execution via BatchPay smart contract on Arc testnet
   async function handleExecute() {
     if (!ownerWallet || !run) return;
@@ -232,58 +510,102 @@ export default function PayrollRunDetailPage({
       return;
     }
 
-    if (!externalAddress && walletMode === "external") {
-      setError("Connect your wallet to execute blockchain settlement.");
-      return;
-    }
-
     setIsProcessing(true);
     setError(null);
     setProcessingStatus("Preparing batch settlement on Arc…");
 
     try {
-      if (chainId !== arcTestnet.id) {
-        setProcessingStatus("Switching to Arc Testnet…");
-        await switchChainAsync({ chainId: arcTestnet.id });
-      }
-
       const recipientsList = run.items.map((it) => getAddress(it.recipient_destination_snapshot) as Address);
       const amountsList = run.items.map((it) => parseUnits(it.total_amount, tokenInfo.decimals));
       const requiredTotalUnits = parseUnits(run.total_required, tokenInfo.decimals);
 
-      // Check allowance
-      setProcessingStatus(`Approving ${tokenSymbol} for SwiftBatch…`);
-      const allowance = (await arcPublicClient.readContract({
-        address: tokenInfo.address,
-        abi: erc20Abi,
-        functionName: "allowance",
-        args: [externalAddress!, configuredBatchAddress],
-      })) as bigint;
+      let batchHash: Hash | undefined;
+      let settlementTxId: string | undefined;
 
-      if (allowance < requiredTotalUnits) {
-        const approveHash = await writeContractAsync({
+      if (isCircleMode) {
+        if (!payingWalletAddress) {
+          throw new Error("Business Circle wallet address not found.");
+        }
+        setProcessingStatus(`Checking ${tokenSymbol} allowance for SwiftBatch…`);
+        const allowance = (await arcPublicClient.readContract({
           address: tokenInfo.address,
           abi: erc20Abi,
-          functionName: "approve",
-          args: [configuredBatchAddress, requiredTotalUnits],
+          functionName: "allowance",
+          args: [payingWalletAddress, configuredBatchAddress],
+        })) as bigint;
+
+        if (allowance < requiredTotalUnits) {
+          setProcessingStatus(`Approving ${tokenSymbol} for SwiftBatch…`);
+          await executeCircleContract({
+            callData: encodeFunctionData({
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [configuredBatchAddress, requiredTotalUnits],
+            }),
+            contractAddress: tokenInfo.address,
+            label: `Approve ${tokenSymbol}`,
+            refId: `payroll-approve-${run.id}-${Date.now()}`,
+          });
+          await waitForAllowance(payingWalletAddress, tokenInfo.address, requiredTotalUnits);
+        }
+
+        setProcessingStatus("Executing SwiftBatch settlement via Circle…");
+        const execResult = await executeCircleContract({
+          callData: encodeFunctionData({
+            abi: swiftBatchAbi,
+            functionName: "sendBatch",
+            args: [tokenInfo.address, recipientsList, amountsList],
+          }),
+          contractAddress: configuredBatchAddress,
+          label: "Execute Payroll Batch",
+          refId: `payroll-batch-${run.id}-${Date.now()}`,
+        });
+
+        batchHash = execResult.txHash as Hash | undefined;
+        settlementTxId = execResult.transactionId;
+      } else {
+        if (!externalAddress) {
+          throw new Error("Connect your wallet to execute blockchain settlement.");
+        }
+        if (chainId !== arcTestnet.id) {
+          setProcessingStatus("Switching to Arc Testnet…");
+          await switchChainAsync({ chainId: arcTestnet.id });
+        }
+
+        setProcessingStatus(`Checking ${tokenSymbol} allowance for SwiftBatch…`);
+        const allowance = (await arcPublicClient.readContract({
+          address: tokenInfo.address,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [externalAddress, configuredBatchAddress],
+        })) as bigint;
+
+        if (allowance < requiredTotalUnits) {
+          setProcessingStatus(`Approving ${tokenSymbol} for SwiftBatch…`);
+          const approveHash = await writeContractAsync({
+            address: tokenInfo.address,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [configuredBatchAddress, requiredTotalUnits],
+            chainId: arcTestnet.id,
+          });
+          setProcessingStatus("Waiting for approval confirmation…");
+          await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
+        }
+
+        setProcessingStatus("Executing SwiftBatch settlement transaction…");
+        batchHash = await writeContractAsync({
+          address: configuredBatchAddress,
+          abi: swiftBatchAbi,
+          functionName: "sendBatch",
+          args: [tokenInfo.address, recipientsList, amountsList],
           chainId: arcTestnet.id,
         });
-        setProcessingStatus("Waiting for approval confirmation…");
-        await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
+
+        setProcessingStatus("Confirming settlement on ArcScan…");
+        await arcPublicClient.waitForTransactionReceipt({ hash: batchHash });
+        settlementTxId = batchHash;
       }
-
-      // Execute sendBatch
-      setProcessingStatus("Executing SwiftBatch settlement transaction…");
-      const batchHash = await writeContractAsync({
-        address: configuredBatchAddress,
-        abi: swiftBatchAbi,
-        functionName: "sendBatch",
-        args: [tokenInfo.address, recipientsList, amountsList],
-        chainId: arcTestnet.id,
-      });
-
-      setProcessingStatus("Confirming settlement on ArcScan…");
-      await arcPublicClient.waitForTransactionReceipt({ hash: batchHash });
 
       // Record execution in backend
       setProcessingStatus("Reconciling payroll status…");
@@ -291,17 +613,18 @@ export default function PayrollRunDetailPage({
         ownerWallet,
         run.id,
         {
-          txHash: batchHash,
-          transactionId: batchHash,
+          txHash: batchHash ?? null,
+          transactionId: settlementTxId ?? batchHash ?? null,
           availableBalance: activeBalanceFormatted,
         },
         circleSocialUuid ?? undefined,
       );
 
       await loadData();
-      await refetchExternalBalance();
+      await refreshDirectBalance();
+      await refetchWagmiBalance();
 
-      if (executed && executed.status === "COMPLETED") {
+      if (executed && (executed.status === "COMPLETED" || executed.status === "APPROVED" || executed.status === "PROCESSING")) {
         showSuccess({
           eyebrow: "Payroll Settled",
           title: "Payroll Run Completed",
@@ -313,7 +636,7 @@ export default function PayrollRunDetailPage({
             { label: "Recipients", value: `${executed.recipient_count}` },
             { label: "Platform Fee", value: `${executed.total_fees} ${executed.asset}` },
             { label: "Total Required", value: `${executed.total_required} ${executed.asset}` },
-            { label: "Status", value: "Completed" },
+            { label: "Status", value: executed.status },
           ],
         });
       }
