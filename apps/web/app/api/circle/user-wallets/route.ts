@@ -295,6 +295,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json(
+      { message: "Request body must be valid JSON." },
+      { status: 400 },
+    );
+  }
+
   switch (body.action) {
     case "getEntityConfig": {
       return requestCircle("/v1/w3s/config/entity", {

@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
     return jsonError("A valid JSON body is required.", 400);
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return jsonError("A valid JSON body is required.", 400);
+  }
+
   const ownerWallet = normalizeOwnerWallet(body.ownerWallet);
   const requestId = typeof body.requestId === "string" ? body.requestId.trim() : "";
   const txHash = typeof body.txHash === "string" ? body.txHash.trim() : null;

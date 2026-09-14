@@ -46,6 +46,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json(
+      { message: "Request body must be valid JSON." },
+      { status: 400 },
+    );
+  }
+
   try {
     await recordTractionEvent({
       amount: asString(body.amount),

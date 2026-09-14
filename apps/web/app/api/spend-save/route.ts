@@ -68,6 +68,10 @@ export async function POST(request: NextRequest) {
     return jsonError("A valid JSON body is required.", 400);
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return jsonError("A valid JSON body is required.", 400);
+  }
+
   const ownerWallet = normalizeOwnerWallet(body.ownerWallet);
   if (!ownerWallet) {
     return jsonError("A valid owner wallet is required.", 400);
@@ -122,6 +126,10 @@ export async function PATCH(request: NextRequest) {
   try {
     body = (await request.json()) as Record<string, unknown>;
   } catch {
+    return jsonError("A valid JSON body is required.", 400);
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
     return jsonError("A valid JSON body is required.", 400);
   }
 
@@ -194,7 +202,10 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   let body: Record<string, unknown> = {};
   try {
-    body = (await request.json()) as Record<string, unknown>;
+    const data = await request.json();
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      body = data as Record<string, unknown>;
+    }
   } catch {
     // allow query-param body
   }

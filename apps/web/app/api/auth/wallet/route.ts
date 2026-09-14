@@ -64,7 +64,11 @@ function normalizeConnectorName(value: unknown) {
 
 async function readJsonBody(request: NextRequest) {
   try {
-    return (await request.json()) as WalletAuthBody;
+    const data = await request.json();
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return null;
+    }
+    return data as WalletAuthBody;
   } catch {
     return null;
   }

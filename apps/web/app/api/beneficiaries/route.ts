@@ -133,6 +133,10 @@ export async function POST(request: NextRequest) {
     return jsonError("A valid JSON body is required.", 400);
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return jsonError("A valid JSON body is required.", 400);
+  }
+
   const ownerWallet = await resolveOwnerWallet(request, body);
   const beneficiaryWallet = normalizeWallet(body.beneficiaryWallet);
   const name = normalizeName(body.name);

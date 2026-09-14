@@ -7,7 +7,11 @@ import { newRequestId } from "@/lib/swift-circle/logging";
 
 export async function readJsonBody(request: NextRequest) {
   try {
-    return (await request.json()) as Record<string, unknown>;
+    const data = await request.json();
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return null;
+    }
+    return data as Record<string, unknown>;
   } catch {
     return null;
   }

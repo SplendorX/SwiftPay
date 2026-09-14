@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getAddress, isAddress } from "viem";
 
 import { isAppLocale } from "@/lib/locales";
+import { readJsonRecord } from "@/lib/http";
 import {
   buildUsernameCandidate,
   normalizeUsername,
@@ -280,19 +281,17 @@ async function findAvailableUsername(
 }
 
 export async function GET(request: NextRequest) {
-  const walletAddress = normalizeWallet(
-    request.nextUrl.searchParams.get("wallet"),
-  );
+  const rawWallet = request.nextUrl.searchParams.get("wallet");
   const usernameParam = request.nextUrl.searchParams.get("username");
 
-  if (!walletAddress && !usernameParam) {
+  if (!rawWallet && !usernameParam) {
     return jsonError(
       "A wallet or username query parameter is required.",
       400,
     );
   }
 
-  if (walletAddress && usernameParam) {
+  if (rawWallet && usernameParam) {
     return jsonError("Provide either wallet or username, not both.", 400);
   }
 
@@ -325,10 +324,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ profile: data });
     }
 
+    const walletAddress = normalizeWallet(rawWallet);
+    if (!walletAddress) {
+      return jsonError("A valid wallet address is required.", 400);
+    }
+
     const { data, error } = await supabase
       .from(profilesTable)
       .select(profileSelect)
-      .eq("wallet_address", walletAddress!)
+      .eq("wallet_address", walletAddress)
       .maybeSingle();
 
     if (error) {
@@ -349,25 +353,23 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let body: EnsureProfileBody;
-
   try {
-    body = (await request.json()) as EnsureProfileBody;
-  } catch {
-    return jsonError("A valid JSON body is required.", 400);
-  }
+    const body = await readJsonRecord<EnsureProfileBody>(request);
 
-  const walletAddress = normalizeWallet(body.walletAddress);
+    if (!body) {
+      return jsonError("A valid JSON body is required.", 400);
+    }
 
-  if (!walletAddress) {
-    return jsonError("A valid wallet address is required.", 400);
-  }
+    const walletAddress = normalizeWallet(body.walletAddress);
 
-  const authProvider = normalizeAuthProvider(body.authProvider);
-  const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
-  const displayName = normalizeDisplayName(body.displayName);
+    if (!walletAddress) {
+      return jsonError("A valid wallet address is required.", 400);
+    }
 
-  try {
+    const authProvider = normalizeAuthProvider(body.authProvider);
+    const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
+    const displayName = normalizeDisplayName(body.displayName);
+
     const supabase = createSupabaseAdminClient();
     const existing = await supabase
       .from(profilesTable)
@@ -457,47 +459,46 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  let body: UpdateProfileBody;
-
   try {
-    body = (await request.json()) as UpdateProfileBody;
-  } catch {
-    return jsonError("A valid JSON body is required.", 400);
-  }
+    const body = await readJsonRecord<UpdateProfileBody>(request);
 
-  const walletAddress = normalizeWallet(body.walletAddress);
-  const hasUsername = typeof body.username === "string" && body.username.trim().length > 0;
-  const username = hasUsername
-    ? normalizeUsername(body.username as string)
-    : "";
-  const locale =
-    typeof body.locale === "string" && isAppLocale(body.locale)
-      ? body.locale
-      : null;
-  const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
-  const validationError = hasUsername ? validateUsername(username) : null;
-  let avatarUrl: string | null | undefined;
+    if (!body) {
+      return jsonError("A valid JSON body is required.", 400);
+    }
 
-  try {
-    avatarUrl = normalizeAvatarUrl(body.avatarUrl);
-  } catch (error) {
-    return jsonError(
-      error instanceof Error
-        ? error.message
-        : "Profile picture must be a valid image.",
-      400,
-    );
-  }
+    const walletAddress = normalizeWallet(body.walletAddress);
+    const hasUsername =
+      typeof body.username === "string" && body.username.trim().length > 0;
+    const username = hasUsername
+      ? normalizeUsername(body.username as string)
+      : "";
+    const locale =
+      typeof body.locale === "string" && isAppLocale(body.locale)
+        ? body.locale
+        : null;
+    const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
+    const validationError = hasUsername ? validateUsername(username) : null;
+    let avatarUrl: string | null | undefined;
 
-  if (!walletAddress) {
-    return jsonError("A valid wallet address is required.", 400);
-  }
+    try {
+      avatarUrl = normalizeAvatarUrl(body.avatarUrl);
+    } catch (error) {
+      return jsonError(
+        error instanceof Error
+          ? error.message
+          : "Profile picture must be a valid image.",
+        400,
+      );
+    }
 
-  if (hasUsername && validationError) {
-    return jsonError(validationError, 400);
-  }
+    if (!walletAddress) {
+      return jsonError("A valid wallet address is required.", 400);
+    }
 
-  try {
+    if (hasUsername && validationError) {
+      return jsonError(validationError, 400);
+    }
+
     const canEdit = await assertProfileOwnership({
       circleSocialUuid,
       walletAddress,
