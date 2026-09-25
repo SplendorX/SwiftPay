@@ -1,0 +1,7 @@
+{
+  "network": "arcMainnet",
+  "send": "0x0B65Bc22f4Ad5106abfeb0585E6Ae7Ab7FcaF2d6",
+  "feeRecipient": "0x0387a671fcb1634ba38e4bbf69eb0b2b0e1fb56d",
+  "deployedAt": "2026-09-25T19:54:59.901Z",
+  "deployer": "0x2e715D487D6720891FD30CA15A75b39029ba405C"
+}

@@ -1,0 +1,35 @@
+{
+  "network": "arcMainnet",
+  "chainId": 5042,
+  "deployedAt": "2026-09-25",
+  "deployer": "0x2e715D487D6720891FD30CA15A75b39029ba405C",
+  "governance": {
+    "multisig": {
+      "address": "0x0cbb33bc000DD9c8D24AdD63C1A921521C4F39c5",
+      "threshold": "2 of 3",
+      "signers": [
+        "0xaB7b0f8F6343B5241a1c3e2f66C36c6a6F2E517d",
+        "0x883601131A830a1d64E98138E2Ebf79bC3Dea131",
+        "0xB26598Ce5e2550D3e2baC54D57244b0E4E080915"
+      ]
+    },
+    "timelock": { "address": "0x917834e1CaffD52c69B1ae0692Fa1F04e45Ef2E3", "delaySeconds": 172800 }
+  },
+  "contracts": {
+    "SwiftSaveVault": "0x9aB59F109942e077f9fA462B9431a6e61061a676",
+    "SwiftPaySend": "0x0B65Bc22f4Ad5106abfeb0585E6Ae7Ab7FcaF2d6",
+    "BatchPay": "0x4fe71EA6edAa8ac55c134d3de29A6b682Cc398E5",
+    "RecurePayExecutor": "0x23C1565446F57Bb2c12287fE5d8D667a88fe7928",
+    "SwiftPayrollExecutor": "0xC189c6b4fB836381de9702B9dE957020e630Fc26",
+    "EarnAutoSaveExecutor": {
+      "0x8e357432cc12ff425c36432f312968aeb16112af (Galaxy USDC)": "0x63559Cc00A59a30bA72364fD77b411CE5D2f925E",
+      "0x7610094b846657dcf166d59e42973db52c7015f9 (Bitwise Premium RWA USDC)": "0x8929B11c2c05F543751Dbe3d01940e93Df5ac693"
+    }
+  },
+  "operators": {
+    "recurring": "0xAe0e5AA8E2f11b09bd8098f115525925635341fB",
+    "payroll": "0x77C34d3b88Eb0Ac86b59a7A0DF60FBdDeB75C94E",
+    "earn": "0x8A3c7b60b0d7129B50d52D1347872115A6ea441c"
+  },
+  "feeRecipient": "0x0387a671fcb1634ba38e4bbf69eb0b2b0e1fb56d"
+}
