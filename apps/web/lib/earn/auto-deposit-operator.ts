@@ -17,7 +17,11 @@ import {
   recordExecution,
   type AutoDepositRule,
 } from "@/lib/earn/auto-deposit";
-import { earnAutoSaveExecutorAbi, earnAutoSaveExecutorAddress } from "@/lib/earn/auto-save";
+import {
+  earnAutoSaveExecutorAbi,
+  earnAutoSaveExecutorAddress,
+  earnAutoSaveExecutors,
+} from "@/lib/earn/auto-save";
 import { hasEntitlement } from "@/lib/referral/entitlement-service";
 import { onchainFacts } from "@/lib/onchain-facts";
 
@@ -39,7 +43,10 @@ function operatorPrivateKey() {
 }
 
 export function isUnattendedDepositConfigured() {
-  return Boolean(earnAutoSaveExecutorAddress() && operatorPrivateKey());
+  return Boolean(
+    (Object.keys(earnAutoSaveExecutors()).length > 0 || earnAutoSaveExecutorAddress()) &&
+      operatorPrivateKey(),
+  );
 }
 
 function clients() {
@@ -134,10 +141,9 @@ async function runRule(
 }
 
 export async function processUnattendedDeposits(limit = 15) {
-  const executor = earnAutoSaveExecutorAddress();
   const ctx = clients();
 
-  if (!executor || !ctx) {
+  if (!isUnattendedDepositConfigured() || !ctx) {
     return {
       configured: false,
       processed: 0,
@@ -157,14 +163,23 @@ export async function processUnattendedDeposits(limit = 15) {
         rule.wallet_address,
         "EARN_AUTO_DEPOSIT",
       );
-      outcome = subscribed
-        ? await runRule(rule, ctx, executor)
-        : {
+      // Each executor deposits into one vault only, so the rule's own vault
+      // decides which one runs it.
+      const executor = earnAutoSaveExecutorAddress(rule.vault_address);
+      outcome = !subscribed
+        ? {
             reason:
               "Your automatic deposits subscription has expired. Renew it to resume.",
             status: "SKIPPED",
             wallet: rule.wallet_address,
-          };
+          }
+        : !executor
+          ? {
+              reason: "Unattended deposits are not available for this vault.",
+              status: "SKIPPED",
+              wallet: rule.wallet_address,
+            }
+          : await runRule(rule, ctx, executor);
     } catch (cause) {
       outcome = {
         reason: cause instanceof Error ? cause.message.split("\n")[0] : "Run failed.",

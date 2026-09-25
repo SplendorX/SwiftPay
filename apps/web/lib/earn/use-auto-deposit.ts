@@ -20,6 +20,8 @@ import type {
 export type AutoDepositState = {
   error: string | null;
   executorAddress: string | null;
+  /** The executor that runs unattended deposits into `vaultAddress`, if any. */
+  executorFor: (vaultAddress?: string | null) => string | null;
   /** End of the paid term, or null if never bought. */
   expiresAt: string | null;
   /** True when a term exists but has lapsed — renew rather than unlock. */
@@ -45,6 +47,7 @@ export type SaveRuleInput = {
 
 type RulePayload = {
   executorAddress: string | null;
+  executors?: Record<string, string>;
   expiresAt: string | null;
   hadEntitlement: boolean;
   rule: AutoDepositRule | null;
@@ -73,6 +76,7 @@ export function useAutoDeposit(input: {
   const [unlocked, setUnlocked] = useState(false);
   const [unlockCost, setUnlockCost] = useState(500);
   const [executorAddress, setExecutorAddress] = useState<string | null>(null);
+  const [executors, setExecutors] = useState<Record<string, string>>({});
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [hadEntitlement, setHadEntitlement] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -103,6 +107,7 @@ export function useAutoDeposit(input: {
       setUnlocked(payload.unlocked);
       setUnlockCost(payload.unlockCost);
       setExecutorAddress(payload.executorAddress);
+      setExecutors(payload.executors ?? {});
       setExpiresAt(payload.expiresAt);
       setHadEntitlement(payload.hadEntitlement);
     } catch (cause) {
@@ -182,9 +187,19 @@ export function useAutoDeposit(input: {
     }
   }, [query, refresh]);
 
+  const executorFor = useCallback(
+    (vaultAddress?: string | null) => {
+      // Without a per-vault map the single executor serves whatever vault.
+      if (Object.keys(executors).length === 0) return executorAddress;
+      return vaultAddress ? executors[vaultAddress.toLowerCase()] ?? null : null;
+    },
+    [executorAddress, executors],
+  );
+
   return {
     error,
     executorAddress,
+    executorFor,
     expired: hadEntitlement && !unlocked,
     expiresAt,
     loading,

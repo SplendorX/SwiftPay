@@ -70,9 +70,39 @@ export const earnAutoSaveExecutorAbi = [
   },
 ] as const;
 
-export function earnAutoSaveExecutorAddress(): Address | null {
+const addressPattern = /^0x[a-fA-F0-9]{40}$/;
+
+/**
+ * Auto-Save executors by the vault they deposit into.
+ *
+ * An EarnAutoSaveExecutor is bound to one vault for life, so each vault that
+ * offers unattended deposits has its own. Configured as
+ * NEXT_PUBLIC_EARN_AUTOSAVE_EXECUTORS="vault=executor,vault=executor".
+ */
+export function earnAutoSaveExecutors(): Record<string, Address> {
+  const map: Record<string, Address> = {};
+  const raw = process.env.NEXT_PUBLIC_EARN_AUTOSAVE_EXECUTORS ?? "";
+  for (const pair of raw.split(",")) {
+    const [vault, executor] = pair.split("=").map((part) => part?.trim());
+    if (vault && executor && addressPattern.test(vault) && addressPattern.test(executor)) {
+      map[vault.toLowerCase()] = executor as Address;
+    }
+  }
+  return map;
+}
+
+/**
+ * The executor that deposits into `vaultAddress`. The single
+ * NEXT_PUBLIC_EARN_AUTOSAVE_EXECUTOR_ADDRESS is the older setting, used only
+ * when no per-vault map is configured.
+ */
+export function earnAutoSaveExecutorAddress(vaultAddress?: string | null): Address | null {
+  const map = earnAutoSaveExecutors();
+  if (Object.keys(map).length > 0) {
+    return vaultAddress ? map[vaultAddress.trim().toLowerCase()] ?? null : null;
+  }
   const value = process.env.NEXT_PUBLIC_EARN_AUTOSAVE_EXECUTOR_ADDRESS?.trim();
-  if (!value || !/^0x[a-fA-F0-9]{40}$/.test(value)) return null;
+  if (!value || !addressPattern.test(value)) return null;
   return value as Address;
 }
 

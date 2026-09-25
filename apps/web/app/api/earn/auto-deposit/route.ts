@@ -9,7 +9,7 @@ import {
   markRuleRan,
   upsertAutoDepositRule,
 } from "@/lib/earn/auto-deposit";
-import { earnAutoSaveExecutorAddress } from "@/lib/earn/auto-save";
+import { earnAutoSaveExecutorAddress, earnAutoSaveExecutors } from "@/lib/earn/auto-save";
 import { isListedEarnVault } from "@/server/earn";
 import { ReferralAuthError, requireReferralActorWallet } from "@/lib/referral/auth";
 import {
@@ -49,12 +49,16 @@ export async function GET(request: NextRequest) {
 
     const entitlement = await getEntitlement(actorWallet, "EARN_AUTO_DEPOSIT");
 
+    const rule = await getAutoDepositRule(actorWallet);
+
     return jsonOk({
-      executorAddress: earnAutoSaveExecutorAddress(),
+      executorAddress: earnAutoSaveExecutorAddress(rule?.vault_address),
+      // Unattended deposits run through the executor bound to each vault.
+      executors: earnAutoSaveExecutors(),
       // Present but lapsed, so the UI can say "renew" rather than "unlock".
       expiresAt: entitlement?.expires_at ?? null,
       hadEntitlement: Boolean(entitlement),
-      rule: await getAutoDepositRule(actorWallet),
+      rule,
       unlockCost: FEATURE_UNLOCK_COST.EARN_AUTO_DEPOSIT,
       unlocked: isEntitlementActive(entitlement),
     });
@@ -131,9 +135,9 @@ export async function POST(request: NextRequest) {
 
     // Unattended mode is inert without the executor: accepting the rule would
     // promise a schedule nothing can run.
-    if (body.mode === "UNATTENDED" && !earnAutoSaveExecutorAddress()) {
+    if (body.mode === "UNATTENDED" && !earnAutoSaveExecutorAddress(body.vaultAddress)) {
       return jsonError(
-        "Unattended deposits are not available yet: the Earn executor contract is not deployed on this network. Use Sweep on visit.",
+        "Unattended deposits are not available for this vault. Choose another vault or use Sweep on visit.",
         409,
       );
     }

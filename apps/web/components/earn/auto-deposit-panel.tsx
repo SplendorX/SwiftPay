@@ -17,7 +17,13 @@ import type {
   AutoDepositFrequency,
   AutoDepositMode,
 } from "@/lib/earn/auto-deposit";
+import {
+  APPROVED_RUNS,
+  approveAutoDeposit,
+  autoDepositAllowanceUsdc,
+} from "@/lib/earn/auto-deposit-approval";
 import { useAutoDeposit } from "@/lib/earn/use-auto-deposit";
+import { useSigningWallet } from "@/lib/use-signing-wallet";
 import { cn } from "@/lib/utils";
 
 const FREQUENCIES: Array<{ id: AutoDepositFrequency; label: string }> = [
@@ -38,6 +44,9 @@ export function AutoDepositPanel({
   walletAddress,
 }: AutoDepositPanelProps) {
   const state = useAutoDeposit({ circleSocialUuid, walletAddress });
+  const signingWallet = useSigningWallet();
+  const [approving, setApproving] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
   const [mode, setMode] = useState<AutoDepositMode>("SWEEP");
   const [frequency, setFrequency] = useState<AutoDepositFrequency>("weekly");
   const [amount, setAmount] = useState("25");
@@ -53,7 +62,9 @@ export function AutoDepositPanel({
     setFloor(String(state.rule.min_balance_floor));
   }, [state.rule]);
 
-  const executorReady = Boolean(state.executorAddress);
+  // Each vault has its own executor; a vault without one offers Sweep only.
+  const executor = state.executorFor(vaultAddress);
+  const executorReady = Boolean(executor);
   const amountValid = Number(amount) > 0;
   const floorValid = Number(floor) >= 0;
   const amountLabel = amountValid ? Number(amount).toFixed(2) : "—";
@@ -81,7 +92,8 @@ export function AutoDepositPanel({
     amountValid &&
     floorValid &&
     !state.saving &&
-    (mode === "SWEEP" || executorReady);
+    !approving &&
+    (mode === "SWEEP" || (executorReady && Boolean(signingWallet.resolveProvider)));
 
   if (!walletAddress) {
     return (
@@ -121,7 +133,14 @@ export function AutoDepositPanel({
           <span className="earn-auto-lock-points">{state.unlockCost}</span>
           <span className="earn-auto-lock-unit">SwiftPoints / 6 months</span>
         </div>
-        {state.error ? (
+        {approvalError ? (
+        <p className="earn-error mt-3">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {approvalError}
+        </p>
+      ) : null}
+
+      {state.error ? (
           <p className="earn-error mb-3">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {state.error}
@@ -133,7 +152,7 @@ export function AutoDepositPanel({
           onClick={() => void state.unlock().catch(() => undefined)}
           type="button"
         >
-          {state.saving ? (
+          {state.saving || approving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Lock className="h-4 w-4" />
@@ -194,7 +213,7 @@ export function AutoDepositPanel({
           <span className="earn-auto-mode-copy">
             {executorReady
               ? "Runs on schedule, no prompt. Needs one approval up front."
-              : "Not available on this network yet."}
+              : "Not available for this vault."}
           </span>
         </button>
       </div>
@@ -260,7 +279,9 @@ export function AutoDepositPanel({
           </>
         ) : (
           <>
-            Runs {frequency} with no prompt, from an allowance you approve once.
+            Runs {frequency} with no prompt. You approve up to{" "}
+            {amountValid ? autoDepositAllowanceUsdc(Number(amount)).toFixed(2) : "—"} USDC
+            ({APPROVED_RUNS} runs) once; approve again when it runs out.
             Skipped automatically if it would drop you below {floorLabel} USDC.
           </>
         )}
@@ -285,20 +306,41 @@ export function AutoDepositPanel({
           className="h-11 flex-1"
           disabled={!canSave}
           onClick={() => {
-            void state
-              .saveRule({
+            void (async () => {
+              setApprovalError(null);
+              // Fully automatic runs pull through the executor, so approve it
+              // before saving a rule that would otherwise only ever skip.
+              if (mode === "UNATTENDED" && executor && signingWallet.resolveProvider) {
+                setApproving(true);
+                try {
+                  await approveAutoDeposit({
+                    amountUsdc: Number(amount),
+                    executor,
+                    resolveProvider: signingWallet.resolveProvider,
+                    walletAddress,
+                  });
+                } catch (cause) {
+                  setApprovalError(
+                    cause instanceof Error ? cause.message.split("\n")[0] : "Approval failed.",
+                  );
+                  return;
+                } finally {
+                  setApproving(false);
+                }
+              }
+              await state.saveRule({
                 amountUsdc: Number(amount),
                 frequency,
                 minBalanceFloor: Number(floor),
                 mode,
                 vaultAddress: vaultAddress ?? "",
-              })
-              .then(() => setSaved(true))
-              .catch(() => undefined);
+              });
+              setSaved(true);
+            })().catch(() => undefined);
           }}
           type="button"
         >
-          {state.saving ? (
+          {state.saving || approving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : saved ? (
             <Check className="h-4 w-4" />
