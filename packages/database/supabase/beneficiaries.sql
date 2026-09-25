@@ -25,4 +25,4 @@ alter table public.beneficiaries
 alter table public.beneficiaries enable row level security;
 
 grant usage on schema public to service_role;
-grant select, insert, update on public.beneficiaries to service_role;
+grant select, insert, update, delete on public.beneficiaries to service_role;
