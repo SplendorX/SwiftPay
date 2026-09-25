@@ -24,7 +24,6 @@
     "contracts:deploy": "pnpm --filter @swiftpay/contracts deploy",
     "contracts:deploy-swiftbatch": "pnpm --filter @swiftpay/contracts deploy:swiftbatch",
     "contracts:deploy-swiftrecurepay": "pnpm --filter @swiftpay/contracts deploy:swiftrecurepay",
-    "contracts:deploy-earn": "pnpm --filter @swiftpay/contracts deploy:earn",
     "contracts:deploy-swiftsave": "pnpm --filter @swiftpay/contracts deploy:swiftsave",
     "contracts:test": "pnpm --filter @swiftpay/contracts test",
     "create-wallet": "pnpm --filter @swiftpay/scripts create-wallet",

@@ -2,7 +2,7 @@ import type { Abi, Address } from "viem";
 
 /**
  * @deprecated Legacy merchant treasury stub ABI (apps/web/abi.json).
- * Earn uses `lib/earn/*` — ERC-4626 SwiftPayVault + Aave strategy.
+ * Earn uses `lib/earn/*` — Circle App Kit Earn vaults.
  */
 import legacyTreasuryAbiJson from "@/abi.json";
 

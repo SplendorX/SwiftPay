@@ -34,55 +34,23 @@ npm run swap
 npm run send
 ```
 
-## Earn (USDC yield vault)
+## Earn (USDC yield)
 
-SwiftPay Earn is an ERC-4626 USDC vault that routes capital into an **Aave-compatible** strategy adapter.
+Earn uses Circle App Kit's Earn vaults (Morpho, ERC-4626) on whichever Arc
+network the app targets: `Arc_Testnet` on testnet, `Arc` on mainnet. SwiftPay
+does not run its own yield vault.
 
-| Mode | Meaning |
-|------|---------|
-| `simulation` | Arc testnet / MockAavePool — **no real economic yield** |
-| `live` | Verified Aave Pool + aToken configured — protocol yield only |
-| `unavailable` | No strategy addresses — deposits disabled |
-
-```sh
-pnpm contracts:compile
-pnpm contracts:test
-pnpm contracts:deploy-earn
-```
-
-Copy the printed `NEXT_PUBLIC_EARN_*` values into `.env`.
-
-**Mainnet switch (when Arc + Aave are officially live):**
+Auto-Save deposits go through `EarnAutoSaveExecutor`, which pulls a user's
+approved USDC and deposits it into one ERC-4626 vault in the user's name:
 
 ```sh
-# Set only verified addresses from official docs — never invent them
-EARN_NETWORK=arcMainnet
-ARC_MAINNET_CHAIN_ID=...
-ARC_MAINNET_RPC_URL=...
-ARC_MAINNET_USDC=...
-AAVE_POOL_ADDRESS_MAINNET=...
-AAVE_ATOKEN_USDC_MAINNET=...
-NEXT_PUBLIC_EARN_MODE=live
-pnpm --filter @swiftpay/contracts deploy:earn:mainnet
+EARN_VAULT_ADDRESS=0x... pnpm --filter @swiftpay/contracts deploy:earn:autodeposit
 ```
 
-- UI: `/earn` · Admin: `/admin/earn`
-- Contracts: `packages/contracts/contracts/earn/`
-- Config switch: `packages/contracts/config/networks.js` + `apps/web/lib/earn/config.ts`
-- Performance fee: 10% of **yield only** (max 20%), high-water-mark accounting
-- On-chain balances are source of truth; DB tables in `packages/database/supabase/earn-vault.sql` are indexing only
-
-### Earn ops
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/earn/apy` | Live/estimated APY from Aave liquidity rate (never hard-coded) |
-| `GET /api/earn/history?ownerWallet=` | Indexed deposits/withdrawals |
-| `GET/PUT /api/earn/auto-save` | Auto-Save + Auto-Sweep rules (explicit auth) |
-| `GET /api/cron/earn` | Indexer + Auto-Save due runs + APY snapshot (Bearer `CRON_SECRET`) |
-| `GET /api/admin/earn` | Admin TVL / fees / health (Bearer `EARN_ADMIN_SECRET`) |
-
-Apply SQL: `packages/database/supabase/earn-vault.sql`.
+- UI: `/earn`
+- Executor: `packages/contracts/contracts/earn/EarnAutoSaveExecutor.sol`
+- `GET/PUT /api/earn/auto-save` and `/api/earn/auto-deposit`: Auto-Save rules (explicit auth)
+- `GET /api/cron/earn-auto-deposit`: runs due Auto-Save deposits (Bearer `CRON_SECRET`)
 
 Auto-Save never drains below `min_idle_balance`. With `EarnAutoSaveExecutor` + USDC allowance + operator key, cron can execute; otherwise runs stay `awaiting_wallet`.
 

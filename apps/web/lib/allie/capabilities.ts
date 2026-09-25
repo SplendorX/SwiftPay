@@ -389,8 +389,8 @@ export async function resolveAllieAction(
       return {
         kind: "panel",
         title: "Swift+Earn",
-        summary: "Your ERC-4626 vault position lives on the Earn page.",
-        rows: [{ label: "Vault", value: "SwiftPayVault (Arc)" }],
+        summary: "Your Earn vault positions live on the Earn page.",
+        rows: [{ label: "Vaults", value: "Circle Earn (Morpho) on Arc" }],
         cta: "Open Earn",
         href: "/earn",
       };

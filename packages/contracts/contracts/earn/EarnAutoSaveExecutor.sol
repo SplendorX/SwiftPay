@@ -9,7 +9,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {GuardedOwnable} from "../access/GuardedOwnable.sol";
 
 /// @title EarnAutoSaveExecutor
-/// @notice Pulls user-approved USDC and deposits into SwiftPayVault for the user.
+/// @notice Pulls user-approved USDC and deposits it into an ERC-4626 vault for the user.
 /// @dev Requires explicit USDC allowance from the user to this contract.
 ///      Operator is intended for multisig/automation — never a silent fund drain.
 contract EarnAutoSaveExecutor is GuardedOwnable, ReentrancyGuard {
