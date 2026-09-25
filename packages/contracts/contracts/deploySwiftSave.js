@@ -66,31 +66,29 @@ async function main() {
   logGovernance(governance, deployer.address);
   const owner = governance.owner;
 
-  const usdc =
-    process.env.NEXT_PUBLIC_USDC_ADDRESS?.trim() ||
-    process.env.ARC_MAINNET_USDC?.trim() ||
-    process.env.ARC_TESTNET_USDC?.trim() ||
-    (mainnet ? "" : ARC_TESTNET_USDC);
-  const eurc =
-    process.env.NEXT_PUBLIC_EURC_ADDRESS?.trim() ||
-    process.env.ARC_MAINNET_EURC?.trim() ||
-    process.env.ARC_TESTNET_EURC?.trim() ||
-    (mainnet ? "" : ARC_TESTNET_EURC);
+  // On mainnet read only the mainnet variables: NEXT_PUBLIC_* in a local
+  // .env usually still holds testnet values.
+  const usdc = mainnet
+    ? process.env.ARC_MAINNET_USDC?.trim() || ""
+    : process.env.NEXT_PUBLIC_USDC_ADDRESS?.trim() ||
+      process.env.ARC_TESTNET_USDC?.trim() ||
+      ARC_TESTNET_USDC;
+  const eurc = mainnet
+    ? process.env.ARC_MAINNET_EURC?.trim() || ""
+    : process.env.NEXT_PUBLIC_EURC_ADDRESS?.trim() ||
+      process.env.ARC_TESTNET_EURC?.trim() ||
+      ARC_TESTNET_EURC;
 
   if (mainnet && (!ethers.isAddress(usdc) || !ethers.isAddress(eurc))) {
     throw new Error(
-      "Refusing to deploy SwiftSaveVault on mainnet without official USDC and EURC addresses.",
+      "Refusing to deploy SwiftSaveVault on mainnet without ARC_MAINNET_USDC and ARC_MAINNET_EURC.",
     );
   }
 
-  if (
-    mainnet &&
-    (usdc.toLowerCase() === ARC_TESTNET_USDC.toLowerCase() ||
-      eurc.toLowerCase() === ARC_TESTNET_EURC.toLowerCase())
-  ) {
-    throw new Error(
-      "Refusing to allowlist Arc Testnet token addresses on mainnet.",
-    );
+  // USDC's ERC-20 interface sits at the same address on both Arc networks,
+  // so only EURC can tell a testnet address apart.
+  if (mainnet && eurc.toLowerCase() === ARC_TESTNET_EURC.toLowerCase()) {
+    throw new Error("Refusing to allowlist the Arc Testnet EURC address on mainnet.");
   }
 
   console.log("Deploying SwiftSaveVault…");
