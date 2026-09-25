@@ -49,14 +49,26 @@ export default {
         }
       : {}),
   },
-  // Arc has no Etherscan; ArcScan is Blockscout. Verify there only, so
-  // `hardhat verify` doesn't report Etherscan/Sourcify failures.
+  // Arc has no Etherscan; its explorers run Blockscout. Mainnet's explorer API
+  // sits behind a bot challenge that scripted requests cannot pass, so mainnet
+  // verifies through Sourcify (which supports chain 5042) and the explorer
+  // shows the Sourcify-verified source. Testnet verifies on Blockscout.
   verify: {
     blockscout: { enabled: true },
     etherscan: { enabled: false },
-    sourcify: { enabled: false },
+    sourcify: { enabled: true },
   },
   chainDescriptors: {
+    5042: {
+      name: "Arc Mainnet",
+      blockExplorers: {
+        blockscout: {
+          name: "Arc Explorer",
+          url: "https://explorer.arc.io",
+          apiUrl: "https://explorer.arc.io/api",
+        },
+      },
+    },
     5042002: {
       name: "Arc Testnet",
       blockExplorers: {
