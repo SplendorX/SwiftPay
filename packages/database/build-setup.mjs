@@ -30,7 +30,10 @@ const ORDER = [
   "payment-policies-timezone",
   "payment-intents",
   "payment-intents-cancelled",
-  // account-business references workspaces.
+  // Workspaces are no longer a feature and nothing creates one, but the
+  // tables stay until the code stops reading them: /api/onboarding (loaded
+  // on every page by WorkspaceProvider) fails without `workspaces`, and
+  // account-business's cleanup block references it.
   "business-workspaces",
   "account-business",
   "business-profile-details",
