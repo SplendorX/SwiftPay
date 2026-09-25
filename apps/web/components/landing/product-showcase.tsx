@@ -1,6 +1,13 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { arcChain } from "@/lib/chains";
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from "framer-motion";
 import {
   ArrowDownUp,
   Bell,
@@ -13,7 +20,7 @@ import {
   Sun,
   Users,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { HeroBrandDisplay } from "@/components/landing/hero-brand-display";
@@ -70,7 +77,7 @@ function SwapScreen() {
   return (
     <ScreenShell
       action={t("landing.showcaseGetQuote")}
-      copy={t("landing.showcaseSwapCopy")}
+      copy={t("landing.showcaseSwapCopy", { network: arcChain.name })}
       title={t("nav.swap")}
     >
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
@@ -139,7 +146,7 @@ function SendScreen() {
         <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {t("landing.showcaseNetwork")}
         </p>
-        <p className="mt-1 text-sm font-semibold">Arc Testnet</p>
+        <p className="mt-1 text-sm font-semibold">{arcChain.name}</p>
       </div>
     </ScreenShell>
   );
@@ -209,6 +216,43 @@ function PreviewBoard() {
   }));
   const active = slides[index];
 
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [glarePos, setGlarePos] = useState({ x: 0, y: 0 });
+
+  // Spatial mouse motion values
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springConfig = { damping: 22, stiffness: 180 };
+  const rotateX = useSpring(
+    useTransform(mouseY, [-0.5, 0.5], [6, -6]),
+    springConfig,
+  );
+  const rotateY = useSpring(
+    useTransform(mouseX, [-0.5, 0.5], [-6, 6]),
+    springConfig,
+  );
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    mouseX.set(x);
+    mouseY.set(y);
+    setGlarePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }
+
+  function handleMouseEnter() {
+    setIsHovered(true);
+  }
+
+  function handleMouseLeave() {
+    setIsHovered(false);
+    mouseX.set(0);
+    mouseY.set(0);
+  }
+
   useEffect(() => {
     const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % slides.length);
@@ -217,12 +261,39 @@ function PreviewBoard() {
   }, [slides.length]);
 
   return (
-    <div className="flex w-full flex-col items-center gap-3">
-      <div className="landing-device w-full overflow-hidden rounded-[1.6rem] border border-border bg-card shadow-[0_0_48px_-12px_rgba(34,211,238,0.35),0_28px_70px_-28px_rgba(109,40,217,0.4)]">
-        <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
+    <div
+      className="flex w-full flex-col items-center gap-3"
+      style={{ perspective: 1100 }}
+    >
+      <motion.div
+        className="landing-device relative w-full overflow-hidden rounded-[1.6rem] border border-border bg-card shadow-[0_0_48px_-12px_rgba(34,211,238,0.35),0_28px_70px_-28px_rgba(109,40,217,0.4)] transition-shadow duration-300 hover:shadow-[0_0_60px_-8px_rgba(34,211,238,0.45),0_32px_80px_-24px_rgba(109,40,217,0.5)]"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onMouseMove={handleMouseMove}
+        ref={cardRef}
+        style={{
+          rotateX,
+          rotateY,
+          transformStyle: "preserve-3d",
+        }}
+      >
+        {/* Spatial cursor spotlight */}
+        {isHovered && (
+          <div
+            className="pointer-events-none absolute -inset-px z-30 transition-opacity duration-300"
+            style={{
+              background: `radial-gradient(450px circle at ${glarePos.x}px ${glarePos.y}px, rgba(34, 211, 238, 0.16), rgba(124, 58, 237, 0.09) 40%, transparent 80%)`,
+            }}
+          />
+        )}
+
+        <div
+          className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2.5"
+          style={{ transform: "translateZ(20px)" }}
+        >
           <PlatformBrand showName="always" />
           <span className="hidden rounded-full border border-border px-2 py-0.5 text-[10px] font-bold text-muted-foreground sm:inline">
-            Arc Testnet
+            {arcChain.name}
           </span>
           <div className="ml-auto flex items-center gap-1.5">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
@@ -237,7 +308,10 @@ function PreviewBoard() {
           </div>
         </div>
 
-        <div className="grid h-[24.5rem] bg-background md:grid-cols-[10.5rem_minmax(0,1fr)]">
+        <div
+          className="grid h-[24.5rem] bg-background md:grid-cols-[10.5rem_minmax(0,1fr)]"
+          style={{ transform: "translateZ(24px)" }}
+        >
           <aside className="hidden flex-col gap-1 border-r border-border bg-muted/30 p-2.5 md:flex">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
@@ -279,7 +353,7 @@ function PreviewBoard() {
             </AnimatePresence>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="flex items-center justify-center gap-1.5">
         {slides.map((slide, slideIndex) => (

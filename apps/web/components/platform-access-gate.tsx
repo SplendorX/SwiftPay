@@ -167,7 +167,7 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
             before opening the dashboard or other platform pages.
           </p>
           <Link
-            className="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700"
+            className="sp-bubble mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700"
             href="/#sign-in"
           >
             Go to sign in
@@ -192,7 +192,7 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
             Home page to access the SwiftPay platform.
           </p>
           <Link
-            className="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700"
+            className="sp-bubble mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700"
             href="/"
           >
             Go to Home
@@ -203,4 +203,9 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
   }
 
   return children;
+}
+
+/** "allowed" once this browser is signed in to SwiftPay (Google, email or wallet). */
+export function usePlatformAccess() {
+  return useContext(PlatformAccessContext);
 }

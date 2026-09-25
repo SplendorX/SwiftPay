@@ -12,11 +12,16 @@ export async function POST(
   try {
     const { id } = await context.params;
     const body = await readJsonBody(request);
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
     const executed = await executePayrollRun({
-      accountId: actorWallet,
+      accountId: targetAccountId,
       payrollRunId: id,
       actorId: actorWallet,
       txHash: typeof body?.txHash === "string" ? body.txHash : null,

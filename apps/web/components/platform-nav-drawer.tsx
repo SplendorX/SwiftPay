@@ -1,12 +1,13 @@
 "use client";
 
-import { ChevronRight, Menu, X } from "lucide-react";
+import { ChevronRight, Headset, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
-import { SidebarBrand } from "@/components/layout/sidebar-brand";
+import { PlatformBrand } from "@/components/brand/platform-brand";
 import { useT } from "@/components/locale-provider";
 import { platformNavItems } from "@/components/platform-nav";
 import { navLabelKeys } from "@/lib/i18n";
@@ -14,20 +15,28 @@ import { cn } from "@/lib/utils";
 
 const shouldPrefetchPlatformRoutes = process.env.NODE_ENV === "production";
 
+/**
+ * The phone and tablet navigation: a menu button on the left of the top bar
+ * that slides a floating panel in from the side. The panel is portalled to
+ * the page body — the top bar's backdrop blur would otherwise make it the
+ * containing block for `position: fixed`, trapping the drawer inside it.
+ */
 export function PlatformNavDrawer() {
   const pathname = usePathname();
   const t = useT();
   const [open, setOpen] = useState(false);
-  const isBusiness = useOptionalAccount()?.isBusiness ?? false;
-  const items = platformNavItems.filter((item) => !item.businessOnly || isBusiness);
+  const [mounted, setMounted] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const accountContext = useOptionalAccount();
+
+  const items = platformNavItems.filter((item) => !item.businessOnly || Boolean(accountContext?.isBusiness));
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
+      if (event.key === "Escape") setOpen(false);
     }
-
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
@@ -36,59 +45,60 @@ export function PlatformNavDrawer() {
     setOpen(false);
   }, [pathname]);
 
-  return (
-    <div className="relative z-[110] shrink-0 lg:hidden">
-      <button
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={t("common.openNav")}
-        className={cn(
-          "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold shadow-sm transition",
-          open
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-background text-foreground hover:border-primary/30",
-        )}
-        onClick={() => setOpen((value) => !value)}
-        title={t("common.navigation")}
-        type="button"
+  // The page behind stays put while the drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => closeRef.current?.focus(), 50);
+    return () => {
+      document.body.style.overflow = previous;
+      window.clearTimeout(focusTimer);
+    };
+  }, [open]);
+
+  const drawer = (
+    <div className="nav-drawer-root lg:hidden" data-open={open ? "" : undefined}>
+      <div aria-hidden className="nav-drawer-backdrop" onClick={() => setOpen(false)} />
+      <aside
+        aria-hidden={!open}
+        aria-label={t("common.platformNav")}
+        aria-modal="true"
+        className="nav-drawer-panel"
+        inert={!open}
+        role="dialog"
       >
-        {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-      </button>
-
-      {open ? (
-        <div
-          className="fixed inset-0 z-[115] bg-background/60 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
-        >
-          <aside
-            aria-label={t("common.platformNav")}
-            aria-modal="true"
-            className="drawer-slide-panel absolute top-3 right-3 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
+        <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-4">
+          <Link aria-label="SwiftPay home" className="rounded-lg" href="/dashboard" onClick={() => setOpen(false)}>
+            <PlatformBrand showName="always" />
+          </Link>
+          <button
+            aria-label={t("common.closeNav")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background/70 text-muted-foreground transition hover:text-foreground"
+            onClick={() => setOpen(false)}
+            ref={closeRef}
+            type="button"
           >
-            <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-3">
-              <SidebarBrand />
-              <button
-                aria-label={t("common.closeNav")}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background"
-                onClick={() => setOpen(false)}
-                type="button"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-            <nav aria-label={t("common.slideNav")} className="grid gap-1.5">
-              {items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/business" &&
-                    pathname.startsWith(`${item.href}/`));
-                const Icon = item.icon;
-                const labelKey = navLabelKeys[item.href as keyof typeof navLabelKeys];
+        <div className="mx-4 h-px bg-border" />
 
-                return (
+        <nav aria-label={t("common.slideNav")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+          <ul className="grid gap-1">
+            {items.map((item, index) => {
+              const isActive =
+                pathname === item.href || (item.href !== "/business" && pathname.startsWith(`${item.href}/`));
+              const Icon = item.icon;
+              const labelKey = navLabelKeys[item.href as keyof typeof navLabelKeys];
+
+              return (
+                <li
+                  className="nav-drawer-item"
+                  key={item.href}
+                  style={{ transitionDelay: open ? `${Math.min(index, 10) * 18}ms` : "0ms" }}
+                >
                   <Link
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
@@ -98,7 +108,6 @@ export function PlatformNavDrawer() {
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                     href={item.href}
-                    key={item.href}
                     onClick={() => setOpen(false)}
                     prefetch={shouldPrefetchPlatformRoutes}
                   >
@@ -109,16 +118,49 @@ export function PlatformNavDrawer() {
                     <ChevronRight
                       className={cn(
                         "h-4 w-4 shrink-0 transition group-hover:translate-x-0.5",
-                        isActive ? "text-primary-foreground/70" : "text-muted-foreground",
+                        isActive ? "text-primary-foreground/70" : "text-muted-foreground/60",
                       )}
                     />
                   </Link>
-                );
-              })}
-            </nav>
-          </aside>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <div className="border-t border-border p-3">
+          <Link
+            className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            href="/settings#support"
+            onClick={() => setOpen(false)}
+          >
+            <Headset className="h-4 w-4" />
+            Help &amp; Support
+          </Link>
         </div>
-      ) : null}
+      </aside>
     </div>
+  );
+
+  return (
+    <>
+      <button
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label={t("common.openNav")}
+        className={cn(
+          "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition lg:hidden",
+          open
+            ? "border-primary/40 bg-primary/10 text-primary"
+            : "border-border/80 bg-background/70 text-foreground hover:border-primary/30",
+        )}
+        onClick={() => setOpen(true)}
+        title={t("common.navigation")}
+        type="button"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      {mounted ? createPortal(drawer, document.body) : null}
+    </>
   );
 }

@@ -11,10 +11,15 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
-    const { actorWallet, circleSocialUuid } = await readActor(request);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
-    const group = await getPayrollGroup(actorWallet, id);
+    const group = await getPayrollGroup(targetAccountId, id);
     return jsonOk(group);
   } catch (error) {
     return jsonBusinessError(error);
@@ -29,10 +34,15 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
-    const updated = await updatePayrollGroup(actorWallet, id, {
+    const updated = await updatePayrollGroup(targetAccountId, id, {
       name: typeof body.name === "string" ? body.name : undefined,
       description: typeof body.description === "string" ? body.description : undefined,
       defaultSchedule: typeof body.defaultSchedule === "string" ? body.defaultSchedule : undefined,
@@ -51,10 +61,15 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
-    const { actorWallet, circleSocialUuid } = await readActor(request);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
-    await deletePayrollGroup(actorWallet, id);
+    await deletePayrollGroup(targetAccountId, id);
     return jsonOk({ ok: true });
   } catch (error) {
     return jsonBusinessError(error);

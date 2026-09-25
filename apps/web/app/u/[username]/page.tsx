@@ -1,18 +1,58 @@
 "use client";
 
-import { Building2, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Building2,
+  CalendarDays,
+  Globe,
+  Mail,
+  MapPin,
+  Phone,
+  Tag,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { PlatformBrand } from "@/components/brand/platform-brand";
 import { Button } from "@/components/ui/button";
 import { fetchDirectoryProfile } from "@/lib/business/client";
-import type { DirectoryHit } from "@/lib/business/types";
+import type { PublicProfile } from "@/lib/business/types";
+import { countryFlag, findCountry } from "@/lib/countries";
 
+function memberSinceLabel(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? null
+    : `Member since ${date.toLocaleDateString(undefined, { month: "long", year: "numeric" })}`;
+}
+
+function websiteHref(value: string) {
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
+function Detail({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <li className="public-profile-detail">
+      <Icon aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+      <span className="min-w-0 break-words">{children}</span>
+    </li>
+  );
+}
+
+/**
+ * A SwiftPay public profile. Businesses show how to reach them; a person's
+ * page shows only their country and join date, never email or phone.
+ */
 export default function PublicProfilePage() {
+  const router = useRouter();
   const params = useParams<{ username: string }>();
   const username = decodeURIComponent(params.username ?? "").replace(/^@/, "");
-  const [profile, setProfile] = useState<DirectoryHit | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -24,55 +64,119 @@ export default function PublicProfilePage() {
       );
   }, [username]);
 
+  // Back to wherever the visitor came from; a shared link opened fresh has
+  // no history, so it goes home instead.
+  const goBack = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/");
+  };
+
+  const isBusiness = profile?.kind === "business";
+  const country = findCountry(profile?.country);
+  const since = memberSinceLabel(profile?.memberSince);
+
   return (
-    <main className="mx-auto min-h-screen max-w-xl px-6 py-16">
-      <p className="text-sm font-medium text-muted-foreground">SwiftPay</p>
+    <main className="public-profile">
+      <header className="public-profile-top">
+        <button className="public-profile-back" onClick={goBack} type="button">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <Link aria-label="SwiftPay home" href="/">
+          <PlatformBrand />
+        </Link>
+      </header>
+
       {error ? (
-        <div className="mt-8">
-          <h1 className="font-heading text-3xl">Profile not found</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-        </div>
+        <section className="public-profile-card">
+          <h1 className="public-profile-name">Profile not found</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            No SwiftPay account uses @{username}. Check the spelling and try again.
+          </p>
+        </section>
       ) : !profile ? (
-        <p className="mt-8 text-sm text-muted-foreground">Loading profile…</p>
+        <section aria-busy className="public-profile-card">
+          <div className="public-profile-avatar animate-pulse" />
+          <div className="mt-5 h-8 w-48 animate-pulse rounded-lg bg-muted" />
+          <div className="mt-3 h-4 w-28 animate-pulse rounded bg-muted" />
+        </section>
       ) : (
-        <section className="mt-8">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-muted text-primary">
+        <section className="public-profile-card">
+          <div className="public-profile-avatar">
             {profile.avatarUrl ? (
               <img alt="" className="h-full w-full object-cover" src={profile.avatarUrl} />
-            ) : profile.kind === "business" ? (
-              <Building2 className="h-7 w-7" />
+            ) : isBusiness ? (
+              <Building2 className="h-8 w-8" />
             ) : (
-              <UserRound className="h-7 w-7" />
+              <UserRound className="h-8 w-8" />
             )}
           </div>
-          <h1 className="mt-5 font-heading text-4xl">{profile.displayName}</h1>
-          <p className="mt-2 text-muted-foreground">@{profile.username}</p>
-          {profile.verificationStatus === "VERIFIED" ? (
-            <p className="mt-2 text-sm font-medium">Verified Business</p>
-          ) : null}
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
-            {profile.bio ||
-              (profile.kind === "business"
-                ? "Payments infrastructure for modern businesses."
-                : "SwiftPay payment identity.")}
-          </p>
-          <div className="mt-6 flex gap-3">
+
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="public-profile-kind">
+              {isBusiness ? <Building2 className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
+              {isBusiness ? "Business" : "Personal"}
+            </span>
+            {profile.verificationStatus === "VERIFIED" ? (
+              <span className="public-profile-verified">
+                <BadgeCheck className="h-3.5 w-3.5" />
+                Verified
+              </span>
+            ) : null}
+          </div>
+
+          <h1 className="public-profile-name">{profile.displayName}</h1>
+          <p className="public-profile-handle">@{profile.username}</p>
+
+          {profile.bio ? <p className="public-profile-bio">{profile.bio}</p> : null}
+
+          <ul className="public-profile-details">
+            {isBusiness && profile.category ? <Detail icon={Tag}>{profile.category}</Detail> : null}
+            {isBusiness && profile.website ? (
+              <Detail icon={Globe}>
+                <a href={websiteHref(profile.website)} rel="noopener noreferrer" target="_blank">
+                  {profile.website.replace(/^https?:\/\//i, "").replace(/\/$/, "")}
+                </a>
+              </Detail>
+            ) : null}
+            {isBusiness && profile.contactEmail ? (
+              <Detail icon={Mail}>
+                <a href={`mailto:${profile.contactEmail}`}>{profile.contactEmail}</a>
+              </Detail>
+            ) : null}
+            {isBusiness && profile.phone ? (
+              <Detail icon={Phone}>
+                <a href={`tel:${profile.phone.replace(/[^\d+]/g, "")}`}>{profile.phone}</a>
+              </Detail>
+            ) : null}
+            {profile.country ? (
+              <Detail icon={MapPin}>
+                {country ? `${countryFlag(country.code)} ${country.name}` : profile.country}
+              </Detail>
+            ) : null}
+            {since ? <Detail icon={CalendarDays}>{since}</Detail> : null}
+          </ul>
+
+          <div className="public-profile-actions">
             <Button asChild>
-              <Link href={`/dashboard?to=@${encodeURIComponent(profile.username)}`}>
-                Pay
+              <Link href={`/send?to=@${encodeURIComponent(profile.username)}`}>
+                Pay {isBusiness ? profile.displayName : `@${profile.username}`}
               </Link>
             </Button>
-            <Button asChild variant="outline">
-              <Link
-                href={
-                  profile.kind === "business"
-                    ? "/business/invoices"
-                    : `/pay?username=${encodeURIComponent(profile.username)}`
-                }
-              >
-                {profile.kind === "business" ? "Request invoice" : "Request"}
-              </Link>
-            </Button>
+            {isBusiness ? (
+              profile.contactEmail ? (
+                <Button asChild variant="outline">
+                  <a href={`mailto:${profile.contactEmail}`}>
+                    <Mail className="h-4 w-4" />
+                    Email
+                  </a>
+                </Button>
+              ) : null
+            ) : (
+              <Button asChild variant="outline">
+                <Link href={`/pay?username=${encodeURIComponent(profile.username)}`}>Request</Link>
+              </Button>
+            )}
           </div>
         </section>
       )}

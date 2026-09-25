@@ -12,7 +12,7 @@ export function BusinessQuickActions() {
         asChild
         className="h-11 rounded-full bg-[#5B21B6] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#4C1D95] focus-visible:ring-2 focus-visible:ring-[#5B21B6] transition-all"
       >
-        <Link href="/dashboard#send" className="flex items-center gap-2">
+        <Link href="/send" className="flex items-center gap-2">
           <Send className="h-4 w-4 shrink-0" />
           <span>Send Payment</span>
         </Link>
@@ -57,7 +57,7 @@ export function BusinessQuickActions() {
         variant="outline"
         className="h-11 rounded-full border-border bg-card px-4.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
       >
-        <Link href="/swiftBatch" className="flex items-center gap-2">
+        <Link href="/batchpay" className="flex items-center gap-2">
           <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span>BatchPay</span>
         </Link>

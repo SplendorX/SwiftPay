@@ -4,16 +4,15 @@ import { StyledSelect } from "@/components/ui/styled-select";
 
 import { motion } from "framer-motion";
 import {
-  ArrowRight,
   AtSign,
   CheckCircle2,
   Clock3,
   Copy,
+  History,
   Link2,
   Lock,
   MessageSquareText,
   QrCode,
-  ReceiptText,
   Share2,
   Wallet,
 } from "lucide-react";
@@ -21,15 +20,20 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
-import { FadeUp } from "@/components/design/motion";
 import { useT } from "@/components/locale-provider";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
 import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { PagedActivityBox } from "@/components/ui/paged-activity-box";
 import {
   fetchPaymentRequestStatus,
 } from "@/lib/payment-request-client";
@@ -46,7 +50,7 @@ import {
 } from "@/lib/request-username-history";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 
 const requestsStorageKey = "swiftpay.payment.requests";
 
@@ -222,6 +226,7 @@ export function PaymentCollectionHub({
   );
   const [shareUsername, setShareUsername] = useState(prefilledUsername);
   const [usernameHistory, setUsernameHistory] = useState<string[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [amount, setAmount] = useState(initialAmount);
   const [note, setNote] = useState(initialNote);
   const [token, setToken] = useState<ArcTokenSymbol>(initialToken);
@@ -255,7 +260,7 @@ export function PaymentCollectionHub({
       amount: trimmedAmount,
       memo: trimmedNote,
       origin,
-      path: "/dashboard",
+      path: "/send",
       requestId,
       token,
       username: requesterUsername ?? undefined,
@@ -276,7 +281,7 @@ export function PaymentCollectionHub({
     return buildPaymentRequestPath({
       amount: isAmountValid ? trimmedAmount : undefined,
       memo: trimmedNote,
-      path: "/dashboard",
+      path: "/send",
       requestId: requestId || undefined,
       token,
       username: requesterUsername ?? undefined,
@@ -543,6 +548,16 @@ export function PaymentCollectionHub({
     }
   }
 
+  // History shows only requests still in play. An expired or declined one is
+  // dead — there is nothing left to copy or chase.
+  const openRequests = useMemo(
+    () =>
+      savedRequests.filter((request) => {
+        const status = deriveLocalRequestStatus(request);
+        return status !== "expired" && status !== "declined";
+      }),
+    [savedRequests],
+  );
   const activeCount = savedRequests.filter(
     (r) => deriveLocalRequestStatus(r) === "active",
   ).length;
@@ -560,44 +575,20 @@ export function PaymentCollectionHub({
 
   return (
     <div className="collection-hub">
-      <FadeUp className="collection-hub-hero section-panel">
-        <Badge className="mb-3" variant="secondary">
-          <ReceiptText className="mr-1 h-3 w-3" />
-          Payment collection
-        </Badge>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-          Payment collection hub
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Request payment to your connected wallet. Start with a SwiftPay
-          username, then share the in-app request, link, or QR code.
-        </p>
-        <div className="collection-hub-stats">
-          <div className="preview-metric">
-            <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-              Active requests
-            </p>
-            <p className="mt-0.5 font-heading text-lg font-semibold">{activeCount}</p>
-          </div>
-          <div className="preview-metric">
-            <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-              Network
-            </p>
-            <p className="mt-0.5 font-heading text-lg font-semibold">Arc</p>
-          </div>
-          <div className="preview-metric">
-            <p className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-              Assets
-            </p>
-            <p className="mt-0.5 font-heading text-lg font-semibold">USDC · EURC</p>
-          </div>
-        </div>
-      </FadeUp>
-
       <div className="collection-hub-grid">
         <section className="section-panel">
-          <p className="section-eyebrow">{t("pay.createRequest")}</p>
-          <h2 className="section-title">{t("pay.askSomeone")}</h2>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="section-eyebrow">{t("pay.createRequest")}</p>
+              <h2 className="section-title">{t("pay.askSomeone")}</h2>
+            </div>
+            {activeCount > 0 ? (
+              <span className="request-live-pill">
+                <span className="request-live-dot" />
+                {activeCount} active
+              </span>
+            ) : null}
+          </div>
 
           <div className="mt-5 grid gap-4">
             <label className="grid gap-2">
@@ -719,70 +710,92 @@ export function PaymentCollectionHub({
               </div>
             </label>
 
-            <div className="rounded-lg border border-border bg-card p-4">
-              <div className="mb-3">
-                <p className="text-sm font-semibold">Send in-app request</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  The recipient can pay or decline. You will be notified if they
-                  decline.
+            <div className="share-pair">
+              <div className="share-card">
+                <p className="share-card-title">Send in-app request</p>
+                <p className="share-card-copy">
+                  The recipient can pay or decline.
                 </p>
-              </div>
-              <Button
-                className="h-11 w-full sm:w-auto"
-                disabled={
-                  !requestLink ||
-                  Boolean(shareUsernameError) ||
-                  isSendingNotification ||
-                  !isConnected
-                }
-                onClick={() => void sendRequestNotification()}
-                type="button"
-              >
-                {isSendingNotification ? (
-                  <Clock3 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Share2 className="h-4 w-4" />
-                )}
-                Send request
-              </Button>
-              {shareError ? (
-                <p className="mt-2 text-sm text-destructive">{shareError}</p>
-              ) : null}
-              {shareStatus ? (
-                <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
-                  {shareStatus}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Link2 className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold">Generated link</span>
-              </div>
-              <p className="break-all font-mono text-xs text-muted-foreground">
-                {requestLink ||
-                  "Connect a wallet and enter an amount to generate a link."}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button disabled={!requestLink} onClick={() => void copyValue(requestLink, "link", { persist: true })} type="button">
-                  {copied === "link" ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied === "link" ? "Copied" : "Copy link"}
+                <Button
+                  className="share-card-send"
+                  disabled={
+                    !requestLink ||
+                    Boolean(shareUsernameError) ||
+                    isSendingNotification ||
+                    !isConnected
+                  }
+                  onClick={() => void sendRequestNotification()}
+                  size="sm"
+                  type="button"
+                >
+                  {isSendingNotification ? (
+                    <Clock3 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Share2 className="h-4 w-4" />
+                  )}
+                  Send
                 </Button>
-                <Button disabled={!requestLink} onClick={() => void shareRequestLink()} type="button" variant="outline">
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-                {canGenerateLink ? (
-                  <Button asChild variant="outline">
-                    <Link href={dashboardHref}>
-                      Preview flow
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                {shareError ? (
+                  <p className="mt-2 text-xs text-destructive">{shareError}</p>
+                ) : null}
+                {shareStatus ? (
+                  <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
+                    {shareStatus}
+                  </p>
                 ) : null}
               </div>
+
+              <div className="share-card">
+                <p className="share-card-title">
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  Generated link
+                </p>
+                {/* Truncated on purpose: the box is small and the link is long. */}
+                <p className="share-card-link" title={requestLink || undefined}>
+                  {requestLink || "Enter an amount to generate a link."}
+                </p>
+                <div className="share-card-actions">
+                  <button
+                    aria-label={copied === "link" ? "Link copied" : "Copy link"}
+                    className="share-icon-button"
+                    disabled={!requestLink}
+                    onClick={() =>
+                      void copyValue(requestLink, "link", { persist: true })
+                    }
+                    type="button"
+                  >
+                    {copied === "link" ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                  <button
+                    aria-label="Share link"
+                    className="share-icon-button"
+                    disabled={!requestLink}
+                    onClick={() => void shareRequestLink()}
+                    type="button"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             </div>
+
+            <button
+              className="request-history-link"
+              onClick={() => setHistoryOpen(true)}
+              type="button"
+            >
+              <History className="h-3.5 w-3.5" />
+              Request history
+              {openRequests.length > 0 ? (
+                <span className="request-history-count">
+                  {openRequests.length}
+                </span>
+              ) : null}
+            </button>
           </div>
         </section>
 
@@ -848,79 +861,85 @@ export function PaymentCollectionHub({
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-muted-foreground">Chain</span>
-              <span className="font-semibold">{arcTestnet.name}</span>
+              <span className="font-semibold">{arcChain.name}</span>
             </div>
           </div>
         </aside>
       </div>
 
-      <PagedActivityBox
-        empty="Sent and generated requests appear here for quick tracking."
-        items={savedRequests}
-        title="Request history"
-        renderItem={(request) => {
-          const status = deriveLocalRequestStatus(request);
-          return (
-            <article className="collection-hub-request-card" key={request.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold">
-                    {request.amount} {request.token}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {request.sentToUsername
-                      ? `Requested ${formatUsernameLabel(request.sentToUsername)}`
-                      : request.username
-                        ? `Pays ${formatUsernameLabel(request.username)}`
-                        : `Pays ${shortenWallet(request.wallet)}`}
-                  </p>
-                  {request.note ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{request.note}</p>
-                  ) : null}
-                </div>
-                <Badge
-                  variant={
-                    status === "active"
-                      ? "secondary"
-                      : status === "paid"
-                        ? "default"
-                        : "outline"
-                  }
-                >
-                  {status}
-                </Badge>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button onClick={() => void copyValue(request.link, "link")} size="sm" variant="outline">
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy
-                </Button>
-                <Button asChild size="sm" variant="ghost">
-                  <Link
-                    href={
-                      request.link.startsWith("http")
-                        ? `${new URL(request.link).pathname}${new URL(request.link).search}`
-                        : dashboardHref
-                    }
+      <Dialog onOpenChange={setHistoryOpen} open={historyOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Request history</DialogTitle>
+            <DialogDescription>
+              Requests still waiting to be paid. Expired and declined ones are
+              not listed.
+            </DialogDescription>
+          </DialogHeader>
+
+          {openRequests.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No open requests.
+            </p>
+          ) : (
+            <div className="request-history-list">
+              {openRequests.map((request) => {
+                const status = deriveLocalRequestStatus(request);
+                return (
+                  <article
+                    className="collection-hub-request-card"
+                    key={request.id}
                   >
-                    Open
-                  </Link>
-                </Button>
-                {request.sentToUsername ? (
-                  <Button
-                    onClick={() => applyHistoryUsername(request.sentToUsername ?? "")}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    Use @{request.sentToUsername}
-                  </Button>
-                ) : null}
-              </div>
-            </article>
-          );
-        }}
-      />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold">
+                          {request.amount} {request.token}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {request.sentToUsername
+                            ? `Requested ${formatUsernameLabel(request.sentToUsername)}`
+                            : request.username
+                              ? `Pays ${formatUsernameLabel(request.username)}`
+                              : `Pays ${shortenWallet(request.wallet)}`}
+                        </p>
+                        {request.note ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {request.note}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge
+                          variant={
+                            status === "active"
+                              ? "secondary"
+                              : status === "paid"
+                                ? "default"
+                                : "outline"
+                          }
+                        >
+                          {status}
+                        </Badge>
+                        {/* A lapsed request has no link worth sharing. */}
+                        {status === "expired" ? null : (
+                          <button
+                            aria-label="Copy request link"
+                            className="request-copy-button"
+                            onClick={() => void copyValue(request.link, "link")}
+                            type="button"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

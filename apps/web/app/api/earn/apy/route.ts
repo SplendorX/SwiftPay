@@ -5,8 +5,8 @@ import { fetchAaveApy } from "@/lib/earn/aave-apy";
 import { earnConfig } from "@/lib/earn/config";
 import { bpsToPercentString } from "@/lib/earn/decimal";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnetTokens } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 
 export const runtime = "nodejs";
 
@@ -14,7 +14,7 @@ const snapshotsTable =
   process.env.SUPABASE_EARN_APY_SNAPSHOTS_TABLE ?? "earn_apy_snapshots";
 
 export async function GET() {
-  const asset = arcTestnetTokens.USDC.address as Address;
+  const asset = arcTokens.USDC.address as Address;
   const live = await fetchAaveApy({
     pool: earnConfig.aavePoolAddress,
     asset,
@@ -27,7 +27,7 @@ export async function GET() {
     try {
       const supabase = createSupabaseAdminClient();
       await supabase.from(snapshotsTable).insert({
-        chain_id: arcTestnet.id,
+        chain_id: arcChain.id,
         strategy_address: earnConfig.strategyAddress.toLowerCase(),
         gross_apy_bps: live.grossApyBps,
         net_apy_bps: live.netApyBps,
@@ -69,8 +69,8 @@ export async function GET() {
   if (earnConfig.vaultAddress) {
     try {
       const client = createPublicClient({
-        chain: arcTestnet,
-        transport: http(arcTestnet.rpcUrls.default.http[0]),
+        chain: arcChain,
+        transport: http(arcChain.rpcUrls.default.http[0]),
       });
       const assets = await client.readContract({
         address: earnConfig.vaultAddress,

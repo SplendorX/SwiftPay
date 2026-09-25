@@ -2,13 +2,11 @@
 
 import {
   Banknote,
-  Briefcase,
   CalendarClock,
-  FileText,
+  Gift,
+  History,
   LayoutDashboard,
   PiggyBank,
-  RefreshCw,
-  Send,
   Settings,
   TrendingUp,
   Users,
@@ -23,6 +21,11 @@ import { useT } from "@/components/locale-provider";
 import { navLabelKeys } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
+/**
+ * The sidebar carries the places you live in. Overview, Invoices, Request and
+ * Swap are task pages reached from the dashboard's quick actions board
+ * instead, so they are deliberately absent here.
+ */
 export const platformNavItems = [
   {
     href: "/dashboard",
@@ -30,30 +33,18 @@ export const platformNavItems = [
     icon: LayoutDashboard,
   },
   {
-    href: "/business",
-    label: "Overview",
-    icon: Briefcase,
-    businessOnly: true,
-  },
-  {
-    href: "/business/invoices",
-    label: "Invoices",
-    icon: FileText,
-    businessOnly: true,
-  },
-  {
     href: "/business/payroll",
     label: "Payroll",
     icon: Banknote,
     businessOnly: true,
   },
-  { href: "/pay", label: "Request", icon: Send },
-  { href: "/swap", label: "Swap", icon: RefreshCw },
-  { href: "/swiftCircle", label: "Circle", icon: UsersRound },
+  { href: "/circle", label: "Circle", icon: UsersRound },
   { href: "/save", label: "Save", icon: PiggyBank },
   { href: "/earn", label: "Earn", icon: TrendingUp },
-  { href: "/swiftBatch", label: "BatchPay", icon: Users },
-  { href: "/swiftRecurepay", label: "RecurePay", icon: CalendarClock },
+  { href: "/batchpay", label: "BatchPay", icon: Users },
+  { href: "/recurepay", label: "RecurePay", icon: CalendarClock },
+  { href: "/activity", label: "Activity", icon: History },
+  { href: "/referral", label: "Invite & Earn", icon: Gift },
   { href: "/settings", label: "Settings", icon: Settings },
 ] satisfies Array<{
   businessOnly?: boolean;
@@ -69,8 +60,11 @@ const shouldPrefetchPlatformRoutes = process.env.NODE_ENV === "production";
 export function PlatformNav({ className }: { className?: string }) {
   const pathname = usePathname();
   const t = useT();
-  const isBusiness = useOptionalAccount()?.isBusiness ?? false;
-  const items = platformNavItems.filter((item) => !item.businessOnly || isBusiness);
+  const accountContext = useOptionalAccount();
+
+  const hasBusinessAccess = Boolean(accountContext?.isBusiness);
+
+  const items = platformNavItems.filter((item) => !item.businessOnly || hasBusinessAccess);
 
   return (
     <nav aria-label={t("common.platformNav")} className={cn("app-nav", className)}>
@@ -92,7 +86,7 @@ export function PlatformNav({ className }: { className?: string }) {
             key={item.href}
             prefetch={shouldPrefetchPlatformRoutes}
           >
-            <Icon className="h-4 w-4 shrink-0" />
+            <Icon className="h-[1.125rem] w-[1.125rem] shrink-0" strokeWidth={2.25} />
             <span className="truncate">{labelKey ? t(labelKey) : item.label}</span>
           </Link>
         );

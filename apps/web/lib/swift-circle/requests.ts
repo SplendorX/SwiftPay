@@ -45,7 +45,7 @@ export async function createPaymentRequests(input: {
   idempotencyKey?: unknown;
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "REQUEST", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "REQUEST", wallet: input.actorWallet });
   const circle = await loadCircle(input.circleId);
   assertCircleActive(circle);
   const member = await requireActiveMember(input.circleId, input.actorWallet);

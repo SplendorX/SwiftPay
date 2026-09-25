@@ -8,7 +8,7 @@ export function FeatureStories() {
   const stories = [
     {
       body: t("landing.storyPayBody"),
-      image: "/landing/pay-mac.jpg",
+      image: "/landing/pay-laptop.jpg",
       imageAlt: t("landing.storyPayAlt"),
       kicker: t("landing.storyPayKicker"),
       title: t("landing.storyPayTitle"),
@@ -16,14 +16,14 @@ export function FeatureStories() {
     {
       body: t("landing.storyCircleBody"),
       flip: true,
-      image: "/landing/circle-mac.jpg",
+      image: "/landing/circle-group.jpg",
       imageAlt: t("landing.storyCircleAlt"),
       kicker: t("landing.storyCircleKicker"),
       title: t("landing.storyCircleTitle"),
     },
     {
       body: t("landing.storyRecureBody"),
-      image: "/landing/schedule-mac.jpg",
+      image: "/landing/recurepay-rest.jpg",
       imageAlt: t("landing.storyRecureAlt"),
       kicker: t("landing.storyRecureKicker"),
       title: t("landing.storyRecureTitle"),

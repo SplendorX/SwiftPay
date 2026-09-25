@@ -16,7 +16,7 @@ import {
   getSavingsNotificationById,
 } from "@/lib/save/notifications";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -45,7 +45,7 @@ function normalizeToken(value: unknown): ArcTokenSymbol | null {
     return null;
   }
 
-  return value in arcTestnetTokens ? (value as ArcTokenSymbol) : null;
+  return value in arcTokens ? (value as ArcTokenSymbol) : null;
 }
 
 export async function POST(request: NextRequest) {

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
+import { useWorkspace } from "@/components/business/workspace-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
@@ -30,6 +31,7 @@ import type { PayrollGroupRecord, TeamMemberRecord } from "@/lib/payroll/types";
 
 export default function PayrollGroupsPage() {
   const { ownerWallet, circleSocialUuid } = useAccountContext();
+  const { workspace } = useWorkspace();
   const [groups, setGroups] = useState<PayrollGroupRecord[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +50,8 @@ export default function PayrollGroupsPage() {
     setLoading(true);
     try {
       const [groupsData, membersData] = await Promise.all([
-        fetchPayrollGroups(ownerWallet, circleSocialUuid ?? undefined),
-        fetchTeamMembers(ownerWallet, { status: "ACTIVE" }, circleSocialUuid ?? undefined),
+        fetchPayrollGroups(ownerWallet, circleSocialUuid ?? undefined, workspace?.id),
+        fetchTeamMembers(ownerWallet, { status: "ACTIVE" }, circleSocialUuid ?? undefined, workspace?.id),
       ]);
       setGroups(groupsData);
       setTeamMembers(membersData);
@@ -63,7 +65,7 @@ export default function PayrollGroupsPage() {
 
   useEffect(() => {
     void loadData();
-  }, [ownerWallet, circleSocialUuid]);
+  }, [ownerWallet, circleSocialUuid, workspace?.id]);
 
   async function handleCreateGroup(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +82,7 @@ export default function PayrollGroupsPage() {
           memberIds: selectedMemberIds,
         },
         circleSocialUuid ?? undefined,
+        workspace?.id,
       );
       setName("");
       setDescription("");
@@ -96,7 +99,7 @@ export default function PayrollGroupsPage() {
   async function handleDeleteGroup(id: string) {
     if (!ownerWallet || !confirm("Are you sure you want to delete this group?")) return;
     try {
-      await deletePayrollGroupClient(ownerWallet, id, circleSocialUuid ?? undefined);
+      await deletePayrollGroupClient(ownerWallet, id, circleSocialUuid ?? undefined, workspace?.id);
       await loadData();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to delete group.");

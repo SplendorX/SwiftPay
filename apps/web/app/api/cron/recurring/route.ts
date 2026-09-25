@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { runAutopayTick } from "@/lib/recurring/tick";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,19 +11,9 @@ function jsonError(message: string, status: number) {
   return NextResponse.json({ message }, { status });
 }
 
-function isAuthorized(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    return process.env.NODE_ENV !== "production";
-  }
-
-  const authorization = request.headers.get("authorization");
-  return authorization === `Bearer ${cronSecret}`;
-}
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return jsonError("Unauthorized cron request.", 401);
   }
 

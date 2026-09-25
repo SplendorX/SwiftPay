@@ -19,7 +19,7 @@ import {
   normalizeAmount,
   normalizeCurrency,
 } from "@/lib/save/validation";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     return jsonError("Enter a valid payment amount.", 400);
   }
 
-  const decimals = arcTestnetTokens[currency].decimals;
+  const decimals = arcTokens[currency].decimals;
   const paymentAmountUnits = BigInt(amount.amount_units);
   const feeUnits = platformFeeUnits(paymentAmountUnits, SEND_FEE_BPS);
   const feeRecipient = swiftBatchFeeRecipient;

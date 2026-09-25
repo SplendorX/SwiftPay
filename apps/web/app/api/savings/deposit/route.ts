@@ -20,7 +20,7 @@ import {
   normalizeAmount,
   normalizeIdempotencyKey,
 } from "@/lib/save/validation";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     });
 
     const vault = swiftSaveVaultAddress();
-    const token = arcTestnetTokens[pocket.currency];
+    const token = arcTokens[pocket.currency];
 
     return NextResponse.json(
       {

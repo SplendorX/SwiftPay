@@ -16,7 +16,16 @@ export function getSwapErrorMessage(message: string) {
     normalizedMessage.includes("route or resource not found") ||
     normalizedMessage.includes("createswap failed")
   ) {
-    return "No live Circle App Kit route is available for this Arc Testnet pair right now. Try a smaller amount, flip the pair, or use Circle StableFX for USDC/EURC FX if your Circle account has StableFX access.";
+    return "No live Circle App Kit route is available for this pair right now. Try a smaller amount, flip the pair, or use Circle StableFX for USDC/EURC FX if your Circle account has StableFX access.";
+  }
+
+  if (
+    normalizedMessage.includes("payment intent transition") ||
+    normalizedMessage.includes("intent transition") ||
+    normalizedMessage.includes("illegal payment") ||
+    normalizedMessage.includes("burnintent")
+  ) {
+    return "Payment could not be initialized. Please try again.";
   }
 
   return message;

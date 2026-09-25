@@ -1,0 +1,221 @@
+"use client";
+
+import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { EarnExternalWalletNotice } from "@/components/earn/earn-signer-notice";
+import { Button } from "@/components/ui/button";
+import {
+  browserDeposit,
+  browserDepositQuote,
+  EarnRejectedError,
+} from "@/lib/earn/browser";
+import {
+  formatApy,
+  formatAssetAmount,
+  formatFeeList,
+  vaultName,
+} from "@/lib/earn/display";
+import { notifyEarnPositionUpdated } from "@/lib/earn/selected-vault";
+import type { EarnDepositQuote, EarnTxResult, EarnVault } from "@/lib/earn/types";
+import { formatUsdc, isValidUsdcAmount, parseUsdc } from "@/lib/onchain-money";
+
+type EarnDepositProps = {
+  connectedAddress?: string | null;
+  currentChainId?: number;
+  resolveProvider?: (() => Promise<unknown>) | null;
+  selectedVault?: EarnVault | null;
+  switchChainAsync?: (args: { chainId: number }) => Promise<unknown>;
+  vaultAddress?: string | null;
+  walletReason?: string | null;
+  /** Prefill from a link, e.g. ALLIE's handoff. */
+  initialAmount?: string;
+};
+
+export function EarnDeposit({
+  connectedAddress,
+  currentChainId,
+  initialAmount = "",
+  resolveProvider,
+  selectedVault,
+  switchChainAsync,
+  vaultAddress,
+  walletReason,
+}: EarnDepositProps) {
+  const [amount, setAmount] = useState(initialAmount);
+  const [quote, setQuote] = useState<EarnDepositQuote | null>(null);
+  const [result, setResult] = useState<EarnTxResult | null>(null);
+  const [busy, setBusy] = useState<"preview" | "deposit" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const amountValid = isValidUsdcAmount(amount);
+
+  async function handlePreview() {
+    if (!vaultAddress || !connectedAddress || !amountValid) return;
+    setBusy("preview");
+    setError(null);
+    try {
+      parseUsdc(amount);
+      const nextQuote = await browserDepositQuote({
+        amount,
+        currentChainId,
+        resolveProvider,
+        switchChainAsync,
+        vaultAddress,
+      });
+      setQuote(nextQuote);
+    } catch (cause) {
+      setQuote(null);
+      if (!(cause instanceof EarnRejectedError)) {
+        setError(cause instanceof Error ? cause.message : "Preview failed.");
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDeposit() {
+    if (!vaultAddress || !connectedAddress || !amountValid || busy) return;
+    setBusy("deposit");
+    setError(null);
+    try {
+      parseUsdc(amount);
+      const nextResult = await browserDeposit({
+        amount,
+        currentChainId,
+        resolveProvider,
+        switchChainAsync,
+        vaultAddress,
+      });
+      setResult(nextResult);
+      setAmount("");
+      setQuote(null);
+      notifyEarnPositionUpdated();
+      toast.success("Deposit submitted", {
+        action: {
+          label: "View",
+          onClick: () => window.open(nextResult.explorerUrl, "_blank"),
+        },
+        description: `${formatUsdc(parseUsdc(nextResult.amount || amount))} USDC deposited.`,
+      });
+    } catch (cause) {
+      if (!(cause instanceof EarnRejectedError)) {
+        setError(cause instanceof Error ? cause.message : "Deposit failed.");
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!vaultAddress) {
+    return (
+      <p className="earn-footnote">
+        Select a vault first. Your choice is kept while you move between Earn
+        tabs.
+      </p>
+    );
+  }
+
+  if (!connectedAddress) {
+    return (
+      <p className="earn-footnote">
+        Connect a wallet to preview and deposit USDC.
+      </p>
+    );
+  }
+
+  if (!resolveProvider) {
+    return <EarnExternalWalletNotice reason={walletReason} />;
+  }
+
+  const apy = formatApy(quote?.currentApy);
+  const shares = formatAssetAmount(quote?.expectedShares);
+  const depositAmount = formatAssetAmount(quote?.deposit) ?? `${amount} USDC`;
+
+  return (
+    <div className="earn-form earn-panel-form">
+      <p className="earn-label">
+        {selectedVault ? vaultName(selectedVault) : "Selected vault"}
+      </p>
+      <label className="earn-label" htmlFor="earn-deposit-amount">
+        Amount
+      </label>
+      <input
+        className="earn-input"
+        id="earn-deposit-amount"
+        inputMode="decimal"
+        onChange={(event) => {
+          setAmount(event.target.value);
+          setQuote(null);
+          setResult(null);
+        }}
+        placeholder="100.00 USDC"
+        value={amount}
+      />
+      {quote ? (
+        <dl className="earn-form-preview">
+          <div>
+            <dt>You&apos;re depositing</dt>
+            <dd>{depositAmount}</dd>
+          </div>
+          <div>
+            <dt>Estimated shares</dt>
+            <dd>{shares ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>Current APY</dt>
+            <dd>{apy ? `${apy}` : "—"}</dd>
+          </div>
+          <div>
+            <dt>Fees</dt>
+            <dd>{formatFeeList(quote.fees)}</dd>
+          </div>
+        </dl>
+      ) : null}
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <Button
+          className="h-11 flex-1"
+          disabled={!amountValid || busy !== null}
+          onClick={() => void handlePreview()}
+          type="button"
+          variant="outline"
+        >
+          {busy === "preview" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Preview"
+          )}
+        </Button>
+        <Button
+          className="h-11 flex-1"
+          disabled={!amountValid || busy !== null}
+          onClick={() => void handleDeposit()}
+          type="button"
+        >
+          {busy === "deposit" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Deposit USDC"
+          )}
+        </Button>
+      </div>
+      {error ? (
+        <p className="earn-error">
+          <AlertCircle className="h-4 w-4" />
+          {error}
+        </p>
+      ) : null}
+      {result ? (
+        <a
+          className="earn-tx-link"
+          href={result.explorerUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          View transaction <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      ) : null}
+    </div>
+  );
+}

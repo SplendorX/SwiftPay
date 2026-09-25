@@ -30,7 +30,10 @@ function normalizeToken(value: string): ArcTokenSymbol {
 
 export default async function PayPage({ searchParams }: PayPageProps) {
   const params = await searchParams;
-  const usernameParam = normalizeUsername(readParam(params, "username"));
+  // "from" is who the request goes to, as ALLIE's handoff names it.
+  const usernameParam = normalizeUsername(
+    readParam(params, "username") || readParam(params, "from"),
+  );
   const recipientParam =
     readParam(params, "to") ||
     readParam(params, "recipient") ||

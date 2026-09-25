@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { allowInsecureLocalTls } from "@/lib/insecure-local-tls";
 import https from "node:https";
 
 function isLeafSignatureError(error: unknown) {
@@ -159,7 +160,7 @@ function createSupabaseFetch(supabaseUrl: string): typeof fetch {
       const requestOrigin = new URL(getRequestUrl(input)).origin;
 
       if (
-        process.env.NODE_ENV !== "development" ||
+        !allowInsecureLocalTls() ||
         requestOrigin !== allowedOrigin ||
         !isLeafSignatureError(error)
       ) {

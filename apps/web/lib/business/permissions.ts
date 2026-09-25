@@ -48,6 +48,7 @@ const rolePermissions: Record<BusinessRole, readonly BusinessPermission[]> = {
     "profile.view",
     "profile.edit",
     "settings.view",
+    "settings.manage",
   ],
   finance: [
     "business.view",
@@ -104,6 +105,16 @@ export function canManageRole(actor: BusinessRole, target: BusinessRole) {
   if (actor === "owner") return true;
   if (actor === "admin" && target !== "admin") return true;
   return false;
+}
+
+export function assignableRoles(actor: BusinessRole): readonly ("admin" | "finance" | "member" | "viewer")[] {
+  if (actor === "owner") {
+    return ["admin", "finance", "member", "viewer"] as const;
+  }
+  if (actor === "admin") {
+    return ["finance", "member", "viewer"] as const;
+  }
+  return [];
 }
 
 export function isBusinessRole(value: unknown): value is BusinessRole {

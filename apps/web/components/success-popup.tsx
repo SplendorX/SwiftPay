@@ -60,15 +60,14 @@ export function SuccessPopup({
   }
 
   return (
-    <div
-      aria-modal="true"
-      className="sp-success-overlay"
-      onClick={onClose}
-      role="dialog"
-    >
+    <div className="sp-success-overlay" onClick={onClose}>
+      {/* Dialog role on the card, not the backdrop, so the backdrop keeps its
+          blur in themes that style [role="dialog"] as a solid panel. */}
       <div
+        aria-modal="true"
         className="sp-success-card"
         onClick={(event) => event.stopPropagation()}
+        role="dialog"
       >
         <div className="mb-5 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
@@ -140,7 +139,7 @@ export function SuccessPopup({
           ) : null}
           {children}
           <button
-            className="inline-flex h-11 flex-1 items-center justify-center rounded-[1rem] bg-primary px-4 text-sm font-bold text-primary-foreground sm:flex-none"
+            className="sp-bubble inline-flex h-11 flex-1 items-center justify-center rounded-[1rem] bg-primary px-4 text-sm font-bold text-primary-foreground sm:flex-none"
             onClick={onClose}
             type="button"
           >

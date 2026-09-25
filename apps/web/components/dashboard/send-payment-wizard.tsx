@@ -1,10 +1,12 @@
 "use client";
 
+import { arcChain } from "@/lib/chains";
 import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Coins,
   ExternalLink,
   KeyRound,
   Loader2,
@@ -14,8 +16,9 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SendStepIndicator } from "@/components/dashboard/send-step-indicator";
+import { RecipientStatus } from "@/components/recipient-status";
 import { TokenSelect } from "@/components/design/token-select";
 import {
   RecurringScheduleFields,
@@ -24,6 +27,8 @@ import {
 } from "@/components/recurring-schedule-fields";
 import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
+import { calculateTransactionCashback } from "@/lib/referral/cashback-service";
+import { useConversionRates, usdPerUnit } from "@/lib/use-conversion-rates";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 
 export type SendSettlementQuote = {
@@ -37,6 +42,9 @@ export type SendSettlementQuote = {
 export type SendPaymentWizardProps = {
   address?: string;
   authWallet: string | null;
+  availableBalance?: string;
+  availableBalances?: Array<{ symbol: ArcTokenSymbol; amount: string }>;
+  hideBalance?: boolean;
   beneficiaryError: string | null;
   beneficiaryName: string;
   beneficiaryStatus: string | null;
@@ -52,6 +60,7 @@ export type SendPaymentWizardProps = {
   isRecipientValid: boolean;
   isSubmitting: boolean;
   isSwitchingChain: boolean;
+  isTreasuryMismatch?: boolean;
   isWalletAuthenticated: boolean;
   isWritePending: boolean;
   onBeneficiaryNameChange: (value: string) => void;
@@ -73,23 +82,34 @@ export type SendPaymentWizardProps = {
   primaryButtonText: string;
   recurring: RecurringScheduleDraft;
   recurringEnabled: boolean;
+  /** Set once a schedule was created alongside this payment. */
+  recurringNotice?: string | null;
   receiveHref: string;
+  onSwitchToTreasury?: () => void;
   recipientAddress: string;
   recipientDisplayLabel: string;
   recipientResolveError: string | null;
   resolvedRecipientUsername: string | null;
-  refreshBalances: () => void;
+  refreshBalances: () => void | Promise<void>;
+  isRefreshingBalances?: boolean;
   selectedToken: ArcTokenSymbol;
   settlementQuote?: SendSettlementQuote | null;
   shortenAddress: (value?: string) => string;
   transactionConfirmed: boolean;
   transactionExplorerUrl?: string;
+  treasuryAddress?: string;
   trimmedPaymentNarration: string;
   trimmedRecipientAddress: string;
   walletAddress: string;
 };
 
-function PaymentRouteViz({ from, to }: { from: string; to: string }) {
+function PaymentRouteViz({
+  from,
+  to,
+}: {
+  from: string;
+  to: string;
+}) {
   return (
     <div className="payment-route-viz">
       <div className="route-node">{from}</div>
@@ -105,6 +125,9 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
   const {
     address,
     authWallet,
+    availableBalance,
+    availableBalances,
+    hideBalance = false,
     beneficiaryError,
     beneficiaryName,
     beneficiaryStatus,
@@ -137,19 +160,24 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     paymentNarration,
     paymentStatus,
     spendSaveNotice,
+    isTreasuryMismatch = false,
+    onSwitchToTreasury,
     primaryButtonText,
     receiveHref,
     recipientAddress,
     recurring,
     recurringEnabled,
+    recurringNotice,
     recipientResolveError,
     resolvedRecipientUsername,
     refreshBalances,
+    isRefreshingBalances = false,
     selectedToken,
     settlementQuote,
     shortenAddress,
     transactionConfirmed,
     transactionExplorerUrl,
+    treasuryAddress,
     trimmedPaymentNarration,
     trimmedRecipientAddress,
     walletAddress,
@@ -164,6 +192,14 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
   const [localRecipient, setLocalRecipient] = useState(recipientAddress);
   const [localAmount, setLocalAmount] = useState(paymentAmount);
   const [localNarration, setLocalNarration] = useState(paymentNarration);
+
+  // Cashback tiers are in USD; EURC is valued at the live rate.
+  const { rates } = useConversionRates();
+  const usdPerToken = selectedToken === "EURC" ? (usdPerUnit("EUR", rates) ?? 1) : 1;
+  const cashbackCalculation = useMemo(
+    () => calculateTransactionCashback(localAmount || paymentAmount, usdPerToken),
+    [localAmount, paymentAmount, usdPerToken],
+  );
   const recipientSyncTimer = useRef<number | null>(null);
   const amountSyncTimer = useRef<number | null>(null);
   const narrationSyncTimer = useRef<number | null>(null);
@@ -289,6 +325,13 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
     }
   }
 
+  const balanceChips =
+    availableBalances && availableBalances.length > 0
+      ? availableBalances
+      : availableBalance
+        ? [{ amount: availableBalance, symbol: selectedToken }]
+        : [];
+
   const isBusy =
     isWritePending ||
     isConfirming ||
@@ -305,18 +348,23 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             Pay
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            One wallet confirmation settles the payment, platform fee, and
+            One wallet confirmation settles the payment, service fee, and
             Spend&Save when it is on.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
-            onClick={refreshBalances}
+            aria-label="Refresh balances"
+            disabled={isRefreshingBalances}
+            onClick={() => void refreshBalances()}
             size="icon"
+            title="Refresh balances"
             type="button"
             variant="outline"
           >
-            <RefreshCw className={`h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isRefreshingBalances ? "animate-spin" : ""}`}
+            />
           </Button>
           <Button asChild variant="outline">
             <Link href={receiveHref}>
@@ -327,7 +375,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
         </div>
       </div>
 
-      <SendStepIndicator activeStep={step} className="mb-6" />
+      <SendStepIndicator
+        activeStep={step}
+        className="mb-6"
+        isComplete={transactionConfirmed && !paymentError}
+      />
 
       <form
         className="send-wizard-body min-w-0"
@@ -348,6 +400,31 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
           data-active={step === 1 ? "true" : "false"}
           data-step="1"
         >
+            {isTreasuryMismatch && treasuryAddress ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span>Business Treasury Mismatch</span>
+                  </div>
+                  {onSwitchToTreasury ? (
+                    <Button
+                      className="h-7 px-2.5 text-xs border-amber-500/40 hover:bg-amber-500/20"
+                      onClick={onSwitchToTreasury}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Switch in wallet
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="mt-1 opacity-90">
+                  Connected wallet ({shortenAddress(address)}) does not match the business treasury ({shortenAddress(treasuryAddress)}). Switch accounts in your wallet to pay with business funds.
+                </p>
+              </div>
+            ) : null}
+
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-foreground">
                 Recipient wallet or @username
@@ -357,6 +434,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 <input
                   autoComplete="off"
                   className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  aria-describedby="send-recipient-status"
                   onChange={(event) => scheduleRecipientSync(event.target.value)}
                   placeholder="0x address or @username"
                   spellCheck={false}
@@ -366,13 +444,17 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
                 ) : null}
               </div>
-              {recipientResolveError ? (
-                <p className="text-sm text-destructive">{recipientResolveError}</p>
-              ) : isRecipientValid && resolvedRecipientUsername ? (
-                <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                  Resolved to @{resolvedRecipientUsername}
-                </p>
-              ) : null}
+              <RecipientStatus
+                id="send-recipient-status"
+                resolution={{
+                  error: recipientResolveError,
+                  isResolving: isRecipientResolving,
+                  isValid: isRecipientValid,
+                  // The dashboard passes the resolved wallet here once valid.
+                  resolvedAddress: isRecipientValid ? trimmedRecipientAddress : null,
+                  resolvedUsername: resolvedRecipientUsername,
+                }}
+              />
             </label>
 
             <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-3 sm:p-4">
@@ -467,7 +549,58 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
         >
             <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]">
               <label className="grid gap-2">
-                <span className="text-sm font-semibold text-foreground">Amount</span>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                  <span className="text-sm font-semibold text-foreground">Amount</span>
+                  {balanceChips.length > 0 ? (
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground">
+                        Available
+                      </span>
+                      {balanceChips.map((chip) => {
+                        const isSelected = chip.symbol === selectedToken;
+                        // Tapping the selected chip fills the amount field, so
+                        // while balances are hidden that would leak the figure
+                        // the eye is meant to conceal. Switching asset is fine.
+                        const fillsAmount = isSelected && !hideBalance;
+                        return (
+                          <button
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs transition-colors cursor-pointer ${
+                              isSelected
+                                ? "border-primary/40 bg-primary/10 text-foreground"
+                                : "border-border bg-muted/40 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                            }`}
+                            key={chip.symbol}
+                            disabled={isSelected && hideBalance}
+                            onClick={() =>
+                              fillsAmount
+                                ? scheduleAmountSync(chip.amount)
+                                : isSelected
+                                  ? undefined
+                                  : onSelectToken(chip.symbol)
+                            }
+                            title={
+                              hideBalance
+                                ? "Balances hidden"
+                                : isSelected
+                                  ? `Send your full ${chip.symbol} balance`
+                                  : `Pay in ${chip.symbol} instead`
+                            }
+                            type="button"
+                          >
+                            <TokenIcon
+                              className="h-3.5 w-3.5 shrink-0 rounded-full"
+                              symbol={chip.symbol}
+                            />
+                            <span className="font-semibold tabular-nums">
+                              {hideBalance ? "••••" : Number(chip.amount).toFixed(2)}
+                            </span>
+                            <span className="opacity-70">{chip.symbol}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
                 <div className="field-shell flex h-11 items-center gap-2 px-3">
                   <TokenIcon className="h-5 w-5 rounded-full" symbol={selectedToken} />
                   <input
@@ -504,7 +637,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
 
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-xs leading-5 text-muted-foreground">
               <p>
-                Platform fee: {settlementQuote?.feeLabel ?? "0.1%"} on this send.
+                Service fee: {settlementQuote?.feeLabel ?? "0.1%"} on this send.
                 {settlementQuote?.saveLabel
                   ? ` ${settlementQuote.saveLabel}`
                   : ""}
@@ -514,8 +647,35 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                   Total debit: {settlementQuote.totalRequired} {selectedToken}
                 </p>
               ) : (
-                <p className="mt-1">Gas is USDC-native on Arc Testnet.</p>
+                <p className="mt-1">Gas is USDC-native on {arcChain.name}.</p>
               )}
+            </div>
+
+            {/* General Platform Cashback Indicator */}
+            <div
+              className={`rounded-lg border p-3 text-xs leading-5 transition-all ${
+                cashbackCalculation.eligible
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200"
+                  : "border-primary/20 bg-primary/5 text-muted-foreground"
+              }`}
+            >
+              <div className="flex items-center gap-2 font-semibold">
+                <Coins className="h-4 w-4 text-amber-500 shrink-0" />
+                {cashbackCalculation.eligible ? (
+                  <span>
+                    Earn <strong>+{cashbackCalculation.points} SwiftPoints</strong> ({cashbackCalculation.usdcValue} USDC) cashback!
+                  </span>
+                ) : (
+                  <span>General Cashback: Earn SwiftPoints on transactions worth $20 or more</span>
+                )}
+              </div>
+              <p className="mt-1 text-[11px] opacity-90">
+                {cashbackCalculation.eligible && cashbackCalculation.nextTier ? (
+                  <>Send {cashbackCalculation.nextTier.needed} more {selectedToken} to earn <strong>+{cashbackCalculation.nextTier.points} SwiftPoints</strong>.</>
+                ) : (
+                  <>Platform cashback tiers: 1 pt ($20+), 5 pts ($100+), 20 pts ($500+), 50 pts ($1,000+).{selectedToken === "EURC" ? " EURC counts at the live euro rate." : ""}</>
+                )}
+              </p>
             </div>
         </div>
 
@@ -526,7 +686,11 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
           data-step="3"
         >
             <PaymentRouteViz
-              from={shortenAddress(address)}
+              from={
+                isTreasuryMismatch
+                  ? `${shortenAddress(address)} (Personal)`
+                  : shortenAddress(address)
+              }
               to={
                 isRecipientValid
                   ? resolvedRecipientUsername
@@ -536,9 +700,41 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
               }
             />
 
+            {isTreasuryMismatch && treasuryAddress ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span>Signing with Personal Wallet</span>
+                  </div>
+                  {onSwitchToTreasury ? (
+                    <Button
+                      className="h-7 px-2.5 text-xs border-amber-500/40 hover:bg-amber-500/20"
+                      onClick={onSwitchToTreasury}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Switch in wallet
+                    </Button>
+                  ) : null}
+                </div>
+                <p className="mt-1 opacity-90">
+                  You are connected as <strong>{shortenAddress(address)}</strong> (Personal), but this workspace&apos;s treasury is <strong>{shortenAddress(treasuryAddress)}</strong>. Confirming will deduct funds from your personal wallet, not business funds.
+                </p>
+              </div>
+            ) : null}
             <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-3 text-sm sm:p-4">
               {[
-                ["From", shortenAddress(address)],
+                [
+                  "From (Signing wallet)",
+                  isTreasuryMismatch
+                    ? `${shortenAddress(address)} (Personal)`
+                    : shortenAddress(address),
+                ],
+                ...(isTreasuryMismatch && treasuryAddress
+                  ? [["Business treasury", shortenAddress(treasuryAddress)] as const]
+                  : []),
                 [
                   "To",
                   isRecipientValid
@@ -549,7 +745,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 ],
                 ["Amount", `${paymentAmount || "0.00"} ${selectedToken}`],
                 [
-                  "Platform fee",
+                  "Service fee",
                   settlementQuote
                     ? `${settlementQuote.feeAmount} ${selectedToken}`
                     : "0.1%",
@@ -571,6 +767,19 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                     ] as const)
                   : []),
                 ["Narration", trimmedPaymentNarration || "No note"],
+                ...(cashbackCalculation.eligible
+                  ? ([
+                      [
+                        "Cashback earned",
+                        `+${cashbackCalculation.points} SwiftPoints (${cashbackCalculation.usdcValue} USDC)`,
+                      ],
+                    ] as const)
+                  : ([
+                      [
+                        "Cashback earned",
+                        `0 pts (send 20+ ${selectedToken} for cashback)`,
+                      ],
+                    ] as const)),
               ].map(([label, value]) => (
                 <div
                   className="flex min-w-0 items-start justify-between gap-3 border-b border-border/60 py-2 last:border-0"
@@ -589,6 +798,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
             {recurringEnabled ? (
               <RecurringScheduleFields
                 onChange={onRecurringChange}
+                showAutopay={false}
                 value={recurring}
               />
             ) : null}
@@ -634,6 +844,24 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 </p>
               ) : null}
             </div>
+            {transactionConfirmed && recurringNotice ? (
+              <div className="mx-auto grid w-full max-w-sm gap-2 rounded-[1rem] border border-primary/25 bg-primary/5 px-4 py-3 text-left">
+                <p className="text-sm font-semibold text-foreground">
+                  Your schedule is set
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Go to Recurepay to authorize Autopay so future payments
+                  settle automatically.
+                </p>
+                <Link
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
+                  href="/recurepay"
+                >
+                  Authorize Autopay in Recurepay
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            ) : null}
             {transactionExplorerUrl ? (
               <a
                 className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-primary"
@@ -695,20 +923,34 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                     ? !isRecipientValid && localRecipient.trim().length === 0
                     : step === 2
                       ? !hasAmount && localAmount.trim().length === 0
-                      : isBusy || (isConnected && !canSubmitPayment)
+                      : isBusy || (isConnected && !canSubmitPayment && !(step === 3 && isTreasuryMismatch))
+              }
+              onClick={
+                step === 3 && isTreasuryMismatch && onSwitchToTreasury
+                  ? (e) => {
+                      e.preventDefault();
+                      onSwitchToTreasury();
+                    }
+                  : undefined
               }
               tabIndex={step >= 4 && !paymentError ? -1 : undefined}
-              type="submit"
+              type={step === 3 && isTreasuryMismatch ? "button" : "submit"}
             >
               {isBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : step === 3 ? (
-                <ArrowRight className="h-4 w-4" />
+                isTreasuryMismatch ? (
+                  <Wallet className="h-4 w-4" />
+                ) : (
+                  <ArrowRight className="h-4 w-4" />
+                )
               ) : null}
               {step === 3 || (step >= 4 && paymentError)
                 ? isBusy
                   ? "Confirming"
-                  : primaryButtonText
+                  : isTreasuryMismatch && treasuryAddress
+                    ? `Switch to Treasury (${shortenAddress(treasuryAddress)})`
+                    : primaryButtonText
                 : "Continue"}
             </Button>
         </div>

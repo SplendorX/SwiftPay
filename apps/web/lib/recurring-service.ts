@@ -43,6 +43,46 @@ function isDuplicateError(error: { message?: string; code?: string } | null) {
   );
 }
 
+/**
+ * The payer's allowance to the configured executor is gone (for example the
+ * executor was redeployed, or the approval went to a previous one). Stop
+ * treating the schedule as authorized so its owner sees "Authorize Autopay"
+ * again, instead of the worker retrying a payment that cannot succeed.
+ */
+/**
+ * A fresh authorization fixes whatever the waiting retries were backing off
+ * from (usually a missing allowance), so make them due now instead of making
+ * the owner wait out the backoff after authorizing.
+ */
+export async function expediteScheduleRetries(scheduleId: string) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from(executionsTable)
+    .update({ next_retry_at: new Date().toISOString() })
+    .eq("schedule_id", scheduleId)
+    .eq("status", "RETRYING");
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function requireScheduleReauthorization(scheduleId: string) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from(schedulesTable)
+    .update({
+      authorization_status: "REAUTHORIZATION_REQUIRED",
+      authorization_tx_hash: null,
+      authorized_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", scheduleId)
+    .eq("authorization_status", "AUTHORIZED");
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function loadScheduleById(scheduleId: string) {
   const supabase = createSupabaseAdminClient();
   const loaded = await supabase

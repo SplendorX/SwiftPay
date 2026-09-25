@@ -20,6 +20,7 @@ import {
   type WalletMode,
 } from "@/lib/wallet-mode";
 import { ensureProfile } from "@/lib/profile";
+import { ensureCircleWalletSession } from "@/lib/wallet-auth-client";
 
 export function usePlatformWallet() {
   const { address: wagmiAddress, isConnected } = useAccount();
@@ -68,19 +69,26 @@ export function usePlatformWallet() {
     if (ensuredWalletRef.current === circleWalletAddress) return;
     ensuredWalletRef.current = circleWalletAddress;
     const identity = getCircleLoginIdentity(circleLogin);
-    void ensureProfile({
-      authProvider: "google",
-      circleSocialUuid: identity.socialUserUUID,
-      displayName: identity.name,
-      walletAddress: circleWalletAddress,
-    }).catch(() => undefined);
+    // Session first: the profile link below is proven by it.
+    void ensureCircleWalletSession(circleLogin.userToken)
+      .then(() =>
+        ensureProfile({
+          authProvider: identity.provider === "Email" ? "email" : "google",
+          circleSocialUuid: identity.socialUserUUID,
+          displayName: identity.name,
+          walletAddress: circleWalletAddress,
+        }),
+      )
+      .catch(() => undefined);
   }, [circleLogin, circleWalletAddress]);
 
   const circleReady = Boolean(
     circleLogin && circleWalletAddress && isAddress(circleWalletAddress),
   );
+  // One wallet per profile: a Google/email session never runs on an external
+  // wallet, even one connected to fund a deposit.
   const externalReady = Boolean(
-    isConnected && wagmiAddress && isAddress(wagmiAddress),
+    !circleLogin && isConnected && wagmiAddress && isAddress(wagmiAddress),
   );
 
   const fallbackOwnerAddress = useMemo(() => {

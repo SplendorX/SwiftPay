@@ -1,5 +1,6 @@
 "use client";
 
+import { swiftBatchFeeBasisPoints } from "@/lib/contracts";
 import { useEffect, useState } from "react";
 import {
   AlertCircle,
@@ -10,21 +11,24 @@ import {
   Pause,
   Play,
   Plus,
-  ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
+import { useWorkspace } from "@/components/business/workspace-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
+import { PayrollAutopayApproval } from "@/components/payroll/payroll-autopay-approval";
 import {
   createPayrollScheduleClient,
   fetchPayrollGroups,
   fetchPayrollSchedules,
+  deletePayrollScheduleClient,
   pausePayrollScheduleClient,
   resumePayrollScheduleClient,
 } from "@/lib/payroll/client";
@@ -32,7 +36,10 @@ import type { PaymentFrequency, PayrollGroupRecord, PayrollScheduleRecord } from
 
 export default function PayrollSchedulesPage() {
   const { ownerWallet, circleSocialUuid } = useAccountContext();
+  const { workspace } = useWorkspace();
   const [schedules, setSchedules] = useState<PayrollScheduleRecord[]>([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [groups, setGroups] = useState<PayrollGroupRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +56,8 @@ export default function PayrollSchedulesPage() {
     setLoading(true);
     try {
       const [schedulesData, groupsData] = await Promise.all([
-        fetchPayrollSchedules(ownerWallet, circleSocialUuid ?? undefined),
-        fetchPayrollGroups(ownerWallet, circleSocialUuid ?? undefined),
+        fetchPayrollSchedules(ownerWallet, circleSocialUuid ?? undefined, workspace?.id),
+        fetchPayrollGroups(ownerWallet, circleSocialUuid ?? undefined, workspace?.id),
       ]);
       setSchedules(schedulesData);
       setGroups(groupsData);
@@ -64,19 +71,39 @@ export default function PayrollSchedulesPage() {
 
   useEffect(() => {
     void loadData();
-  }, [ownerWallet, circleSocialUuid]);
+  }, [ownerWallet, circleSocialUuid, workspace?.id]);
 
   async function handleToggleSchedule(schedule: PayrollScheduleRecord) {
     if (!ownerWallet) return;
     try {
       if (schedule.is_active) {
-        await pausePayrollScheduleClient(ownerWallet, schedule.id, circleSocialUuid ?? undefined);
+        await pausePayrollScheduleClient(ownerWallet, schedule.id, circleSocialUuid ?? undefined, workspace?.id);
       } else {
-        await resumePayrollScheduleClient(ownerWallet, schedule.id, circleSocialUuid ?? undefined);
+        await resumePayrollScheduleClient(ownerWallet, schedule.id, circleSocialUuid ?? undefined, workspace?.id);
       }
       await loadData();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to update schedule.");
+    }
+  }
+
+  // Two taps: the first arms the button, the second deletes.
+  async function handleDeleteSchedule(id: string) {
+    if (!ownerWallet) return;
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      return;
+    }
+    setDeletingId(id);
+    setError(null);
+    try {
+      await deletePayrollScheduleClient(ownerWallet, id, circleSocialUuid ?? undefined, workspace?.id);
+      setSchedules((current) => current.filter((item) => item.id !== id));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to delete schedule.");
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
     }
   }
 
@@ -96,6 +123,7 @@ export default function PayrollSchedulesPage() {
           },
         },
         circleSocialUuid ?? undefined,
+        workspace?.id,
       );
       setIsModalOpen(false);
       await loadData();
@@ -115,6 +143,12 @@ export default function PayrollSchedulesPage() {
       >
         <PayrollSubnav />
 
+        <PayrollAutopayApproval
+          circleSocialUuid={circleSocialUuid}
+          ownerWallet={ownerWallet}
+          workspaceId={workspace?.id}
+        />
+
         {error ? (
           <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-3">
             <AlertCircle className="h-5 w-5 shrink-0" />
@@ -122,22 +156,14 @@ export default function PayrollSchedulesPage() {
           </div>
         ) : null}
 
-        {/* Section 21: Important Version 1 Rule Banner */}
-        <div className="section-panel p-5 mb-6 flex items-start gap-3 bg-muted/40 border-l-4 border-l-primary">
-          <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-          <div className="text-xs leading-relaxed text-muted-foreground">
-            <span className="font-bold text-foreground block mb-0.5">
-              Version 1 Safe Payroll Rule
-            </span>
-            Schedules generate ready payroll runs for your review and approval. Payments are never automatically debited without authorized Business approval.
-          </div>
-        </div>
-
         {/* Schedules Action Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Active Schedules</h2>
-            <p className="text-xs text-muted-foreground">Automated payroll run generation cadence.</p>
+            <p className="text-xs text-muted-foreground">
+              Automated payroll run generation cadence. Each run includes a {swiftBatchFeeBasisPoints / 100}%
+              service fee on the total paid out, shown on the run before you approve it.
+            </p>
           </div>
           <Button size="sm" onClick={() => setIsModalOpen(true)}>
             <Plus className="h-4 w-4 mr-1.5" />
@@ -207,6 +233,21 @@ export default function PayrollSchedulesPage() {
                       </p>
                     </div>
 
+                    <div className="flex items-center gap-2">
+                    <Button
+                      disabled={deletingId === sched.id}
+                      size="sm"
+                      variant={confirmDeleteId === sched.id ? "destructive" : "outline"}
+                      onClick={() => void handleDeleteSchedule(sched.id)}
+                      onBlur={() => setConfirmDeleteId((current) => (current === sched.id ? null : current))}
+                    >
+                      {deletingId === sched.id ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      {confirmDeleteId === sched.id ? "Confirm delete" : "Delete"}
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -224,6 +265,7 @@ export default function PayrollSchedulesPage() {
                         </>
                       )}
                     </Button>
+                    </div>
                   </div>
                 </div>
               );

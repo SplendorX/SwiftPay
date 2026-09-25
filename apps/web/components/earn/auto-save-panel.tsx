@@ -12,6 +12,7 @@ import type { Address, Hash } from "viem";
 import { maxUint256 } from "viem";
 
 import {
+  currentCircleAuth,
   readCircleLogin,
   type CircleLoginResult,
 } from "@/lib/circle-session";
@@ -26,7 +27,7 @@ import {
   encodeErc20Approve,
   executeCircleContractCall,
 } from "@/lib/save/circle-vault";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { StyledSelect } from "@/components/ui/styled-select";
@@ -330,16 +331,13 @@ export function AutoSavePanel() {
         const sdk = circleSdkRef.current;
         const result = await executeCircleContractCall({
           callData: encodeErc20Approve(executorAddress as Address, maxUint256),
-          contractAddress: arcTestnetTokens.USDC.address,
+          contractAddress: arcTokens.USDC.address,
           executor: {
             login,
             walletId: wallet.id,
             executeChallenge: (challengeId) =>
               new Promise((resolve, reject) => {
-                sdk.setAuthentication({
-                  encryptionKey: login.encryptionKey,
-                  userToken: login.userToken,
-                });
+                sdk.setAuthentication(currentCircleAuth(login));
                 sdk.execute(challengeId, (error, challengeResult) => {
                   if (error) {
                     reject(
@@ -367,7 +365,7 @@ export function AutoSavePanel() {
         }
       } else {
         hash = await writeContractAsync({
-          address: arcTestnetTokens.USDC.address,
+          address: arcTokens.USDC.address,
           abi: erc20Abi,
           functionName: "approve",
           args: [executorAddress as Address, maxUint256],

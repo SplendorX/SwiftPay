@@ -3,6 +3,8 @@
 import {
   CalendarClock,
   Command,
+  Gift,
+  History,
   LayoutDashboard,
   PiggyBank,
   RefreshCw,
@@ -38,11 +40,13 @@ const navIcons: Record<string, typeof Command> = {
   "/business/invoices": Send,
   "/save": PiggyBank,
   "/earn": TrendingUp,
+  "/referral": Gift,
   "/swap": RefreshCw,
-  "/swiftBatch": Users,
-  "/swiftCircle": UsersRound,
-  "/swiftRecurepay": CalendarClock,
+  "/batchpay": Users,
+  "/circle": UsersRound,
+  "/recurepay": CalendarClock,
   "/pay": Send,
+  "/activity": History,
   "/settings": Settings,
 };
 

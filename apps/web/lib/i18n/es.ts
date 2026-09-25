@@ -2,6 +2,7 @@ import type { Messages } from "./en";
 
 export const es: Messages = {
   common: {
+    backToDashboard: "Volver al panel",
     continue: "Continuar",
     back: "Atrás",
     search: "Buscar",
@@ -67,6 +68,7 @@ export const es: Messages = {
     earn: "Rendimiento",
     batchPay: "BatchPay",
     recurePay: "RecurePay",
+    activity: "Actividad",
     settings: "Ajustes",
   },
   pages: {
@@ -90,7 +92,7 @@ export const es: Messages = {
     saveSubtitle: "Bolsillos de ahorro sin interés y Spend&Save",
     saveDetailSubtitle: "Detalle del bolsillo",
     earnTitle: "Rendimiento",
-    earnSubtitle: "Pon tu USDC inactivo a trabajar.",
+    earnSubtitle: "Pon tu USDC inactivo a trabajar y mantén tus fondos accesibles.",
     batchTitle: "BatchPay",
     batchSubtitle: "Liquidación por lotes empresarial",
     recureTitle: "RecurePay",
@@ -101,9 +103,11 @@ export const es: Messages = {
     businessProfileSubtitle: "Marca pública de tu empresa en SwiftPay",
   },
   settings: {
+    fullName: "Nombre completo",
+    fullNameHint: "Se muestra en tu perfil y en la barra superior. Te siguen pagando con tu @usuario.",
     appearanceTitle: "Apariencia",
     appearanceBody:
-      "Oscuro, claro o del sistema. El modo claro puede cambiar entre cashmere y cristal líquido.",
+      "Oscuro, claro o del sistema. El modo claro puede cambiar entre cashmere y blanco.",
     theme: "Tema",
     lightSurface: "Superficie clara",
     languageTitle: "Idioma",
@@ -120,7 +124,7 @@ export const es: Messages = {
     sessionsBody:
       "Revisa las sesiones activas en este navegador, gestiona el acceso de la billetera y cierra sesión en dispositivos compartidos.",
     alertsTitle: "Alertas",
-    alertsBody: "Reglas de avisos, horario silencioso y borrar notificaciones leídas.",
+    alertsBody: "Silencia las notificaciones y marca o borra las que ya leíste.",
     preferencesEyebrow: "Ajustes",
     preferencesTitle: "Preferencias de la cuenta",
     preferencesCopy:
@@ -130,8 +134,8 @@ export const es: Messages = {
     system: "Sistema",
     cashmere: "Cashmere",
     cashmereBody: "Luz cálida de pergamino, la superficie original de SwiftPay.",
-    liquidGlass: "Cristal líquido",
-    liquidGlassBody: "Escarcha blanca, bordes especulares y un relieve de cristal.",
+    liquidGlass: "Blanco",
+    liquidGlassBody: "Tableros en blanco con un ligero relieve esmerilado.",
     connectToSeeType: "Conecta una billetera para ver el tipo de cuenta.",
     accountType: "Tipo de cuenta",
     cannotRevert: "Las cuentas de empresa no se pueden volver a Personal.",
@@ -152,9 +156,12 @@ export const es: Messages = {
     profileUpdated: "Perfil actualizado.",
     enterBusinessName: "Introduce el nombre de la empresa.",
     connectBeforeSave: "Conecta una billetera antes de guardar el perfil.",
+    notifications: "Notificaciones",
+    muteAll: "Silenciar todas las notificaciones",
+    signedInWith: "Sesión iniciada con",
     howPinged: "Cómo te avisamos",
     howPingedBody:
-      "Estas reglas solo cambian los avisos y lo que resalta la campana. El dinero on-chain sigue llegando.",
+      "Silenciar solo detiene los avisos emergentes y lo que resalta la campana. Los pagos siguen llegando on-chain.",
     quietHoursOn: "Horario silencioso activo",
     liveToasts: "Avisos en vivo",
     liveToastsBody: "Muestra un aviso cuando llega dinero, un cobro o una solicitud.",
@@ -185,6 +192,7 @@ export const es: Messages = {
     clearedRead: "Notificaciones leídas borradas",
   },
   onboarding: {
+    fullName: "Nombre completo",
     languageEyebrow: "Bienvenido",
     languageTitle: "Elige tu idioma",
     languageSubtitle: "El inglés está seleccionado. Puedes cambiarlo después en Ajustes.",
@@ -262,7 +270,7 @@ export const es: Messages = {
       "Rendimiento del vault, contexto de ganancias y controles de Auto-Save para saldos compatibles.",
     flowSwapTitle: "Swap",
     flowSwapBody:
-      "Cambia saldos de stablecoins compatibles con rutas de Circle en Arc Testnet.",
+      "Cambia saldos de stablecoins compatibles con rutas de Circle en {network}.",
     flowBatchTitle: "Liquidación por lotes",
     flowBatchBody: "Carga CSV, validación y liquidación para hasta 500 destinatarios.",
     flowRequestTitle: "Solicitudes de pago",
@@ -299,17 +307,17 @@ export const es: Messages = {
     storyPayTitle: "Envía una vez. Se liquida al instante.",
     storyPayBody:
       "Envía USDC o EURC en unos toques. El destinatario se resuelve por usuario o billetera, las comisiones se ven y Arc confirma al momento.",
-    storyPayAlt: "Persona enviando un pago de SwiftPay desde un MacBook",
+    storyPayAlt: "Alguien relajado en la cama envía un pago con SwiftPay desde su portátil",
     storyCircleKicker: "Circle",
     storyCircleTitle: "Mueve dinero en grupo, no en una hoja de cálculo.",
     storyCircleBody:
       "Circle convierte un grupo en una sala de dinero. Divide, solicita y ahorra juntos mientras el chat está junto a los fondos.",
-    storyCircleAlt: "Un grupo trabajando juntos con portátiles en una mesa compartida",
+    storyCircleAlt: "Un grupo de amigos en fila, cada uno pagando con su teléfono",
     storyRecureKicker: "RecurePay",
     storyRecureTitle: "Configúralo una vez. Sigue moviéndose.",
     storyRecureBody:
       "Convierte un pago en una programación. Define frecuencia, inicio y fin, y gestiona cada ejecución desde RecurePay.",
-    storyRecureAlt: "Persona en la cama con un portátil, programando un pago recurrente",
+    storyRecureAlt: "Alguien duerme en la cama junto a un portátil y un café mientras sus pagos se ejecutan a tiempo",
     whyEyebrow: "Por qué SwiftPay",
     whyTitle: "Hecho como fintech. Se liquida onchain.",
     whyCopy:
@@ -356,10 +364,10 @@ export const es: Messages = {
       "Usa el panel para el valor de la cartera, saldos de tokens, envíos directos, beneficiarios, recibos y actividad. El envío está organizado como un flujo de pago por pasos.",
     faq2Q: "¿Qué páginas hay disponibles?",
     faq2A:
-      "SwiftPay incluye Panel, Swift+Save, Rendimiento, Swap, BatchPay, RecurePay, solicitudes de pago, Circle, Docs y Ajustes. Los flujos principales están enlazados desde la sección de producto.",
-    faq3Q: "¿En qué se diferencian Swift+Save y Rendimiento?",
+      "SwiftPay incluye Panel, Save, Rendimiento, Swap, BatchPay, RecurePay, solicitudes de pago, Circle, Docs y Ajustes. Los flujos principales están enlazados desde la sección de producto.",
+    faq3Q: "¿En qué se diferencian Save y Rendimiento?",
     faq3A:
-      "Swift+Save crea bolsillos de ahorro sin interés y reglas Spend&Save. Rendimiento es aparte y muestra el vault, las ganancias y Auto-Save cuando está disponible.",
+      "Save crea bolsillos de ahorro sin interés y reglas Spend&Save. Rendimiento es aparte y muestra el vault, las ganancias y Auto-Save cuando está disponible.",
     faq4Q: "¿Puedo solicitar, pagar por lotes o programar pagos?",
     faq4A:
       "Sí. Las solicitudes crean enlaces y QR, BatchPay gestiona pagos CSV de hasta 500 destinatarios, RecurePay administra programaciones y Circle comparte chat, divisiones y ahorro.",
@@ -368,7 +376,7 @@ export const es: Messages = {
       "Inicia sesión con una billetera Circle de Google o conecta una billetera externa. En Ajustes se edita el perfil, el usuario y la foto desde el dispositivo.",
     faq6Q: "¿Qué red y activos usa SwiftPay?",
     faq6A:
-      "La app está construida sobre Arc Testnet con gas nativo en USDC y flujos de stablecoins como USDC y EURC. Las transacciones muestran contexto de ArcScan cuando está disponible.",
+      "La app está construida sobre {network} con gas nativo en USDC y flujos de stablecoins como USDC y EURC. Las transacciones muestran contexto de ArcScan cuando está disponible.",
     ctaEyebrow: "Empieza",
     ctaTitle: "El dinero se mueve mejor con SwiftPay.",
     ctaCopy:
@@ -391,7 +399,7 @@ export const es: Messages = {
     footerBatch: "Liquidación por lotes",
     footerLegal: "© 2026 SwiftPay. La capa de pagos en stablecoins",
     showcaseSwapCopy:
-      "Cambia USDC y EURC en Arc Testnet con rutas de Circle.",
+      "Cambia USDC y EURC en {network} con rutas de Circle.",
     showcaseGetQuote: "Obtener cotización",
     showcaseYouPay: "Pagas",
     showcaseYouReceive: "Recibes",
@@ -411,13 +419,13 @@ export const es: Messages = {
     yourFunds: "Tus fondos, listos",
     businessBalance: "Saldo de empresa",
     livePortfolio:
-      "Cartera en vivo, saldos de tokens y actividad de liquidación en Arc Testnet.",
+      "Cartera en vivo, saldos de tokens y actividad de liquidación en {network}.",
     sendPayment: "Enviar pago",
     requestPayment: "Solicitar pago",
     transactionReceipt: "Recibo de transacción",
     sent: "Enviado",
     received: "Recibido",
-    arcReceipt: "Recibo de Arc Testnet",
+    arcReceipt: "Recibo de {network}",
   },
   search: {
     peopleAndPages: "Buscar personas y páginas",
@@ -451,7 +459,7 @@ export const es: Messages = {
     copyUsername: "Copiar usuario",
   },
   save: {
-    connectToUse: "Conéctate para usar Swift+Save",
+    connectToUse: "Conéctate para usar Save",
     connectToUseBody:
       "Inicia sesión con Google o una billetera externa para crear bolsillos de ahorro.",
     nonInterest: "Ahorro sin interés",
@@ -462,8 +470,8 @@ export const es: Messages = {
   },
   earn: {
     eyebrow: "SwiftPay Earn",
-    heading: "Haz que tu USDC inactivo trabaje.",
-    body: "Gana un rendimiento variable sobre tu USDC y mantén el dinero accesible. El rendimiento viene de Aave cuando hay mercado, nunca de saldos ficticios.",
+    heading: "Earn",
+    body: "Pon tu USDC inactivo a trabajar y manténlo disponible para tus próximos pagos.",
     production: "Producción",
     convertBalances: "Convertir saldos",
   },
@@ -498,9 +506,9 @@ export const es: Messages = {
     body: "Envía un token a hasta {count} destinatarios con una comisión de plataforma del {fee}% en la misma llamada al contrato.",
   },
   recure: {
-    eyebrow: "SwiftRecurepay",
+    eyebrow: "RecurePay",
     heading: "Pagos recurrentes en stablecoins",
-    body: "Programa USDC y EURC en Arc Testnet. Autoriza Autopay una vez (aprobación del token al ejecutor de SwiftRecurepay). Después, los pagos vencidos se ejecutan en segundo plano. Esta página no es obligatoria.",
+    body: "Programa USDC y EURC en {network}. Autoriza Autopay una vez.",
     dueQueue: "Cola de vencidos",
     create: "Crear",
     schedules: "Programaciones",

@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { formatUnitsToDecimal } from "@/lib/save/decimal";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 const notificationsTable =
   process.env.SUPABASE_SAVINGS_NOTIFICATIONS_TABLE ?? "savings_notifications";
@@ -102,7 +102,7 @@ export function copySavingsFailed(paymentUnaffected: boolean) {
     title: "Savings transfer failed",
     body: paymentUnaffected
       ? "We couldn’t complete your savings transfer. Your payment wasn’t affected."
-      : "We couldn’t complete your savings transfer. Open Swift+Save to review.",
+      : "We couldn’t complete your savings transfer. Open Save to review.",
   };
 }
 
@@ -629,9 +629,33 @@ export async function markPaymentRequestNotificationDeclined(input: {
   }
 }
 
+/**
+ * "Your invoice was viewed": news for the business that sent the invoice,
+ * with nothing to pay or decline. Older rows predate the metadata type, so
+ * the title identifies them too.
+ */
+export function isInvoiceViewedNotification(
+  item: Pick<SavingsNotificationRecord, "metadata"> & { title?: string },
+) {
+  const meta = item.metadata;
+  if (meta && typeof meta === "object" && (meta as Record<string, unknown>).type === "invoice_viewed") {
+    return true;
+  }
+  return item.title === "Your invoice was viewed";
+}
+
 export function isPaymentRequestNotification(
-  item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata">,
+  item: Pick<SavingsNotificationRecord, "kind" | "body" | "metadata"> & {
+    title?: string;
+    related_tx_hash?: string | null;
+  },
 ): boolean {
+  if (isWorkspaceInvitationNotification(item)) {
+    return false;
+  }
+  if (isInvoiceViewedNotification(item)) {
+    return false;
+  }
   if (item.kind === "payment_request_declined") {
     return false;
   }
@@ -1264,9 +1288,70 @@ export type AlertInboxCategory =
   | "requests"
   | "savings";
 
-export function isCircleNotification(
-  item: Pick<SavingsNotificationRecord, "kind" | "metadata">,
+export function isWorkspaceInvitationNotification(
+  item: Pick<SavingsNotificationRecord, "kind" | "metadata"> & {
+    title?: string;
+    body?: string;
+    related_tx_hash?: string | null;
+  },
 ) {
+  if (String(item.kind ?? "") === "workspace_invitation") {
+    return true;
+  }
+  const meta = item.metadata;
+  if (meta && typeof meta === "object") {
+    const type = (meta as Record<string, unknown>).type;
+    const workspaceId = (meta as Record<string, unknown>).workspaceId;
+    if (type === "workspace_invitation" || typeof workspaceId === "string") {
+      return true;
+    }
+  }
+  if (item.related_tx_hash?.startsWith("workspace_invite:")) {
+    return true;
+  }
+  const text = `${item.title ?? ""} ${item.body ?? ""}`;
+  if (/workspace\s*(team\s*)?invitation/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+export function extractWorkspaceInvitationMeta(
+  item: Pick<SavingsNotificationRecord, "metadata" | "body" | "related_tx_hash">,
+) {
+  const meta = (item.metadata && typeof item.metadata === "object"
+    ? item.metadata
+    : {}) as Record<string, unknown>;
+  const invitationId =
+    (typeof meta.invitationId === "string" ? meta.invitationId : null) ??
+    (item.related_tx_hash?.startsWith("workspace_invite:")
+      ? item.related_tx_hash.slice("workspace_invite:".length)
+      : null) ??
+    (item.body?.match(/workspace[^\w]*invite[:\s]+([0-9a-f-]{36})/i)?.[1] ?? null);
+  const workspaceId =
+    typeof meta.workspaceId === "string" ? meta.workspaceId : null;
+  const workspaceName =
+    typeof meta.workspaceName === "string" ? meta.workspaceName : "Business Workspace";
+  const role = typeof meta.role === "string" ? meta.role : "member";
+
+  return {
+    invitationId,
+    workspaceId,
+    workspaceName,
+    role,
+  };
+}
+
+export function isCircleNotification(
+  item: Pick<SavingsNotificationRecord, "kind" | "metadata"> & {
+    title?: string;
+    body?: string;
+    related_tx_hash?: string | null;
+  },
+) {
+  if (isWorkspaceInvitationNotification(item)) {
+    return false;
+  }
   if (String(item.kind ?? "").startsWith("circle_")) {
     return true;
   }
@@ -1275,23 +1360,45 @@ export function isCircleNotification(
     const type = (meta as Record<string, unknown>).type;
     const href = (meta as Record<string, unknown>).href;
     if (typeof type === "string" && type.startsWith("circle_")) return true;
-    if (typeof href === "string" && href.startsWith("/swiftCircle")) return true;
+    if (typeof href === "string" && isCircleHref(href)) return true;
   }
   return false;
 }
 
+/** Circle links, including ones stored before /swiftCircle became /circle. */
+function isCircleHref(href: string) {
+  return href.startsWith("/circle") || href.startsWith("/swiftCircle");
+}
+
 export function isCircleInvitationNotification(
-  item: Pick<SavingsNotificationRecord, "kind" | "metadata">,
+  item: Pick<SavingsNotificationRecord, "kind" | "metadata"> & {
+    title?: string;
+    body?: string;
+    related_tx_hash?: string | null;
+  },
 ) {
+  if (isWorkspaceInvitationNotification(item)) return false;
   if (item.kind === "circle_invitation") return true;
+
+  // Only a pending invitation may claim this. `circleId` merely says the
+  // notification belongs to a circle — every circle event carries it, so
+  // treating it as an invitation signal put Accept/Decline on contributions,
+  // completed withdrawals, messages, role changes and the rest.
   const meta = item.metadata;
   if (meta && typeof meta === "object") {
     const type = (meta as Record<string, unknown>).type;
     const invitationId = (meta as Record<string, unknown>).invitationId;
+    const workspaceId = (meta as Record<string, unknown>).workspaceId;
+    if (type === "workspace_invitation" || typeof workspaceId === "string") return false;
     if (type === "circle_invitation") return true;
-    if (typeof invitationId === "string" && invitationId.length > 0) return true;
+    if (typeof invitationId === "string" && invitationId.length > 0 && !workspaceId) {
+      const text = `${item.title ?? ""} ${item.body ?? ""}`;
+      return /circle/i.test(text);
+    }
   }
-  return false;
+
+  // Older invitations carried the id only in the body text.
+  return /INVITATION_ID:[0-9a-f-]{36}/i.test(item.body ?? "");
 }
 
 export function extractCircleInvitationId(
@@ -1315,20 +1422,21 @@ export function circleNotificationHref(
 ) {
   const invitationId = extractCircleInvitationId(item);
   if (invitationId) {
-    return `/swiftCircle?invite=${encodeURIComponent(invitationId)}`;
+    return `/circle?invite=${encodeURIComponent(invitationId)}`;
   }
   const meta = item.metadata;
   if (meta && typeof meta === "object") {
     const href = (meta as Record<string, unknown>).href;
-    if (typeof href === "string" && href.startsWith("/swiftCircle")) {
-      return href;
+    if (typeof href === "string" && isCircleHref(href)) {
+      // Notifications stored before the move still point at /swiftCircle.
+      return href.replace(/^\/swiftCircle/, "/circle");
     }
     const circleId = (meta as Record<string, unknown>).circleId;
     if (typeof circleId === "string") {
-      return `/swiftCircle/${circleId}`;
+      return `/circle/${circleId}`;
     }
   }
-  return "/swiftCircle";
+  return "/circle";
 }
 
 export function getAlertInboxCategory(
@@ -1358,7 +1466,7 @@ export function formatAmountForCopy(
   units: bigint,
   currency: ArcTokenSymbol,
 ): string {
-  const decimals = arcTestnetTokens[currency].decimals;
+  const decimals = arcTokens[currency].decimals;
   const text = formatUnitsToDecimal(units, decimals);
   const [w, f = ""] = text.split(".");
   return `${w}.${(f + "00").slice(0, 2)}`;

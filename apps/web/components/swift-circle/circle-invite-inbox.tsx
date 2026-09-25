@@ -61,7 +61,7 @@ export function CircleInviteInbox({
             key={item.id}
           >
             <div>
-              <p className="font-medium">{item.circle_name ?? "SwiftCircle"}</p>
+              <p className="font-medium">{item.circle_name ?? "Circle"}</p>
               <p className="text-xs text-muted-foreground">
                 {item.inviter_username
                   ? `Invited by @${item.inviter_username}`
@@ -97,7 +97,7 @@ export function CircleInviteInbox({
   );
 }
 
-/** Dashboard / inbox strip so invitees do not have to hunt for SwiftCircle. */
+/** Dashboard / inbox strip so invitees do not have to hunt for Circle. */
 export function DashboardCircleInvites() {
   const { address: wagmiAddress } = useAccount();
   const { address: platformAddress } = usePlatformWallet();
@@ -146,7 +146,7 @@ export function DashboardCircleInvites() {
     <section className="mb-4 rounded-2xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center gap-2">
         <Mail className="h-4 w-4" />
-        <h2 className="font-heading text-base font-semibold">SwiftCircle invitations</h2>
+        <h2 className="font-heading text-base font-semibold">Circle invitations</h2>
       </div>
       <CircleInviteInbox
         busyId={busyId}

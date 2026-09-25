@@ -5,6 +5,7 @@ import { useAccount } from "wagmi";
 
 import { ProfileMenu } from "@/components/profile-menu";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
+import { readCircleLogin } from "@/lib/circle-session";
 import {
   readActivatedExternalProfile,
   writeActivatedExternalProfile,
@@ -19,7 +20,7 @@ export function PlatformProfileControls() {
   const [externalConnectStarted, setExternalConnectStarted] = useState(false);
 
   useEffect(() => {
-    if (externalConnectStarted && isConnected && address) {
+    if (externalConnectStarted && isConnected && address && !readCircleLogin()) {
       writeActivatedExternalProfile(address);
       void ensureProfile({
         authProvider: "external",
@@ -31,7 +32,9 @@ export function PlatformProfileControls() {
 
   // When the connected external wallet changes, point platform access at it.
   useEffect(() => {
-    if (!isConnected || !address) {
+    // One wallet per profile: under a Google/email session an external wallet
+    // is only ever a funding source, never a second profile.
+    if (!isConnected || !address || readCircleLogin()) {
       return;
     }
 

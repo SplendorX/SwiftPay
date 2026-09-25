@@ -2,6 +2,7 @@ import { payrollDb, payrollTables, readPayrollDbError } from "@/lib/payroll/db";
 import { payrollErrors } from "@/lib/payroll/errors";
 import { logPayrollAudit } from "@/lib/payroll/audit-service";
 import { getPayrollRun } from "@/lib/payroll/payroll-service";
+import { awardPayrollPaymentRewards } from "@/lib/payroll/payment-rewards";
 import type {
   PayrollExecutionRecord,
   PayrollItemRecord,
@@ -162,6 +163,10 @@ export async function executePayrollRun(input: ExecutePayrollInput): Promise<Pay
     },
   });
 
+  if (successCount > 0) {
+    await awardPayrollPaymentRewards(accountId, input.txHash);
+  }
+
   return updatedRun as PayrollRunRecord;
 }
 
@@ -281,6 +286,10 @@ export async function retryPayrollItem(input: {
       updated_at: now,
     })
     .eq("id", run.id);
+
+  if (isSuccess) {
+    await awardPayrollPaymentRewards(run.account_id, input.txHash);
+  }
 
   return updatedItem as PayrollItemRecord;
 }

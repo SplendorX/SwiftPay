@@ -37,7 +37,7 @@ import {
   reconcilePocketBalance,
 } from "@/lib/swift-circle/pockets";
 import { getSaveAccount, reconcileSaveBalance } from "@/lib/swift-circle/save";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 import {
   assertCircleSaveVaultCanWithdraw,
   pickCircleSaveVaultOwner,
@@ -205,7 +205,7 @@ export async function createWithdrawalProposal(input: {
   idempotencyKey?: unknown;
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "WITHDRAWAL", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "WITHDRAWAL", wallet: input.actorWallet });
   if (input.confirm !== true && input.confirm !== "confirm") {
     throw circleErrors.invalid("Withdrawals require explicit confirmation.");
   }
@@ -215,7 +215,7 @@ export async function createWithdrawalProposal(input: {
   const member = await requireActiveMember(input.circleId, input.actorWallet);
   assertPermission(member, "initiate_withdrawal");
   if (input.productType === "earn") {
-    throw circleErrors.invalid("Circle Earn is no longer available in SwiftCircle.");
+    throw circleErrors.invalid("Circle Earn is no longer available in Circle.");
   }
   if (!isProduct(input.productType)) {
     throw circleErrors.invalid("Withdrawals can only come from Circle Save.");
@@ -256,7 +256,7 @@ export async function createWithdrawalProposal(input: {
   const pocket = await getSavePocket(circle.id, pocketId);
   assertPocketUnlocked(pocket);
   const vaultAddress = swiftSaveVaultAddress();
-  const token = arcTestnetTokens[circle.currency];
+  const token = arcTokens[circle.currency];
   if (vaultAddress && token?.address) {
     const owners = await listActiveMemberWallets(circle.id);
     const holdings = await readCircleSaveVaultHoldings({
@@ -517,7 +517,7 @@ export async function decideWithdrawal(input: {
   decision: "approved" | "rejected";
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "APPROVAL", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "APPROVAL", wallet: input.actorWallet });
   const proposal = await getWithdrawal(input.proposalId, input.actorWallet);
   const member = await requireActiveMember(proposal.circle_id, input.actorWallet);
   assertPermission(member, "approve_withdrawal");
@@ -748,7 +748,7 @@ export async function pruneStaleSaveWithdrawals(circleId: string) {
   if (!vault) return;
   try {
     const circle = await loadCircle(circleId);
-    const token = arcTestnetTokens[circle.currency];
+    const token = arcTokens[circle.currency];
     if (!token?.address) return;
     const pockets = await listSavePockets(circleId);
     const owners = await listActiveMemberWallets(circleId);
@@ -817,7 +817,7 @@ export async function executeWithdrawal(input: {
   }
 
   const vault = requireCircleSaveVault();
-  const token = arcTestnetTokens[proposal.asset];
+  const token = arcTokens[proposal.asset];
   if (!token?.address) {
     throw circleErrors.invalid("Unsupported withdrawal asset.");
   }

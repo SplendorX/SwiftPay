@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Check, UserRound } from "lucide-react";
+import { Briefcase, Check, Coins, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 
@@ -10,8 +10,11 @@ import { useOptionalAccount } from "@/components/account/account-provider";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StyledSelect } from "@/components/ui/styled-select";
 import { useLocale, useT } from "@/components/locale-provider";
 import { completeAccountOnboardingClient, fetchAccountState } from "@/lib/account/client";
+import { readSignInEmail } from "@/lib/circle-session";
+import { businessCategoryOptions } from "@/lib/business-categories";
 import { APP_LOCALES } from "@/lib/locales";
 import { profileImageAccept, resizeProfileImageFile } from "@/lib/profile-image";
 import { ensureProfile, notifyProfileUpdated, validateUsername } from "@/lib/profile";
@@ -33,6 +36,7 @@ export function OnboardingFlow() {
   const workspaceContext = useOptionalWorkspace();
   const [step, setStep] = useState<Step>("language");
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [bio, setBio] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [category, setCategory] = useState("");
@@ -82,6 +86,7 @@ export function OnboardingFlow() {
           return;
         }
         setUsername(state.account.username);
+        setFullName(state.account.display_name ?? "");
         setBio(state.account.bio ?? "");
       } catch (err) {
         if (!cancelled) setError(errorMessage(err, t("common.somethingWentWrong")));
@@ -111,9 +116,12 @@ export function OnboardingFlow() {
         {
           accountKind,
           bio,
+          fullName,
           businessCategory: category,
           businessDescription: description,
           businessName,
+          // A Google / email sign-in starts the business's contact email.
+          contactEmail: readSignInEmail(),
           locale,
           logoUrl: logoUrl || null,
           username,
@@ -233,7 +241,16 @@ export function OnboardingFlow() {
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
             {t("onboarding.howWillYouUseBody")}
           </p>
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
+
+          {/* New User Cashback Notice */}
+          <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3.5 flex items-start sm:items-center gap-3 text-xs text-foreground">
+            <Coins className="h-5 w-5 text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
+            <span>
+              <strong>Everyday Transaction Cashback:</strong> All SwiftPay accounts earn automatic SwiftPoints on platform transactions from 20 USDC/EURC up — <strong>1 pt (20+)</strong>, <strong>5 pts (100+)</strong>, <strong>20 pts (500+)</strong>, and <strong>50 pts (1,000+)</strong>.
+            </span>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
             <button
               className="rounded-2xl border border-border bg-card p-6 text-left transition hover:border-primary/40"
               onClick={() => setStep("personal")}
@@ -284,6 +301,17 @@ export function OnboardingFlow() {
             {t("onboarding.profileSubtitle")}
           </p>
           <label className="mt-8 block text-sm font-medium">
+            {t("onboarding.fullName")}
+            <Input
+              autoComplete="name"
+              className="mt-2 h-11"
+              maxLength={80}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Ada Lovelace"
+              value={fullName}
+            />
+          </label>
+          <label className="mt-5 block text-sm font-medium">
             {t("onboarding.username")}
             <Input
               className="mt-2 h-11"
@@ -346,15 +374,17 @@ export function OnboardingFlow() {
               value={businessName}
             />
           </label>
-          <label className="mt-5 block text-sm font-medium">
+          <div className="mt-5 block text-sm font-medium">
             {t("common.category")}
-            <Input
-              className="mt-2 h-11"
-              onChange={(event) => setCategory(event.target.value)}
-              placeholder="Design studio"
+            <StyledSelect
+              ariaLabel={t("common.category")}
+              className="mt-2 w-full"
+              onChange={(value) => setCategory(value)}
+              options={businessCategoryOptions(category)}
+              triggerClassName="h-11 font-medium"
               value={category}
             />
-          </label>
+          </div>
           <label className="mt-5 block text-sm font-medium">
             {t("common.description")}
             <textarea

@@ -17,7 +17,7 @@ import {
   type DepositVerification,
 } from "@/lib/swift-circle/deposits";
 import { circleErrors } from "@/lib/swift-circle/errors";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 export function circleSavePocketIdBytes32(pocketId: string): Hex {
   return keccak256(
@@ -205,7 +205,7 @@ export async function verifyCircleSaveDeposit(input: {
     };
   }
   const token =
-    input.asset === "EURC" ? arcTestnetTokens.EURC : arcTestnetTokens.USDC;
+    input.asset === "EURC" ? arcTokens.EURC : arcTokens.USDC;
   const receipt = await readArcReceipt(input.txHash, input.waitMs ?? 0);
   if (!receipt) {
     return {
@@ -258,7 +258,7 @@ export async function verifyCircleSaveWithdrawal(input: {
     };
   }
   const token =
-    input.asset === "EURC" ? arcTestnetTokens.EURC : arcTestnetTokens.USDC;
+    input.asset === "EURC" ? arcTokens.EURC : arcTokens.USDC;
   const receipt = await readArcReceipt(input.txHash, input.waitMs ?? 0);
   if (!receipt) {
     return {

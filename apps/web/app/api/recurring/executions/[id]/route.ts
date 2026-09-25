@@ -26,7 +26,7 @@ function jsonError(message: string, status: number) {
 
 function readSupabaseError(error: { message?: string } | null) {
   const message = error?.message ?? "";
-  return message || "SwiftRecurepay could not update this execution.";
+  return message || "RecurePay could not update this execution.";
 }
 
 function normalizeTxHash(value: unknown) {

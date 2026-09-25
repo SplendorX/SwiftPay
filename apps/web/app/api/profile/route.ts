@@ -10,11 +10,13 @@ import {
   usernameFromDisplayName,
   validateUsername,
 } from "@/lib/profile-utils";
+import { listWalletAddressesForUserToken } from "@/lib/circle-user-server";
+import { sessionControlsWallet } from "@/lib/recurring-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import {
-  readWalletToken,
-  walletSessionCookieName,
-} from "@/lib/wallet-session";
+  attachReferral,
+  getOrCreateReferralProfile,
+} from "@/lib/referral/attribution-service";
 
 export const runtime = "nodejs";
 
@@ -24,14 +26,22 @@ const maxUsernameAttempts = 20;
 type EnsureProfileBody = {
   authProvider?: unknown;
   circleSocialUuid?: unknown;
+  /** Circle user token proving control of `walletAddress` (Google / email users). */
+  circleUserToken?: unknown;
   displayName?: unknown;
   walletAddress?: unknown;
+  referralToken?: unknown;
 };
 
 type UpdateProfileBody = {
   avatarUrl?: unknown;
   bio?: unknown;
   circleSocialUuid?: unknown;
+  /** Personal contact details (profiles-personal-contact.sql). */
+  contactEmail?: unknown;
+  country?: unknown;
+  phone?: unknown;
+  displayName?: unknown;
   locale?: unknown;
   username?: unknown;
   walletAddress?: unknown;
@@ -74,7 +84,7 @@ function normalizeDisplayName(value: unknown) {
 }
 
 function normalizeAuthProvider(value: unknown) {
-  if (value === "google" || value === "external") {
+  if (value === "google" || value === "external" || value === "email") {
     return value;
   }
 
@@ -171,52 +181,44 @@ function readSupabaseError(error: { code?: string; message?: string } | null) {
   return message || "Supabase could not save this profile.";
 }
 
-async function getSessionOwnerWallet() {
-  const cookieStore = await cookies();
-  const session = readWalletToken(
-    cookieStore.get(walletSessionCookieName)?.value,
-    "session",
-  );
-
-  return session?.ownerWallet?.toLowerCase() ?? null;
-}
-
-async function assertProfileOwnership(input: {
-  circleSocialUuid?: string | null;
-  walletAddress: string;
-}) {
-  const sessionOwnerWallet = await getSessionOwnerWallet();
-
-  if (
-    sessionOwnerWallet &&
-    sessionOwnerWallet === input.walletAddress.toLowerCase()
-  ) {
+/**
+ * A Circle identity is only linked to a wallet the caller has proven they
+ * control: a signed wallet session for that address, or a live Circle user
+ * token whose wallets include it. The link is what lets that identity pass
+ * access checks for the wallet, so it can never be claimed by assertion alone.
+ */
+async function canLinkCircleIdentity(walletAddress: string, circleUserToken: unknown) {
+  if (await sessionControlsWallet(walletAddress)) {
     return true;
   }
-
-  const supabase = createSupabaseAdminClient();
-  const existing = await supabase
-    .from(profilesTable)
-    .select("wallet_address,circle_social_uuid,auth_provider")
-    .eq("wallet_address", input.walletAddress)
-    .maybeSingle();
-
-  if (existing.error) {
-    throw new Error(readSupabaseError(existing.error));
-  }
-
-  if (!existing.data) {
+  if (typeof circleUserToken !== "string" || !circleUserToken.trim()) {
     return false;
   }
-
-  if (
-    input.circleSocialUuid &&
-    existing.data.circle_social_uuid === input.circleSocialUuid
-  ) {
-    return true;
+  try {
+    const owned = await listWalletAddressesForUserToken(circleUserToken.trim());
+    return owned.includes(walletAddress.toLowerCase());
+  } catch {
+    return false;
   }
+}
 
-  return existing.data.auth_provider === "external";
+/**
+ * Only a signed wallet session for this address may edit its profile. Profiles
+ * used to be editable with no session at all for external wallets, which let
+ * anyone rename a user and take over their @username for incoming payments.
+ */
+async function assertProfileOwnership(input: { walletAddress: string }) {
+  return sessionControlsWallet(input.walletAddress);
+}
+
+/**
+ * The profile as the API returns it. `circle_social_uuid` identifies the
+ * user's Circle login and never leaves the server.
+ */
+function publicProfile<T extends Record<string, unknown> | null>(profile: T) {
+  if (!profile) return profile;
+  const { circle_social_uuid: _hidden, ...rest } = profile;
+  return rest;
 }
 
 async function releaseCircleSocialUuid(
@@ -321,7 +323,7 @@ export async function GET(request: NextRequest) {
         return jsonError("Profile not found.", 404);
       }
 
-      return NextResponse.json({ profile: data });
+      return NextResponse.json({ profile: publicProfile(data) });
     }
 
     const walletAddress = normalizeWallet(rawWallet);
@@ -343,7 +345,7 @@ export async function GET(request: NextRequest) {
       return jsonError("Profile not found.", 404);
     }
 
-    return NextResponse.json({ profile: data });
+    return NextResponse.json({ profile: publicProfile(data) });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Profile could not be loaded.";
@@ -367,7 +369,7 @@ export async function POST(request: NextRequest) {
     }
 
     const authProvider = normalizeAuthProvider(body.authProvider);
-    const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
+    const requestedCircleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
     const displayName = normalizeDisplayName(body.displayName);
 
     const supabase = createSupabaseAdminClient();
@@ -380,6 +382,14 @@ export async function POST(request: NextRequest) {
     if (existing.error) {
       return jsonError(readSupabaseError(existing.error), 500);
     }
+
+    // Only verify (a Circle round trip) when the request would change a link.
+    const circleSocialUuid =
+      requestedCircleSocialUuid &&
+      existing.data?.circle_social_uuid !== requestedCircleSocialUuid &&
+      (await canLinkCircleIdentity(walletAddress, body.circleUserToken))
+        ? requestedCircleSocialUuid
+        : null;
 
     if (existing.data) {
       const updates: Record<string, string | null> = {};
@@ -400,11 +410,17 @@ export async function POST(request: NextRequest) {
         updates.display_name = displayName;
       }
 
-      if (authProvider === "google" && existing.data.auth_provider !== "google") {
+      if (authProvider !== "external" && existing.data.auth_provider !== authProvider) {
         updates.auth_provider = authProvider;
       }
 
-      if (Object.keys(updates).length > 0) {
+      // Changing an existing profile needs the same proof as creating one:
+      // naming a wallet is not enough to set its name or sign-in method.
+      if (
+        Object.keys(updates).length > 0 &&
+        (circleSocialUuid ||
+          (await canLinkCircleIdentity(walletAddress, body.circleUserToken)))
+      ) {
         updates.updated_at = new Date().toISOString();
         const mutation = await supabase
           .from(profilesTable)
@@ -417,10 +433,19 @@ export async function POST(request: NextRequest) {
           return jsonError(readSupabaseError(mutation.error), 500);
         }
 
-        return NextResponse.json({ profile: mutation.data });
+        return NextResponse.json({ profile: publicProfile(mutation.data) });
       }
 
-      return NextResponse.json({ profile: existing.data });
+      return NextResponse.json({ profile: publicProfile(existing.data) });
+    }
+
+    // A new account is only ever made for someone who has proven they own
+    // the wallet: a signed wallet session, or a Circle login that holds it.
+    // Naming a wallet is not enough — otherwise connecting a wallet to pay an
+    // invoice (or anyone who knows an address) could quietly register it, and
+    // the owner would never meet SwiftPay as a new user.
+    if (!(await canLinkCircleIdentity(walletAddress, body.circleUserToken))) {
+      return jsonError("Sign in with this wallet before creating a SwiftPay profile.", 401);
     }
 
     if (circleSocialUuid) {
@@ -449,7 +474,34 @@ export async function POST(request: NextRequest) {
       return jsonError(readSupabaseError(mutation.error), 500);
     }
 
-    return NextResponse.json({ profile: mutation.data }, { status: 201 });
+    // Automatically initialize referral profile and attribute referrer if invited
+    try {
+      await getOrCreateReferralProfile(walletAddress);
+
+      const cookieStore = await cookies();
+      const cookieReferralToken = cookieStore.get("swiftpay_referral_token")?.value;
+      const referralToken =
+        typeof body.referralToken === "string" && body.referralToken.trim()
+          ? body.referralToken.trim()
+          : cookieReferralToken;
+
+      if (referralToken) {
+        await attachReferral({
+          referrerTokenOrUsername: referralToken,
+          referredWallet: walletAddress,
+          accountType: "PERSONAL",
+          metadata: {
+            source: "profile_creation",
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+    } catch (referralErr) {
+      // Log without failing profile creation
+      console.warn("Referral bootstrap warning on profile create:", referralErr);
+    }
+
+    return NextResponse.json({ profile: publicProfile(mutation.data) }, { status: 201 });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Profile could not be created.";
@@ -476,7 +528,6 @@ export async function PATCH(request: NextRequest) {
       typeof body.locale === "string" && isAppLocale(body.locale)
         ? body.locale
         : null;
-    const circleSocialUuid = normalizeCircleSocialUuid(body.circleSocialUuid);
     const validationError = hasUsername ? validateUsername(username) : null;
     let avatarUrl: string | null | undefined;
 
@@ -499,10 +550,7 @@ export async function PATCH(request: NextRequest) {
       return jsonError(validationError, 400);
     }
 
-    const canEdit = await assertProfileOwnership({
-      circleSocialUuid,
-      walletAddress,
-    });
+    const canEdit = await assertProfileOwnership({ walletAddress });
 
     if (!canEdit) {
       return jsonError(
@@ -534,6 +582,40 @@ export async function PATCH(request: NextRequest) {
       updates.bio = null;
     }
 
+    // The full name is what the top bar shows, so clearing it is allowed.
+    if (typeof body.displayName === "string") {
+      const nextDisplayName = normalizeDisplayName(body.displayName);
+
+      if (body.displayName.trim() && !nextDisplayName) {
+        return jsonError("Full name must be 80 characters or fewer.", 400);
+      }
+
+      updates.display_name = nextDisplayName;
+    } else if (body.displayName === null) {
+      updates.display_name = null;
+    }
+
+    // Personal contact details. Email and phone stay private; country is
+    // public. Sent only by Settings, so other callers never touch them.
+    let touchesContact = false;
+    for (const [field, column, max] of [
+      ["contactEmail", "contact_email", 160],
+      ["country", "country", 80],
+      ["phone", "phone", 32],
+    ] as const) {
+      const value = body[field];
+      if (value === undefined) continue;
+      touchesContact = true;
+      const text = typeof value === "string" ? value.trim() : "";
+      if (text.length > max) {
+        return jsonError(`That ${field === "contactEmail" ? "email" : field} is too long.`, 400);
+      }
+      if (field === "contactEmail" && text && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) {
+        return jsonError("Enter a valid contact email.", 400);
+      }
+      updates[column] = text ? (field === "contactEmail" ? text.toLowerCase() : text) : null;
+    }
+
     const mutation = await supabase
       .from(profilesTable)
       .update(updates)
@@ -542,10 +624,17 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (mutation.error) {
+      // The contact columns arrive with a migration; say so plainly.
+      if (touchesContact && /contact_email|country|phone|column/i.test(mutation.error.message ?? "")) {
+        return jsonError(
+          "Contact details can't be saved yet: run packages/database/supabase/profiles-personal-contact.sql in Supabase first.",
+          409,
+        );
+      }
       return jsonError(readSupabaseError(mutation.error), 500);
     }
 
-    return NextResponse.json({ profile: mutation.data });
+    return NextResponse.json({ profile: publicProfile(mutation.data) });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Username could not be updated.";

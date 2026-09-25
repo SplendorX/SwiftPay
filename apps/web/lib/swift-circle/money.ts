@@ -2,11 +2,11 @@ import {
   formatUnitsToDecimal,
   parseDecimalToUnits,
 } from "@/lib/save/decimal";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 /** USDC/EURC on Arc use 6 decimals. Never use floating-point for money. */
 export function tokenDecimals(asset: ArcTokenSymbol) {
-  return arcTestnetTokens[asset]?.decimals ?? 6;
+  return arcTokens[asset]?.decimals ?? 6;
 }
 
 export function parseAmountUnits(

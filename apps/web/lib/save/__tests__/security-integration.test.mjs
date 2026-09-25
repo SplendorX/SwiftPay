@@ -1,5 +1,5 @@
 /**
- * Security + integration-style tests for Swift+Save (no live Supabase required).
+ * Security + integration-style tests for Save (no live Supabase required).
  * Run: node --test lib/save/__tests__/security-integration.test.mjs
  */
 import assert from "node:assert/strict";
@@ -401,4 +401,49 @@ describe("integration: pocket deposit withdraw reverse", () => {
       assertSufficientBalance(100_000_000n, payment + save, "wallet"),
     );
   });
+
+  it("isValidPaymentTxRef accepts EVM hashes, Circle UUIDs, and challenge/tx IDs", () => {
+    function isValidPaymentTxRef(value) {
+      if (typeof value !== "string") return false;
+      const trimmed = value.trim();
+      if (!trimmed) return false;
+      if (/^0x[a-fA-F0-9]{64}$/.test(trimmed)) return true;
+      if (
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+          trimmed,
+        )
+      ) {
+        return true;
+      }
+      if (/^[a-zA-Z0-9_-]{8,128}$/.test(trimmed)) {
+        return true;
+      }
+      return false;
+    }
+
+    // 1. Standard EVM 64-hex hash
+    const evmHash =
+      "0x6f971f9d72cd5974cc25b5b526ebbce4d9e4464f112233445566778899aabbcc";
+    assert.equal(isValidPaymentTxRef(evmHash), true);
+
+    // 2. Circle UUID transaction ID
+    const circleUuid = "764ef441-2c1f-4903-b09e-7faae8be1c56";
+    assert.equal(isValidPaymentTxRef(circleUuid), true);
+
+    // 3. Circle alphanumeric challenge / transfer reference
+    const circleRef = "circle_1726589000123";
+    assert.equal(isValidPaymentTxRef(circleRef), true);
+
+    const challengeId = "c74384b63a72df912a";
+    assert.equal(isValidPaymentTxRef(challengeId), true);
+
+    // 4. Invalid references
+    assert.equal(isValidPaymentTxRef(""), false);
+    assert.equal(isValidPaymentTxRef("   "), false);
+    assert.equal(isValidPaymentTxRef("short"), false); // < 8 chars
+    assert.equal(isValidPaymentTxRef(null), false);
+    assert.equal(isValidPaymentTxRef(undefined), false);
+    assert.equal(isValidPaymentTxRef("0xinvalid!chars@@@"), false);
+  });
 });
+

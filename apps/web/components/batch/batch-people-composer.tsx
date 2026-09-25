@@ -1,5 +1,6 @@
 "use client";
 
+import { RecipientStatus } from "@/components/recipient-status";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AtSign,
@@ -464,22 +465,23 @@ export const BatchPeopleComposer = forwardRef<
                       ))}
                     </div>
                   ) : null}
-                  <p
-                    className={cn(
-                      "mt-1.5 truncate text-xs",
-                      row.resolveError
-                        ? "font-semibold text-rose-600"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {row.resolveError
-                      ? row.resolveError
-                      : row.username
-                        ? `${formatUsernameLabel(row.username)}${row.displayName ? ` · ${row.displayName}` : ""}`
-                        : row.resolvedAddress
-                          ? shortenAddress(row.resolvedAddress)
-                          : "Enter a username or wallet address"}
-                  </p>
+                  {row.query.trim() ? (
+                    <RecipientStatus
+                      className="mt-1.5"
+                      id={`bp-recipient-status-${row.id}`}
+                      resolution={{
+                        error: row.resolveError,
+                        isResolving: row.resolving,
+                        isValid: Boolean(row.resolvedAddress && !row.resolving && !row.resolveError),
+                        resolvedAddress: row.resolvedAddress,
+                        resolvedUsername: row.username,
+                      }}
+                    />
+                  ) : (
+                    <p className="mt-1.5 truncate text-xs text-muted-foreground">
+                      Enter a username or wallet address
+                    </p>
+                  )}
                 </div>
                 <div className="bp-amount-col">
                   <label className="bp-field">

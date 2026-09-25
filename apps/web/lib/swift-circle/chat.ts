@@ -56,7 +56,7 @@ export async function postMessage(input: {
   replyToMessageId?: unknown;
   circleName?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "CHAT", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "CHAT", wallet: input.actorWallet });
   const member = await requireActiveMember(input.circleId, input.actorWallet);
   assertPermission(member, "chat");
   if (typeof input.content !== "string") {

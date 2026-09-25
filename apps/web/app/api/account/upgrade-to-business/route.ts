@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       businessName: typeof body.businessName === "string" ? body.businessName : "",
       circleSocialUuid,
       confirmed: body.confirmed === true,
+      contactEmail: body.contactEmail,
       logoUrl: typeof body.logoUrl === "string" ? body.logoUrl : null,
       ownerWallet: actorWallet,
       website: typeof body.website === "string" ? body.website : null,

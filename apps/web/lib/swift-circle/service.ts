@@ -90,7 +90,7 @@ export async function createCircle(input: {
   inviteUsernames?: unknown;
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "MEMBERSHIP", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "MEMBERSHIP", wallet: input.actorWallet });
   const name = normalizeName(input.name);
   if (!name) {
     throw circleErrors.invalid("Circle name must be 1–80 characters.");
@@ -552,7 +552,7 @@ export async function inviteMember(input: {
   username: unknown;
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "MEMBERSHIP", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "MEMBERSHIP", wallet: input.actorWallet });
   const circle = await loadCircle(input.circleId);
   assertCircleActive(circle);
   const actor = await requireActiveMember(input.circleId, input.actorWallet);
@@ -633,7 +633,7 @@ export async function inviteMember(input: {
     ownerWallet: profile.wallet_address,
     kind: "circle_invitation",
     title: `Join ${circle.name}`,
-    body: `You were invited to the SwiftCircle “${circle.name}”. Open SwiftCircle to accept or decline.\nINVITATION_ID:${invitation.id}`,
+    body: `You were invited to the Circle “${circle.name}”. Open Circle to accept or decline.\nINVITATION_ID:${invitation.id}`,
     metadata: { invitationId: invitation.id },
   });
   return invitation;
@@ -848,7 +848,7 @@ export async function changeMemberRole(input: {
   action: "promote" | "demote" | "remove";
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "MEMBERSHIP", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "MEMBERSHIP", wallet: input.actorWallet });
   const circle = await loadCircle(input.circleId);
   assertCircleActive(circle);
   const actor = await requireActiveMember(input.circleId, input.actorWallet);

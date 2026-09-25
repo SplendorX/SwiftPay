@@ -20,13 +20,17 @@ import {
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
+import { useWorkspace } from "@/components/business/workspace-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StyledSelect } from "@/components/ui/styled-select";
-import { AddTeamMemberModal } from "@/components/payroll/add-team-member-modal";
+import {
+  AddTeamMemberModal,
+  type TeamMemberPrefill,
+} from "@/components/payroll/add-team-member-modal";
 import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
 import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
 import {
@@ -39,12 +43,14 @@ import type { TeamMemberRecord, TeamMemberStatus } from "@/lib/payroll/types";
 
 export default function TeamManagementPage() {
   const { ownerWallet, circleSocialUuid } = useAccountContext();
+  const { workspace } = useWorkspace();
   const [members, setMembers] = useState<TeamMemberRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [prefill, setPrefill] = useState<TeamMemberPrefill | undefined>(undefined);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +62,7 @@ export default function TeamManagementPage() {
         ownerWallet,
         { includeArchived: true },
         circleSocialUuid ?? undefined,
+        workspace?.id,
       );
       setMembers(data);
       setError(null);
@@ -68,16 +75,38 @@ export default function TeamManagementPage() {
 
   useEffect(() => {
     void loadMembers();
-  }, [ownerWallet, circleSocialUuid]);
+  }, [ownerWallet, circleSocialUuid, workspace?.id]);
+
+  // ALLIE hands off here with ?add=1&name=…&amount=…: open the form filled in.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("add") !== "1") return;
+    const type = params.get("type");
+    const frequency = params.get("frequency");
+    setPrefill({
+      fullName: params.get("name") ?? undefined,
+      role: params.get("role") ?? undefined,
+      memberType: type === "CONTRACTOR" || type === "EMPLOYEE" ? type : undefined,
+      swiftpayUsername: params.get("username") ?? undefined,
+      walletAddress: params.get("wallet") ?? undefined,
+      amount: params.get("amount") ?? undefined,
+      frequency:
+        frequency === "WEEKLY" || frequency === "BIWEEKLY" || frequency === "MONTHLY"
+          ? frequency
+          : undefined,
+    });
+    setIsAddModalOpen(true);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   async function handleTogglePause(member: TeamMemberRecord) {
     if (!ownerWallet) return;
     setActionLoading(member.id);
     try {
       if (member.status === "ACTIVE") {
-        await pauseTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined);
+        await pauseTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined, workspace?.id);
       } else if (member.status === "PAUSED") {
-        await reactivateTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined);
+        await reactivateTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined, workspace?.id);
       }
       await loadMembers();
     } catch (err: unknown) {
@@ -94,7 +123,7 @@ export default function TeamManagementPage() {
     }
     setActionLoading(member.id);
     try {
-      await archiveTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined);
+      await archiveTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined, workspace?.id);
       await loadMembers();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to archive member.");
@@ -296,8 +325,14 @@ export default function TeamManagementPage() {
 
         {ownerWallet ? (
           <AddTeamMemberModal
+            // Remount when ALLIE's details arrive: the form reads them once.
+            key={prefill ? "prefilled" : "blank"}
+            initial={prefill}
             isOpen={isAddModalOpen}
-            onClose={() => setIsAddModalOpen(false)}
+            onClose={() => {
+              setIsAddModalOpen(false);
+              setPrefill(undefined);
+            }}
             ownerWallet={ownerWallet}
             circleSocialUuid={circleSocialUuid ?? undefined}
             onCreated={() => void loadMembers()}

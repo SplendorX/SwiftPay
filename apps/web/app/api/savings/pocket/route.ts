@@ -8,6 +8,7 @@ import {
 } from "@/lib/save/notifications";
 import {
   archivePocket,
+  deletePocket,
   getPocketForOwner,
   getPocketStats,
   getSpendSaveConfig,
@@ -235,18 +236,30 @@ export async function DELETE(request: NextRequest) {
     return jsonError("Authorize this wallet before archiving pockets.", 401);
   }
 
+  // `permanent` opts into a hard delete; the default stays archive.
+  const permanent = body.permanent === true;
+
   try {
-    const pocket = await archivePocket(pocketId, ownerWallet);
-    return NextResponse.json({ pocket });
+    const pocket = permanent
+      ? await deletePocket(pocketId, ownerWallet)
+      : await archivePocket(pocketId, ownerWallet);
+    return NextResponse.json({ deleted: permanent, pocket });
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
-        : readSavingsSupabaseError(null, "Pocket could not be archived.");
+        : readSavingsSupabaseError(
+            null,
+            permanent
+              ? "Pocket could not be deleted."
+              : "Pocket could not be archived.",
+          );
     const status =
       message.includes("not found")
         ? 404
-        : message.includes("Withdraw") || message.includes("Spend&Save")
+        : message.includes("Withdraw") ||
+            message.includes("Spend&Save") ||
+            message.includes("history")
           ? 400
           : 500;
     return jsonError(message, status);

@@ -2,7 +2,7 @@ import { getAddress, isAddress, parseUnits, type Address } from "viem";
 
 import { fetchProfileByUsername } from "@/lib/profile";
 import { formatUsernameLabel, parseRecipientInput } from "@/lib/profile-utils";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 export type BatchPayeeImport = {
   amount: string;
@@ -115,7 +115,7 @@ export async function resolvePayeeQuery(query: string) {
 }
 
 export function parseAmountUnits(amount: string, token: ArcTokenSymbol) {
-  const decimals = arcTestnetTokens[token].decimals;
+  const decimals = arcTokens[token].decimals;
   try {
     const units = parseUnits(amount.trim(), decimals);
     if (units <= BigInt(0)) return null;
@@ -127,7 +127,7 @@ export function parseAmountUnits(amount: string, token: ArcTokenSymbol) {
 
 export function splitEvenAmounts(total: string, count: number, token: ArcTokenSymbol) {
   if (count <= 0) return [];
-  const decimals = arcTestnetTokens[token].decimals;
+  const decimals = arcTokens[token].decimals;
   let totalUnits: bigint;
   try {
     totalUnits = parseUnits(total.trim(), decimals);

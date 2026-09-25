@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { expediteScheduleRetries } from "@/lib/recurring-service";
 import {
   assertRecurringAccess,
   normalizeOwnerWallet,
@@ -117,6 +118,7 @@ export async function POST(
     }
 
     // First due occurrence must settle here. Local `next dev` has no Vercel cron.
+    await expediteScheduleRetries(schedule.id).catch(() => undefined);
     try {
       await runAutopayTick({ enqueueLimit: 10, workerLimit: 10 });
     } catch {

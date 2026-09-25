@@ -1,5 +1,6 @@
 "use client";
 
+import { arcChain } from "@/lib/chains";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
+import { useWorkspace } from "@/components/business/workspace-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
@@ -60,6 +62,7 @@ type ItemDraft = {
 export default function NewPayrollRunPage() {
   const router = useRouter();
   const { ownerWallet, circleSocialUuid } = useAccountContext();
+  const { workspace } = useWorkspace();
   const [name, setName] = useState(() => {
     const d = new Date();
     return `${d.toLocaleString("default", { month: "long" })} ${d.getFullYear()} Payroll`;
@@ -78,8 +81,8 @@ export default function NewPayrollRunPage() {
     if (!ownerWallet) return;
     setLoading(true);
     Promise.all([
-      fetchPayrollGroups(ownerWallet, circleSocialUuid ?? undefined),
-      fetchTeamMembers(ownerWallet, { status: "ACTIVE" }, circleSocialUuid ?? undefined),
+      fetchPayrollGroups(ownerWallet, circleSocialUuid ?? undefined, workspace?.id),
+      fetchTeamMembers(ownerWallet, { status: "ACTIVE" }, circleSocialUuid ?? undefined, workspace?.id),
     ])
       .then(([groupsData, membersData]) => {
         setGroups(groupsData);
@@ -90,7 +93,21 @@ export default function NewPayrollRunPage() {
         setError(err instanceof Error ? err.message : "Failed to load team data.");
       })
       .finally(() => setLoading(false));
-  }, [ownerWallet, circleSocialUuid]);
+  }, [ownerWallet, circleSocialUuid, workspace?.id]);
+
+  // ALLIE hands off with ?group=<id> ("pay the engineering team"): select it
+  // once groups and members have loaded.
+  const [linkedGroupId] = useState(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("group"),
+  );
+  const [linkedGroupApplied, setLinkedGroupApplied] = useState(false);
+  useEffect(() => {
+    if (!linkedGroupId || linkedGroupApplied || loading) return;
+    setLinkedGroupApplied(true);
+    if (groups.some((group) => group.id === linkedGroupId)) {
+      handleGroupChange(linkedGroupId);
+    }
+  }, [groups, linkedGroupApplied, linkedGroupId, loading]);
 
   function initItems(membersList: TeamMemberRecord[], groupId?: string) {
     let filtered = membersList;
@@ -208,6 +225,7 @@ export default function NewPayrollRunPage() {
           })),
         },
         circleSocialUuid ?? undefined,
+        workspace?.id,
       );
       router.push(`/business/payroll/runs/${run.id}`);
     } catch (err: unknown) {
@@ -282,7 +300,7 @@ export default function NewPayrollRunPage() {
                 <h3 className="font-heading font-bold text-lg">
                   Recipients ({items.length})
                 </h3>
-                <span className="text-xs text-muted-foreground">USDC (Arc Testnet)</span>
+                <span className="text-xs text-muted-foreground">USDC ({arcChain.name})</span>
               </div>
 
               {loading ? (
@@ -427,7 +445,7 @@ export default function NewPayrollRunPage() {
                   <span className="font-heading font-bold text-foreground">{totals.totalAmount} USDC</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-border pb-2">
-                  <span className="text-muted-foreground">Platform Fee (1%)</span>
+                  <span className="text-muted-foreground">Service Fee (1%)</span>
                   <span className="font-semibold text-muted-foreground">{totals.totalFees} USDC</span>
                 </div>
                 <div className="flex items-center justify-between pt-1">

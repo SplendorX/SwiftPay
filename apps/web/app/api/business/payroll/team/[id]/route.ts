@@ -11,11 +11,16 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
-    const { actorWallet, circleSocialUuid } = await readActor(request);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
-    const member = await getTeamMember(actorWallet, id);
-    const history = await getTeamMemberPaymentHistory(actorWallet, id);
+    const member = await getTeamMember(targetAccountId, id);
+    const history = await getTeamMemberPaymentHistory(targetAccountId, id);
 
     return jsonOk({ member, history });
   } catch (error) {
@@ -31,10 +36,15 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
-    const updated = await updateTeamMember(actorWallet, id, body as any);
+    const updated = await updateTeamMember(targetAccountId, id, body as any);
     return jsonOk(updated);
   } catch (error) {
     return jsonBusinessError(error);

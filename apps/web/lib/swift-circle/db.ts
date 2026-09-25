@@ -78,10 +78,10 @@ export function readCircleDbError(
 ) {
   const message = error?.message ?? "";
   if (message.toLowerCase().includes("permission denied")) {
-    return "Supabase rejected access to SwiftCircle tables. Run packages/database/supabase/swift-circle.sql.";
+    return "Supabase rejected access to Circle tables. Run packages/database/supabase/swift-circle.sql.";
   }
   if (message.toLowerCase().includes("does not exist")) {
-    return "Create SwiftCircle tables with packages/database/supabase/swift-circle.sql.";
+    return "Create Circle tables with packages/database/supabase/swift-circle.sql.";
   }
   return message || fallback;
 }

@@ -11,6 +11,7 @@ export function PayPageShell({ children }: { children: ReactNode }) {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        backHref="/dashboard"
         subtitle="Payment collection hub"
         title="Request"
       >

@@ -1,8 +1,9 @@
+import { arcChain } from "@/lib/chains";
 import "./globals.css";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Instrument_Serif, Manrope, Sora } from "next/font/google";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/app/providers";
@@ -10,27 +11,30 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-const manrope = Manrope({
-  subsets: ["latin"],
+// Self-hosted (latin, variable weight) rather than next/font/google: Next's
+// Google loader chokes on Google's newer multi-parameter font URLs ("queries
+// have exactly one entry"), and local files also make builds network-free.
+const manrope = localFont({
+  display: "swap",
+  src: [{ path: "./fonts/manrope-latin-variable.woff2", style: "normal", weight: "400 800" }],
   variable: "--font-manrope",
-  weight: ["400", "500", "600", "700", "800"],
 });
 
-const sora = Sora({
-  subsets: ["latin"],
+const sora = localFont({
+  display: "swap",
+  src: [{ path: "./fonts/sora-latin-variable.woff2", style: "normal", weight: "400 700" }],
   variable: "--font-sora",
-  weight: ["400", "500", "600", "700"],
 });
 
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
+const instrumentSerif = localFont({
+  display: "swap",
+  src: [{ path: "./fonts/instrument-serif-latin-400.woff2", style: "normal", weight: "400" }],
   variable: "--font-display",
-  weight: "400",
 });
 
 const siteTitle = "SwiftPay | Do more with USDC";
 const siteDescription =
-  "Money movement infrastructure for the internet. Send, batch, request, swap, and settle stablecoins on Arc Testnet.";
+  `Money movement infrastructure for the internet. Send, batch, request, swap, and settle stablecoins on ${arcChain.name}.`;
 const brandMark = "/brand/swiftpay-mark.png";
 
 function getSiteUrl() {
@@ -51,8 +55,18 @@ export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: siteTitle,
   description: siteDescription,
+  applicationName: "SwiftPay",
+  // iPhone and iPad: "Add to Home Screen" opens SwiftPay as its own app.
+  // The home-screen icon is /icons/apple-touch-icon.png, set in icons below.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SwiftPay",
+  },
+  formatDetection: { telephone: false },
   icons: {
-    apple: [{ url: brandMark, type: "image/png", sizes: "180x180" }],
+    // Full-bleed: iOS fills transparent corners with black.
+    apple: [{ url: "/icons/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
     icon: [{ url: brandMark, type: "image/png", sizes: "32x32" }],
     shortcut: brandMark,
   },
@@ -75,6 +89,14 @@ export const metadata: Metadata = {
     images: [brandMark],
     title: siteTitle,
   },
+};
+
+/** Browser and status-bar colour, matching the app's light and dark surfaces. */
+export const viewport: Viewport = {
+  themeColor: [
+    { color: "#f4ebdd", media: "(prefers-color-scheme: light)" },
+    { color: "#080609", media: "(prefers-color-scheme: dark)" },
+  ],
 };
 
 const themeInitScript = `(function(){try{var pref=localStorage.getItem("swiftpay.theme")||"dark";var resolved=pref;if(pref==="system"){resolved=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var dark=resolved==="dark";document.documentElement.dataset.theme=dark?"dark":"light";document.documentElement.dataset.themePref=pref;document.documentElement.style.colorScheme=dark?"dark":"light";document.documentElement.classList.toggle("dark",dark);var surface=localStorage.getItem("swiftpay.light-surface");document.documentElement.dataset.lightSurface=surface==="glass"?"glass":"cream";var loc=localStorage.getItem("swiftpay.locale");var locales=["en","es","fr","de","pt","ar","zh","ja","ko"];if(loc&&locales.indexOf(loc)!==-1){document.documentElement.lang=loc;document.documentElement.dir=loc==="ar"?"rtl":"ltr";}}catch(error){document.documentElement.classList.add("dark");document.documentElement.dataset.theme="dark";document.documentElement.style.colorScheme="dark";document.documentElement.dataset.lightSurface="cream";}})();`;

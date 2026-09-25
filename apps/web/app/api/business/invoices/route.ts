@@ -13,12 +13,13 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
-    const { actorWallet, circleSocialUuid } = await readActor(request);
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
     const page = Number(request.nextUrl.searchParams.get("page") ?? "1");
     const payload = await listInvoices({
       circleSocialUuid,
       ownerWallet: actorWallet,
       page,
+      workspaceId,
     });
     return jsonOk(payload);
   } catch (error) {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
     const items = Array.isArray(body.items) ? (body.items as InvoiceItemInput[]) : [];
     const invoice = await createInvoice({
       allowPartialPayment: body.allowPartialPayment,
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       origin: request.nextUrl.origin,
       ownerWallet: actorWallet,
       paymentTerms: body.paymentTerms,
+      workspaceId,
     });
     return jsonOk({ invoice }, 201);
   } catch (error) {

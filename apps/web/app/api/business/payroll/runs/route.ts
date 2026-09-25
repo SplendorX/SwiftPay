@@ -7,10 +7,14 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
-    const { actorWallet, circleSocialUuid } = await readActor(request);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
 
-    const runs = await listPayrollRuns(actorWallet);
+    const runs = await listPayrollRuns(auth.businessWallet || actorWallet);
     return jsonOk(runs);
   } catch (error) {
     return jsonBusinessError(error);
@@ -21,12 +25,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
     const run = await createPayrollRun(
       {
-        accountId: actorWallet,
+        accountId: targetAccountId,
         name: String(body.name || ""),
         source: body.source === "SCHEDULED" ? "SCHEDULED" : "MANUAL",
         asset: typeof body.asset === "string" ? body.asset : "USDC",

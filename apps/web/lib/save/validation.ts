@@ -12,7 +12,7 @@ import {
   type PocketIconId,
 } from "@/lib/save/types";
 import {
-  arcTestnetTokens,
+  arcTokens,
   arcTokenSymbols,
   type ArcTokenSymbol,
 } from "@/lib/tokens";
@@ -97,7 +97,7 @@ export function normalizeAmount(
   }
 
   try {
-    const decimals = arcTestnetTokens[tokenSymbol].decimals;
+    const decimals = arcTokens[tokenSymbol].decimals;
     const units = parseUnits(text, decimals);
     if (units <= 0n) return null;
     // Canonical decimal from units (avoids "1.0" vs "1.00" drift)
@@ -165,19 +165,41 @@ export function amountFromUnits(
   units: bigint,
   tokenSymbol: ArcTokenSymbol,
 ): string {
-  return formatUnitsToDecimal(units, arcTestnetTokens[tokenSymbol].decimals);
+  return formatUnitsToDecimal(units, arcTokens[tokenSymbol].decimals);
 }
 
 export function parseAmountUnits(
   amount: string,
   tokenSymbol: ArcTokenSymbol,
 ): bigint {
-  return parseDecimalToUnits(amount, arcTestnetTokens[tokenSymbol].decimals);
+  return parseDecimalToUnits(amount, arcTokens[tokenSymbol].decimals);
 }
 
 export function isValidTxHash(value: unknown): value is `0x${string}` {
   return typeof value === "string" && /^0x[a-fA-F0-9]{64}$/.test(value);
 }
+
+export function isValidPaymentTxRef(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  // Standard EVM tx hash: 0x followed by 64 hex characters
+  if (/^0x[a-fA-F0-9]{64}$/.test(trimmed)) return true;
+  // UUID (Circle transaction IDs, challenge IDs)
+  if (
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  // Circle internal transaction ID / ref format (e.g. circle_..., alphanumeric strings 8-128 chars)
+  if (/^[a-zA-Z0-9_-]{8,128}$/.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
 
 export function isValidUuid(value: unknown): value is string {
   return (

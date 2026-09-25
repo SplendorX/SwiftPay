@@ -12,8 +12,8 @@ import {
 } from "viem";
 
 import { earnConfig } from "@/lib/earn/config";
-import { arcTestnetTokens } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens } from "@/lib/tokens";
+import { arcChain, arcExplorerUrl } from "@/lib/chains";
 
 const depositEvent = parseAbiItem(
   "event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)",
@@ -25,8 +25,8 @@ const withdrawEvent = parseAbiItem(
 const DEPOSIT_TOPIC = toEventHash(depositEvent);
 const WITHDRAW_TOPIC = toEventHash(withdrawEvent);
 
-const USDC_DECIMALS = arcTestnetTokens.USDC.decimals;
-const ARCSCAN_API = "https://testnet.arcscan.app/api";
+const USDC_DECIMALS = arcTokens.USDC.decimals;
+const ARCSCAN_API = `${arcExplorerUrl}/api`;
 /** Single RPC fallback window — one request, avoids rate limits. */
 const RPC_FALLBACK_BLOCKS = 1_500n;
 const MAX_RESULTS = 50;
@@ -221,8 +221,8 @@ async function fetchFromRpcFallback(
   owner: Address,
 ): Promise<EarnTransaction[]> {
   const client = createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0], {
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0], {
       timeout: 20_000,
       retryCount: 0,
     }),

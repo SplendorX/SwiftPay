@@ -21,6 +21,8 @@ export const runtime = "nodejs";
 
 const schedulesTable =
   process.env.SUPABASE_RECURRING_SCHEDULES_TABLE ?? "recurring_schedules";
+const executionsTable =
+  process.env.SUPABASE_RECURRING_EXECUTIONS_TABLE ?? "recurring_executions";
 
 type UpdateScheduleBody = {
   amount?: unknown;
@@ -40,7 +42,7 @@ function jsonError(message: string, status: number) {
 
 function readSupabaseError(error: { message?: string } | null) {
   const message = error?.message ?? "";
-  return message || "SwiftRecurepay could not update this schedule.";
+  return message || "RecurePay could not update this schedule.";
 }
 
 function normalizeText(value: unknown, maxLength: number) {
@@ -207,6 +209,12 @@ export async function PATCH(
       authorizationInvalidatedByUpdate(currentSchedule, {
         amountUnits:
           typeof updates.amount_units === "string" ? updates.amount_units : undefined,
+        frequency:
+          typeof updates.frequency === "string" ? updates.frequency : undefined,
+        intervalDays:
+          "interval_days" in updates
+            ? (updates.interval_days as number | null)
+            : undefined,
         tokenSymbol:
           typeof updates.token_symbol === "string" ? updates.token_symbol : undefined,
       })
@@ -265,14 +273,49 @@ export async function DELETE(
 
   try {
     const supabase = createSupabaseAdminClient();
+
+    // Ownership first: executions are only cleared for the caller's schedule.
+    const owned = await supabase
+      .from(schedulesTable)
+      .select("id")
+      .eq("id", id)
+      .eq("owner_wallet", ownerWallet)
+      .maybeSingle();
+
+    if (owned.error) {
+      return jsonError(readSupabaseError(owned.error), 500);
+    }
+    if (!owned.data) {
+      return jsonError("This schedule was not found for this wallet.", 404);
+    }
+
+    // The schema cascades, but a database created before that migration
+    // would refuse the delete on the executions' foreign key — clear them
+    // explicitly so deleting never depends on which schema version is live.
+    const executions = await supabase
+      .from(executionsTable)
+      .delete()
+      .eq("schedule_id", id);
+
+    if (executions.error) {
+      return jsonError(readSupabaseError(executions.error), 500);
+    }
+
     const mutation = await supabase
       .from(schedulesTable)
       .delete()
       .eq("id", id)
-      .eq("owner_wallet", ownerWallet);
+      .eq("owner_wallet", ownerWallet)
+      .select("id");
 
     if (mutation.error) {
       return jsonError(readSupabaseError(mutation.error), 500);
+    }
+
+    // Report what actually happened: a delete that matched nothing is not a
+    // success, or the schedule "comes back" on the next refresh.
+    if (!mutation.data || mutation.data.length === 0) {
+      return jsonError("The schedule could not be deleted. Try again.", 409);
     }
 
     return NextResponse.json({ deleted: true });

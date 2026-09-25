@@ -161,8 +161,8 @@ export function RecurringScheduleFields({
           <span className="grid gap-1">
             <span className="text-sm font-semibold">Authorize Autopay</span>
             <span className="text-xs text-muted-foreground">
-              Approve the SwiftRecurepay executor once, then due payments can
-              settle in the background. This does not store your private key.
+              Approve auto Recurepay, then due payments can settle in the
+              background. This does not store your private key.
             </span>
           </span>
         </label>

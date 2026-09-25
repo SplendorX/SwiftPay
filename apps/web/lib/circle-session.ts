@@ -31,6 +31,21 @@ export type CircleWallet = {
   state?: string;
 };
 
+export function isArcCircleWallet(wallet: CircleWallet) {
+  const chain = wallet.blockchain?.trim().toUpperCase() ?? "";
+  return chain === "ARC-TESTNET" || chain === "ARC" || chain.startsWith("ARC");
+}
+
+export function preferArcCircleWallets(wallets: CircleWallet[]) {
+  const valid = wallets.filter(
+    (wallet): wallet is CircleWallet =>
+      typeof wallet?.id === "string" && wallet.id.trim().length > 0,
+  );
+  const arc = valid.filter(isArcCircleWallet);
+  const rest = valid.filter((wallet) => !isArcCircleWallet(wallet));
+  return [...arc, ...rest];
+}
+
 export type CircleTokenBalance = {
   amount?: string;
   token?: {
@@ -176,19 +191,17 @@ export function readCircleWallets() {
   try {
     const wallets = JSON.parse(raw) as CircleWallet[];
 
-    return Array.isArray(wallets)
-      ? wallets.filter(
-          (wallet): wallet is CircleWallet =>
-            typeof wallet?.id === "string" && wallet.id.trim().length > 0,
-        )
-      : [];
+    return Array.isArray(wallets) ? preferArcCircleWallets(wallets) : [];
   } catch {
     return [];
   }
 }
 
 export function writeCircleWallets(wallets: CircleWallet[]) {
-  writeCircleSessionStorage(circleStorageKeys.wallets, JSON.stringify(wallets));
+  writeCircleSessionStorage(
+    circleStorageKeys.wallets,
+    JSON.stringify(preferArcCircleWallets(wallets)),
+  );
   notifyCircleSessionChanged();
 }
 
@@ -233,6 +246,16 @@ export function getCircleLoginIdentity(login?: CircleLoginResult | null) {
   };
 }
 
+/**
+ * The email a Google or email sign-in was made with, or null for external
+ * wallets. Used to pre-fill a business's contact email.
+ */
+export function readSignInEmail() {
+  if (typeof window === "undefined") return null;
+  const email = getCircleLoginIdentity(readCircleLogin()).email?.trim().toLowerCase();
+  return email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+}
+
 export function shortenCircleAddress(value?: string, fallback = "Not connected") {
   if (!value) {
     return fallback;
@@ -241,30 +264,251 @@ export function shortenCircleAddress(value?: string, fallback = "Not connected")
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
-export function getCircleErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error) {
-    const payload = error as Error & CircleClientErrorPayload;
+/**
+ * Circle PIN SDK codes whose own text ("Network error") does not tell the
+ * user what happened. The challenge failed before signing, so nothing moved.
+ */
+const circleSdkMessages: Record<string, string> = {
+  "155701": "You cancelled in your wallet — nothing was sent.",
+  "155706":
+    "Couldn't reach Circle to confirm this payment. Nothing was sent. Check your connection and try again.",
+};
 
-    return payload.code ? `[${payload.code}] ${error.message}` : error.message;
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  if (typeof error === "object" && error !== null) {
-    const payload = error as CircleClientErrorPayload;
-    const message = payload.message ?? payload.error;
-
-    if (message) {
-      return payload.code ? `[${payload.code}] ${message}` : message;
-    }
-  }
-
-  return fallback;
+export function friendlyCircleSdkMessage(error: unknown) {
+  const code =
+    typeof error === "object" && error !== null
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+  return circleSdkMessages[code] ?? null;
 }
 
+/** The raw text of an error, whatever shape it arrived in. */
+function rawErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    // viem errors carry a dump ("Request Arguments: … Version: viem@…") in
+    // .message; the human part is in .details, or deepest in the cause chain.
+    const viem = error as Error & { details?: unknown; cause?: unknown };
+    if (typeof viem.details === "string" && viem.details.trim()) return viem.details;
+    let cause = viem.cause;
+    for (let depth = 0; depth < 5 && cause instanceof Error; depth += 1) {
+      const next = (cause as Error & { cause?: unknown }).cause;
+      if (!(next instanceof Error)) return cause.message;
+      cause = next;
+    }
+    return error.message;
+  }
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && error !== null) {
+    const payload = error as CircleClientErrorPayload;
+    return payload.message ?? payload.error ?? "";
+  }
+  return "";
+}
+
+/** Messages that are for developers, not people: never shown as-is. */
+function looksTechnical(message: string) {
+  return (
+    message.length > 220 ||
+    /[{}[\]]|\bat \w+ \(|0x[0-9a-f]{16,}|\b(?:undefined|null|NaN|TypeError|ReferenceError|stack|payload|RPC|ECONN\w*|ETIMEDOUT)\b/i.test(message) ||
+    /^\s*\d{3,}\b/.test(message)
+  );
+}
+
+/**
+ * Turns any wallet or Circle error into something a person can act on.
+ * Error codes ("[155701]") never reach the screen: a cancel reads as a
+ * cancel, a network blip as a network blip, and anything technical falls
+ * back to the caller's plain message.
+ */
+export function userFacingErrorMessage(error: unknown, fallback: string) {
+  const friendly = friendlyCircleSdkMessage(error);
+  if (friendly) return friendly;
+  // Already worded for the person (e.g. how to add Arc to a wallet).
+  if (error instanceof Error && error.name === "ArcNetworkError") return error.message;
+
+  // Strip "[155701]" / "Error:" prefixes and keep the first line only.
+  const message = rawErrorMessage(error)
+    .split("\n")[0]
+    .replace(/^\s*\[\w+\]\s*/, "")
+    .replace(/^\s*(?:Error|CircleError|Uncaught)\s*:\s*/i, "")
+    .trim();
+
+  if (/still confirming|did not return a hash in time/i.test(message)) {
+    return "Your transfer was submitted and is still confirming. Your balance will update shortly — no need to send it again.";
+  }
+  if (/\b(?:user\s+)?(?:cancel+ed|canceled|rejected|denied|dismissed|closed)\b|user rejected|request rejected/i.test(message)) {
+    return "You cancelled in your wallet — nothing was sent.";
+  }
+  if (/\b(?:network|failed to fetch|timeout|timed out|offline|connection)\b/i.test(message)) {
+    return "Couldn't reach the network. Check your connection and try again — nothing was sent.";
+  }
+  if (/insufficient (?:funds|balance)|exceeds balance/i.test(message)) {
+    return "There isn't enough balance for this, including fees.";
+  }
+  if (/\b(?:gas|fee)\b.*\b(?:too low|insufficient|estimate)/i.test(message)) {
+    return "The network fee couldn't be covered. Add a little USDC for gas and try again.";
+  }
+  if (/(?:session|token)\b.*\b(?:expired|invalid)\b|\b(?:expired|invalid)\b.*(?:session|login|token)/i.test(message)) {
+    return "Your session expired. Sign in again to continue.";
+  }
+  if (!message || looksTechnical(message)) return fallback;
+  return /[.!?]$/.test(message) ? message : `${message}.`;
+}
+
+export function getCircleErrorMessage(error: unknown, fallback: string) {
+  return userFacingErrorMessage(error, fallback);
+}
+
+/**
+ * Credentials for the Circle PIN SDK. Prefers the stored login, which is
+ * renewed in place when a token expires, over a copy a page captured earlier;
+ * after a renewal, a challenge created with the new token must be confirmed
+ * with it too. Not for sign-in flows, whose fresh login is not stored yet.
+ */
+export function currentCircleAuth(fallback: { encryptionKey: string; userToken: string }) {
+  const stored = readCircleLogin();
+  return {
+    encryptionKey: stored?.encryptionKey ?? fallback.encryptionKey,
+    userToken: stored?.userToken ?? fallback.userToken,
+  };
+}
+
+/** Circle's "user token expired" error code. */
+export const circleUserTokenExpiredCode = "155104";
+
+/**
+ * Circle rejected the user token itself: expired (155104), invalid (155105),
+ * or a plain 401 "Invalid credentials." (e.g. an older token after renewal).
+ */
+function isCircleUserTokenRejected(error: unknown) {
+  const payload = error as { code?: number | string; message?: string } | null;
+  const code = String(payload?.code ?? "");
+  return (
+    code === "155104" ||
+    code === "155105" ||
+    code === "401" ||
+    /userToken (had expired|is invalid)|invalid credentials/i.test(payload?.message ?? "")
+  );
+}
+
+export function isCircleUserTokenExpired(error: unknown) {
+  const payload = error as { code?: number | string; message?: string } | null;
+  return (
+    String(payload?.code ?? "") === circleUserTokenExpiredCode ||
+    /userToken had expired/i.test(payload?.message ?? "")
+  );
+}
+
+let refreshInFlight: Promise<CircleLoginResult | null> | null = null;
+/**
+ * Tokens this page replaced by renewing them. A request that still carries
+ * one may be retried with the current stored token; any other token (e.g. a
+ * brand-new login not stored yet) is never swapped for someone else's.
+ */
+const supersededUserTokens = new Set<string>();
+
+/**
+ * Renew an expired Circle user token (they last about an hour) and store the
+ * new login, so the user is not sent back to sign in. Google logins use
+ * Circle's refresh token; email logins ask the server, which re-issues the
+ * token only to a browser whose signed session covers that user's wallet.
+ * Concurrent callers share one refresh. Resolves null if it cannot renew.
+ */
+export function refreshCircleLogin(): Promise<CircleLoginResult | null> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const login = readCircleLogin();
+    if (!login) return null;
+
+    try {
+      const circleUserId = login.oAuthInfo?.socialUserUUID;
+      if (login.oAuthInfo?.provider === "Email" && circleUserId) {
+        const response = await fetch("/api/auth/email", {
+          body: JSON.stringify({ action: "refresh", circleUserId }),
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          method: "POST",
+        });
+        if (!response.ok) return null;
+        const next = (await response.json()) as { encryptionKey?: string; userToken?: string };
+        if (!next.userToken || !next.encryptionKey) return null;
+        const renewed = { ...login, encryptionKey: next.encryptionKey, userToken: next.userToken };
+        supersededUserTokens.add(login.userToken);
+        writeCircleLogin(renewed);
+        return renewed;
+      }
+
+      const deviceId = readCircleSessionStorage(circleStorageKeys.deviceId);
+      if (!login.refreshToken || !deviceId) return null;
+      const next = await callCircleWalletApiOnce<{
+        encryptionKey?: string;
+        refreshToken?: string;
+        userToken?: string;
+      }>("refreshUserToken", {
+        deviceId,
+        refreshToken: login.refreshToken,
+        userToken: login.userToken,
+      });
+      if (!next.userToken || !next.encryptionKey) return null;
+      const renewed: CircleLoginResult = {
+        ...login,
+        encryptionKey: next.encryptionKey,
+        refreshToken: next.refreshToken ?? login.refreshToken,
+        userToken: next.userToken,
+      };
+      supersededUserTokens.add(login.userToken);
+      writeCircleLogin(renewed);
+      return renewed;
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+/**
+ * Call the Circle user-wallets API. If the user token has expired, renew it
+ * once and retry with the new token, so long sessions keep working.
+ */
 export async function callCircleWalletApi<T>(
+  action: string,
+  params: Record<string, unknown> = {},
+): Promise<T & CircleClientErrorPayload> {
+  try {
+    return await callCircleWalletApiOnce<T>(action, params);
+  } catch (error) {
+    if (!isCircleUserTokenRejected(error) || typeof params.userToken !== "string") {
+      throw error;
+    }
+    // The page passed a token captured earlier, but the stored login has
+    // since been renewed: use the current one.
+    const stored = readCircleLogin();
+    if (
+      stored?.userToken &&
+      stored.userToken !== params.userToken &&
+      supersededUserTokens.has(params.userToken)
+    ) {
+      return callCircleWalletApiOnce<T>(action, { ...params, userToken: stored.userToken });
+    }
+    if (!isCircleUserTokenExpired(error)) {
+      throw error;
+    }
+    const renewed = await refreshCircleLogin();
+    if (!renewed) {
+      throw new CircleClientError(
+        { code: circleUserTokenExpiredCode, message: "Your Circle session expired. Sign in again to continue." },
+        "Your Circle session expired.",
+      );
+    }
+    return callCircleWalletApiOnce<T>(action, { ...params, userToken: renewed.userToken });
+  }
+}
+
+async function callCircleWalletApiOnce<T>(
   action: string,
   params: Record<string, unknown> = {},
 ) {
@@ -292,7 +536,10 @@ export async function callCircleWalletApi<T>(
   }
 
   if (!response.ok) {
-    throw new CircleClientError(payload, "Circle wallet request failed.");
+    throw new CircleClientError(
+      { ...payload, code: payload.code ?? response.status },
+      "Circle wallet request failed.",
+    );
   }
 
   return payload;

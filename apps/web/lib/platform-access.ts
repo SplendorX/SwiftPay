@@ -93,6 +93,18 @@ export function writeActivatedExternalProfile(address: string) {
   }
 }
 
+/**
+ * Drop the external-wallet profile activation but keep platform access, for a
+ * session that runs on a Circle wallet instead.
+ */
+export function forgetActivatedExternalProfile() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(activatedExternalProfileKey);
+}
+
 export function clearActivatedExternalProfile() {
   if (typeof window === "undefined") {
     return;

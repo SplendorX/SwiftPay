@@ -84,6 +84,7 @@ export async function settleSpendSaveAfterPayment(input: {
   writeContractAsync?: ExternalWrite;
   /** Circle executor when mode === circle */
   circleExecutor?: CircleVaultExecutor;
+  readAllowance?: (spender: Address) => Promise<bigint>;
 }): Promise<SpendSaveSettlementResult> {
   const prepared = await prepareSpendSave({
     ownerWallet: input.ownerWallet,
@@ -113,11 +114,12 @@ export async function settleSpendSaveAfterPayment(input: {
       pocketIdBytes32,
       amountUnits,
       refPrefix: `spend-save-${prepared.transaction.id.slice(0, 8)}`,
+      readAllowance: input.readAllowance,
     });
     savingsHash = result.txHash;
     if (!savingsHash) {
       throw new Error(
-        "Circle Spend&Save deposit submitted but no transaction hash yet. Check Swift+Save history — reconciliation will finish it.",
+        "Circle Spend&Save deposit submitted but no transaction hash yet. Check Save history — reconciliation will finish it.",
       );
     }
   } else {
@@ -228,7 +230,7 @@ export async function executeSavingsReversal(input: {
 
   if (!txHash) {
     throw new Error(
-      "Reversal withdraw submitted without a hash. Open Swift+Save — reconciliation will finalize when the hash is available.",
+      "Reversal withdraw submitted without a hash. Open Save — reconciliation will finalize when the hash is available.",
     );
   }
 

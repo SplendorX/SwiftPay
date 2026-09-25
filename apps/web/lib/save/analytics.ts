@@ -1,5 +1,5 @@
 /**
- * Internal analytics for Swift+Save.
+ * Internal analytics for Swift Save.
  * Never logs full balances, private keys, or raw wallet secrets.
  */
 

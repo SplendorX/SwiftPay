@@ -1,3 +1,4 @@
+import { arcChain } from "@/lib/chains";
 import type {
   BusinessBalanceData,
   BusinessMetricItem,
@@ -358,13 +359,14 @@ export function buildRealOverviewData(params: BuildRealOverviewParams) {
     rawActivities.push({
       id: `tx-${t.hash}-${t.logIndex}`,
       title: t.direction === "in" ? `Received from ${shortAddress}` : `Payment to ${shortAddress}`,
-      description: t.method ? `${t.method} on Arc Testnet` : `Transfer (${t.symbol})`,
+      description: t.method ? `${t.method} on ${arcChain.name}` : `Transfer (${t.symbol})`,
       amountFormatted: `${formatCurrency(amt, t.symbol === "EURC" ? "€" : "$")} ${t.symbol}`,
       isIncoming: t.direction === "in",
       status: "Completed",
       dateFormatted: formatActivityDate(ts),
       category: t.direction === "in" ? "transfer" : "vendor",
       txHash: t.hash,
+      counterparty: t.counterparty,
       rawTimestamp: ts,
     });
   }
@@ -584,7 +586,7 @@ export function buildRealOverviewData(params: BuildRealOverviewParams) {
         statusCount: `${totalActivityCount} Events`,
         description:
           totalActivityCount > 0
-            ? `${totalActivityCount} transaction${totalActivityCount === 1 ? "" : "s"} and settlements recorded on Arc Testnet.`
+            ? `${totalActivityCount} transaction${totalActivityCount === 1 ? "" : "s"} and settlements recorded on ${arcChain.name}.`
             : "No transaction history recorded yet on this business account.",
         tone: totalActivityCount > 0 ? "positive" : "neutral",
       },

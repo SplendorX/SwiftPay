@@ -1,5 +1,6 @@
 "use client";
 
+import { arcExplorerUrl } from "@/lib/chains";
 import {
   Server,
   FileText,
@@ -61,7 +62,7 @@ export function BusinessActivityRow({ activity }: BusinessActivityRowProps) {
             </span>
             {activity.txHash && (
               <a
-                href={`https://testnet.arcscan.app/tx/${activity.txHash}`}
+                href={`${arcExplorerUrl}/tx/${activity.txHash}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-muted-foreground/50 hover:text-foreground inline-flex items-center transition-colors"

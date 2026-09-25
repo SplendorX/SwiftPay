@@ -1,14 +1,14 @@
 import { formatUnits, parseUnits } from "viem";
 import { swiftBatchFeeBasisPoints } from "@/lib/contracts";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 const DEFAULT_DECIMALS = 6; // USDC & EURC on Arc have 6 decimals
 const BPS_DENOMINATOR = BigInt(10_000);
 const FEE_BPS = BigInt(swiftBatchFeeBasisPoints); // 100 bps = 1%
 
 export function getAssetDecimals(asset: string): number {
-  if (asset in arcTestnetTokens) {
-    return arcTestnetTokens[asset as ArcTokenSymbol].decimals;
+  if (asset in arcTokens) {
+    return arcTokens[asset as ArcTokenSymbol].decimals;
   }
   return DEFAULT_DECIMALS;
 }

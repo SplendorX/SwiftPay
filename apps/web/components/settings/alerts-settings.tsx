@@ -1,14 +1,12 @@
 "use client";
 
-import { Bell, CheckCheck, Clock3, Loader2, Trash2 } from "lucide-react";
+import { Bell, CheckCheck, Clock3, Info, Loader2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 
 import { useT } from "@/components/locale-provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   circleSessionEventName,
   getCircleLoginIdentity,
@@ -18,7 +16,6 @@ import {
 } from "@/lib/circle-session";
 import {
   alertPreferencesChangedEvent,
-  isWithinQuietHours,
   readAlertPreferences,
   writeAlertPreferences,
   type AlertCategory,
@@ -239,131 +236,44 @@ export function AlertsSettings() {
     }
   }
 
-  const quietNow = isWithinQuietHours(prefs);
+  // One switch stands for the whole set: toasts plus every category.
+  const allMuted =
+    !prefs.toasts &&
+    Object.values(prefs.categories).every((enabled) => !enabled);
+
+  function setMuteAll(muted: boolean) {
+    const categories = Object.fromEntries(
+      Object.keys(prefs.categories).map((key) => [key, !muted]),
+    ) as typeof prefs.categories;
+    savePrefs({ ...prefs, categories, toasts: !muted });
+  }
+
   const hasIdentity = Boolean(ownerWallet);
 
   return (
     <div className="space-y-5">
-      <section className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold">{t("settings.howPinged")}</p>
-            <p className="text-xs text-muted-foreground">
-              {t("settings.howPingedBody")}
-            </p>
-          </div>
-          {quietNow ? (
-            <Badge variant="secondary">{t("settings.quietHoursOn")}</Badge>
-          ) : null}
-        </div>
-
-        <label className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm">
-          <span>
-            <span className="font-medium">{t("settings.liveToasts")}</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {t("settings.liveToastsBody")}
-            </span>
+      <section className="notif-mute-row">
+        <span className="notif-mute-label">
+          {t("settings.notifications")}
+          <span
+            aria-label={t("settings.howPingedBody")}
+            className="notif-mute-info"
+            role="img"
+            title={t("settings.howPingedBody")}
+          >
+            <Info className="h-3.5 w-3.5" />
           </span>
-          <input
-            checked={prefs.toasts}
-            onChange={(event) =>
-              savePrefs({ ...prefs, toasts: event.target.checked })
-            }
-            type="checkbox"
-          />
-        </label>
-
-        <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
-          <label className="flex items-center justify-between gap-3 text-sm">
-            <span>
-              <span className="font-medium">{t("settings.quietHours")}</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">
-                {t("settings.quietHoursBody")}
-              </span>
-            </span>
-            <input
-              checked={prefs.quietHoursEnabled}
-              onChange={(event) =>
-                savePrefs({
-                  ...prefs,
-                  quietHoursEnabled: event.target.checked,
-                })
-              }
-              type="checkbox"
-            />
-          </label>
-          {prefs.quietHoursEnabled ? (
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="text-xs text-muted-foreground">
-                {t("common.from")}
-                <Input
-                  className="mt-1 h-9"
-                  onChange={(event) =>
-                    savePrefs({
-                      ...prefs,
-                      quietHoursStart: event.target.value,
-                    })
-                  }
-                  type="time"
-                  value={prefs.quietHoursStart}
-                />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                {t("common.until")}
-                <Input
-                  className="mt-1 h-9"
-                  onChange={(event) =>
-                    savePrefs({
-                      ...prefs,
-                      quietHoursEnd: event.target.value,
-                    })
-                  }
-                  type="time"
-                  value={prefs.quietHoursEnd}
-                />
-              </label>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          {(Object.keys(prefs.categories) as AlertCategory[]).map((key) => (
-            <label
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background px-3 py-2 text-sm"
-              key={key}
-            >
-              <span>
-                <span className="font-medium">
-                  {key === "payments"
-                    ? t("settings.moneyIn")
-                    : key === "requests"
-                      ? t("settings.requests")
-                      : t("settings.savings")}
-                </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {key === "payments"
-                    ? t("settings.moneyInHint")
-                    : key === "requests"
-                      ? t("settings.requestsHint")
-                      : t("settings.savingsHint")}
-                </span>
-              </span>
-              <input
-                checked={prefs.categories[key]}
-                onChange={(event) =>
-                  savePrefs({
-                    ...prefs,
-                    categories: {
-                      ...prefs.categories,
-                      [key]: event.target.checked,
-                    },
-                  })
-                }
-                type="checkbox"
-              />
-            </label>
-          ))}
-        </div>
+        </span>
+        <button
+          aria-label={t("settings.muteAll")}
+          aria-pressed={allMuted}
+          className={`notif-mute-switch${allMuted ? " is-on" : ""}`}
+          onClick={() => setMuteAll(!allMuted)}
+          type="button"
+        >
+          <span className="notif-mute-knob" />
+        </button>
+        <span className="notif-mute-text">{t("settings.muteAll")}</span>
       </section>
 
       <section className="space-y-3 rounded-xl border border-border/80 bg-background p-3">

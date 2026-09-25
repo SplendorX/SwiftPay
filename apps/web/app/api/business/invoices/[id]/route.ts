@@ -16,11 +16,12 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const { actorWallet, circleSocialUuid } = await readActor(request);
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
     const invoice = await getInvoice({
       circleSocialUuid,
       invoiceId: id,
       ownerWallet: actorWallet,
+      workspaceId,
     });
     return jsonOk({ invoice });
   } catch (error) {
@@ -33,7 +34,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { id } = await context.params;
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
     const invoice = await updateInvoice({
       allowPartialPayment: body.allowPartialPayment,
       circleSocialUuid,
@@ -49,6 +50,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       notes: body.notes,
       ownerWallet: actorWallet,
       paymentTerms: body.paymentTerms,
+      workspaceId,
     });
     return jsonOk({ invoice });
   } catch (error) {

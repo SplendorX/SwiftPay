@@ -8,6 +8,7 @@ import {
   markOccurrenceFailed,
   updateExecutionRow,
 } from "@/lib/recurring-service";
+import { awardRecurringCompletionRewards } from "@/lib/recurring/rewards";
 
 export async function reconcileSubmittedOccurrences(limit = 25) {
   const rows = await listConfirmingOccurrences(limit);
@@ -40,6 +41,14 @@ export async function reconcileSubmittedOccurrences(limit = 25) {
             amount: occurrence.amount ?? schedule.amount,
             ownerWallet: occurrence.owner_wallet,
             scheduleId: schedule.id,
+            tokenSymbol: schedule.token_symbol,
+            txHash: occurrence.tx_hash,
+          });
+
+          void awardRecurringCompletionRewards({
+            amount: occurrence.amount ?? schedule.amount,
+            occurrenceId: occurrence.id,
+            ownerWallet: occurrence.owner_wallet,
             tokenSymbol: schedule.token_symbol,
             txHash: occurrence.tx_hash,
           });
@@ -153,6 +162,14 @@ export async function applyProviderConfirmation(input: {
       occurrenceId: occurrence.id,
       providerTransactionId: input.providerTransactionId ?? input.txHash,
       recurringPaymentId: occurrence.schedule_id,
+    });
+    const webhookSchedule = await loadScheduleById(occurrence.schedule_id).catch(() => null);
+    void awardRecurringCompletionRewards({
+      amount: occurrence.amount ?? webhookSchedule?.amount,
+      occurrenceId: occurrence.id,
+      ownerWallet: occurrence.owner_wallet,
+      tokenSymbol: webhookSchedule?.token_symbol,
+      txHash: input.txHash ?? occurrence.tx_hash,
     });
     return { applied: true, occurrence: completed };
   }

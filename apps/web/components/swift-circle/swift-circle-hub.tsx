@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Check,
   Camera,
+  Coins,
   Filter,
   HandCoins,
   Home,
@@ -23,6 +24,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
+import { calculateTransactionCashback } from "@/lib/referral/cashback-service";
+import { useConversionRates, usdPerUnit } from "@/lib/use-conversion-rates";
 
 import { showSuccess } from "@/components/success-popup";
 import {
@@ -55,8 +60,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StyledSelect } from "@/components/ui/styled-select";
+import { SectionHub, type HubSection } from "@/components/layout/section-hub";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
+  currentCircleAuth,
   callCircleWalletApi,
   getCircleLoginIdentity,
   readCircleLogin,
@@ -68,6 +75,7 @@ import {
   extractCircleTransactionId,
   extractCircleTxHash,
   isOnchainTxHash,
+  recoverCircleTxDetails,
   recoverCircleTxHash,
 } from "@/lib/circle-tx";
 import { erc20Abi } from "@/lib/contracts";
@@ -115,13 +123,13 @@ import type {
   CirclePlatformLimits,
   CircleWithdrawalProposalRecord,
 } from "@/lib/swift-circle/types";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import {
   fetchWalletSessionForAddress,
   signInWalletSession,
 } from "@/lib/wallet-auth-client";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 
 function errorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
@@ -205,6 +213,68 @@ const activityFilterOptions: Array<{
   { label: "People", value: "member" },
 ];
 
+const roomGroupOrder = ["Conversation", "Money", "Group"];
+
+/** The room's sections, grouped like Settings. Ids are the room's tab values. */
+const roomSections: HubSection[] = [
+  {
+    id: "chat",
+    group: "Conversation",
+    icon: MessageCircle,
+    title: "Chat",
+    blurb: "Talk, share payments and requests in the thread.",
+  },
+  {
+    id: "pay",
+    group: "Money",
+    icon: Wallet,
+    title: "Pay",
+    blurb: "Send money to people in this Circle.",
+  },
+  {
+    id: "requests",
+    group: "Money",
+    icon: HandCoins,
+    title: "Requests",
+    blurb: "Ask for money, split a bill, and settle up.",
+  },
+  {
+    id: "save",
+    group: "Money",
+    icon: PiggyBank,
+    title: "Save",
+    blurb: "The Circle's shared pockets and goals.",
+  },
+  {
+    id: "activity",
+    group: "Money",
+    icon: Activity,
+    title: "Activity",
+    blurb: "Every payment, deposit and withdrawal, and what needs approval.",
+  },
+  {
+    id: "home",
+    group: "Group",
+    icon: Home,
+    title: "Room",
+    blurb: "An overview of balances, requests and recent activity.",
+  },
+  {
+    id: "members",
+    group: "Group",
+    icon: Users,
+    title: "People",
+    blurb: "Members, roles and invitations.",
+  },
+  {
+    id: "settings",
+    group: "Group",
+    icon: Settings2,
+    title: "Settings",
+    blurb: "Name, picture, rules and controls for this Circle.",
+  },
+];
+
 export function SwiftCircleHub() {
   const params = useParams<{ id: string }>();
   const circleId = params.id;
@@ -256,6 +326,14 @@ export function SwiftCircleHub() {
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
   const [review, setReview] = useState<Record<string, unknown> | null>(null);
+  // Cashback tiers are in USD; a EURC circle is valued at the live rate.
+  const { rates: fxRates } = useConversionRates();
+  const circleUsdPerToken =
+    circle?.currency === "EURC" ? (usdPerUnit("EUR", fxRates) ?? 1) : 1;
+  const circleCashback = useMemo(
+    () => calculateTransactionCashback(payAmount, circleUsdPerToken),
+    [payAmount, circleUsdPerToken],
+  );
   const [requestAmount, setRequestAmount] = useState("");
   const [requestReason, setRequestReason] = useState("");
   const [requestMode, setRequestMode] = useState<"pick" | "everyone">("pick");
@@ -283,7 +361,7 @@ export function SwiftCircleHub() {
   const selectedPocketLock = selectedPocket
     ? getPocketLockState(selectedPocket)
     : null;
-  const token = arcTestnetTokens[circle?.currency ?? "USDC"];
+  const token = arcTokens[circle?.currency ?? "USDC"];
 
   const load = useCallback(async (opts?: { preserveError?: string }) => {
     if (!address || !circleId) return;
@@ -411,7 +489,12 @@ export function SwiftCircleHub() {
     if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
       throw new Error("Circle wallet confirmation is not ready.");
     }
-    const challenge = await callCircleWalletApi<{ challengeId?: string }>(
+    const challenge = await callCircleWalletApi<{
+      challengeId?: string;
+      id?: string;
+      transactionId?: string;
+      data?: { challengeId?: string; id?: string; transactionId?: string };
+    }>(
       "createContractExecution",
       {
         callData,
@@ -422,24 +505,59 @@ export function SwiftCircleHub() {
         walletId: circleWallet.id,
       },
     );
-    if (!challenge.challengeId) {
+    const challengeId =
+      challenge.challengeId ??
+      challenge.id ??
+      challenge.data?.challengeId ??
+      challenge.data?.id;
+
+    if (!challengeId) {
       throw new Error("Circle did not return a transfer challenge.");
     }
     const sdk = circleSdkRef.current;
-    sdk.setAuthentication({
-      encryptionKey: circleLogin.encryptionKey,
-      userToken: circleLogin.userToken,
-    });
+    sdk.setAuthentication(currentCircleAuth(circleLogin));
     return new Promise<{ txHash?: string; transactionId?: string }>(
       (resolve, reject) => {
-        sdk.execute(challenge.challengeId!, (sdkError, result) => {
+        sdk.execute(challengeId, async (sdkError, result) => {
           if (sdkError) {
             reject(new Error(errorMessage(sdkError)));
             return;
           }
+          const immediateHash =
+            extractCircleTxHash(result) ?? extractCircleTxHash(challenge);
+          const rawTxId =
+            extractCircleTransactionId(result) ??
+            challenge.transactionId ??
+            challenge.data?.transactionId ??
+            challenge.id ??
+            challenge.challengeId ??
+            challengeId;
+
+          let txHash = immediateHash;
+          let transactionId = rawTxId;
+
+          if (!txHash && transactionId) {
+            try {
+              const recovered = await recoverCircleTxDetails({
+                attempts: 10,
+                transactionId,
+                userToken: circleLogin.userToken,
+                walletId: circleWallet.id,
+              });
+              if (recovered.txHash) {
+                txHash = recovered.txHash;
+              }
+              if (recovered.transactionId) {
+                transactionId = recovered.transactionId;
+              }
+            } catch {
+              // Non-blocking: transactionId is preserved
+            }
+          }
+
           resolve({
-            txHash: extractCircleTxHash(result),
-            transactionId: extractCircleTransactionId(result),
+            txHash,
+            transactionId,
           });
         });
       },
@@ -447,12 +565,12 @@ export function SwiftCircleHub() {
   }
 
   async function sendUnits(destination: Address, units: bigint) {
-    if (chainId !== arcTestnet.id) {
-      await switchChainAsync({ chainId: arcTestnet.id });
+    if (chainId !== arcChain.id) {
+      await switchChainAsync({ chainId: arcChain.id });
     }
     const feeRecipient = platformFeeRecipient() as Address;
     const result = await executeBundledSend({
-      chainId: arcTestnet.id,
+      chainId: arcChain.id,
       token: token.address,
       recipient: destination,
       paymentUnits: units,
@@ -506,8 +624,8 @@ export function SwiftCircleHub() {
   }) {
     const amount = BigInt(input.amountUnits);
     const owner = getAddress(input.pocketOwner);
-    if (chainId !== arcTestnet.id) {
-      await switchChainAsync({ chainId: arcTestnet.id });
+    if (chainId !== arcChain.id) {
+      await switchChainAsync({ chainId: arcChain.id });
     }
 
     let txHash: `0x${string}` | undefined;
@@ -553,7 +671,7 @@ export function SwiftCircleHub() {
           abi: erc20Abi,
           address: input.tokenAddress,
           args: [input.vaultAddress, maxUint256],
-          chainId: arcTestnet.id,
+          chainId: arcChain.id,
           functionName: "approve",
         });
       }
@@ -561,7 +679,7 @@ export function SwiftCircleHub() {
         abi: swiftSaveVaultAbi,
         address: input.vaultAddress,
         args: [owner, input.pocketIdBytes32, input.tokenAddress, amount],
-        chainId: arcTestnet.id,
+        chainId: arcChain.id,
         functionName: "depositFor",
       });
     }
@@ -631,8 +749,8 @@ export function SwiftCircleHub() {
     if (address !== call.owner.toLowerCase()) {
       throw new Error("Only the Circle host can withdraw from this Circle Save pocket.");
     }
-    if (chainId !== arcTestnet.id) {
-      await switchChainAsync({ chainId: arcTestnet.id });
+    if (chainId !== arcChain.id) {
+      await switchChainAsync({ chainId: arcChain.id });
     }
     const amount = BigInt(call.amountUnits);
     const vault = call.vault as Address;
@@ -669,7 +787,7 @@ export function SwiftCircleHub() {
         abi: swiftSaveVaultAbi,
         address: vault,
         args: [pocketIdBytes32, tokenAddress, amount],
-        chainId: arcTestnet.id,
+        chainId: arcChain.id,
         functionName: "withdraw",
       });
     }
@@ -687,7 +805,7 @@ export function SwiftCircleHub() {
           abi: erc20Abi,
           address: tokenAddress,
           args: [dest, amount],
-          chainId: arcTestnet.id,
+          chainId: arcChain.id,
           functionName: "transfer",
         });
       }
@@ -743,6 +861,14 @@ export function SwiftCircleHub() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [messages, tab]);
+
+  const withdrawalsNeedingMe = useMemo(
+    () =>
+      hasPermission(role, "approve_withdrawal")
+        ? withdrawals.filter((item) => item.status === "pending_approval").length
+        : 0,
+    [role, withdrawals],
+  );
 
   const pendingMine = useMemo(
     () =>
@@ -810,7 +936,7 @@ export function SwiftCircleHub() {
           <Link
             aria-label="Back to Circles"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] border border-border bg-card text-muted-foreground hover:text-foreground"
-            href="/swiftCircle"
+            href="/circle"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -871,40 +997,36 @@ export function SwiftCircleHub() {
         </p>
       ) : null}
 
+      <SectionHub
+        activeId={tab}
+        ariaLabel="Circle sections"
+        backLabel="All sections"
+        className="sc-room-hub"
+        groupOrder={roomGroupOrder}
+        initialMobileView="section"
+        onActiveChange={setTab}
+        sections={roomSections.map((section) =>
+          section.id === "activity" && withdrawalsNeedingMe > 0
+            ? {
+                ...section,
+                badge: (
+                  <span
+                    aria-label={`${withdrawalsNeedingMe} awaiting your approval`}
+                    className="sc-chip-badge"
+                  >
+                    {withdrawalsNeedingMe}
+                  </span>
+                ),
+              }
+            : section,
+        )}
+      >
       <Tabs
         className="sc-room-tabs flex w-full min-w-0 flex-col"
         onValueChange={setTab}
         value={tab}
       >
-        <div className="sc-chip-nav" role="tablist">
-          {(
-            [
-              ["chat", "Chat", MessageCircle],
-              ["home", "Room", Home],
-              ["pay", "Pay", Wallet],
-              ["requests", "Requests", HandCoins],
-              ["save", "Save", PiggyBank],
-              ["members", "People", Users],
-              ["activity", "Activity", Activity],
-              ["settings", "Settings", Settings2],
-            ] as const
-          ).map(([value, label, Icon]) => (
-            <button
-              aria-selected={tab === value}
-              className="sc-chip"
-              data-active={tab === value}
-              key={value}
-              onClick={() => setTab(value)}
-              role="tab"
-              type="button"
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <TabsContent className="mt-4" value="home">
+        <TabsContent value="home">
           <div className="sc-room-grid">
             <section className="sc-stat">
               <p className="kpi-label">Circle funds</p>
@@ -957,6 +1079,9 @@ export function SwiftCircleHub() {
                       need approval
                     </p>
                   </div>
+                  {withdrawalsNeedingMe > 0 ? (
+                    <span className="sc-unread">{withdrawalsNeedingMe}</span>
+                  ) : null}
                 </button>
               </div>
               <div className="mt-4 grid gap-2">
@@ -974,7 +1099,7 @@ export function SwiftCircleHub() {
           </div>
         </TabsContent>
 
-        <TabsContent className="sc-tab-chat mt-4" value="chat">
+        <TabsContent className="sc-tab-chat" value="chat">
           <div className="sc-chat">
             <div
               className="sc-chat-thread"
@@ -1102,7 +1227,7 @@ export function SwiftCircleHub() {
           </div>
         </TabsContent>
 
-        <TabsContent className="mt-4 grid gap-4" value="pay">
+        <TabsContent className="grid gap-4" value="pay">
           <section className="section-panel">
             <p className="section-eyebrow">Circle Pay</p>
             <h3 className="section-title">Send in the room</h3>
@@ -1125,6 +1250,32 @@ export function SwiftCircleHub() {
               placeholder="What’s this for?"
               value={payNote}
             />
+            {/* General Cashback Preview */}
+            <div
+              className={`mx-auto mt-3 max-w-sm rounded-lg border p-2.5 text-xs leading-5 transition-all ${
+                circleCashback.eligible
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200"
+                  : "border-primary/20 bg-primary/5 text-muted-foreground"
+              }`}
+            >
+              <div className="flex items-center gap-2 font-semibold">
+                <Coins className="h-4 w-4 text-amber-500 shrink-0" />
+                {circleCashback.eligible ? (
+                  <span>
+                    Earn <strong>+{circleCashback.points} SwiftPoints</strong> ({circleCashback.usdcValue} USDC) cashback!
+                  </span>
+                ) : (
+                  <span>Cashback: Earn SwiftPoints on sends worth $20 or more</span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[11px] opacity-90">
+                {circleCashback.eligible && circleCashback.nextTier ? (
+                  <>Send {circleCashback.nextTier.needed} more {circle.currency} to earn <strong>+{circleCashback.nextTier.points} SwiftPoints</strong>.</>
+                ) : (
+                  <>Platform cashback tiers: 1 pt ($20+), 5 pts ($100+), 20 pts ($500+), 50 pts ($1,000+).{circle.currency === "EURC" ? " EURC counts at the live euro rate." : ""}</>
+                )}
+              </p>
+            </div>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {(["pick", "everyone", "equal_split", "custom_split"] as const).map((mode) => (
                 <button
@@ -1246,8 +1397,14 @@ export function SwiftCircleHub() {
                   Total {String((review as { intent?: { total_amount?: string } }).intent?.total_amount)}{" "}
                   {circle.currency}
                 </p>
-                <p>Network/platform fee {String(review.feeAmount)}</p>
+                <p>Network/service fee {String(review.feeAmount)}</p>
                 <p>Final total {String(review.finalTotal)}</p>
+                {circleCashback.eligible ? (
+                  <p className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                    <Coins className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    Cashback: +{circleCashback.points} SwiftPoints ({circleCashback.usdcValue} USDC)
+                  </p>
+                ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
                   {String(
                     (review.execution as { method?: string; recipientCount?: number } | undefined)
@@ -1283,6 +1440,9 @@ export function SwiftCircleHub() {
                         spender?: string | null;
                         requiredAllowanceUnits?: string;
                       } | undefined;
+                      let txHash: string | undefined;
+                      let transactionId: string | undefined;
+
                       if (execution?.method === "swiftbatch") {
                         if (
                           !execution.contractAddress ||
@@ -1291,8 +1451,8 @@ export function SwiftCircleHub() {
                         ) {
                           throw new Error("BatchPay payload is missing.");
                         }
-                        if (chainId !== arcTestnet.id) {
-                          await switchChainAsync({ chainId: arcTestnet.id });
+                        if (chainId !== arcChain.id) {
+                          await switchChainAsync({ chainId: arcChain.id });
                         }
                         const spender = execution.spender as Address;
                         const required = BigInt(execution.requiredAllowanceUnits ?? "0");
@@ -1301,8 +1461,6 @@ export function SwiftCircleHub() {
                           functionName: "approve",
                           args: [spender, required],
                         });
-                        let txHash: string | undefined;
-                        let transactionId: string | undefined;
                         if (isCircleMode) {
                           await executeCircleCall(
                             approveData,
@@ -1316,31 +1474,42 @@ export function SwiftCircleHub() {
                           );
                           txHash = sent.txHash;
                           transactionId = sent.transactionId;
+                          if (!txHash && transactionId) {
+                            const recovered = await recoverSendHash(transactionId);
+                            if (recovered) txHash = recovered;
+                          }
                         } else {
-                          await writeContractAsync({
+                          if (!publicClient) {
+                            throw new Error("Wallet RPC is not ready.");
+                          }
+                          const approveHash = await writeContractAsync({
                             address: token.address,
                             abi: erc20Abi,
                             functionName: "approve",
                             args: [spender, required],
-                            chainId: arcTestnet.id,
+                            chainId: arcChain.id,
                           });
+                          await publicClient.waitForTransactionReceipt({ hash: approveHash });
                           txHash = await sendTransactionAsync({
                             to: execution.contractAddress as Address,
                             data: execution.callData as Hex,
-                            chainId: arcTestnet.id,
+                            chainId: arcChain.id,
                           });
                         }
+                        const effectiveBatchTxId =
+                          transactionId?.trim() ||
+                          (txHash ? undefined : `circle-batch-${intent.id}`);
                         await submitPayment(
                           circleId,
                           address,
                           {
                             paymentId: intent.id,
                             txHash,
-                            transactionId,
+                            transactionId: effectiveBatchTxId,
                             results: recs.map((row) => ({
                               recipientWallet: row.wallet,
                               txHash,
-                              transactionId,
+                              transactionId: effectiveBatchTxId,
                             })),
                           },
                           social,
@@ -1352,22 +1521,53 @@ export function SwiftCircleHub() {
                           row.wallet as Address,
                           BigInt(String(row.units)),
                         );
+                        txHash = sent.txHash;
+                        transactionId = sent.transactionId;
+                        if (!txHash && transactionId) {
+                          const recovered = await recoverSendHash(transactionId);
+                          if (recovered) txHash = recovered;
+                        }
+                        const effectiveSendTxId =
+                          transactionId?.trim() ||
+                          (txHash ? undefined : `circle-send-${intent.id}`);
                         await submitPayment(
                           circleId,
                           address,
                           {
                             paymentId: intent.id,
+                            txHash,
+                            transactionId: effectiveSendTxId,
                             results: [
                               {
                                 recipientWallet: row.wallet,
-                                txHash: sent.txHash,
-                                transactionId: sent.transactionId,
+                                txHash,
+                                transactionId: effectiveSendTxId,
                               },
                             ],
                           },
                           social,
                         );
                       }
+
+                      const totalAmountStr = String(
+                        (review as { intent?: { total_amount?: string } }).intent?.total_amount ?? payAmount,
+                      );
+                      void recordPlatformTransactionActivity({
+                        walletAddress: address,
+                        amount: totalAmountStr,
+                        token: circle.currency,
+                        txHash,
+                        transactionId,
+                        activityType: execution?.method === "swiftbatch" ? "BATCH_PAYMENT" : "TRANSFER",
+                        activity: {
+                          counterparty: circle.name,
+                          source: "circle",
+                          title: `Paid from ${circle.name}`,
+                        },
+                      }).catch((err) => {
+                        console.warn("[Circle] Failed to record payment activity:", err);
+                      });
+
                       setReview(null);
                       setPayAmount("");
                     })
@@ -1380,7 +1580,7 @@ export function SwiftCircleHub() {
           </section>
         </TabsContent>
 
-        <TabsContent className="mt-4 grid gap-4" value="requests">
+        <TabsContent className="grid gap-4" value="requests">
           <section className="section-panel">
             <p className="section-eyebrow">Circle Requests</p>
             <h3 className="section-title">Ask the room</h3>
@@ -1495,49 +1695,56 @@ export function SwiftCircleHub() {
               Create request
             </Button>
           </section>
-          {requestGroups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No pending requests.</p>
-          ) : (
-            requestGroups.map((group) => {
-              const paid = group.paid_count ?? 0;
-              const total = group.target_count ?? 0;
-              const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
-              return (
-                <div className="sc-request-card" key={group.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="section-eyebrow">Open request</p>
-                      <p className="mt-2 font-heading text-xl font-semibold">
-                        {formatUsd(group.per_amount)} {group.asset}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {group.target_mode === "everyone" ? "From everyone" : "Selected people"}
-                      </p>
-                    </div>
-                    <span className="sc-unread">{paid}/{total}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })
-          )}
-          {pendingMine.map((item) => (
-            <div
-              className="sc-request-card"
+          <section aria-labelledby="sc-requests-title" className="sc-requests board-edge">
+            <header className="sc-requests-head">
+              <div>
+                <p className="section-eyebrow">Requests</p>
+                <h3 className="sc-requests-title" id="sc-requests-title">
+                  Request history
+                </h3>
+              </div>
+              <div className="sc-requests-counts">
+                {pendingMine.length > 0 ? (
+                  <span className="sc-requests-count sc-requests-count-due">
+                    {pendingMine.length} to pay
+                  </span>
+                ) : null}
+                <span className="sc-requests-count">
+                  {requestGroups.length} sent
+                </span>
+              </div>
+            </header>
+
+            <div className="sc-requests-scroll">
+              {pendingMine.length > 0 ? (
+                <>
+                  <p className="sc-requests-label">Waiting on you</p>
+                  <ul className="sc-req-list">
+                  {pendingMine.map((item) => (
+            <li
+              className="sc-req-row sc-req-row-due"
               key={item.id}
             >
-              <div>
-                <p className="font-medium">
-                  Pay {formatUsd(item.amount)} {item.asset}
+              <span aria-hidden className="sc-req-due-icon">
+                <HandCoins className="h-4 w-4" />
+              </span>
+              <div className="sc-req-main">
+                <p className="sc-req-amount">
+                  {formatUsd(item.amount)} <span>{item.asset}</span>
                 </p>
-                <p className="text-sm text-muted-foreground">{item.reason ?? "Circle request"}</p>
+                <p className="sc-req-meta">
+                  {memberLabel(
+                    members.find(
+                      (member) =>
+                        member.user_wallet.toLowerCase() ===
+                        item.requester_user_wallet.toLowerCase(),
+                    ),
+                  )}
+                  {" · "}
+                  {item.reason ?? "Circle request"}
+                </p>
               </div>
-              <div className="flex gap-2">
+              <div className="sc-req-actions">
                 <Button
                   disabled={busy}
                   onClick={() =>
@@ -1563,16 +1770,27 @@ export function SwiftCircleHub() {
                         rec.wallet as Address,
                         BigInt(String(rec.units)),
                       );
+                      let reqTxHash: string | undefined = sent.txHash;
+                      let reqTxId = sent.transactionId;
+                      if (!reqTxHash && reqTxId) {
+                        const recovered = await recoverSendHash(reqTxId);
+                        if (recovered) reqTxHash = recovered;
+                      }
+                      const effectiveReqTxId =
+                        reqTxId?.trim() ||
+                        (reqTxHash ? undefined : `circle-req-${proposal.intent.id}`);
                       await submitPayment(
                         circleId,
                         address,
                         {
                           paymentId: proposal.intent.id,
+                          txHash: reqTxHash,
+                          transactionId: effectiveReqTxId,
                           results: [
                             {
                               recipientWallet: rec.wallet,
-                              txHash: sent.txHash,
-                              transactionId: sent.transactionId,
+                              txHash: reqTxHash,
+                              transactionId: effectiveReqTxId,
                             },
                           ],
                         },
@@ -1584,10 +1802,25 @@ export function SwiftCircleHub() {
                         {
                           action: "pay",
                           paymentIntentId: proposal.intent.id,
-                          txHash: sent.txHash,
+                          txHash: reqTxHash,
                         },
                         social,
                       );
+                      void recordPlatformTransactionActivity({
+                        walletAddress: address,
+                        amount: item.amount,
+                        token: circle.currency,
+                        txHash: reqTxHash,
+                        transactionId: reqTxId,
+                        activityType: "TRANSFER",
+                        activity: {
+                          counterparty: circle.name,
+                          source: "circle",
+                          title: `Paid a request in ${circle.name}`,
+                        },
+                      }).catch((err) => {
+                        console.warn("[Circle] Failed to record payment request activity:", err);
+                      });
                     })
                   }
                   size="sm"
@@ -1612,11 +1845,89 @@ export function SwiftCircleHub() {
                   Decline
                 </Button>
               </div>
-            </div>
+            </li>
           ))}
+                  </ul>
+                </>
+              ) : null}
+
+              <p className="sc-requests-label">Your requests</p>
+              {requestGroups.length === 0 ? (
+                <p className="sc-requests-empty">
+                  No requests yet. Requests you send to this Circle appear here.
+                </p>
+              ) : (
+                <ul className="sc-req-list">
+                  {requestGroups.map((group) => {
+                    const paid = group.paid_count ?? 0;
+                    const total = group.target_count ?? 0;
+                    const ratio = total > 0 ? Math.min(1, paid / total) : 0;
+                    const complete =
+                      group.status === "completed" || (total > 0 && paid >= total);
+                    const state = complete
+                      ? "complete"
+                      : group.status === "open"
+                        ? "collecting"
+                        : group.status;
+                    const circumference = 2 * Math.PI * 15;
+                    return (
+                      <li className="sc-req-row" data-state={state} key={group.id}>
+                        <span
+                          aria-label={`${paid} of ${total} paid`}
+                          className="sc-req-ring"
+                          role="img"
+                        >
+                          <svg aria-hidden viewBox="0 0 36 36">
+                            <circle className="sc-req-ring-track" cx="18" cy="18" r="15" />
+                            <circle
+                              className="sc-req-ring-fill"
+                              cx="18"
+                              cy="18"
+                              r="15"
+                              strokeDasharray={`${ratio * circumference} ${circumference}`}
+                            />
+                          </svg>
+                          <span>
+                            {paid}/{total}
+                          </span>
+                        </span>
+                        <div className="sc-req-main">
+                          <p className="sc-req-amount">
+                            {formatUsd(group.per_amount)} <span>{group.asset}</span>
+                            <small>each</small>
+                          </p>
+                          <p className="sc-req-meta">
+                            {group.target_mode === "everyone" ? "From everyone" : "Selected people"}
+                            {group.reason ? ` · ${group.reason}` : ""}
+                          </p>
+                        </div>
+                        <div className="sc-req-side">
+                          <span className="sc-req-status">
+                            {state === "complete"
+                              ? "Complete"
+                              : state === "collecting"
+                                ? "Collecting"
+                                : state === "expired"
+                                  ? "Expired"
+                                  : "Cancelled"}
+                          </span>
+                          <time dateTime={group.created_at}>
+                            {new Intl.DateTimeFormat(undefined, {
+                              day: "numeric",
+                              month: "short",
+                            }).format(new Date(group.created_at))}
+                          </time>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </section>
         </TabsContent>
 
-        <TabsContent className="mt-4 grid gap-4" value="save">
+        <TabsContent className="grid gap-4" value="save">
           <section className="sc-stat">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -1854,7 +2165,7 @@ export function SwiftCircleHub() {
           </section>
         </TabsContent>
 
-        <TabsContent className="mt-4" value="members">
+        <TabsContent value="members">
           <section className="section-panel">
             <p className="section-eyebrow">People</p>
             <h3 className="section-title">
@@ -1965,7 +2276,7 @@ export function SwiftCircleHub() {
           </section>
         </TabsContent>
 
-        <TabsContent className="mt-4 grid gap-4" value="activity">
+        <TabsContent className="grid gap-4" value="activity">
           {withdrawals.length > 0 ? (
             <section className="sc-board sc-withdrawals-board">
               <div className="sc-board-head">
@@ -2133,7 +2444,7 @@ export function SwiftCircleHub() {
           </section>
         </TabsContent>
 
-        <TabsContent className="mt-4 grid gap-4 overflow-visible" value="settings">
+        <TabsContent className="grid gap-4 overflow-visible" value="settings">
           <div className="sc-board">
             <h3 className="font-heading font-semibold">Circle profile</h3>
             <div className="mt-4 flex items-center gap-4">
@@ -2251,7 +2562,7 @@ export function SwiftCircleHub() {
             onClick={() =>
               void run("Left Circle", async () => {
                 await postCircleAction(circleId, address, { action: "leave" }, social);
-                window.location.href = "/swiftCircle";
+                window.location.href = "/circle";
               })
             }
             variant="outline"
@@ -2269,6 +2580,7 @@ export function SwiftCircleHub() {
           )}
         </TabsContent>
       </Tabs>
+      </SectionHub>
     </div>
   );
 }

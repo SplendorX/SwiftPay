@@ -2,6 +2,7 @@
 
 import { getAddress, isAddress } from "viem";
 
+import { readCircleLogin } from "@/lib/circle-session";
 import {
   normalizeUsername,
   validateUsername,
@@ -29,7 +30,7 @@ export type ProfileRecord = {
 };
 
 export type EnsureProfileInput = {
-  authProvider?: "external" | "google";
+  authProvider?: "email" | "external" | "google";
   circleSocialUuid?: string;
   displayName?: string;
   walletAddress: string;
@@ -119,6 +120,11 @@ export async function ensureProfile(input: EnsureProfileInput) {
     body: JSON.stringify({
       authProvider: input.authProvider ?? "external",
       circleSocialUuid: input.circleSocialUuid,
+      // Proof of wallet control, required before the server links a Circle
+      // identity to this wallet.
+      circleUserToken: input.circleSocialUuid
+        ? readCircleLogin()?.userToken
+        : undefined,
       displayName: input.displayName,
       walletAddress,
     }),
@@ -139,10 +145,32 @@ export async function ensureProfile(input: EnsureProfileInput) {
   return payload.profile;
 }
 
+export type ProfileContact = {
+  contactEmail: string | null;
+  country: string | null;
+  phone: string | null;
+  /** False until profiles-personal-contact.sql has been run. */
+  ready: boolean;
+};
+
+/** The owner's private contact details, for Settings. */
+export async function fetchProfileContact(walletAddress: string, circleSocialUuid?: string) {
+  const params = new URLSearchParams({ wallet: walletAddress });
+  if (circleSocialUuid) params.set("circleSocialUuid", circleSocialUuid);
+  const response = await fetch(`/api/profile/contact?${params}`, { cache: "no-store" });
+  if (!response.ok) return null;
+  return (await response.json()) as ProfileContact;
+}
+
 export async function updateProfileUsername(input: {
   avatarUrl?: string | null;
   bio?: string | null;
   circleSocialUuid?: string;
+  /** Personal contact details; omit to leave them unchanged. */
+  contactEmail?: string | null;
+  country?: string | null;
+  phone?: string | null;
+  displayName?: string | null;
   username: string;
   walletAddress: string;
 }) {
@@ -163,6 +191,10 @@ export async function updateProfileUsername(input: {
       avatarUrl: input.avatarUrl,
       bio: input.bio,
       circleSocialUuid: input.circleSocialUuid,
+      contactEmail: input.contactEmail,
+      country: input.country,
+      displayName: input.displayName,
+      phone: input.phone,
       username,
       walletAddress,
     }),

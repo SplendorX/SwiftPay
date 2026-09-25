@@ -1,8 +1,9 @@
+import { arcExplorerUrl } from "@/lib/chains";
 import { formatUnits, isAddress, type Address, type Hash } from "viem";
 
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
-export const arcScanBaseUrl = "https://testnet.arcscan.app";
+export const arcScanBaseUrl = arcExplorerUrl;
 
 export type WalletTransfer = {
   amount: string;
@@ -15,6 +16,11 @@ export type WalletTransfer = {
   method: string | null;
   symbol: ArcTokenSymbol;
   timestamp: string | null;
+  /** Set when the transfer came from the user's ALLIE Agent Wallet. */
+  viaAgentWallet?: boolean;
+  /** A receipt built from an activity record whose other party is a name
+   *  ("@ada", a pocket) rather than an address. */
+  counterpartyLabel?: string;
 };
 
 type ArcScanAddress = {
@@ -47,7 +53,7 @@ export type ArcScanTokenTransferResponse = {
 };
 
 export function getArcScanHistoryUrls(address: string) {
-  return Object.values(arcTestnetTokens).map(
+  return Object.values(arcTokens).map(
     (token) =>
       `${arcScanBaseUrl}/api/v2/addresses/${address}/token-transfers?type=ERC-20&token=${token.address}`,
   );
@@ -58,9 +64,9 @@ function getTokenSymbol(tokenAddress?: string): ArcTokenSymbol | undefined {
     return undefined;
   }
 
-  return (Object.keys(arcTestnetTokens) as ArcTokenSymbol[]).find(
+  return (Object.keys(arcTokens) as ArcTokenSymbol[]).find(
     (symbol) =>
-      arcTestnetTokens[symbol].address.toLowerCase() ===
+      arcTokens[symbol].address.toLowerCase() ===
       tokenAddress.toLowerCase(),
   );
 }
@@ -130,7 +136,7 @@ export function normalizeArcScanTokenTransfers(
       const decimals = Number(
         transfer.total?.decimals ??
           transfer.token?.decimals ??
-          arcTestnetTokens[symbol].decimals,
+          arcTokens[symbol].decimals,
       );
 
       return {
@@ -156,4 +162,31 @@ export function normalizeArcScanTokenTransfers(
       return right.blockNumber - left.blockNumber;
     })
     .slice(0, 100);
+}
+
+/** A wallet's recent USDC/EURC transfers from ArcScan, newest first. */
+export async function fetchArcScanTransfers(
+  address: string,
+  options?: Parameters<typeof normalizeArcScanTokenTransfers>[2],
+) {
+  const responses = await Promise.all(
+    getArcScanHistoryUrls(address).map((url) =>
+      fetch(url, {
+        cache: "no-store",
+        headers: {
+          accept: "application/json",
+        },
+      }),
+    ),
+  );
+
+  if (responses.some((response) => !response.ok)) {
+    throw new Error("ArcScan could not load this wallet history.");
+  }
+
+  const payload = (await Promise.all(
+    responses.map((response) => response.json()),
+  )) as ArcScanTokenTransferResponse[];
+
+  return normalizeArcScanTokenTransfers(address, payload, options);
 }

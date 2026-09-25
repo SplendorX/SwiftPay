@@ -229,3 +229,17 @@ export type DirectoryHit = {
   verificationStatus?: VerificationStatus | null;
   workspaceId?: string | null;
 };
+
+/**
+ * A public profile page (/u/<username>). Businesses publish how to reach
+ * them; a person's page shows only their country, never email or phone.
+ */
+export type PublicProfile = DirectoryHit & {
+  category?: string | null;
+  contactEmail?: string | null;
+  country?: string | null;
+  /** When the account joined SwiftPay (ISO timestamp). */
+  memberSince?: string | null;
+  phone?: string | null;
+  website?: string | null;
+};

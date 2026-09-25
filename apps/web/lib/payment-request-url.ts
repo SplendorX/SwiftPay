@@ -5,7 +5,7 @@ type BuildPaymentRequestUrlInput = {
   chainId?: number;
   memo?: string;
   origin: string;
-  path?: "/dashboard" | "/pay";
+  path?: "/send" | "/pay";
   requestId?: string;
   token?: ArcTokenSymbol;
   username?: string;
@@ -17,7 +17,7 @@ export function buildPaymentRequestUrl({
   chainId,
   memo,
   origin,
-  path = "/dashboard",
+  path = "/send",
   requestId,
   token,
   username,

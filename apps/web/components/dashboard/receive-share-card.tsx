@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
 import { formatUsernameLabel } from "@/lib/profile";
 import { buildPaymentRequestUrl } from "@/lib/payment-request-url";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 
 type CopiedField = "address" | "username" | "qr";
 
@@ -69,7 +69,7 @@ export function ReceiveShareCard({
     }
 
     return buildPaymentRequestUrl({
-      chainId: arcTestnet.id,
+      chainId: arcChain.id,
       origin,
       path: "/pay",
       username: username || undefined,
@@ -79,7 +79,7 @@ export function ReceiveShareCard({
 
   const qrValue =
     receiveUrl ||
-    (isConnected ? `ethereum:${walletAddress}@${arcTestnet.id}` : "");
+    (isConnected ? `ethereum:${walletAddress}@${arcChain.id}` : "");
 
   async function markCopied(field: CopiedField) {
     setCopied(field);
@@ -220,7 +220,7 @@ export function ReceiveShareCard({
             </div>
 
             <button
-              className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-swift-600 px-2 text-[11px] font-bold text-white transition hover:bg-swift-700"
+              className="sp-bubble inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-swift-600 px-2 text-[11px] font-bold text-white transition hover:bg-swift-700"
               onClick={() => void handleCopyQr()}
               type="button"
             >

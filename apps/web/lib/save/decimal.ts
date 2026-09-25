@@ -1,5 +1,5 @@
 /**
- * Decimal-safe helpers for Swift+Save amounts.
+ * Decimal-safe helpers for Swift Save amounts.
  * Never use JS floating point for financial accounting.
  */
 

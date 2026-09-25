@@ -73,7 +73,6 @@ export type CircleSwapExecution = {
 const ARC_TESTNET_CHAIN_ID = 5_042_002;
 const ARC_TESTNET_CHAIN_ID_HEX = `0x${ARC_TESTNET_CHAIN_ID.toString(16)}`;
 const CIRCLE_API_ORIGIN = "https://api.circle.com";
-const CIRCLE_BROWSER_KIT_KEY_PLACEHOLDER = "KIT_KEY:swiftpay-proxy:browser";
 const CIRCLE_STABLECOIN_KIT_PROXY_PATHS = new Set([
   "/v1/stablecoinKits/quote",
   "/v1/stablecoinKits/swap",
@@ -370,23 +369,18 @@ async function callCircleUserWalletApi<T>(
   return payload;
 }
 
-function getCircleKitKey() {
-  // The browser SDK validates the format locally; /api/circle adds the real
-  // server-side KIT_KEY before forwarding requests to Circle.
-  return CIRCLE_BROWSER_KIT_KEY_PLACEHOLDER;
-}
-
 function buildSwapConfig(
   slippageBps: number,
   stopLimit?: string,
   allowanceStrategy?: "approve" | "permit",
 ) {
-  const kitKey = getCircleKitKey();
+  // No kitKey here: App Kit refuses any credential in a browser. The SDK runs
+  // in its keyless mode, and withCircleStablecoinProxy routes its requests
+  // through /api/circle, which attaches the server-side KIT_KEY.
   const feeRecipient =
     process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim() ?? "";
 
   return {
-    kitKey,
     slippageBps,
     ...(allowanceStrategy ? { allowanceStrategy } : {}),
     ...(stopLimit ? { stopLimit } : {}),

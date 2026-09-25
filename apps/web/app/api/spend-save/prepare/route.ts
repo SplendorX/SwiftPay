@@ -16,8 +16,9 @@ import {
   normalizeCurrency,
   normalizeIdempotencyKey,
   isValidTxHash,
+  isValidPaymentTxRef,
 } from "@/lib/save/validation";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -56,13 +57,14 @@ export async function POST(request: NextRequest) {
     return jsonError("Enter a valid payment amount.", 400);
   }
 
-  const paymentTxHash = isValidTxHash(body.paymentTxHash)
-    ? body.paymentTxHash
-    : null;
+  const rawPaymentTx =
+    typeof body.paymentTxHash === "string" ? body.paymentTxHash.trim() : null;
+  const paymentTxHash =
+    rawPaymentTx && isValidPaymentTxRef(rawPaymentTx) ? rawPaymentTx : null;
 
   if (!paymentTxHash && body.requirePaymentTx === true) {
     return jsonError(
-      "Payment transaction hash is required before preparing savings.",
+      "Payment transaction reference is required before preparing savings.",
       400,
     );
   }
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const token = arcTestnetTokens[currency];
+    const token = arcTokens[currency];
 
     return NextResponse.json({
       event,

@@ -18,8 +18,8 @@ async function parseJson<T>(response: Response): Promise<T> {
   ) {
     throw new Error(
       response.ok
-        ? "Swift+Save returned a non-JSON response."
-        : `Swift+Save request failed (${response.status}). ${
+        ? "Save returned a non-JSON response."
+        : `Save request failed (${response.status}). ${
             response.status === 404
               ? "API route not found — try restarting the dev server."
               : text.slice(0, 120).replace(/\s+/g, " ")
@@ -32,13 +32,13 @@ async function parseJson<T>(response: Response): Promise<T> {
     payload = JSON.parse(text) as T & { message?: string };
   } catch {
     throw new Error(
-      `Swift+Save returned invalid JSON (${response.status}).`,
+      `Save returned invalid JSON (${response.status}).`,
     );
   }
 
   if (!response.ok) {
     throw new Error(
-      payload.message ?? `Swift+Save request failed (${response.status}).`,
+      payload.message ?? `Save request failed (${response.status}).`,
     );
   }
   return payload;
@@ -171,6 +171,20 @@ export async function archiveSavingsPocket(
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, pocketId }),
+    }),
+  );
+}
+
+/** Permanently removes a pocket that never held or moved funds. */
+export async function deleteSavingsPocket(
+  pocketId: string,
+  body: Record<string, unknown>,
+) {
+  return parseJson<{ deleted: boolean; pocket: SavingsPocketRecord }>(
+    await fetch("/api/savings/pocket", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, permanent: true, pocketId }),
     }),
   );
 }

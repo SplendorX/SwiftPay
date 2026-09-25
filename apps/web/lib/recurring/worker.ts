@@ -17,6 +17,7 @@ import {
   markOccurrenceFailed,
   updateExecutionRow,
 } from "@/lib/recurring-service";
+import { awardRecurringCompletionRewards } from "@/lib/recurring/rewards";
 import { isPermanentFailureCode } from "@/lib/recurring/state";
 
 function isShadowMode() {
@@ -175,6 +176,15 @@ export async function executeAutopayOccurrence(occurrenceId: string) {
         amount: schedule.amount,
         ownerWallet: schedule.owner_wallet,
         scheduleId: schedule.id,
+        tokenSymbol: schedule.token_symbol,
+        txHash: submitted.txHash,
+      });
+      // Autopay completes here most of the time; it previously never earned
+      // cashback (only the delayed-confirmation reconcile path did).
+      void awardRecurringCompletionRewards({
+        amount: claimed.amount ?? schedule.amount,
+        occurrenceId: claimed.id,
+        ownerWallet: schedule.owner_wallet,
         tokenSymbol: schedule.token_symbol,
         txHash: submitted.txHash,
       });

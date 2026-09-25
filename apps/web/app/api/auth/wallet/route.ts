@@ -1,3 +1,4 @@
+import { secureCookieFor } from "@/lib/secure-cookie";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAddress, isAddress, verifyMessage, type Address, type Hex } from "viem";
@@ -12,6 +13,7 @@ import {
   createWalletSession,
   createWalletToken,
   readWalletToken,
+  sessionWallets,
   walletChallengeCookieName,
   walletSessionCookieName,
 } from "@/lib/wallet-session";
@@ -30,7 +32,7 @@ type WalletAuthBody =
       signature?: unknown;
     };
 
-const secureCookie = process.env.NODE_ENV === "production";
+
 
 function jsonError(message: string, status: number) {
   return NextResponse.json(
@@ -99,6 +101,7 @@ export async function GET() {
       connectorName: session.connectorName,
       expiresAt: session.expiresAt,
       ownerWallet: session.ownerWallet,
+      wallets: sessionWallets(session),
     },
     {
       headers: {
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
       maxAge: Math.floor(walletAuthChallengeTtlMs / 1000),
       path: "/",
       sameSite: "lax",
-      secure: secureCookie,
+      secure: await secureCookieFor(),
     });
 
     return response;
@@ -175,9 +178,16 @@ export async function POST(request: NextRequest) {
     return jsonError("Wallet signature could not be verified.", 401);
   }
 
-  const session = createWalletSession(challenge.ownerWallet, {
-    connectorName: challenge.connectorName,
-  });
+  const session = createWalletSession(
+    challenge.ownerWallet,
+    { connectorName: challenge.connectorName },
+    {
+      previous: readWalletToken(
+        cookieStore.get(walletSessionCookieName)?.value,
+        "session",
+      ),
+    },
+  );
   const response = NextResponse.json({
     authenticated: true,
     authMethod: "wallet_signature",
@@ -195,14 +205,14 @@ export async function POST(request: NextRequest) {
     maxAge: Math.floor(walletAuthSessionTtlMs / 1000),
     path: "/",
     sameSite: "lax",
-    secure: secureCookie,
+    secure: await secureCookieFor(),
   });
   response.cookies.set(platformAccessCookieName, "1", {
     httpOnly: false,
     maxAge: Math.floor(walletAuthSessionTtlMs / 1000),
     path: "/",
     sameSite: "lax",
-    secure: secureCookie,
+    secure: await secureCookieFor(),
   });
   response.cookies.delete(walletChallengeCookieName);
 

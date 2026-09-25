@@ -12,8 +12,8 @@ import { earnConfig } from "@/lib/earn/config";
 import { formatUnitsToDecimal, parseDecimalToUnits } from "@/lib/earn/decimal";
 import { erc20Abi } from "@/lib/contracts";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnetTokens } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 
 const rulesTable =
   process.env.SUPABASE_EARN_AUTO_SAVE_RULES_TABLE ?? "earn_auto_save_rules";
@@ -79,11 +79,17 @@ export function earnAutoSaveExecutorAddress(): Address | null {
 export const AUTO_SAVE_AUTHORIZATION_TEXT =
   "You authorize SwiftPay to move USDC into Earn according to your Auto-Save settings, only when your available balance stays at or above your minimum. SwiftPay never takes performance fees on principal.";
 
+/**
+ * Operator keys only — never PRIVATE_KEY.
+ *
+ * PRIVATE_KEY owns the contracts (setOperator, transferOwnership). Falling
+ * back to it would drag the owner key into every runtime that needs an
+ * operator, which is exactly what keeping them apart is meant to prevent.
+ */
 function getOperatorPrivateKey() {
   return (
     process.env.SWIFTPAY_EARN_OPERATOR_PRIVATE_KEY?.trim() ||
     process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim() ||
-    process.env.PRIVATE_KEY?.trim() ||
     null
   );
 }
@@ -131,11 +137,11 @@ function createClients() {
   if (!key) return null;
 
   const account = privateKeyToAccount(key as `0x${string}`);
-  const transport = http(arcTestnet.rpcUrls.default.http[0]);
-  const publicClient = createPublicClient({ chain: arcTestnet, transport });
+  const transport = http(arcChain.rpcUrls.default.http[0]);
+  const publicClient = createPublicClient({ chain: arcChain, transport });
   const walletClient = createWalletClient({
     account,
-    chain: arcTestnet,
+    chain: arcChain,
     transport,
   });
   return { account, publicClient, walletClient };
@@ -206,11 +212,11 @@ export async function processDueAutoSaveRules(): Promise<{
 
   const list = (rules ?? []) as AutoSaveRule[];
   const publicClient = createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
-  const usdc = arcTestnetTokens.USDC.address;
-  const decimals = arcTestnetTokens.USDC.decimals;
+  const usdc = arcTokens.USDC.address;
+  const decimals = arcTokens.USDC.decimals;
   const operatorReady = isAutoSaveOperatorConfigured();
   const executor = earnAutoSaveExecutorAddress();
   const clients = operatorReady ? createClients() : null;
@@ -316,7 +322,7 @@ export async function processDueAutoSaveRules(): Promise<{
           functionName: "executeAutoSave",
           args: [executionId, rule.owner_wallet as Address, amountToSave],
           account: clients.account,
-          chain: arcTestnet,
+          chain: arcChain,
         });
 
         await supabase.from(executionsTable).insert({

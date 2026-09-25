@@ -17,7 +17,7 @@ import {
   isValidUuid,
   normalizeIdempotencyKey,
 } from "@/lib/save/validation";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     const pocket = await getPocketForOwner(transaction.pocket_id, ownerWallet);
     const currency = transaction.currency;
-    const token = arcTestnetTokens[currency];
+    const token = arcTokens[currency];
     const vault = swiftSaveVaultAddress();
 
     return NextResponse.json(

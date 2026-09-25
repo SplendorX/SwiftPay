@@ -45,6 +45,15 @@ export async function readActor(
   const circleSocialUuid =
     body?.circleSocialUuid ??
     request.nextUrl.searchParams.get("circleSocialUuid");
+  const rawWorkspaceId =
+    body?.workspaceId ??
+    request.headers.get("x-workspace-id") ??
+    request.nextUrl.searchParams.get("workspaceId");
+  const workspaceId =
+    typeof rawWorkspaceId === "string" && rawWorkspaceId.trim()
+      ? rawWorkspaceId.trim()
+      : undefined;
+
   const actorWallet = await requireActorWallet({
     ownerWallet,
     circleSocialUuid,
@@ -55,5 +64,6 @@ export async function readActor(
     circleSocialUuid:
       typeof circleSocialUuid === "string" ? circleSocialUuid : undefined,
     idempotencyKey: readIdempotencyKey(request, body ?? undefined),
+    workspaceId,
   };
 }

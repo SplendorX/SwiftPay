@@ -43,8 +43,8 @@ export function LightSurfacePicker() {
             value: "glass" as const,
             title: t("settings.liquidGlass"),
             body: t("settings.liquidGlassBody"),
-            swatch: "#f7f8fc",
-            inset: "rgba(255,255,255,0.72)",
+            swatch: "#ffffff",
+            inset: "#f2f4f7",
           },
         ] as const
       ).map((option) => {

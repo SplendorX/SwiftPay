@@ -1,3 +1,4 @@
+import { businessVerificationStatus, readReviewStatus } from "@/lib/business/verification";
 import { getAddress, isAddress } from "viem";
 
 import { requireActorWallet, requireWorkspaceContext } from "@/lib/business/auth";
@@ -14,7 +15,6 @@ import type {
   DirectoryHit,
   PaymentIdentityRecord,
   VerificationStatus,
-  WorkspaceInvitationRecord,
   WorkspaceMemberRecord,
   WorkspaceRecord,
   WorkspaceSettingsRecord,
@@ -73,38 +73,141 @@ export async function loadUserProfile(wallet: string) {
   return (data as OnboardingProfile | null) ?? null;
 }
 
-export async function listWorkspacesForUser(wallet: string): Promise<WorkspaceSummary[]> {
+export async function ensureBusinessWorkspaceForWallet(wallet: string): Promise<string | null> {
   const supabase = businessDb();
-  const memberships = await supabase
-    .from(businessTables.members)
-    .select("workspace_id,role,status")
-    .eq("user_wallet", wallet.toLowerCase())
-    .eq("status", "active");
+  const lowerWallet = wallet.toLowerCase();
 
-  if (memberships.error) {
-    throw new Error(readError(memberships.error, "Could not load workspaces."));
+  try {
+    // Only genuine BUSINESS accounts can have a business workspace
+    const { loadAccount } = await import("@/lib/account/auth");
+    const account = await loadAccount(lowerWallet);
+    if (account?.account_type !== "BUSINESS") {
+      return null;
+    }
+
+    const existingOwned = await supabase
+      .from(businessTables.workspaces)
+      .select("id, status")
+      .eq("owner_user_wallet", lowerWallet)
+      .eq("kind", "business")
+      .maybeSingle();
+
+    let targetId = (existingOwned.data as { id?: string; status?: string } | null)?.id;
+
+    if (targetId && (existingOwned.data as { status?: string })?.status !== "active") {
+      await supabase
+        .from(businessTables.workspaces)
+        .update({ status: "active" })
+        .eq("id", targetId);
+    }
+
+    if (!targetId) {
+      const userProfile = await loadUserProfile(lowerWallet);
+      const bizAcc = await supabase
+        .from("business_account_profiles")
+        .select("business_name")
+        .eq("wallet_address", lowerWallet)
+        .maybeSingle();
+
+      const name =
+        (bizAcc.data as { business_name?: string } | null)?.business_name ||
+        userProfile?.display_name ||
+        userProfile?.username ||
+        "Business Workspace";
+
+      const handle = (userProfile?.username || `biz_${lowerWallet.slice(2, 8)}`).toLowerCase();
+
+      const created = await supabase
+        .from(businessTables.workspaces)
+        .insert({
+          kind: "business",
+          name: name.slice(0, 80),
+          owner_user_wallet: lowerWallet,
+          payment_wallet: lowerWallet,
+          status: "active",
+          username: handle,
+          updated_at: nowIso(),
+        })
+        .select("id")
+        .single();
+
+      if (created.data?.id) {
+        targetId = created.data.id;
+      }
+    }
+
+    if (targetId) {
+      await supabase.from(businessTables.members).upsert(
+        {
+          joined_at: nowIso(),
+          role: "owner",
+          status: "active",
+          updated_at: nowIso(),
+          user_wallet: lowerWallet,
+          workspace_id: targetId,
+        },
+        { onConflict: "workspace_id,user_wallet" },
+      );
+
+      // The workspace mirrors the business profile the owner edits in
+      // Settings: verified only once every field there is filled.
+      const accountProfile = await supabase
+        .from("business_account_profiles")
+        // "*": review_status only exists once the reviews migration has run.
+        .select("*")
+        .eq("wallet_address", lowerWallet)
+        .maybeSingle();
+      const fields = (accountProfile.data ?? {}) as Record<string, string | null>;
+
+      await supabase.from(businessTables.profiles).upsert(
+        {
+          updated_at: nowIso(),
+          verification_status: businessVerificationStatus(
+            {
+              businessName: fields.business_name,
+              category: fields.category,
+              contactEmail: fields.contact_email,
+              country: fields.country,
+              description: fields.description,
+              logoUrl: fields.logo_url,
+              phone: fields.phone,
+              website: fields.website,
+            },
+            readReviewStatus(fields.review_status),
+          ),
+          workspace_id: targetId,
+        },
+        { onConflict: "workspace_id" },
+      );
+
+      return targetId;
+    }
+  } catch (err) {
+    console.warn("[ensureBusinessWorkspaceForWallet] failed gracefully:", err);
   }
 
-  const rows = (memberships.data ?? []) as Array<{
-    role: WorkspaceSummary["role"];
-    status: string;
-    workspace_id: string;
-  }>;
+  return null;
+}
 
-  if (rows.length === 0) return [];
+export async function listWorkspacesForUser(wallet: string): Promise<WorkspaceSummary[]> {
+  await ensureBusinessWorkspaceForWallet(wallet);
+  const supabase = businessDb();
+  const lowerWallet = wallet.toLowerCase();
 
-  const ids = rows.map((row) => row.workspace_id);
   const workspaces = await supabase
     .from(businessTables.workspaces)
     .select("*")
-    .in("id", ids)
-    .eq("status", "active")
-    .neq("kind", "business");
+    .eq("owner_user_wallet", lowerWallet)
+    .eq("status", "active");
 
   if (workspaces.error) {
     throw new Error(readError(workspaces.error, "Could not load workspaces."));
   }
 
+  const list = (workspaces.data ?? []) as WorkspaceRecord[];
+  if (list.length === 0) return [];
+
+  const ids = list.map((w) => w.id);
   const profiles = await supabase
     .from(businessTables.profiles)
     .select("workspace_id,verification_status,logo_url")
@@ -117,9 +220,8 @@ export async function listWorkspacesForUser(wallet: string): Promise<WorkspaceSu
       workspace_id: string;
     }>).map((row) => [row.workspace_id, row]),
   );
-  const roleMap = new Map(rows.map((row) => [row.workspace_id, row.role]));
 
-  return ((workspaces.data ?? []) as WorkspaceRecord[])
+  return list
     .map((workspace) => {
       const profile = profileMap.get(workspace.id);
       return {
@@ -129,12 +231,12 @@ export async function listWorkspacesForUser(wallet: string): Promise<WorkspaceSu
         logoUrl: profile?.logo_url ?? null,
         name: workspace.name,
         paymentWallet: workspace.payment_wallet,
-        role: roleMap.get(workspace.id) ?? "member",
+        role: "owner" as const,
         username: workspace.username,
         verificationStatus:
           workspace.kind === "business"
-            ? (profile?.verification_status ?? "UNVERIFIED")
-            : null,
+            ? profile?.verification_status ?? "UNVERIFIED"
+            : "VERIFIED",
       };
     })
     .sort((a, b) => {
@@ -143,29 +245,6 @@ export async function listWorkspacesForUser(wallet: string): Promise<WorkspaceSu
     });
 }
 
-export async function listPendingInvitations(wallet: string, username?: string | null) {
-  const supabase = businessDb();
-  let query = supabase
-    .from(businessTables.invitations)
-    .select("*")
-    .eq("status", "pending")
-    .gt("expires_at", nowIso());
-
-  if (username) {
-    query = query.or(
-      `invited_user_wallet.eq.${wallet.toLowerCase()},invited_username.ilike.${username}`,
-    );
-  } else {
-    query = query.eq("invited_user_wallet", wallet.toLowerCase());
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(readError(error, "Could not load invitations."));
-  }
-
-  return (data ?? []) as WorkspaceInvitationRecord[];
-}
 
 async function claimPaymentIdentity(input: {
   destinationWallet: string;
@@ -501,12 +580,12 @@ export async function attachBusinessWallet(input: {
 }
 
 export async function completeOnboarding(input: {
-  accountKind: "individual" | "business" | "join";
+  accountKind: "individual" | "business";
   bio?: string | null;
   businessName?: string;
   businessUsername?: string;
   circleSocialUuid?: unknown;
-  invitationId?: string;
+  fullName?: string | null;
   locale: string;
   ownerWallet: string;
   username: string;
@@ -524,6 +603,10 @@ export async function completeOnboarding(input: {
 
   const bio =
     typeof input.bio === "string" ? input.bio.trim().slice(0, 160) : "";
+  const fullName =
+    typeof input.fullName === "string"
+      ? input.fullName.trim().replace(/\s+/g, " ").slice(0, 80)
+      : "";
   const locale = isAppLocale(input.locale) ? input.locale : "en";
 
   const profile = await loadUserProfile(actorWallet);
@@ -539,7 +622,7 @@ export async function completeOnboarding(input: {
   }
 
   const individual = await ensureIndividualWorkspace({
-    displayName: profile.display_name,
+    displayName: fullName || profile.display_name,
     paymentWallet: actorWallet,
     username,
   });
@@ -556,18 +639,6 @@ export async function completeOnboarding(input: {
     defaultWorkspaceId = business.id;
   }
 
-  if (input.accountKind === "join") {
-    if (!input.invitationId) {
-      throw businessErrors.invalid("Choose a business invitation to join.");
-    }
-    const joined = await acceptInvitation({
-      circleSocialUuid: input.circleSocialUuid,
-      invitationId: input.invitationId,
-      ownerWallet: actorWallet,
-    });
-    defaultWorkspaceId = joined.workspace_id;
-  }
-
   const supabase = businessDb();
   const mutation = await supabase
     .from(businessTables.userProfiles)
@@ -575,6 +646,7 @@ export async function completeOnboarding(input: {
       account_type_selected: true,
       bio: bio || null,
       default_workspace_id: defaultWorkspaceId,
+      ...(fullName ? { display_name: fullName } : {}),
       locale,
       onboarding_completed_at: nowIso(),
       updated_at: nowIso(),
@@ -626,139 +698,7 @@ export async function setDefaultWorkspace(input: {
   return next;
 }
 
-export async function acceptInvitation(input: {
-  circleSocialUuid?: unknown;
-  invitationId: string;
-  ownerWallet: string;
-}) {
-  const actorWallet = await requireActorWallet({
-    circleSocialUuid: input.circleSocialUuid,
-    ownerWallet: input.ownerWallet,
-  });
-  const supabase = businessDb();
-  const invitation = await supabase
-    .from(businessTables.invitations)
-    .select("*")
-    .eq("id", input.invitationId)
-    .maybeSingle();
 
-  if (invitation.error) {
-    throw new Error(readError(invitation.error, "Could not load invitation."));
-  }
-
-  const row = invitation.data as WorkspaceInvitationRecord | null;
-  if (!row) throw businessErrors.notFound("Invitation");
-  if (row.status !== "pending") {
-    throw businessErrors.conflict("This invitation is no longer available.");
-  }
-  if (new Date(row.expires_at).getTime() < Date.now()) {
-    throw businessErrors.conflict("This invitation has expired.");
-  }
-
-  const profile = await loadUserProfile(actorWallet);
-  const invitedWallet = row.invited_user_wallet?.toLowerCase();
-  const invitedUsername = row.invited_username?.toLowerCase();
-  const matchesWallet = invitedWallet && invitedWallet === actorWallet;
-  const matchesUsername =
-    invitedUsername && profile && invitedUsername === profile.username.toLowerCase();
-
-  if (!matchesWallet && !matchesUsername) {
-    throw businessErrors.forbidden("This invitation is for a different SwiftPay user.");
-  }
-
-  const existing = await supabase
-    .from(businessTables.members)
-    .select("*")
-    .eq("workspace_id", row.workspace_id)
-    .eq("user_wallet", actorWallet)
-    .maybeSingle();
-
-  if (existing.error) {
-    throw new Error(readError(existing.error, "Could not load membership."));
-  }
-
-  const memberRow = existing.data as WorkspaceMemberRecord | null;
-  if (memberRow) {
-    const update = await supabase
-      .from(businessTables.members)
-      .update({
-        joined_at: nowIso(),
-        role: row.role,
-        status: "active",
-        updated_at: nowIso(),
-      })
-      .eq("id", memberRow.id);
-    if (update.error) {
-      throw new Error(readError(update.error, "Could not join the business."));
-    }
-  } else {
-    const settings = await supabase
-      .from(businessTables.settings)
-      .select("max_members")
-      .eq("workspace_id", row.workspace_id)
-      .maybeSingle();
-    const maxMembers =
-      (settings.data as { max_members?: number } | null)?.max_members ?? 100;
-    const count = await supabase
-      .from(businessTables.members)
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", row.workspace_id)
-      .eq("status", "active");
-    if ((count.count ?? 0) >= maxMembers) {
-      throw businessErrors.conflict("This business has reached its member limit.");
-    }
-
-    const insert = await supabase.from(businessTables.members).insert({
-      joined_at: nowIso(),
-      role: row.role,
-      status: "active",
-      updated_at: nowIso(),
-      user_wallet: actorWallet,
-      workspace_id: row.workspace_id,
-    });
-    if (insert.error) {
-      throw new Error(readError(insert.error, "Could not join the business."));
-    }
-  }
-
-  const accepted = await supabase
-    .from(businessTables.invitations)
-    .update({
-      invited_user_wallet: actorWallet,
-      status: "accepted",
-      updated_at: nowIso(),
-    })
-    .eq("id", row.id);
-
-  if (accepted.error) {
-    throw new Error(readError(accepted.error, "Could not accept the invitation."));
-  }
-
-  return row;
-}
-
-export async function declineInvitation(input: {
-  circleSocialUuid?: unknown;
-  invitationId: string;
-  ownerWallet: string;
-}) {
-  const actorWallet = await requireActorWallet({
-    circleSocialUuid: input.circleSocialUuid,
-    ownerWallet: input.ownerWallet,
-  });
-  const supabase = businessDb();
-  const mutation = await supabase
-    .from(businessTables.invitations)
-    .update({ status: "declined", updated_at: nowIso() })
-    .eq("id", input.invitationId)
-    .or(
-      `invited_user_wallet.eq.${actorWallet},invited_username.eq.${actorWallet}`,
-    );
-
-  if (mutation.error) {
-    throw new Error(readError(mutation.error, "Could not decline the invitation."));
-  }
-}
 
 export async function resolvePaymentIdentity(username: string) {
   const handle = normalizeHandle(username);
@@ -871,15 +811,39 @@ export async function searchDirectory(query: string): Promise<DirectoryHit[]> {
     wallets.length > 0
       ? await supabase
           .from(businessTables.userProfiles)
-          .select("wallet_address,avatar_url,bio,display_name")
+          .select("wallet_address,avatar_url,bio,display_name,account_type")
           .in("wallet_address", wallets)
       : { data: [], error: null };
 
   const profileMap = new Map(
     ((profiles.data ?? []) as Array<{
+      account_type?: string | null;
       avatar_url: string | null;
       bio: string | null;
       display_name: string | null;
+      wallet_address: string;
+    }>).map((row) => [row.wallet_address, row]),
+  );
+
+  // A personal account upgraded to Business keeps its details on the account
+  // (business_account_profiles), not on a workspace: present it as the
+  // business it is, not as the person's profile.
+  const accountBusinessWallets = [...profileMap.values()]
+    .filter((row) => row.account_type === "BUSINESS")
+    .map((row) => row.wallet_address);
+  const accountBusinesses =
+    accountBusinessWallets.length > 0
+      ? await supabase
+          .from("business_account_profiles")
+          .select("wallet_address,business_name,logo_url,description,verification_status")
+          .in("wallet_address", accountBusinessWallets)
+      : { data: [], error: null };
+  const accountBusinessMap = new Map(
+    ((accountBusinesses.data ?? []) as Array<{
+      business_name: string | null;
+      description: string | null;
+      logo_url: string | null;
+      verification_status: VerificationStatus | null;
       wallet_address: string;
     }>).map((row) => [row.wallet_address, row]),
   );
@@ -912,6 +876,21 @@ export async function searchDirectory(query: string): Promise<DirectoryHit[]> {
     const business = hit.workspace_id
       ? businessMap.get(hit.workspace_id)
       : undefined;
+    const accountBusiness =
+      hit.kind !== "business" && hit.profile_wallet
+        ? accountBusinessMap.get(hit.profile_wallet)
+        : undefined;
+    if (accountBusiness) {
+      return {
+        avatarUrl: accountBusiness.logo_url ?? person?.avatar_url ?? null,
+        bio: accountBusiness.description ?? null,
+        displayName: accountBusiness.business_name?.trim() || hit.display_name || hit.username,
+        kind: "business" as const,
+        username: hit.username,
+        verificationStatus: accountBusiness.verification_status ?? null,
+        workspaceId: null,
+      };
+    }
     return {
       avatarUrl:
         hit.kind === "business"
@@ -921,10 +900,12 @@ export async function searchDirectory(query: string): Promise<DirectoryHit[]> {
         hit.kind === "business"
           ? (business?.description ?? null)
           : (person?.bio ?? null),
+      // A person's own full name wins over the payment identity's label,
+      // which is often just the handle.
       displayName:
-        hit.display_name ||
-        person?.display_name ||
-        hit.username,
+        (hit.kind === "business"
+          ? hit.display_name || person?.display_name
+          : person?.display_name || hit.display_name) || hit.username,
       kind: hit.kind,
       username: hit.username,
       verificationStatus: business?.verification_status ?? null,
@@ -984,4 +965,55 @@ export async function suggestedBusinessUsername(name: string) {
 
 export function normalizeBusinessWallet(value: string) {
   return normalizeWallet(value);
+}
+
+/**
+ * Map wallets to their public SwiftPay @usernames. A business identity wins
+ * over a personal profile for the wallet it receives into. Wallets without a
+ * SwiftPay account are simply absent from the result.
+ */
+export async function usernamesForWallets(
+  wallets: string[],
+): Promise<Record<string, string>> {
+  const normalized = [
+    ...new Set(
+      wallets
+        .filter((wallet) => isAddress(wallet))
+        .map((wallet) => wallet.toLowerCase()),
+    ),
+  ].slice(0, 100);
+  if (normalized.length === 0) return {};
+
+  const supabase = businessDb();
+  const [profiles, identities] = await Promise.all([
+    supabase
+      .from(businessTables.userProfiles)
+      .select("wallet_address,username")
+      .in("wallet_address", normalized),
+    supabase
+      .from(businessTables.identities)
+      .select("destination_wallet,username,kind")
+      .in("destination_wallet", normalized),
+  ]);
+
+  if (profiles.error) {
+    throw new Error(readError(profiles.error, "Could not look up usernames."));
+  }
+
+  const out: Record<string, string> = {};
+  ((profiles.data ?? []) as Array<{ username: string | null; wallet_address: string }>)
+    .forEach((row) => {
+      if (row.username) out[row.wallet_address.toLowerCase()] = row.username;
+    });
+  // Identities are an enrichment; a failed lookup keeps the profile names.
+  ((identities.error ? [] : identities.data ?? []) as Array<{
+    destination_wallet: string | null;
+    kind: string;
+    username: string | null;
+  }>).forEach((row) => {
+    if (!row.destination_wallet || !row.username) return;
+    const wallet = row.destination_wallet.toLowerCase();
+    if (row.kind === "business" || !out[wallet]) out[wallet] = row.username;
+  });
+  return out;
 }

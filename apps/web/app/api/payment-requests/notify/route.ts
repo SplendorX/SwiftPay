@@ -13,7 +13,7 @@ import {
   readPaymentRequestLifecycle,
 } from "@/lib/save/notifications";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 export const runtime = "nodejs";
 
@@ -66,7 +66,7 @@ function normalizeToken(value: unknown): ArcTokenSymbol | null {
     return null;
   }
 
-  return value in arcTestnetTokens ? (value as ArcTokenSymbol) : null;
+  return value in arcTokens ? (value as ArcTokenSymbol) : null;
 }
 
 function normalizeRequestLink(value: unknown) {
@@ -84,7 +84,9 @@ function normalizeRequestLink(value: unknown) {
     const url = new URL(requestLink);
     return `${url.pathname}${url.search}`;
   } catch {
-    return requestLink.startsWith("/dashboard?") ? requestLink : null;
+    return requestLink.startsWith("/send?") || requestLink.startsWith("/dashboard?")
+      ? requestLink
+      : null;
   }
 }
 

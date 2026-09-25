@@ -5,12 +5,13 @@ import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import type { WorkspaceSummary } from "@/lib/business/types";
 import {
   callCircleWalletApi,
+  preferArcCircleWallets,
   readCircleLogin,
   type CircleWallet,
 } from "@/lib/circle-session";
 
 export function personalCircleWallet(wallets: CircleWallet[]) {
-  return wallets[0] ?? null;
+  return preferArcCircleWallets(wallets)[0] ?? null;
 }
 
 export function dedicatedBusinessWallet(

@@ -18,7 +18,7 @@ function jsonError(message: string, status: number) {
 
 function readSupabaseError(error: { message?: string } | null) {
   const message = error?.message ?? "";
-  return message || "SwiftRecurepay could not load execution history.";
+  return message || "RecurePay could not load execution history.";
 }
 
 export async function GET(request: NextRequest) {

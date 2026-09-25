@@ -37,8 +37,8 @@ import {
   unitsToBigInt,
 } from "@/lib/save/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 
 const reconciliationTable =
   process.env.SUPABASE_SAVINGS_RECONCILIATION_TABLE ??
@@ -59,10 +59,10 @@ export function readSavingsSupabaseError(
 ) {
   const message = error?.message ?? "";
   if (message.toLowerCase().includes("permission denied")) {
-    return "Supabase rejected access to Swift+Save tables. Run packages/database/supabase/swift-save.sql.";
+    return "Supabase rejected access to Save tables. Run packages/database/supabase/swift-save.sql.";
   }
   if (message.toLowerCase().includes("does not exist")) {
-    return "Create Swift+Save tables with packages/database/supabase/swift-save.sql.";
+    return "Create Save tables with packages/database/supabase/swift-save.sql.";
   }
   return message || fallback;
 }
@@ -293,6 +293,65 @@ export async function updatePocket(
   );
 }
 
+/**
+ * Permanently remove a savings pocket.
+ *
+ * Only a pocket that never moved money can go. `savings_transactions`,
+ * `spend_save_configs` and `spend_save_events` all reference pockets with
+ * `on delete restrict`, which is deliberate: the ledger outlives the pocket.
+ * So anything with history is refused here and archived instead, rather than
+ * deleting rows out from under an audit trail.
+ */
+export async function deletePocket(pocketId: string, ownerWallet: string) {
+  const pocket = await getPocketForOwner(pocketId, ownerWallet);
+  if (!pocket) {
+    throw new Error("Savings pocket not found.");
+  }
+
+  const balance = unitsToBigInt(pocket.current_balance_units);
+  if (balance > 0n) {
+    throw new Error("Withdraw all funds before deleting this savings pocket.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+
+  const referencing: Array<[string, string]> = [
+    [transactionsTable, "This pocket has transaction history. Archive it instead of deleting."],
+    [spendSaveTable, "Retarget Spend&Save before deleting this pocket."],
+    [spendSaveEventsTable, "This pocket has Spend&Save history. Archive it instead of deleting."],
+  ];
+
+  for (const [table, message] of referencing) {
+    const { count, error } = await supabase
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .eq("pocket_id", pocketId);
+
+    if (error) {
+      throw new Error(
+        readSavingsSupabaseError(error, "Could not check pocket history."),
+      );
+    }
+    if ((count ?? 0) > 0) {
+      throw new Error(message);
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from(pocketsTable)
+    .delete()
+    .eq("id", pocketId)
+    .eq("owner_wallet", ownerWallet);
+
+  if (deleteError) {
+    throw new Error(
+      readSavingsSupabaseError(deleteError, "Could not delete savings pocket."),
+    );
+  }
+
+  return pocket;
+}
+
 export async function archivePocket(pocketId: string, ownerWallet: string) {
   const pocket = await getPocketForOwner(pocketId, ownerWallet);
   if (!pocket) {
@@ -473,7 +532,7 @@ export async function confirmSavingsTransaction(input: {
   }
 
   const currency = tx.currency as ArcTokenSymbol;
-  const token = arcTestnetTokens[currency];
+  const token = arcTokens[currency];
   const vault = swiftSaveVaultAddress();
 
   // Mark submitted
@@ -491,8 +550,8 @@ export async function confirmSavingsTransaction(input: {
   // callers should already have waited for inclusion. A long wait here
   // blows the API timeout and Spend&Save never credits the pocket.
   const publicClient = createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
 
   let receipt: Awaited<
@@ -924,7 +983,7 @@ export async function getSummary(
     }
   }
 
-  const decimals = arcTestnetTokens[currency].decimals;
+  const decimals = arcTokens[currency].decimals;
 
   return {
     totalSaved: formatUnitsToDecimal(totalUnits, decimals),
@@ -1144,7 +1203,7 @@ export function computeSpendSaveQuote(input: {
     networkFeeUnits,
     platformFeeUnits,
   });
-  const decimals = arcTestnetTokens[input.currency].decimals;
+  const decimals = arcTokens[input.currency].decimals;
   const percentage =
     typeof input.percentage === "number"
       ? input.percentage.toFixed(2)
@@ -1509,8 +1568,8 @@ export async function reconcilePendingSavingsTransactions(limit = 40) {
 
   const rows = (data ?? []) as SavingsTransactionRecord[];
   const publicClient = createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
 
   let confirmed = 0;

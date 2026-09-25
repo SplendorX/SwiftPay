@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { TokenIcon } from "@/components/token-icon";
 import {
-  arcTestnetTokens,
+  arcTokens,
   arcTokenSymbols,
   type ArcTokenSymbol,
 } from "@/lib/tokens";
@@ -49,7 +49,7 @@ export function TokenSelect({
 
   const excluded = normalizeExclude(exclude);
   const options = arcTokenSymbols.filter((symbol) => !excluded.includes(symbol));
-  const selected = arcTestnetTokens[value];
+  const selected = arcTokens[value];
 
   useEffect(() => {
     if (!open) {
@@ -135,7 +135,7 @@ export function TokenSelect({
             role="listbox"
           >
             {options.map((symbol) => {
-              const token = arcTestnetTokens[symbol];
+              const token = arcTokens[symbol];
               const isSelected = symbol === value;
 
               return (

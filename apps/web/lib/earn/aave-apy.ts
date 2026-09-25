@@ -7,7 +7,7 @@ import {
 
 import { earnConfig } from "@/lib/earn/config";
 import { annualizeGrowthBps } from "@/lib/earn/decimal";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 
 /**
  * Minimal Aave V3 Pool view for reserve data.
@@ -79,8 +79,8 @@ export type ApySnapshotResult = {
 
 function createArcClient(): PublicClient {
   return createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
 }
 

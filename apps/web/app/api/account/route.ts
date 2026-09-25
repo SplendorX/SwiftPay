@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     const state = await completeAccountOnboarding({
       accountKind: body.accountKind === "business" ? "business" : "personal",
       bio: typeof body.bio === "string" ? body.bio : null,
+      fullName: typeof body.fullName === "string" ? body.fullName : null,
       businessCategory:
         typeof body.businessCategory === "string" ? body.businessCategory : null,
       businessDescription:
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
           : null,
       businessName: typeof body.businessName === "string" ? body.businessName : "",
       circleSocialUuid,
+      contactEmail: body.contactEmail,
       locale: typeof body.locale === "string" ? body.locale : "en",
       logoUrl: typeof body.logoUrl === "string" ? body.logoUrl : null,
       ownerWallet: actorWallet,

@@ -1,6 +1,6 @@
 import { keccak256, parseUnits, stringToBytes } from "viem";
 
-import { arcTestnetTokens, arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 
 export const recurringFrequencies = [
   "daily",
@@ -63,6 +63,8 @@ export type RecurringScheduleRecord = {
   amount: string;
   amount_units: string;
   authorization_expires_at: string | null;
+  /** RecurePayExecutor mandate this schedule is paid under. */
+  authorization_mandate_id: string | null;
   authorization_status: RecurringAuthorizationStatus;
   authorization_tx_hash: string | null;
   authorized_at: string | null;
@@ -168,7 +170,7 @@ export function normalizeRecurringAmount(
   try {
     const amountUnits = parseUnits(
       trimmedAmount,
-      arcTestnetTokens[tokenSymbol].decimals,
+      arcTokens[tokenSymbol].decimals,
     );
 
     if (amountUnits <= BigInt(0)) {
@@ -181,6 +183,34 @@ export function normalizeRecurringAmount(
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * The on-chain mandate period for a schedule: the shortest time between two
+ * payments, a little under the schedule's interval so a late cron run or a
+ * short month never blocks a payment that is due.
+ */
+export function mandatePeriodSeconds(
+  frequency: RecurringFrequency,
+  intervalDays?: number | null,
+) {
+  const day = 24 * 60 * 60;
+  switch (frequency) {
+    case "daily":
+      return 20 * 60 * 60;
+    case "weekly":
+      return 6 * day;
+    case "biweekly":
+      return 13 * day;
+    case "monthly":
+      return 27 * day;
+    case "quarterly":
+      return 85 * day;
+    default: {
+      const days = intervalDays && intervalDays > 0 ? intervalDays : 30;
+      return Math.max(20 * 60 * 60, (days - 1) * day);
+    }
   }
 }
 
@@ -365,6 +395,7 @@ export function withScheduleDefaults(
   return {
     ...schedule,
     authorization_expires_at: schedule.authorization_expires_at ?? null,
+    authorization_mandate_id: schedule.authorization_mandate_id ?? null,
     authorization_status: schedule.authorization_status ?? "UNAUTHORIZED",
     authorization_tx_hash: schedule.authorization_tx_hash ?? null,
     authorized_at: schedule.authorized_at ?? null,

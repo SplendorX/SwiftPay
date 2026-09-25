@@ -48,7 +48,7 @@ import {
 import { consumeCircleRateLimit } from "@/lib/swift-circle/rate-limit";
 import { assertPermission } from "@/lib/swift-circle/rbac";
 import { listActiveMemberWallets } from "@/lib/swift-circle/service";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 import type {
   CircleSaveAccountRecord,
   CircleSaveContributionRecord,
@@ -306,7 +306,7 @@ export async function getSaveOverview(circleId: string) {
   }
   const balances = await computeSaveBalances(circleId, rows);
   const vault = swiftSaveVaultAddress();
-  const token = arcTestnetTokens[circle.currency];
+  const token = arcTokens[circle.currency];
   const vaultUnitsByPocket = new Map<string, bigint>();
   let usedVault = false;
   if (vault && token?.address) {
@@ -470,7 +470,7 @@ export async function proposeSaveContribution(input: {
   idempotencyKey?: unknown;
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "SAVE", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "SAVE", wallet: input.actorWallet });
   const circle = await loadCircle(input.circleId);
   assertCircleActive(circle);
   assertNotFrozen(circle);
@@ -520,7 +520,7 @@ export async function proposeSaveContribution(input: {
       pocketIdBytes32: circleSavePocketIdBytes32(pocket.id),
       pocketOwner,
       reused: true,
-      tokenAddress: arcTestnetTokens[circle.currency].address,
+      tokenAddress: arcTokens[circle.currency].address,
       vaultAddress: vault,
     };
   }
@@ -556,7 +556,7 @@ export async function proposeSaveContribution(input: {
     pocketIdBytes32: circleSavePocketIdBytes32(pocket.id),
     pocketOwner,
     reused: false,
-    tokenAddress: arcTestnetTokens[circle.currency].address,
+    tokenAddress: arcTokens[circle.currency].address,
     vaultAddress: vault,
   };
 }

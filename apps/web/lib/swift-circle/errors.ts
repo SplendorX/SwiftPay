@@ -129,14 +129,14 @@ export function publicCircleError(error: unknown) {
   ) {
     return {
       message:
-        "Create SwiftCircle tables with packages/database/supabase/swift-circle.sql.",
+        "Create Circle tables with packages/database/supabase/swift-circle.sql.",
       status: 500,
       code: "SCHEMA_MISSING",
     };
   }
   if (/permission denied/i.test(raw)) {
     return {
-      message: "Supabase rejected access to SwiftCircle tables.",
+      message: "Supabase rejected access to Circle tables.",
       status: 500,
       code: "SCHEMA_PERMISSION",
     };

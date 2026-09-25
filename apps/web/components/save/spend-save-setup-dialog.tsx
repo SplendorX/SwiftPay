@@ -23,7 +23,7 @@ import {
   type SavingsPocketRecord,
   type SpendSaveConfigRecord,
 } from "@/lib/save/types";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
 
 type SpendSaveSetupDialogProps = {
@@ -57,7 +57,7 @@ export function SpendSaveSetupDialog({
 
   const previews = useMemo(() => {
     const samples = ["100", "500", "1000"];
-    const decimals = arcTestnetTokens.USDC.decimals;
+    const decimals = arcTokens.USDC.decimals;
     return samples.map((sample) => {
       const paymentUnits = BigInt(sample) * 10n ** BigInt(decimals);
       try {

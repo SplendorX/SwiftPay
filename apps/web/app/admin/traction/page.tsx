@@ -178,7 +178,7 @@ export default function TractionAdminPage() {
               />
             </label>
             <button
-              className="self-end rounded-lg bg-primary px-5 py-3 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="sp-bubble self-end rounded-lg bg-primary px-5 py-3 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!secret || isLoading}
               onClick={() => void loadTraction()}
               type="button"

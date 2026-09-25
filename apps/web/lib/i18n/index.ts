@@ -98,7 +98,7 @@ export function pageCopyForPath(pathname: string): PageCopy | null {
   if (pathname === "/business" || pathname.startsWith("/business/")) {
     return { title: "pages.overviewTitle", subtitle: "pages.overviewSubtitle" };
   }
-  if (pathname.startsWith("/swiftCircle/")) {
+  if (pathname.startsWith("/circle/")) {
     return {
       title: "pages.circleTitle",
       subtitle: "pages.circleDetailSubtitle",
@@ -115,17 +115,17 @@ export function pageCopyForPath(pathname: string): PageCopy | null {
     },
     "/pay": { title: "pages.requestTitle", subtitle: "pages.requestSubtitle" },
     "/swap": { title: "pages.swapTitle", subtitle: "pages.swapSubtitle" },
-    "/swiftCircle": {
+    "/circle": {
       title: "pages.circleTitle",
       subtitle: "pages.circleSubtitle",
     },
     "/save": { title: "pages.saveTitle", subtitle: "pages.saveSubtitle" },
     "/earn": { title: "pages.earnTitle", subtitle: "pages.earnSubtitle" },
-    "/swiftBatch": {
+    "/batchpay": {
       title: "pages.batchTitle",
       subtitle: "pages.batchSubtitle",
     },
-    "/swiftRecurepay": {
+    "/recurepay": {
       title: "pages.recureTitle",
       subtitle: "pages.recureSubtitle",
     },
@@ -145,10 +145,11 @@ export const navLabelKeys = {
   "/business/payroll": "nav.payroll",
   "/pay": "nav.request",
   "/swap": "nav.swap",
-  "/swiftCircle": "nav.circle",
+  "/circle": "nav.circle",
   "/save": "nav.save",
   "/earn": "nav.earn",
-  "/swiftBatch": "nav.batchPay",
-  "/swiftRecurepay": "nav.recurePay",
+  "/batchpay": "nav.batchPay",
+  "/recurepay": "nav.recurePay",
+  "/activity": "nav.activity",
   "/settings": "nav.settings",
 } as const satisfies Record<string, MessageKey>;

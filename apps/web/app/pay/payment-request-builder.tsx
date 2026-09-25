@@ -21,6 +21,7 @@ import {
   buildPaymentRequestUrl,
 } from "@/lib/payment-request-url";
 import { formatUsernameLabel } from "@/lib/profile";
+import { RecipientSpinner, RecipientStatus } from "@/components/recipient-status";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 
@@ -83,7 +84,7 @@ export function PaymentRequestBuilder({
       amount: trimmedAmount,
       memo: trimmedNote,
       origin,
-      path: "/dashboard",
+      path: "/send",
       token: initialToken,
       username: resolvedRecipientUsername ?? undefined,
       walletAddress: resolvedRecipientUsername
@@ -104,7 +105,7 @@ export function PaymentRequestBuilder({
     return buildPaymentRequestPath({
       amount: isAmountValid ? trimmedAmount : undefined,
       memo: trimmedNote,
-      path: "/dashboard",
+      path: "/send",
       token: initialToken,
       username: resolvedRecipientUsername ?? undefined,
       walletAddress: resolvedRecipientUsername
@@ -190,19 +191,27 @@ export function PaymentRequestBuilder({
               <input
                 autoComplete="off"
                 className="min-w-0 flex-1 bg-transparent text-sm font-medium text-ink outline-none placeholder:text-muted"
+                aria-describedby="request-recipient-status"
                 onChange={(event) => setWalletAddress(event.target.value)}
                 placeholder="0x address or @username"
                 spellCheck={false}
                 value={walletAddress}
               />
+              <RecipientSpinner
+                className="static translate-y-0 shrink-0"
+                resolution={{ isResolving: isRecipientResolving }}
+              />
             </div>
-            {recipientResolveError ? (
-              <p className="text-sm text-destructive">{recipientResolveError}</p>
-            ) : isRecipientValid && resolvedRecipientUsername ? (
-              <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                Resolved to {formatUsernameLabel(resolvedRecipientUsername)}
-              </p>
-            ) : null}
+            <RecipientStatus
+              id="request-recipient-status"
+              resolution={{
+                error: recipientResolveError,
+                isResolving: isRecipientResolving,
+                isValid: isRecipientValid,
+                resolvedAddress: resolvedRecipientAddress,
+                resolvedUsername: resolvedRecipientUsername,
+              }}
+            />
           </label>
 
           <label className="grid gap-2">
@@ -253,7 +262,7 @@ export function PaymentRequestBuilder({
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
+                className="sp-bubble inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
                 disabled={!requestLink}
                 onClick={() => void copyValue(requestLink, "link")}
                 type="button"
@@ -276,7 +285,7 @@ export function PaymentRequestBuilder({
               </button>
               {canGenerateLink ? (
                 <Link
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
+                  className="sp-bubble inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
                   href={dashboardHref}
                 >
                   Open

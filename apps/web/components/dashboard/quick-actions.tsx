@@ -2,8 +2,11 @@
 
 import { motion } from "framer-motion";
 import {
+  ArrowDownToLine,
   ArrowDownUp,
+  Briefcase,
   CalendarClock,
+  FileText,
   PiggyBank,
   QrCode,
   Send,
@@ -14,58 +17,88 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
 import { cn } from "@/lib/utils";
 
+/**
+ * Overview, Invoices, Request, Swap and Send are not in the sidebar. This
+ * board is how you reach them.
+ */
 const actions: Array<{
+  businessOnly?: boolean;
   href: string;
   icon: LucideIcon;
   label: string;
 }> = [
-  { href: "#send", icon: Send, label: "Send Payment" },
-  { href: "/swiftCircle", icon: UsersRound, label: "Circle" },
+  { href: "/deposit", icon: ArrowDownToLine, label: "Deposit" },
+  { href: "/send", icon: Send, label: "Send Payment" },
+  { href: "/pay", icon: QrCode, label: "Request Payment" },
+  { href: "/swap", icon: ArrowDownUp, label: "Swap" },
+  { href: "/business", icon: Briefcase, label: "Overview", businessOnly: true },
+  {
+    href: "/business/invoices",
+    icon: FileText,
+    label: "Invoices",
+    businessOnly: true,
+  },
+  { href: "/circle", icon: UsersRound, label: "Circle" },
   { href: "/save", icon: PiggyBank, label: "Save" },
   { href: "/earn", icon: TrendingUp, label: "Earn" },
-  { href: "/pay", icon: QrCode, label: "Request Payment" },
-  { href: "/swiftBatch", icon: Users, label: "BatchPay" },
-  { href: "/swiftRecurepay", icon: CalendarClock, label: "RecurePay" },
-  { href: "/swap", icon: ArrowDownUp, label: "Swap" },
+  { href: "/batchpay", icon: Users, label: "BatchPay" },
+  { href: "/recurepay", icon: CalendarClock, label: "RecurePay" },
 ];
 
-export function QuickActions({ className }: { className?: string }) {
+export function QuickActions({
+  className,
+}: {
+  className?: string;
+}) {
   const t = useT();
+  const accountContext = useOptionalAccount();
+  const hasBusinessAccess = Boolean(accountContext?.isBusiness);
+  const visibleActions = actions.filter(
+    (action) => !action.businessOnly || hasBusinessAccess,
+  );
   const labels: Record<string, string> = {
-    "#send": t("dashboard.sendPayment"),
-    "/swiftCircle": t("nav.circle"),
+    "/deposit": "Deposit",
+    "/send": t("dashboard.sendPayment"),
+    "/business": t("nav.overview"),
+    "/business/invoices": t("nav.invoices"),
+    "/circle": t("nav.circle"),
     "/save": t("nav.save"),
     "/earn": t("nav.earn"),
     "/pay": t("dashboard.requestPayment"),
-    "/swiftBatch": t("nav.batchPay"),
-    "/swiftRecurepay": t("nav.recurePay"),
+    "/batchpay": t("nav.batchPay"),
+    "/recurepay": t("nav.recurePay"),
     "/swap": t("nav.swap"),
   };
 
   return (
-    <div className={cn("quick-actions-grid", className)}>
-      {actions.map((action, index) => {
-        const Icon = action.icon;
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            key={action.href}
-            transition={{ delay: index * 0.05, duration: 0.35 }}
-          >
-            <Link
-              className="quick-action-card"
-              href={action.href}
+    <section
+      aria-label="Quick actions"
+      className={cn("quick-actions-board", className)}
+    >
+      <p className="quick-actions-board-title">Quick actions</p>
+
+      <div className="quick-actions-grid">
+        {visibleActions.map((action, index) => {
+          const Icon = action.icon;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              key={action.href}
+              transition={{ delay: index * 0.05, duration: 0.35 }}
             >
-              <Icon className="h-4 w-4" />
-              <span>{labels[action.href] ?? action.label}</span>
-            </Link>
-          </motion.div>
-        );
-      })}
-    </div>
+              <Link className="quick-action-card" href={action.href}>
+                <Icon className="h-4 w-4" />
+                <span>{labels[action.href] ?? action.label}</span>
+              </Link>
+            </motion.div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

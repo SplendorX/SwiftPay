@@ -10,6 +10,7 @@ export default function InvoicesPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        backHref="/dashboard"
         subtitle="Create, send and track professional payment requests"
         title="Invoices"
       >

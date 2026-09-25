@@ -48,16 +48,31 @@ function withWallet(path: string, ownerWallet: string, extra?: Record<string, st
   return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
-function authBody(ownerWallet: string, circleSocialUuid?: string, extra?: Record<string, unknown>) {
-  return { circleSocialUuid, ownerWallet, ...extra };
+function authBody(
+  ownerWallet: string,
+  circleSocialUuid?: string,
+  extra?: Record<string, unknown>,
+  workspaceId?: string,
+) {
+  return { circleSocialUuid, ownerWallet, workspaceId, ...extra };
 }
 
 // 1. Dashboard
-export async function fetchPayrollDashboard(ownerWallet: string, circleSocialUuid?: string): Promise<PayrollDashboardSummary> {
+export async function fetchPayrollDashboard(
+  ownerWallet: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<PayrollDashboardSummary> {
   return parseJson<PayrollDashboardSummary>(
-    await fetch(withWallet("/api/business/payroll", ownerWallet, { circleSocialUuid }), {
-      cache: "no-store",
-    }),
+    await fetch(
+      withWallet("/api/business/payroll", ownerWallet, {
+        circleSocialUuid,
+        workspaceId,
+      }),
+      {
+        cache: "no-store",
+      },
+    ),
   );
 }
 
@@ -66,6 +81,7 @@ export async function fetchTeamMembers(
   ownerWallet: string,
   options?: { status?: TeamMemberStatus; includeArchived?: boolean; groupId?: string },
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<TeamMemberRecord[]> {
   return parseJson<TeamMemberRecord[]>(
     await fetch(
@@ -74,6 +90,7 @@ export async function fetchTeamMembers(
         status: options?.status,
         includeArchived: options?.includeArchived ? "true" : undefined,
         groupId: options?.groupId,
+        workspaceId,
       }),
       { cache: "no-store" },
     ),
@@ -84,9 +101,10 @@ export async function fetchTeamMember(
   ownerWallet: string,
   id: string,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<{ member: TeamMemberRecord; history: any[] }> {
   return parseJson<{ member: TeamMemberRecord; history: any[] }>(
-    await fetch(withWallet(`/api/business/payroll/team/${id}`, ownerWallet, { circleSocialUuid }), {
+    await fetch(withWallet(`/api/business/payroll/team/${id}`, ownerWallet, { circleSocialUuid, workspaceId }), {
       cache: "no-store",
     }),
   );
@@ -96,10 +114,11 @@ export async function createTeamMemberClient(
   ownerWallet: string,
   body: Omit<CreateTeamMemberInput, "accountId">,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<TeamMemberRecord> {
   return parseJson<TeamMemberRecord>(
     await fetch("/api/business/payroll/team", {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body as any)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body as any, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -111,40 +130,56 @@ export async function updateTeamMemberClient(
   id: string,
   body: UpdateTeamMemberInput,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<TeamMemberRecord> {
   return parseJson<TeamMemberRecord>(
     await fetch(`/api/business/payroll/team/${id}`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body as any)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body as any, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "PATCH",
     }),
   );
 }
 
-export async function pauseTeamMemberClient(ownerWallet: string, id: string, circleSocialUuid?: string): Promise<TeamMemberRecord> {
+export async function pauseTeamMemberClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<TeamMemberRecord> {
   return parseJson<TeamMemberRecord>(
     await fetch(`/api/business/payroll/team/${id}/pause`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, undefined, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
   );
 }
 
-export async function reactivateTeamMemberClient(ownerWallet: string, id: string, circleSocialUuid?: string): Promise<TeamMemberRecord> {
+export async function reactivateTeamMemberClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<TeamMemberRecord> {
   return parseJson<TeamMemberRecord>(
     await fetch(`/api/business/payroll/team/${id}/reactivate`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, undefined, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
   );
 }
 
-export async function archiveTeamMemberClient(ownerWallet: string, id: string, circleSocialUuid?: string): Promise<TeamMemberRecord> {
+export async function archiveTeamMemberClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<TeamMemberRecord> {
   return parseJson<TeamMemberRecord>(
     await fetch(`/api/business/payroll/team/${id}/archive`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, undefined, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -152,9 +187,13 @@ export async function archiveTeamMemberClient(ownerWallet: string, id: string, c
 }
 
 // 3. Groups
-export async function fetchPayrollGroups(ownerWallet: string, circleSocialUuid?: string): Promise<PayrollGroupRecord[]> {
+export async function fetchPayrollGroups(
+  ownerWallet: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<PayrollGroupRecord[]> {
   return parseJson<PayrollGroupRecord[]>(
-    await fetch(withWallet("/api/business/payroll/groups", ownerWallet, { circleSocialUuid }), {
+    await fetch(withWallet("/api/business/payroll/groups", ownerWallet, { circleSocialUuid, workspaceId }), {
       cache: "no-store",
     }),
   );
@@ -164,9 +203,10 @@ export async function fetchPayrollGroup(
   ownerWallet: string,
   id: string,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollGroupRecord & { members: TeamMemberRecord[] }> {
   return parseJson<PayrollGroupRecord & { members: TeamMemberRecord[] }>(
-    await fetch(withWallet(`/api/business/payroll/groups/${id}`, ownerWallet, { circleSocialUuid }), {
+    await fetch(withWallet(`/api/business/payroll/groups/${id}`, ownerWallet, { circleSocialUuid, workspaceId }), {
       cache: "no-store",
     }),
   );
@@ -176,10 +216,11 @@ export async function createPayrollGroupClient(
   ownerWallet: string,
   body: { name: string; description?: string | null; defaultSchedule?: string | null; memberIds?: string[] },
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollGroupRecord> {
   return parseJson<PayrollGroupRecord>(
     await fetch("/api/business/payroll/groups", {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -191,28 +232,38 @@ export async function updatePayrollGroupClient(
   id: string,
   body: { name?: string; description?: string | null; defaultSchedule?: string | null; memberIds?: string[] },
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollGroupRecord> {
   return parseJson<PayrollGroupRecord>(
     await fetch(`/api/business/payroll/groups/${id}`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "PATCH",
     }),
   );
 }
 
-export async function deletePayrollGroupClient(ownerWallet: string, id: string, circleSocialUuid?: string): Promise<{ ok: boolean }> {
+export async function deletePayrollGroupClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<{ ok: boolean }> {
   return parseJson<{ ok: boolean }>(
-    await fetch(withWallet(`/api/business/payroll/groups/${id}`, ownerWallet, { circleSocialUuid }), {
+    await fetch(withWallet(`/api/business/payroll/groups/${id}`, ownerWallet, { circleSocialUuid, workspaceId }), {
       method: "DELETE",
     }),
   );
 }
 
 // 4. Schedules
-export async function fetchPayrollSchedules(ownerWallet: string, circleSocialUuid?: string): Promise<PayrollScheduleRecord[]> {
+export async function fetchPayrollSchedules(
+  ownerWallet: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<PayrollScheduleRecord[]> {
   return parseJson<PayrollScheduleRecord[]>(
-    await fetch(withWallet("/api/business/payroll/schedules", ownerWallet, { circleSocialUuid }), {
+    await fetch(withWallet("/api/business/payroll/schedules", ownerWallet, { circleSocialUuid, workspaceId }), {
       cache: "no-store",
     }),
   );
@@ -222,30 +273,41 @@ export async function createPayrollScheduleClient(
   ownerWallet: string,
   body: { frequency: PaymentFrequency; payrollGroupId?: string | null; scheduleConfig?: Record<string, unknown> },
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollScheduleRecord> {
   return parseJson<PayrollScheduleRecord>(
     await fetch("/api/business/payroll/schedules", {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
   );
 }
 
-export async function pausePayrollScheduleClient(ownerWallet: string, id: string, circleSocialUuid?: string): Promise<PayrollScheduleRecord> {
+export async function pausePayrollScheduleClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<PayrollScheduleRecord> {
   return parseJson<PayrollScheduleRecord>(
     await fetch(`/api/business/payroll/schedules/${id}/pause`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, undefined, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
   );
 }
 
-export async function resumePayrollScheduleClient(ownerWallet: string, id: string, circleSocialUuid?: string): Promise<PayrollScheduleRecord> {
+export async function resumePayrollScheduleClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<PayrollScheduleRecord> {
   return parseJson<PayrollScheduleRecord>(
     await fetch(`/api/business/payroll/schedules/${id}/resume`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, undefined, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -253,11 +315,21 @@ export async function resumePayrollScheduleClient(ownerWallet: string, id: strin
 }
 
 // 5. Payroll Runs
-export async function fetchPayrollRuns(ownerWallet: string, circleSocialUuid?: string): Promise<PayrollRunRecord[]> {
+export async function fetchPayrollRuns(
+  ownerWallet: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<PayrollRunRecord[]> {
   return parseJson<PayrollRunRecord[]>(
-    await fetch(withWallet("/api/business/payroll/runs", ownerWallet, { circleSocialUuid }), {
-      cache: "no-store",
-    }),
+    await fetch(
+      withWallet("/api/business/payroll/runs", ownerWallet, {
+        circleSocialUuid,
+        workspaceId,
+      }),
+      {
+        cache: "no-store",
+      },
+    ),
   );
 }
 
@@ -265,9 +337,10 @@ export async function fetchPayrollRun(
   ownerWallet: string,
   id: string,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollRunRecord & { items: PayrollItemRecord[] }> {
   return parseJson<PayrollRunRecord & { items: PayrollItemRecord[] }>(
-    await fetch(withWallet(`/api/business/payroll/runs/${id}`, ownerWallet, { circleSocialUuid }), {
+    await fetch(withWallet(`/api/business/payroll/runs/${id}`, ownerWallet, { circleSocialUuid, workspaceId }), {
       cache: "no-store",
     }),
   );
@@ -277,10 +350,11 @@ export async function createPayrollRunClient(
   ownerWallet: string,
   body: Omit<CreatePayrollRunInput, "accountId">,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollRunRecord> {
   return parseJson<PayrollRunRecord>(
     await fetch("/api/business/payroll/runs", {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body as any)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body as any, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -292,10 +366,11 @@ export async function approvePayrollRunClient(
   id: string,
   metadata?: Record<string, unknown>,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollRunRecord> {
   return parseJson<PayrollRunRecord>(
     await fetch(`/api/business/payroll/runs/${id}/approve`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { metadata })),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { metadata }, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -313,20 +388,26 @@ export async function executePayrollRunClient(
     itemErrors?: Record<string, string>;
   },
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollRunRecord> {
   return parseJson<PayrollRunRecord>(
     await fetch(`/api/business/payroll/runs/${id}/execute`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
   );
 }
 
-export async function cancelPayrollRunClient(ownerWallet: string, id: string, circleSocialUuid?: string): Promise<PayrollRunRecord> {
+export async function cancelPayrollRunClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<PayrollRunRecord> {
   return parseJson<PayrollRunRecord>(
     await fetch(`/api/business/payroll/runs/${id}/cancel`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, undefined, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -338,10 +419,11 @@ export async function updatePayrollItemAdjustmentClient(
   itemId: string,
   adjustments: Array<{ type: PayrollAdjustmentType; amount: string; reason?: string | null }>,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollItemRecord> {
   return parseJson<PayrollItemRecord>(
     await fetch(`/api/business/payroll/items/${itemId}`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { adjustments })),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { adjustments }, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "PATCH",
     }),
@@ -358,12 +440,28 @@ export async function retryPayrollItemClient(
     failureReason?: string | null;
   },
   circleSocialUuid?: string,
+  workspaceId?: string,
 ): Promise<PayrollItemRecord> {
   return parseJson<PayrollItemRecord>(
     await fetch(`/api/business/payroll/items/${itemId}/retry`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body, workspaceId)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
+    }),
+  );
+}
+
+export async function deletePayrollScheduleClient(
+  ownerWallet: string,
+  id: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+): Promise<{ deleted: boolean }> {
+  return parseJson<{ deleted: boolean }>(
+    await fetch(`/api/business/payroll/schedules/${id}`, {
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, undefined, workspaceId)),
+      headers: { "Content-Type": "application/json" },
+      method: "DELETE",
     }),
   );
 }

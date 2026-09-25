@@ -1,6 +1,6 @@
 import { progressPercent, formatUnitsToDecimal } from "@/lib/save/decimal";
 import { getPocketEmoji, type SavingsPocketRecord } from "@/lib/save/types";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 export function formatMoney(
   amount: string | null | undefined,
@@ -31,7 +31,7 @@ export function pocketLabel(pocket: SavingsPocketRecord) {
 }
 
 export function unitsLabel(units: string, currency: ArcTokenSymbol) {
-  const decimals = arcTestnetTokens[currency].decimals;
+  const decimals = arcTokens[currency].decimals;
   return formatUnitsToDecimal(BigInt(units || "0"), decimals);
 }
 

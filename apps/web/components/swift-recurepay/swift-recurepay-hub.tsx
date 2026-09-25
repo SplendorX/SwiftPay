@@ -15,11 +15,13 @@ import {
   Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
 import {
+  createPublicClient,
   encodeFunctionData,
   getAddress,
+  http,
   isAddress,
-  maxUint256,
   type Address,
   type Hash,
 } from "viem";
@@ -38,7 +40,9 @@ import {
   RecurringScheduleFields,
   createRecurringDraft,
   datetimeLocalToIso,
+  isoToDatetimeLocalValue,
   startTimeError,
+  toDatetimeLocalValue,
   type RecurringScheduleDraft,
 } from "@/components/recurring-schedule-fields";
 import { showSuccess } from "@/components/success-popup";
@@ -47,8 +51,12 @@ import { TokenIcon } from "@/components/token-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { personalCircleWallet } from "@/lib/business/provision-wallet";
 import {
+  circleSessionEventName,
+  currentCircleAuth,
   callCircleWalletApi,
+  getCircleErrorMessage,
   findCircleTokenBalance,
   getCircleLoginIdentity,
   readCircleLogin,
@@ -61,10 +69,12 @@ import {
   erc20Abi,
   recurringPlatformFeeBasisPoints,
   swiftBatchFeeRecipient,
+  swiftRecurepayExecutorAbi,
   swiftRecurepayExecutorAddress,
 } from "@/lib/contracts";
 import { formatUnitsToDecimal } from "@/lib/save/decimal";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
+import { RecipientSpinner, RecipientStatus } from "@/components/recipient-status";
 import {
   authorizeRecurringSchedule,
   createRecurringSchedule,
@@ -83,16 +93,20 @@ import {
   isCompletedDisplayStatus,
   isDueDisplayStatus,
   isProcessingDisplayStatus,
+  mandatePeriodSeconds,
+  recurringFrequencies,
   type RecurringExecutionRecord,
+  type RecurringFrequency,
   type RecurringScheduleRecord,
 } from "@/lib/recurring-utils";
 import { ensureProfile, fetchProfile } from "@/lib/profile";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { recoverCircleTxHash as recoverCircleTxHashFor } from "@/lib/circle-tx";
+import { arcTokens, arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import {
   fetchWalletSession,
   signInWalletSession,
 } from "@/lib/wallet-auth-client";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain, arcCircleBlockchain } from "@/lib/chains";
 
 type CircleTransferChallenge = { challengeId?: string };
 type CircleChallengeResult = {
@@ -158,9 +172,48 @@ function computePlatformFeeUnits(amountUnits: bigint) {
   return (amountUnits * feeBps) / feeDenom;
 }
 
+/**
+ * Circle's PIN SDK rejects with plain `{ code, message }` objects, not Errors;
+ * reading only Errors hid the real reason as "Something went wrong."
+ */
+const arcReader = createPublicClient({
+  chain: arcChain,
+  transport: http(arcChain.rpcUrls.default.http[0]),
+});
+
+/**
+ * The server re-reads the executor allowance on-chain as soon as it is told
+ * about the approval. A Circle wallet can hand back the hash before the
+ * transaction is mined, so wait for the receipt and for the allowance to be
+ * visible first; otherwise authorization is refused as "not approved".
+ */
+async function waitForExecutorApproval(input: {
+  owner: string;
+  requiredUnits: bigint;
+  token: Address;
+  txHash: string;
+}) {
+  if (/^0x[0-9a-fA-F]{64}$/.test(input.txHash)) {
+    await arcReader
+      .waitForTransactionReceipt({ hash: input.txHash as Hash, timeout: 30_000 })
+      .catch(() => undefined);
+  }
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const allowance = await arcReader
+      .readContract({
+        abi: erc20Abi,
+        address: input.token,
+        args: [input.owner as Address, swiftRecurepayExecutorAddress as Address],
+        functionName: "allowance",
+      })
+      .catch(() => 0n);
+    if (allowance >= input.requiredUnits) return;
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+  }
+}
+
 function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  return "Something went wrong.";
+  return getCircleErrorMessage(error, "Something went wrong.");
 }
 
 export function SwiftRecurepayHub() {
@@ -189,8 +242,9 @@ export function SwiftRecurepayHub() {
   const [recipientInput, setRecipientInput] = useState("");
   const [beneficiaryLabel, setBeneficiaryLabel] = useState("");
   const [amount, setAmount] = useState("");
+  const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
   const [token, setToken] = useState<ArcTokenSymbol>("USDC");
-  const [narration, setNarration] = useState("SwiftRecurepay schedule");
+  const [narration, setNarration] = useState("RecurePay schedule");
   const [recurringDraft, setRecurringDraft] =
     useState<RecurringScheduleDraft>(createRecurringDraft);
   const [approvingScheduleId, setApprovingScheduleId] = useState<string | null>(
@@ -199,6 +253,54 @@ export function SwiftRecurepayHub() {
   const [authorizingScheduleId, setAuthorizingScheduleId] = useState<string | null>(
     null,
   );
+
+  // ALLIE's "Review and authorize" carries the schedule in the URL:
+  // /recurepay?recipient=@ada&amount=20&token=USDC&frequency=monthly.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const recipient = params.get("recipient")?.trim();
+    const linkAmount = params.get("amount")?.trim();
+    const linkToken = params.get("token")?.trim().toUpperCase();
+    const frequency = params.get("frequency")?.trim().toLowerCase();
+
+    if (recipient) setRecipientInput(recipient);
+    if (linkAmount && /^\d+(\.\d+)?$/.test(linkAmount)) setAmount(linkAmount);
+    if (linkToken && arcTokenSymbols.includes(linkToken as ArcTokenSymbol)) {
+      setToken(linkToken as ArcTokenSymbol);
+    }
+    if (frequency && recurringFrequencies.includes(frequency as RecurringFrequency)) {
+      setRecurringDraft((draft) => ({
+        ...draft,
+        frequency: frequency as RecurringFrequency,
+      }));
+    }
+
+    // Schedule bounds from ALLIE: an explicit start, or `startIn` minutes from
+    // now so a link opened later still starts in the future.
+    const linkStartsAt = params.get("startsAt");
+    const startIn = Number(params.get("startIn"));
+    const explicitStart = linkStartsAt ? new Date(linkStartsAt) : null;
+    const startsAt =
+      explicitStart && explicitStart.getTime() > Date.now()
+        ? explicitStart
+        : Number.isFinite(startIn) && startIn > 0 && startIn <= 24 * 60
+          ? new Date(Date.now() + startIn * 60_000)
+          : // An explicit start that has already passed: fall back to 30 min.
+            linkStartsAt
+            ? new Date(Date.now() + 30 * 60_000)
+            : null;
+    const endsAt = isoToDatetimeLocalValue(params.get("endsAt"));
+    const maxRuns = params.get("maxRuns")?.trim();
+
+    if (startsAt || endsAt || maxRuns) {
+      setRecurringDraft((draft) => ({
+        ...draft,
+        ...(startsAt ? { startsAt: toDatetimeLocalValue(startsAt) } : {}),
+        ...(endsAt ? { endsAt } : {}),
+        ...(maxRuns && /^[1-9]\d{0,3}$/.test(maxRuns) ? { maxRuns } : {}),
+      }));
+    }
+  }, []);
 
   const circleIdentity = getCircleLoginIdentity(circleLogin);
   const circleAddress =
@@ -212,8 +314,8 @@ export function SwiftRecurepayHub() {
       ? getAddress(address)
       : undefined;
   const isArcNetwork =
-    isEmbeddedWalletMode || (isConnected && chainId === arcTestnet.id);
-  const tokenInfo = arcTestnetTokens[token];
+    isEmbeddedWalletMode || (isConnected && chainId === arcChain.id);
+  const tokenInfo = arcTokens[token];
   // Autopay uses the connected wallet (external or Circle) — no env private key.
   const canUseAutopay = Boolean(ownerAddress);
   const isWalletAuthenticated = Boolean(
@@ -238,7 +340,7 @@ export function SwiftRecurepayHub() {
       ownerAddress && swiftRecurepayExecutorAddress
         ? [ownerAddress, swiftRecurepayExecutorAddress as Address]
         : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     functionName: "allowance",
     query: {
       enabled: Boolean(ownerAddress && swiftRecurepayExecutorAddress),
@@ -252,6 +354,13 @@ export function SwiftRecurepayHub() {
     resolvedAddress: resolvedRecipientAddress,
     resolvedUsername: resolvedRecipientUsername,
   } = useResolvedRecipient(recipientInput);
+  const recipientResolution = {
+    error: recipientResolveError,
+    isResolving: isRecipientResolving,
+    isValid: isRecipientValid,
+    resolvedAddress: resolvedRecipientAddress,
+    resolvedUsername: resolvedRecipientUsername,
+  };
 
   const requestContext = useMemo(
     () =>
@@ -337,9 +446,15 @@ export function SwiftRecurepayHub() {
   }, [canAccessRecurring, requestContext]);
 
   useEffect(() => {
-    setCircleLogin(readCircleLogin());
-    const wallets = readCircleWallets();
-    setCircleWallet(wallets[0] ?? null);
+    const sync = () => {
+      setCircleLogin(readCircleLogin());
+      setCircleWallet(personalCircleWallet(readCircleWallets()));
+    };
+    sync();
+    // Pick up renewed Circle tokens (they expire after about an hour) so the
+    // next action uses the current one rather than the token from page load.
+    window.addEventListener(circleSessionEventName, sync);
+    return () => window.removeEventListener(circleSessionEventName, sync);
   }, []);
 
   useEffect(() => {
@@ -433,7 +548,7 @@ export function SwiftRecurepayHub() {
         signMessage: (message) => signMessageAsync({ message }),
       });
       setAuthWallet(session.ownerWallet ?? ownerAddress);
-      setSuccess("Wallet authorized for SwiftRecurepay.");
+      setSuccess("Wallet authorized for RecurePay.");
     } catch (signInError) {
       setError(getErrorMessage(signInError));
     } finally {
@@ -462,13 +577,18 @@ export function SwiftRecurepayHub() {
           return;
         }
 
-        circleSdkRef.current = new CircleW3SSdk({
-          appSettings: { appId },
-          authentication: {
-            encryptionKey: circleLogin.encryptionKey,
-            userToken: circleLogin.userToken,
-          },
-        });
+        // One SDK instance for the page's lifetime: each instance adds its own
+        // iframe and listeners, and several confuse Circle's PIN screen. The
+        // current token is applied before every challenge (currentCircleAuth).
+        if (!circleSdkRef.current) {
+          circleSdkRef.current = new CircleW3SSdk({
+            appSettings: { appId },
+            authentication: {
+              encryptionKey: circleLogin.encryptionKey,
+              userToken: circleLogin.userToken,
+            },
+          });
+        }
 
         const balancePayload = await callCircleWalletApi<{
           tokenBalances?: CircleTokenBalance[];
@@ -492,7 +612,10 @@ export function SwiftRecurepayHub() {
     return () => {
       cancelled = true;
     };
-  }, [circleLogin, circleWallet?.id]);
+    // Keyed on the token, not the login object, which is re-read on every
+    // Circle session event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [circleLogin?.userToken, circleWallet?.id]);
 
   async function ensureArcNetwork() {
     if (isArcNetwork) {
@@ -500,7 +623,7 @@ export function SwiftRecurepayHub() {
     }
 
     try {
-      await switchChainAsync({ chainId: arcTestnet.id });
+      await switchChainAsync({ chainId: arcChain.id });
       return true;
     } catch (switchError) {
       setError(getErrorMessage(switchError));
@@ -654,65 +777,189 @@ export function SwiftRecurepayHub() {
 
   async function handleDeleteSchedule(scheduleId: string) {
     if (!requestContext) {
+      // Never a silent no-op: say why nothing happened.
+      setError("Connect the wallet that owns this schedule to delete it.");
       return;
     }
 
+    setDeletingScheduleId(scheduleId);
+    setError(null);
     try {
+      const schedule = schedules.find((item) => item.id === scheduleId);
+      if (schedule) {
+        await cancelScheduleMandate(schedule);
+      }
       await deleteRecurringSchedule(scheduleId, requestContext);
       setSchedules((current) => current.filter((item) => item.id !== scheduleId));
+      setExecutions((current) => current.filter((item) => item.schedule_id !== scheduleId));
       setSuccess("Schedule deleted.");
     } catch (deleteError) {
       setError(getErrorMessage(deleteError));
+    } finally {
+      setDeletingScheduleId(null);
     }
   }
 
-  async function approveExecutorForSchedule(schedule: RecurringScheduleRecord) {
-    if (!ownerAddress || !swiftRecurepayExecutorAddress) {
-      throw new Error("Autopay executor is not configured.");
+  /**
+   * Cancels a schedule's on-chain mandate if it is still active, so nothing
+   * can be paid under it even if the server were compromised.
+   */
+  async function cancelScheduleMandate(schedule: RecurringScheduleRecord) {
+    if (!schedule.authorization_mandate_id || !swiftRecurepayExecutorAddress) {
+      return;
+    }
+    const mandate = await arcReader
+      .readContract({
+        abi: swiftRecurepayExecutorAbi,
+        address: swiftRecurepayExecutorAddress as Address,
+        args: [schedule.authorization_mandate_id as Hash],
+        functionName: "mandates",
+      })
+      .catch(() => null);
+    const isActive = mandate?.[6] === true;
+    if (!isActive) {
+      return;
     }
 
-    const scheduleToken = arcTestnetTokens[schedule.token_symbol];
+    setSuccess("Confirm cancelling the Autopay mandate in your wallet…");
+    try {
+      await sendAutopayCall({
+        abi: swiftRecurepayExecutorAbi,
+        address: swiftRecurepayExecutorAddress as Address,
+        args: [schedule.authorization_mandate_id as Hash],
+        functionName: "cancelMandate",
+        refId: "RecurePay Autopay cancel",
+      });
+    } finally {
+      setSuccess(null);
+    }
+  }
 
+  /** Sends one contract call from the connected wallet and returns its hash. */
+  async function sendAutopayCall(input: {
+    abi: typeof erc20Abi | typeof swiftRecurepayExecutorAbi;
+    address: Address;
+    args: readonly unknown[];
+    functionName: string;
+    refId: string;
+    /** Hashes of earlier calls in this flow, so Circle recovery can't return them. */
+    skipHashes?: string[];
+  }) {
     if (isEmbeddedWalletMode) {
       if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
         throw new Error("Circle wallet is not ready to authorize Autopay.");
       }
 
       const callData = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [swiftRecurepayExecutorAddress as Address, maxUint256],
-      });
+        abi: input.abi,
+        args: input.args,
+        functionName: input.functionName,
+      } as Parameters<typeof encodeFunctionData>[0]);
       const challenge = await callCircleWalletApi<{ challengeId?: string }>(
         "createContractExecution",
         {
           callData,
-          contractAddress: scheduleToken.address,
+          contractAddress: input.address,
           feeLevel: "MEDIUM",
-          refId: "SwiftRecurepay Autopay approve",
+          refId: input.refId,
           userToken: circleLogin.userToken,
           walletId: circleWallet.id,
         },
       );
       if (!challenge.challengeId) {
-        throw new Error("Circle did not return an Autopay approval challenge.");
+        throw new Error("Circle did not return an Autopay challenge.");
       }
-      const { txHash } = await executeCircleChallenge(challenge.challengeId);
+      const { txHash } = await executeCircleChallenge(
+        challenge.challengeId,
+        input.skipHashes,
+      );
       return txHash;
     }
 
     if (!(await ensureArcNetwork())) {
-      throw new Error("Switch to Arc Testnet before authorizing Autopay.");
+      throw new Error(`Switch to ${arcChain.name} before authorizing Autopay.`);
     }
 
-    const hash = await writeContractAsync({
-      abi: erc20Abi,
-      address: scheduleToken.address,
-      args: [swiftRecurepayExecutorAddress as Address, maxUint256],
-      functionName: "approve",
-      chainId: arcTestnet.id,
+    return writeContractAsync({
+      abi: input.abi,
+      address: input.address,
+      args: input.args,
+      chainId: arcChain.id,
+      functionName: input.functionName,
+    } as Parameters<typeof writeContractAsync>[0]);
+  }
+
+  /**
+   * Authorizes a schedule on-chain in two steps:
+   * 1. a bounded allowance to the executor (enough for the remaining runs, at
+   *    most a year of them), never an unlimited one;
+   * 2. a mandate that fixes this schedule's recipient, token and cap per
+   *    period, which is all the operator can ever pay under.
+   * Returns the mandate transaction's hash for the server to verify.
+   */
+  async function createScheduleMandate(schedule: RecurringScheduleRecord) {
+    if (!ownerAddress || !swiftRecurepayExecutorAddress) {
+      throw new Error("Autopay executor is not configured.");
+    }
+
+    const executor = swiftRecurepayExecutorAddress as Address;
+    const token = arcTokens[schedule.token_symbol].address as Address;
+    const amountUnits = BigInt(schedule.amount_units);
+    const perRun = amountUnits + computePlatformFeeUnits(amountUnits);
+    const remainingRuns =
+      schedule.max_runs && schedule.max_runs > 0
+        ? Math.max(1, schedule.max_runs - schedule.run_count)
+        : 12;
+    const budget = perRun * BigInt(Math.min(remainingRuns, 12));
+
+    const currentAllowance = await arcReader
+      .readContract({
+        abi: erc20Abi,
+        address: token,
+        args: [ownerAddress as Address, executor],
+        functionName: "allowance",
+      })
+      .catch(() => 0n);
+
+    const earlierHashes: string[] = [];
+    if (currentAllowance < budget) {
+      setSuccess("Approve the Autopay spending limit in your wallet…");
+      const approveHash = await sendAutopayCall({
+        abi: erc20Abi,
+        address: token,
+        // Other schedules share this allowance, so add to it rather than replace it.
+        args: [executor, currentAllowance + budget],
+        functionName: "approve",
+        refId: "RecurePay Autopay approve",
+      });
+      earlierHashes.push(approveHash);
+      await waitForExecutorApproval({
+        owner: ownerAddress,
+        requiredUnits: currentAllowance + budget,
+        token,
+        txHash: approveHash,
+      });
+    }
+
+    const expiresAt = schedule.ends_at
+      ? BigInt(Math.floor(new Date(schedule.ends_at).getTime() / 1000) + 24 * 60 * 60)
+      : 0n;
+
+    setSuccess("Confirm the Autopay mandate in your wallet…");
+    return sendAutopayCall({
+      abi: swiftRecurepayExecutorAbi,
+      address: executor,
+      args: [
+        schedule.beneficiary_wallet as Address,
+        token,
+        amountUnits,
+        BigInt(mandatePeriodSeconds(schedule.frequency, schedule.interval_days)),
+        expiresAt,
+      ],
+      functionName: "createMandate",
+      refId: "RecurePay Autopay mandate",
+      skipHashes: earlierHashes,
     });
-    return hash;
   }
 
   async function authorizeScheduleAutopay(schedule: RecurringScheduleRecord) {
@@ -725,17 +972,32 @@ export function SwiftRecurepayHub() {
     setError(null);
 
     try {
-      const txHash = await approveExecutorForSchedule(schedule);
-      const updated = await authorizeRecurringSchedule(schedule.id, {
+      // A mandate from an earlier attempt that didn't finish saving is reused,
+      // so retrying never asks for another signature it doesn't need.
+      const existing = await authorizeRecurringSchedule(schedule.id, {
         ...requestContext,
-        authorizationTxHash: txHash,
         maxPaymentAmountUnits: schedule.amount_units,
-      });
+      }).catch(() => null);
+      const updated =
+        existing ??
+        (await (async () => {
+          const txHash = await createScheduleMandate(schedule);
+          setSuccess(`Confirming the Autopay mandate on ${arcChain.name}…`);
+          return authorizeRecurringSchedule(schedule.id, {
+            ...requestContext,
+            authorizationTxHash: txHash,
+            maxPaymentAmountUnits: schedule.amount_units,
+          });
+        })());
+      setSuccess(null);
       setSchedules((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       );
       await refetchExecutorAllowance();
       return updated;
+    } catch (authorizeError) {
+      setSuccess(null);
+      throw authorizeError;
     } finally {
       setAuthorizingScheduleId(null);
       setApprovingScheduleId(null);
@@ -748,6 +1010,8 @@ export function SwiftRecurepayHub() {
     }
 
     try {
+      await cancelScheduleMandate(schedule);
+
       const updated = await authorizeRecurringSchedule(schedule.id, {
         ...requestContext,
         action: "revoke",
@@ -783,55 +1047,15 @@ export function SwiftRecurepayHub() {
       return null;
     }
 
-    const skip = new Set(
-      (input.skipHashes ?? []).map((hash) => hash.toLowerCase()),
-    );
-
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 2000));
-      try {
-        if (input.transactionId) {
-          const tx = await callCircleWalletApi<{
-            data?: { txHash?: string; transactionHash?: string };
-            txHash?: string;
-            transactionHash?: string;
-          }>("getTransaction", {
-            id: input.transactionId,
-            userToken: circleLogin.userToken,
-          });
-          const hash =
-            tx.data?.txHash ??
-            tx.data?.transactionHash ??
-            tx.txHash ??
-            tx.transactionHash;
-          if (isTxHash(hash) && !skip.has(hash.toLowerCase())) {
-            return hash;
-          }
-        }
-
-        const listed = await callCircleWalletApi<{
-          data?: {
-            transactions?: Array<{ txHash?: string; transactionHash?: string }>;
-          };
-          transactions?: Array<{ txHash?: string; transactionHash?: string }>;
-        }>("listTransactions", {
-          pageSize: 8,
-          userToken: circleLogin.userToken,
-          walletId: circleWallet.id,
-        });
-        const rows = listed.data?.transactions ?? listed.transactions ?? [];
-        for (const row of rows) {
-          const hash = row.txHash ?? row.transactionHash;
-          if (isTxHash(hash) && !skip.has(hash.toLowerCase())) {
-            return hash;
-          }
-        }
-      } catch {
-        // keep polling
-      }
-    }
-
-    return null;
+    // The shared recovery only accepts this transaction's own hash, never
+    // the latest one on the wallet (which may be an incoming payment).
+    return recoverCircleTxHashFor({
+      attempts: 15,
+      skipHashes: input.skipHashes,
+      transactionId: input.transactionId,
+      userToken: circleLogin.userToken,
+      walletId: circleWallet.id,
+    });
   }
 
   async function executeCircleChallenge(
@@ -842,10 +1066,7 @@ export function SwiftRecurepayHub() {
       throw new Error("Circle wallet confirmation is not ready.");
     }
 
-    circleSdkRef.current.setAuthentication({
-      encryptionKey: circleLogin.encryptionKey,
-      userToken: circleLogin.userToken,
-    });
+    circleSdkRef.current.setAuthentication(currentCircleAuth(circleLogin));
 
     const executed = await new Promise<{
       transactionId?: string;
@@ -853,6 +1074,16 @@ export function SwiftRecurepayHub() {
     }>((resolve, reject) => {
       circleSdkRef.current?.execute(challengeId, (executeError, result) => {
         if (executeError) {
+          // The SDK's error keeps code/message in non-enumerable fields, so a
+          // plain log prints "{}". Spell them out. warn, not error: a closed
+          // PIN window is not a crash and should not raise the dev overlay.
+          const details = executeError as unknown as Record<string, unknown> | null;
+          console.warn("[Recurepay] Circle challenge failed", {
+            code: details?.code,
+            message: details?.message,
+            name: details?.name,
+            fields: details ? Object.getOwnPropertyNames(details) : [],
+          });
           reject(executeError);
           return;
         }
@@ -905,7 +1136,7 @@ export function SwiftRecurepayHub() {
       feeUnits > 0n
         ? formatUnitsToDecimal(
             feeUnits,
-            arcTestnetTokens[schedule.token_symbol].decimals,
+            arcTokens[schedule.token_symbol].decimals,
           )
         : "0";
 
@@ -914,7 +1145,7 @@ export function SwiftRecurepayHub() {
         throw new Error("Circle wallet is not ready.");
       }
 
-      const tokenInfo = arcTestnetTokens[schedule.token_symbol];
+      const tokenInfo = arcTokens[schedule.token_symbol];
       const tokenBalance = findCircleTokenBalance(
         circleBalances,
         schedule.token_symbol,
@@ -928,10 +1159,10 @@ export function SwiftRecurepayHub() {
           "createTransfer",
           {
             amount: feeAmountText,
-            blockchain: circleWallet.blockchain ?? "ARC-TESTNET",
+            blockchain: circleWallet.blockchain ?? arcCircleBlockchain,
             destinationAddress: feeRecipient,
             feeLevel: "MEDIUM",
-            refId: "SwiftRecurepay fee",
+            refId: "RecurePay fee",
             tokenAddress: tokenInfo.address,
             tokenId: tokenBalance?.token?.id,
             userToken: circleLogin.userToken,
@@ -949,10 +1180,10 @@ export function SwiftRecurepayHub() {
         "createTransfer",
         {
           amount: schedule.amount,
-          blockchain: circleWallet.blockchain ?? "ARC-TESTNET",
+          blockchain: circleWallet.blockchain ?? arcCircleBlockchain,
           destinationAddress: schedule.beneficiary_wallet,
           feeLevel: "MEDIUM",
-          refId: (schedule.narration ?? "SwiftRecurepay").slice(0, 50),
+          refId: (schedule.narration ?? "RecurePay").slice(0, 50),
           tokenAddress: tokenInfo.address,
           tokenId: tokenBalance?.token?.id,
           userToken: circleLogin.userToken,
@@ -980,10 +1211,10 @@ export function SwiftRecurepayHub() {
     }
 
     if (!(await ensureArcNetwork())) {
-      throw new Error("Switch to Arc Testnet before paying.");
+      throw new Error(`Switch to ${arcChain.name} before paying.`);
     }
 
-    const tokenInfo = arcTestnetTokens[schedule.token_symbol];
+    const tokenInfo = arcTokens[schedule.token_symbol];
 
     // Platform fee (1%) to fee recipient — filtered out of dashboard history.
     if (feeUnits > 0n && feeRecipient) {
@@ -992,7 +1223,7 @@ export function SwiftRecurepayHub() {
         abi: erc20Abi,
         functionName: "transfer",
         args: [feeRecipient, feeUnits],
-        chainId: arcTestnet.id,
+        chainId: arcChain.id,
       });
     }
 
@@ -1004,7 +1235,7 @@ export function SwiftRecurepayHub() {
         schedule.beneficiary_wallet as Address,
         amountUnits,
       ],
-      chainId: arcTestnet.id,
+      chainId: arcChain.id,
     });
 
     await updateRecurringExecution(executionId, {
@@ -1058,11 +1289,31 @@ export function SwiftRecurepayHub() {
       );
       setSuccess(`Recurring payment sent (${shortenAddress(txHash)}).`);
       showSuccess({
-        explorerUrl: `${arcTestnet.blockExplorers.default.url}/tx/${txHash}`,
+        explorerUrl: `${arcChain.blockExplorers.default.url}/tx/${txHash}`,
         eyebrow: "RecurePay",
         subtitle: "The scheduled payment was submitted on Arc.",
         title: "Payment successful",
       });
+
+      if (ownerAddress && txHash && schedule.amount) {
+        const recipientLabel = schedule.beneficiary_username
+          ? `@${schedule.beneficiary_username.replace(/^@/, "")}`
+          : schedule.beneficiary_label || shortenAddress(schedule.beneficiary_wallet);
+        void recordPlatformTransactionActivity({
+          walletAddress: ownerAddress,
+          amount: schedule.amount,
+          token: schedule.token_symbol ?? "USDC",
+          txHash,
+          transactionId: execution.id,
+          activityType: "TRANSFER",
+          showToast: true,
+          activity: {
+            counterparty: recipientLabel,
+            source: "recurepay",
+            title: `Scheduled payment to ${recipientLabel}`,
+          },
+        });
+      }
     } catch (payError) {
       const message = getErrorMessage(payError);
 
@@ -1116,7 +1367,7 @@ export function SwiftRecurepayHub() {
                 <p className="text-sm font-semibold">Authorize this wallet</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {isEmbeddedWalletMode
-                    ? "Your Circle session is missing a linked profile. Return to Home, sign in with Google, then reopen SwiftRecurepay."
+                    ? "Your Circle session is missing a linked profile. Return to Home, sign in with Google, then reopen RecurePay."
                     : "Sign a one-time message to authorize recurring schedules and executions for this wallet."}
                 </p>
               </div>
@@ -1143,7 +1394,7 @@ export function SwiftRecurepayHub() {
           <div>
             <p className="section-eyebrow">{t("recure.eyebrow")}</p>
             <h1 className="section-title">{t("recure.heading")}</h1>
-            <p className="section-copy">{t("recure.body")}</p>
+            <p className="section-copy">{t("recure.body", { network: arcChain.name })}</p>
           </div>
           <Button
             disabled={!canAccessRecurring || isLoading}
@@ -1193,7 +1444,8 @@ export function SwiftRecurepayHub() {
       </section>
 
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_min(24rem,100%)]">
+      {/* Two equal columns: the queue and the form carry the same weight. */}
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2 lg:gap-6">
         <section className="glass-panel min-w-0 overflow-x-hidden p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
@@ -1208,7 +1460,7 @@ export function SwiftRecurepayHub() {
           {isLoading ? (
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading SwiftRecurepay queue...
+              Loading RecurePay queue...
             </div>
           ) : dueExecutions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -1248,7 +1500,7 @@ export function SwiftRecurepayHub() {
                         <p className="mt-1 text-xs text-muted-foreground">
                           Due {new Date(execution.due_at).toLocaleString()}
                           {" · "}
-                          Platform fee {recurringPlatformFeeBasisPoints / 100}%
+                          Service fee {recurringPlatformFeeBasisPoints / 100}%
                           is charged separately and hidden from history
                         </p>
                         {execution.error_message ? (
@@ -1287,14 +1539,19 @@ export function SwiftRecurepayHub() {
           <div className="grid gap-3">
             <label className="grid gap-2">
               <span className="text-sm font-semibold">Recipient</span>
-              <Input
-                onChange={(event) => setRecipientInput(event.target.value)}
-                placeholder="0x address or @username"
-                value={recipientInput}
-              />
-              {recipientResolveError ? (
-                <span className="text-xs text-destructive">{recipientResolveError}</span>
-              ) : null}
+              <div className="relative">
+                <Input
+                  aria-describedby="recure-recipient-status"
+                  autoComplete="off"
+                  className="pr-9"
+                  onChange={(event) => setRecipientInput(event.target.value)}
+                  placeholder="0x address or @username"
+                  spellCheck={false}
+                  value={recipientInput}
+                />
+                <RecipientSpinner resolution={recipientResolution} />
+              </div>
+              <RecipientStatus id="recure-recipient-status" resolution={recipientResolution} />
             </label>
 
             <label className="grid gap-2">
@@ -1337,6 +1594,28 @@ export function SwiftRecurepayHub() {
               value={recurringDraft}
             />
 
+            {/* Shown before creating, not only once a payment is due. */}
+            <div className="rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">
+                  Service fee ({recurringPlatformFeeBasisPoints / 100}%)
+                </span>
+                <span className="font-medium tabular-nums">
+                  {Number(amount) > 0
+                    ? `${((Number(amount) * recurringPlatformFeeBasisPoints) / 10_000).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${token}`
+                    : "—"}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Each payment costs</span>
+                <span className="font-semibold tabular-nums">
+                  {Number(amount) > 0
+                    ? `${((Number(amount) * (10_000 + recurringPlatformFeeBasisPoints)) / 10_000).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${token}`
+                    : "—"}
+                </span>
+              </div>
+            </div>
+
             <Button
               disabled={
                 !canAccessRecurring ||
@@ -1358,138 +1637,6 @@ export function SwiftRecurepayHub() {
           </div>
         </section>
       </div>
-
-      <section className="section-panel">
-        <div className="mb-4">
-          <p className="section-eyebrow">{t("recure.schedules")}</p>
-          <h2 className="section-title">{t("recure.managed")}</h2>
-        </div>
-
-        {schedules.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No SwiftRecurepay schedules yet. Create one to automate rent, payroll,
-            or subscription transfers.
-          </p>
-        ) : (
-          <div className="grid gap-3">
-            {schedules.map((schedule) => (
-              <article
-                className="rounded-lg border border-border bg-card px-4 py-4"
-                key={schedule.id}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold">
-                        {schedule.amount} {schedule.token_symbol}
-                      </p>
-                      <Badge variant="outline">{schedule.status}</Badge>
-                      {schedule.autopay_enabled &&
-                      schedule.authorization_status === "AUTHORIZED" ? (
-                        <Badge variant="secondary">Autopay</Badge>
-                      ) : null}
-                      <Badge variant="outline">
-                        {formatAuthorizationStatusLabel(
-                          schedule.authorization_status,
-                        )}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {formatScheduleRecipient(schedule)} ·{" "}
-                      {formatFrequencyLabel(schedule.frequency, schedule.interval_days)}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {new Date(schedule.next_run_at).getTime() <= Date.now() &&
-                      schedule.autopay_enabled &&
-                      schedule.authorization_status === "AUTHORIZED"
-                        ? "Due now. Autopay is queued in the background"
-                        : `Next run ${new Date(schedule.next_run_at).toLocaleString()}`}
-                      {" · "}
-                      {schedule.run_count} completed
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {schedule.authorization_status === "AUTHORIZED" &&
-                    schedule.autopay_enabled ? (
-                      <Button
-                        onClick={() => void handleDisableAutopay(schedule)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        Revoke Autopay
-                      </Button>
-                    ) : (
-                      <Button
-                        disabled={
-                          authorizingScheduleId === schedule.id ||
-                          approvingScheduleId === schedule.id
-                        }
-                        onClick={() => void handleEnableAutopay(schedule)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        {authorizingScheduleId === schedule.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : null}
-                        Authorize Autopay
-                      </Button>
-                    )}
-                    {schedule.status === "active" ? (
-                      <Button
-                        onClick={() => void handleScheduleStatus(schedule, "paused")}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Pause className="h-3.5 w-3.5" />
-                        Pause
-                      </Button>
-                    ) : null}
-                    {schedule.status === "paused" ? (
-                      <Button
-                        onClick={() => void handleScheduleStatus(schedule, "active")}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Play className="h-3.5 w-3.5" />
-                        Resume
-                      </Button>
-                    ) : null}
-                    {schedule.status !== "cancelled" &&
-                    schedule.status !== "completed" ? (
-                      <>
-                        <Button
-                          onClick={() => void handleRunNow(schedule.id)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          Run now
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            void handleScheduleStatus(schedule, "cancelled")
-                          }
-                          size="sm"
-                          variant="outline"
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    ) : null}
-                    <Button
-                      onClick={() => void handleDeleteSchedule(schedule.id)}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
 
       {processingExecutions.length > 0 ? (
         <section className="section-panel">
@@ -1527,58 +1674,197 @@ export function SwiftRecurepayHub() {
         </section>
       ) : null}
 
-      <section className="section-panel">
-        <div className="mb-4">
-          <p className="section-eyebrow">{t("recure.history")}</p>
-          <h2 className="section-title">{t("recure.executionHistory")}</h2>
-        </div>
-        {historyExecutions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No completed or failed Autopay runs yet.
-          </p>
-        ) : (
-          <div className="grid gap-3">
-            {historyExecutions.slice(0, 25).map((execution) => {
-              const schedule = scheduleMap.get(execution.schedule_id);
-              return (
-                <article
-                  className="rounded-lg border border-border bg-card px-4 py-3"
-                  key={execution.id}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">
-                      {execution.amount ?? schedule?.amount}{" "}
-                      {schedule?.token_symbol}
-                    </p>
-                    <Badge
-                      variant={
-                        isCompletedDisplayStatus(execution.status)
-                          ? "secondary"
-                          : "outline"
-                      }
-                    >
-                      {formatExecutionStatusLabel(execution.status)}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {schedule ? formatScheduleRecipient(schedule) : execution.owner_wallet}
-                    {" · "}
-                    {new Date(execution.due_at).toLocaleString()}
-                    {execution.tx_hash
-                      ? ` · ${execution.tx_hash.slice(0, 10)}…`
-                      : ""}
-                  </p>
-                  {execution.error_message ? (
-                    <p className="mt-1 text-xs text-destructive">
-                      {execution.error_message}
-                    </p>
-                  ) : null}
-                </article>
-              );
-            })}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="section-panel min-w-0">
+          <div className="mb-4">
+            <p className="section-eyebrow">{t("recure.schedules")}</p>
+            <h2 className="section-title">{t("recure.managed")}</h2>
           </div>
-        )}
-      </section>
+
+          {schedules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No Recurepay schedules yet. Create one to automate rent, payroll,
+              or subscription transfers.
+            </p>
+          ) : (
+            <div className="grid max-h-[36rem] gap-3 overflow-y-auto pr-1">
+              {schedules.map((schedule) => (
+                <article
+                  className="rounded-lg border border-border bg-card px-4 py-4"
+                  key={schedule.id}
+                >
+                  <div className="grid gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">
+                          {schedule.amount} {schedule.token_symbol}
+                        </p>
+                        <Badge variant="outline">{schedule.status}</Badge>
+                        {schedule.autopay_enabled &&
+                        schedule.authorization_status === "AUTHORIZED" ? (
+                          <Badge variant="secondary">Autopay</Badge>
+                        ) : null}
+                        <Badge variant="outline">
+                          {formatAuthorizationStatusLabel(
+                            schedule.authorization_status,
+                          )}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {formatScheduleRecipient(schedule)} ·{" "}
+                        {formatFrequencyLabel(schedule.frequency, schedule.interval_days)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {new Date(schedule.next_run_at).getTime() <= Date.now() &&
+                        schedule.autopay_enabled &&
+                        schedule.authorization_status === "AUTHORIZED"
+                          ? "Due now. Autopay is queued in the background"
+                          : `Next run ${new Date(schedule.next_run_at).toLocaleString()}`}
+                        {" · "}
+                        {schedule.run_count} completed
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {schedule.authorization_status === "AUTHORIZED" &&
+                      schedule.autopay_enabled ? (
+                        <Button
+                          onClick={() => void handleDisableAutopay(schedule)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          Revoke Autopay
+                        </Button>
+                      ) : (
+                        <Button
+                          disabled={
+                            authorizingScheduleId === schedule.id ||
+                            approvingScheduleId === schedule.id
+                          }
+                          onClick={() => void handleEnableAutopay(schedule)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {authorizingScheduleId === schedule.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : null}
+                          Authorize Autopay
+                        </Button>
+                      )}
+                      {schedule.status === "active" ? (
+                        <Button
+                          onClick={() => void handleScheduleStatus(schedule, "paused")}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Pause className="h-3.5 w-3.5" />
+                          Pause
+                        </Button>
+                      ) : null}
+                      {schedule.status === "paused" ? (
+                        <Button
+                          onClick={() => void handleScheduleStatus(schedule, "active")}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                          Resume
+                        </Button>
+                      ) : null}
+                      {schedule.status !== "cancelled" &&
+                      schedule.status !== "completed" ? (
+                        <>
+                          <Button
+                            onClick={() => void handleRunNow(schedule.id)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Run now
+                          </Button>
+                          <Button
+                            onClick={() =>
+                              void handleScheduleStatus(schedule, "cancelled")
+                            }
+                            size="sm"
+                            variant="outline"
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : null}
+                      <Button
+                        disabled={deletingScheduleId === schedule.id}
+                        onClick={() => void handleDeleteSchedule(schedule.id)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {deletingScheduleId === schedule.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="section-panel min-w-0">
+          <div className="mb-4">
+            <p className="section-eyebrow">{t("recure.history")}</p>
+            <h2 className="section-title">{t("recure.executionHistory")}</h2>
+          </div>
+          {historyExecutions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No completed or failed Autopay runs yet.
+            </p>
+          ) : (
+            <div className="grid max-h-[36rem] gap-3 overflow-y-auto pr-1">
+              {historyExecutions.slice(0, 25).map((execution) => {
+                const schedule = scheduleMap.get(execution.schedule_id);
+                return (
+                  <article
+                    className="rounded-lg border border-border bg-card px-4 py-3"
+                    key={execution.id}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">
+                        {execution.amount ?? schedule?.amount}{" "}
+                        {schedule?.token_symbol}
+                      </p>
+                      <Badge
+                        variant={
+                          isCompletedDisplayStatus(execution.status)
+                            ? "secondary"
+                            : "outline"
+                        }
+                      >
+                        {formatExecutionStatusLabel(execution.status)}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {schedule ? formatScheduleRecipient(schedule) : execution.owner_wallet}
+                      {" · "}
+                      {new Date(execution.due_at).toLocaleString()}
+                      {execution.tx_hash
+                        ? ` · ${execution.tx_hash.slice(0, 10)}…`
+                        : ""}
+                    </p>
+                    {execution.error_message ? (
+                      <p className="mt-1 text-xs text-destructive">
+                        {execution.error_message}
+                      </p>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {success ? (

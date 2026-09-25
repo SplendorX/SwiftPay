@@ -1,10 +1,7 @@
+import { consumeRateLimit } from "@/lib/rate-limit";
 import { circleErrors } from "@/lib/swift-circle/errors";
 
 type RateBucket = "CHAT" | "MEMBERSHIP" | "PAYMENT" | "REQUEST" | "SAVE" | "EARN" | "WITHDRAWAL" | "APPROVAL";
-
-type Window = { count: number; resetAt: number };
-
-const windows = new Map<string, Window>();
 
 const limits: Record<RateBucket, { max: number; windowMs: number }> = {
   CHAT: { max: 60, windowMs: 60_000 },
@@ -17,20 +14,17 @@ const limits: Record<RateBucket, { max: number; windowMs: number }> = {
   APPROVAL: { max: 20, windowMs: 60_000 },
 };
 
-export function consumeCircleRateLimit(input: {
+export async function consumeCircleRateLimit(input: {
   bucket: RateBucket;
   wallet: string;
 }) {
   const spec = limits[input.bucket];
-  const key = `${input.bucket}:${input.wallet.toLowerCase()}`;
-  const now = Date.now();
-  const current = windows.get(key);
-  if (!current || current.resetAt <= now) {
-    windows.set(key, { count: 1, resetAt: now + spec.windowMs });
-    return;
-  }
-  if (current.count >= spec.max) {
+  const allowed = await consumeRateLimit(
+    `circle:${input.bucket}:${input.wallet.toLowerCase()}`,
+    spec.max,
+    spec.windowMs / 1000,
+  );
+  if (!allowed) {
     throw circleErrors.rateLimited();
   }
-  current.count += 1;
 }

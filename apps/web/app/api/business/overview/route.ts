@@ -7,10 +7,11 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
-    const { actorWallet, circleSocialUuid } = await readActor(request);
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
     const overview = await getBusinessOverview({
       circleSocialUuid,
       ownerWallet: actorWallet,
+      workspaceId,
     });
     return jsonOk(overview);
   } catch (error) {

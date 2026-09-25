@@ -11,7 +11,8 @@ type RecurringLogEvent =
   | "recurring.execution.failed"
   | "recurring.execution.retry"
   | "recurring.webhook"
-  | "recurring.reconcile";
+  | "recurring.reconcile"
+  | "recurring.schedule.reauthorization_required";
 
 const SENSITIVE_KEY =
   /private[_-]?key|seed|secret|password|authorization[_-]?material|entity[_-]?secret|api[_-]?key|cipher/i;

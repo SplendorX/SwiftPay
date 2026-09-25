@@ -71,16 +71,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         applyAppLocale(state.profile.locale);
       }
 
+      const validWorkspaceIds = new Set(state.workspaces.map((item) => item.id));
       const stored =
         typeof window === "undefined" ? null : localStorage.getItem(storageKey);
-      const nextId =
-        (stored && state.workspaces.some((item) => item.id === stored)
-          ? stored
-          : null) ??
-        state.profile?.default_workspace_id ??
-        state.workspaces[0]?.id ??
-        null;
+      const validStored = stored && validWorkspaceIds.has(stored) ? stored : null;
+      const validDefault =
+        state.profile?.default_workspace_id &&
+        validWorkspaceIds.has(state.profile.default_workspace_id)
+          ? state.profile.default_workspace_id
+          : null;
+      const nextId = validStored ?? validDefault ?? state.workspaces[0]?.id ?? null;
       setWorkspaceId(nextId);
+      if (typeof window !== "undefined") {
+        if (nextId) {
+          localStorage.setItem(storageKey, nextId);
+        } else {
+          localStorage.removeItem(storageKey);
+        }
+      }
     } catch {
       setProfile(null);
       setWorkspaces([]);

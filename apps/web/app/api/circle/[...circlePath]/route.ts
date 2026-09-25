@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { allowInsecureLocalTls } from "@/lib/insecure-local-tls";
 import {
   Agent,
   fetch as undiciFetch,
@@ -26,8 +27,42 @@ type FetchInitWithDispatcher = UndiciRequestInit & {
   dispatcher: Agent;
 };
 
+const BROWSER_KIT_KEY_PLACEHOLDER = "KIT_KEY:swiftpay-proxy:browser";
+
 function getCircleKitKey() {
-  return process.env.KIT_KEY ?? process.env.NEXT_PUBLIC_CIRCLE_KIT_KEY;
+  return (
+    process.env.CIRCLE_STABLECOIN_KIT_API_KEY?.trim() ||
+    process.env.KIT_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_CIRCLE_KIT_KEY?.trim()
+  );
+}
+
+function stripBrowserKitKeyPlaceholder(rawBody: string | undefined) {
+  if (!rawBody) return rawBody;
+
+  try {
+    const parsed = JSON.parse(rawBody) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return rawBody;
+    }
+
+    const record = parsed as Record<string, unknown>;
+    if (record.kitKey === BROWSER_KIT_KEY_PLACEHOLDER) {
+      delete record.kitKey;
+    }
+
+    const config = record.config;
+    if (config && typeof config === "object" && !Array.isArray(config)) {
+      const configRecord = config as Record<string, unknown>;
+      if (configRecord.kitKey === BROWSER_KIT_KEY_PLACEHOLDER) {
+        delete configRecord.kitKey;
+      }
+    }
+
+    return JSON.stringify(record);
+  } catch {
+    return rawBody;
+  }
 }
 
 function getErrorCauseCode(error: unknown) {
@@ -46,8 +81,16 @@ function getErrorCauseCode(error: unknown) {
 
 function isRetryableNodeFetchError(error: unknown) {
   const retryableCauseCodes = new Set([
+    "ECONNABORTED",
+    "ECONNREFUSED",
     "ECONNRESET",
+    "EAI_AGAIN",
+    "ENOTFOUND",
+    "EPIPE",
     "ETIMEDOUT",
+    "UND_ERR_BODY_TIMEOUT",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
     "UND_ERR_SOCKET",
     "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
   ]);
@@ -168,6 +211,17 @@ async function requestCircle(
         throw systemError;
       }
 
+      if (!allowInsecureLocalTls()) {
+        lastError = systemError;
+
+        if (attempt === circleRequestAttempts) {
+          throw systemError;
+        }
+
+        await wait(circleRetryDelayMs * attempt);
+        continue;
+      }
+
       try {
         return await requestCircleWithLocalTlsFallback(
           targetUrl,
@@ -221,7 +275,9 @@ async function proxyCircleRequest(request: NextRequest) {
     const response = await requestCircle(
       targetUrl,
       request.method,
-      request.method === "GET" ? undefined : await request.text(),
+      request.method === "GET"
+        ? undefined
+        : stripBrowserKitKeyPlaceholder(await request.text()),
       kitKey,
     );
 

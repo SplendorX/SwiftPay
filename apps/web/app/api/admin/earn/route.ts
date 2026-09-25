@@ -5,21 +5,13 @@ import { fetchAaveApy } from "@/lib/earn/aave-apy";
 import { earnConfig, earnModeBanner } from "@/lib/earn/config";
 import { bpsToPercentString, formatUnitsToDecimal } from "@/lib/earn/decimal";
 import { swiftPayVaultAbi, yieldStrategyAbi } from "@/lib/earn/abis";
+import { isAdminAuthorized } from "@/lib/admin-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnetTokens } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 
 export const runtime = "nodejs";
 
-function isAdminAuthorized(request: NextRequest) {
-  const secret = process.env.EARN_ADMIN_SECRET || process.env.CRON_SECRET;
-  if (!secret) {
-    return process.env.NODE_ENV !== "production";
-  }
-  const header = request.headers.get("authorization");
-  const query = request.nextUrl.searchParams.get("key");
-  return header === `Bearer ${secret}` || query === secret;
-}
 
 export async function GET(request: NextRequest) {
   if (!isAdminAuthorized(request)) {
@@ -28,8 +20,8 @@ export async function GET(request: NextRequest) {
 
   const banner = earnModeBanner();
   const client = createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
 
   let totalAssets = 0n;
@@ -98,7 +90,7 @@ export async function GET(request: NextRequest) {
 
   const apy = await fetchAaveApy({
     pool: earnConfig.aavePoolAddress,
-    asset: arcTestnetTokens.USDC.address as Address,
+    asset: arcTokens.USDC.address as Address,
     feeBps,
     mode: earnConfig.mode,
   });
@@ -141,7 +133,7 @@ export async function GET(request: NextRequest) {
     // DB optional for admin shell
   }
 
-  const decimals = arcTestnetTokens.USDC.decimals;
+  const decimals = arcTokens.USDC.decimals;
 
   return NextResponse.json({
     mode: earnConfig.mode,
@@ -178,8 +170,8 @@ export async function GET(request: NextRequest) {
       paused,
     },
     network: {
-      chainId: arcTestnet.id,
-      name: arcTestnet.name,
+      chainId: arcChain.id,
+      name: arcChain.name,
       explorer: earnConfig.explorerBase,
     },
     errors,

@@ -4,6 +4,7 @@ import {
   http,
   type Address,
   type Hash,
+  type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -14,8 +15,8 @@ import {
   swiftRecurepayExecutorAddress,
 } from "@/lib/contracts";
 import { buildAutopayExecutionId } from "@/lib/recurring-utils";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 
 function getOperatorPrivateKey() {
   return process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim() || null;
@@ -27,8 +28,8 @@ export function isRecurringOperatorConfigured() {
 
 export function createRecurringPublicClient() {
   return createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
 }
 
@@ -42,8 +43,8 @@ export function createRecurringArcClients() {
   const publicClient = createRecurringPublicClient();
   const walletClient = createWalletClient({
     account,
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
 
   return { account, publicClient, walletClient };
@@ -56,9 +57,8 @@ export function computeRecurringFeeUnits(amountUnits: bigint) {
 export type CircleAdapterSubmitInput = {
   amountUnits: bigint;
   executionId: string;
-  payer: Address;
-  recipient: Address;
-  tokenSymbol: ArcTokenSymbol;
+  /** The payer's on-chain mandate; it fixes the recipient, token and cap. */
+  mandateId: Hex;
 };
 
 export type CircleAdapterSubmitResult =
@@ -75,7 +75,7 @@ export async function circleAdapterSubmitPayment(
   input: CircleAdapterSubmitInput,
 ): Promise<CircleAdapterSubmitResult> {
   if (!swiftRecurepayExecutorAddress) {
-    return { error: "SwiftRecurepay executor is not configured.", ok: false };
+    return { error: "RecurePay executor is not configured.", ok: false };
   }
 
   const clients = createRecurringArcClients();
@@ -97,7 +97,6 @@ export async function circleAdapterSubmitPayment(
     };
   }
 
-  const tokenInfo = arcTestnetTokens[input.tokenSymbol];
   const executionKey = buildAutopayExecutionId(input.executionId);
   const alreadyConsumed = await clients.publicClient.readContract({
     abi: swiftRecurepayExecutorAbi,
@@ -114,13 +113,7 @@ export async function circleAdapterSubmitPayment(
     const hash = await clients.walletClient.writeContract({
       abi: swiftRecurepayExecutorAbi,
       address: swiftRecurepayExecutorAddress as Address,
-      args: [
-        executionKey,
-        tokenInfo.address,
-        input.payer,
-        input.recipient,
-        input.amountUnits,
-      ],
+      args: [executionKey, input.mandateId, input.amountUnits],
       functionName: "executeRecurringPayment",
     });
 
@@ -129,7 +122,7 @@ export async function circleAdapterSubmitPayment(
     const message =
       error instanceof Error ? error.message : "Autopay transaction failed.";
     const permanent =
-      /invalid recipient|invalid token|already executed|not operator/i.test(
+      /already executed|not operator|mandate ?inactive|mandate ?expired|exceeds ?mandate ?limit/i.test(
         message,
       );
     return { error: message, ok: false, permanent };
@@ -145,7 +138,7 @@ export async function circleAdapterReadBalanceAndAllowance(input: {
   }
 
   const publicClient = createRecurringPublicClient();
-  const tokenInfo = arcTestnetTokens[input.tokenSymbol];
+  const tokenInfo = arcTokens[input.tokenSymbol];
   const [balance, allowance] = await Promise.all([
     publicClient.readContract({
       abi: erc20Abi,

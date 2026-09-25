@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ArrowRight, Clock, Plus, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { shortAddress } from "@/lib/activity/merge";
+import { useWalletUsernames } from "@/lib/activity/usernames";
 import { BusinessActivityRow } from "./business-activity-row";
 import type { BusinessActivityItem } from "./types";
 
@@ -11,6 +13,18 @@ type BusinessActivityCardProps = {
 };
 
 export function BusinessActivityCard({ activities }: BusinessActivityCardProps) {
+  const usernameFor = useWalletUsernames(activities.map((item) => item.counterparty));
+
+  // Show a SwiftPay counterparty by @username rather than their address.
+  function withUsername(item: BusinessActivityItem): BusinessActivityItem {
+    const username = usernameFor(item.counterparty);
+    if (!item.counterparty || !username) return item;
+    return {
+      ...item,
+      title: item.title.replace(shortAddress(item.counterparty), `@${username}`),
+    };
+  }
+
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-xs">
       <div>
@@ -25,7 +39,7 @@ export function BusinessActivityCard({ activities }: BusinessActivityCardProps) 
             </p>
           </div>
           <Link
-            href="/dashboard#history"
+            href="/activity"
             className="group flex items-center gap-1 text-xs font-semibold text-[#5B21B6] hover:text-[#4C1D95] dark:text-purple-400 dark:hover:text-purple-300 transition-colors shrink-0"
           >
             <span>View all</span>
@@ -46,7 +60,7 @@ export function BusinessActivityCard({ activities }: BusinessActivityCardProps) 
               </p>
               <div className="flex items-center gap-2 mt-4">
                 <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-                  <Link href="/dashboard#send">
+                  <Link href="/send">
                     <Send className="h-3 w-3 mr-1" />
                     Send Payment
                   </Link>
@@ -61,7 +75,7 @@ export function BusinessActivityCard({ activities }: BusinessActivityCardProps) 
             </div>
           ) : (
             activities.map((item) => (
-              <BusinessActivityRow key={item.id} activity={item} />
+              <BusinessActivityRow key={item.id} activity={withUsername(item)} />
             ))
           )}
         </div>

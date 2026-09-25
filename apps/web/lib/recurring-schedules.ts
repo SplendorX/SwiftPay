@@ -53,7 +53,7 @@ async function parseResponse<T>(response: Response) {
     | null;
 
   if (!response.ok) {
-    throw new Error(payload?.message ?? "SwiftRecurepay request failed.");
+    throw new Error(payload?.message ?? "RecurePay request failed.");
   }
 
   return payload as T;

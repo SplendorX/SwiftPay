@@ -1,5 +1,5 @@
 /**
- * Pure unit tests for Swift+Save money math (no server deps).
+ * Pure unit tests for Save money math (no server deps).
  * Run: node --test lib/save/__tests__/decimal-target.test.mjs
  */
 import assert from "node:assert/strict";

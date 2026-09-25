@@ -1,5 +1,7 @@
 import {
+  createPublicClient,
   encodeFunctionData,
+  http,
   erc20Abi as viemErc20Abi,
   maxUint256,
   zeroAddress,
@@ -14,6 +16,7 @@ import {
   getSwiftPaySendAddress,
   swiftPaySendAbi,
 } from "@/lib/contracts";
+import { arcChain } from "@/lib/chains";
 import { callCircleWalletApi } from "@/lib/circle-session";
 
 type ExternalWrite = (args: {
@@ -129,6 +132,44 @@ async function resolveSendRouter(override?: string): Promise<Address> {
   );
 }
 
+/** Arc client for confirming external-wallet transactions. */
+let arcClient: ReturnType<typeof createPublicClient> | null = null;
+
+function arcReceiptClient(chainId: number) {
+  if (chainId !== arcChain.id) return null;
+  arcClient ??= createPublicClient({ chain: arcChain, transport: http() });
+  return arcClient;
+}
+
+/**
+ * Wait until a transaction is mined and fail loudly if it reverted. A wallet
+ * returns a hash as soon as it broadcasts, so a hash alone does not mean the
+ * money moved.
+ */
+async function confirmOnChain(chainId: number, hash: Hash, what: "approval" | "payment") {
+  const client = arcReceiptClient(chainId);
+  if (!client) return;
+
+  let status: "success" | "reverted";
+  try {
+    ({ status } = await client.waitForTransactionReceipt({ hash, timeout: 90_000 }));
+  } catch {
+    throw new Error(
+      what === "payment"
+        ? "The payment is taking longer than usual to confirm. Check Activity before sending again, so it isn't paid twice."
+        : "The approval is taking longer than usual to confirm. Wait a moment, then try the payment again.",
+    );
+  }
+
+  if (status !== "success") {
+    throw new Error(
+      what === "payment"
+        ? "The payment failed on-chain, so nothing was sent. Only the network fee was used. Try again."
+        : "The approval failed on-chain, so the payment was not sent. Try again.",
+    );
+  }
+}
+
 export async function executeBundledSend(
   input: BundledSendInput,
 ): Promise<BundledSendResult> {
@@ -140,25 +181,33 @@ export async function executeBundledSend(
   let allowance: bigint | null = null;
   if (input.readAllowance) {
     try {
-      allowance = await input.readAllowance(router);
+      allowance = await Promise.race([
+        input.readAllowance(router),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6_000)),
+      ]);
     } catch {
       allowance = null;
     }
   }
-  const needsApproval = allowance !== null && allowance < total;
+  // An allowance we could not read is treated as missing. Guessing "enough"
+  // sends a payment the router cannot pull, which reverts on-chain after the
+  // wallet has already reported it as sent.
+  const needsApproval = allowance === null || allowance < total;
 
   async function approveRouter() {
     if (input.mode === "external") {
       if (!input.writeContractAsync) {
         throw new Error("Wallet writer is not available.");
       }
-      await input.writeContractAsync({
+      const approveHash = await input.writeContractAsync({
         address: input.token,
         abi: erc20Abi,
         functionName: "approve",
         args: [router, maxUint256],
         chainId: input.chainId,
       });
+      // The payment must not go out before the approval is mined.
+      await confirmOnChain(input.chainId, approveHash, "approval");
       return;
     }
 
@@ -181,90 +230,45 @@ export async function executeBundledSend(
       throw new Error("Wallet writer is not available.");
     }
 
-    try {
-      const hash = await input.writeContractAsync({
-        address: router,
-        abi: swiftPaySendAbi,
-        functionName: "send",
-        args: [
-          input.token,
-          input.recipient,
-          input.paymentUnits,
-          input.save?.vault ?? zeroAddress,
-          input.save?.pocketId ?? zeroHash,
-          saveAmount,
-        ],
-        chainId: input.chainId,
-      });
-      return { txHash: hash, bundledSave };
-    } catch (error) {
-      if (allowance !== null) {
-        throw error;
-      }
-      await approveRouter();
-      const hash = await input.writeContractAsync({
-        address: router,
-        abi: swiftPaySendAbi,
-        functionName: "send",
-        args: [
-          input.token,
-          input.recipient,
-          input.paymentUnits,
-          input.save?.vault ?? zeroAddress,
-          input.save?.pocketId ?? zeroHash,
-          saveAmount,
-        ],
-        chainId: input.chainId,
-      });
-      return { txHash: hash, bundledSave };
-    }
+    const hash = await input.writeContractAsync({
+      address: router,
+      abi: swiftPaySendAbi,
+      functionName: "send",
+      args: [
+        input.token,
+        input.recipient,
+        input.paymentUnits,
+        input.save?.vault ?? zeroAddress,
+        input.save?.pocketId ?? zeroHash,
+        saveAmount,
+      ],
+      chainId: input.chainId,
+    });
+    await confirmOnChain(input.chainId, hash, "payment");
+    return { txHash: hash, bundledSave };
   }
 
   if (!input.circleExecutor) {
     throw new Error("Circle wallet is not ready.");
   }
 
-  try {
-    const result = await input.circleExecutor.execute(
-      encodeRouterSend({
-        token: input.token,
-        recipient: input.recipient,
-        paymentUnits: input.paymentUnits,
-        vault: input.save?.vault ?? zeroAddress,
-        pocketId: input.save?.pocketId ?? zeroHash,
-        saveAmount,
-      }),
-      router,
-      "send-bundle",
-    );
-    return {
-      txHash: result.txHash as Hash | undefined,
-      transactionId: result.transactionId,
-      bundledSave,
-    };
-  } catch (error) {
-    if (allowance !== null) {
-      throw error;
-    }
-    await approveRouter();
-    const result = await input.circleExecutor.execute(
-      encodeRouterSend({
-        token: input.token,
-        recipient: input.recipient,
-        paymentUnits: input.paymentUnits,
-        vault: input.save?.vault ?? zeroAddress,
-        pocketId: input.save?.pocketId ?? zeroHash,
-        saveAmount,
-      }),
-      router,
-      "send-bundle",
-    );
-    return {
-      txHash: result.txHash as Hash | undefined,
-      transactionId: result.transactionId,
-      bundledSave,
-    };
-  }
+  const result = await input.circleExecutor.execute(
+    encodeRouterSend({
+      token: input.token,
+      recipient: input.recipient,
+      paymentUnits: input.paymentUnits,
+      vault: input.save?.vault ?? zeroAddress,
+      pocketId: input.save?.pocketId ?? zeroHash,
+      saveAmount,
+    }),
+    router,
+    "send-bundle",
+  );
+  return {
+    txHash: result.txHash as Hash | undefined,
+    transactionId: result.transactionId,
+    bundledSave,
+  };
 }
 
 export async function executeCircleContract(params: {

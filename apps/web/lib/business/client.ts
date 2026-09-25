@@ -5,6 +5,7 @@ import type {
   BusinessPaymentRequestRecord,
   BusinessProfileRecord,
   DirectoryHit,
+  PublicProfile,
   PaymentApprovalRecord,
   WorkspaceInvitationRecord,
   WorkspaceMemberRecord,
@@ -177,75 +178,6 @@ export async function fetchWorkspaceDetail(
   );
 }
 
-export async function fetchTeam(
-  ownerWallet: string,
-  workspaceId: string,
-  circleSocialUuid?: string,
-) {
-  return parseJson<{
-    invitations: WorkspaceInvitationRecord[];
-    members: Array<
-      WorkspaceMemberRecord & {
-        avatarUrl: string | null;
-        displayName: string | null;
-        username: string | null;
-      }
-    >;
-  }>(
-    await fetch(
-      withWallet(`/api/workspaces/${workspaceId}/team`, ownerWallet, {
-        circleSocialUuid,
-      }),
-      { cache: "no-store" },
-    ),
-  );
-}
-
-export async function inviteTeamMember(
-  ownerWallet: string,
-  workspaceId: string,
-  body: { role: string; username: string },
-  circleSocialUuid?: string,
-) {
-  return parseJson<{ invitation: WorkspaceInvitationRecord }>(
-    await fetch(`/api/workspaces/${workspaceId}/team`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    }),
-  );
-}
-
-export async function updateTeamMemberRole(
-  ownerWallet: string,
-  workspaceId: string,
-  body: { memberWallet: string; role: string },
-  circleSocialUuid?: string,
-) {
-  return parseJson<{ member: WorkspaceMemberRecord }>(
-    await fetch(`/api/workspaces/${workspaceId}/team`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
-      headers: { "Content-Type": "application/json" },
-      method: "PATCH",
-    }),
-  );
-}
-
-export async function removeTeamMember(
-  ownerWallet: string,
-  workspaceId: string,
-  memberWallet: string,
-  circleSocialUuid?: string,
-) {
-  return parseJson<{ ok: true }>(
-    await fetch(`/api/workspaces/${workspaceId}/team`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { memberWallet })),
-      headers: { "Content-Type": "application/json" },
-      method: "DELETE",
-    }),
-  );
-}
-
 export async function fetchPayments(
   ownerWallet: string,
   workspaceId: string,
@@ -390,6 +322,21 @@ export async function updateBusinessProfileClient(
   );
 }
 
+export async function fetchBusinessSettingsClient(
+  ownerWallet: string,
+  workspaceId: string,
+  circleSocialUuid?: string,
+) {
+  return parseJson<{ settings: WorkspaceSettingsRecord | null }>(
+    await fetch(
+      withWallet(`/api/workspaces/${workspaceId}/settings`, ownerWallet, {
+        circleSocialUuid,
+      }),
+      { cache: "no-store" },
+    ),
+  );
+}
+
 export async function updateBusinessSettingsClient(
   ownerWallet: string,
   workspaceId: string,
@@ -414,26 +361,9 @@ export async function searchPeople(query: string) {
 }
 
 export async function fetchDirectoryProfile(username: string) {
-  return parseJson<{ profile: DirectoryHit }>(
+  return parseJson<{ profile: PublicProfile }>(
     await fetch(`/api/directory/${encodeURIComponent(username)}`, {
       cache: "no-store",
-    }),
-  );
-}
-
-export async function respondToInvitation(
-  ownerWallet: string,
-  invitationId: string,
-  action: "accept" | "decline",
-  circleSocialUuid?: string,
-) {
-  return parseJson<{ ok: true }>(
-    await fetch("/api/workspaces/invitations", {
-      body: JSON.stringify(
-        authBody(ownerWallet, circleSocialUuid, { action, invitationId }),
-      ),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
     }),
   );
 }

@@ -42,7 +42,8 @@ import type {
   CirclePaymentMode,
   CirclePaymentRecipientRecord,
 } from "@/lib/swift-circle/types";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { processTransactionCashback } from "@/lib/referral/cashback-service";
 
 function isPaymentMode(value: unknown): value is CirclePaymentMode {
   return (
@@ -182,7 +183,7 @@ export async function createPaymentIntent(input: {
   idempotencyKey?: unknown;
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "PAYMENT", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "PAYMENT", wallet: input.actorWallet });
   const circle = await loadCircle(input.circleId);
   assertCircleActive(circle);
   assertNotFrozen(circle);
@@ -227,7 +228,7 @@ export async function createPaymentIntent(input: {
     throw circleErrors.riskBlocked(risk.reasons[0]);
   }
 
-  const token = arcTestnetTokens[circle.currency];
+  const token = arcTokens[circle.currency];
   const execution = buildCirclePayExecution({
     recipients,
     token: token.address,
@@ -372,7 +373,7 @@ async function assemblePaymentResponse(
       amount: row.amount,
       units: row.amount_units,
     }));
-  const token = arcTestnetTokens[loaded.asset];
+  const token = arcTokens[loaded.asset];
   const built =
     execution ??
     buildCirclePayExecution({
@@ -423,17 +424,19 @@ export async function getPaymentIntent(paymentId: string, actorWallet: string) {
 
 function readResultHash(results: unknown) {
   if (!Array.isArray(results)) return { txHash: null as string | null, transactionId: null as string | null };
+  let foundTxHash: string | null = null;
+  let foundTxId: string | null = null;
   for (const raw of results) {
     if (!raw || typeof raw !== "object") continue;
     const row = raw as { txHash?: unknown; transactionId?: unknown };
-    if (isValidTxHash(row.txHash)) {
-      return {
-        txHash: row.txHash,
-        transactionId: typeof row.transactionId === "string" ? row.transactionId : null,
-      };
+    if (!foundTxHash && isValidTxHash(row.txHash)) {
+      foundTxHash = row.txHash;
+    }
+    if (!foundTxId && typeof row.transactionId === "string" && row.transactionId.trim()) {
+      foundTxId = row.transactionId.trim();
     }
   }
-  return { txHash: null as string | null, transactionId: null as string | null };
+  return { txHash: foundTxHash, transactionId: foundTxId };
 }
 
 export async function submitPaymentExecution(input: {
@@ -454,7 +457,12 @@ export async function submitPaymentExecution(input: {
   if (!canTransitionPayment(intent.status, "executing") && intent.status !== "executing") {
     throw circleErrors.conflict("This payment cannot be submitted.");
   }
-  if (!Array.isArray(input.results) && !isValidTxHash(input.txHash)) {
+  if (
+    !Array.isArray(input.results) &&
+    !isValidTxHash(input.txHash) &&
+    (typeof input.transactionId !== "string" || !input.transactionId.trim()) &&
+    !intent.id
+  ) {
     throw circleErrors.invalid("Execution results are required.");
   }
 
@@ -478,17 +486,17 @@ export async function submitPaymentExecution(input: {
     const fromResults = readResultHash(input.results);
     const txHash = isValidTxHash(input.txHash) ? input.txHash : fromResults.txHash;
     const transactionId =
-      typeof input.transactionId === "string"
-        ? input.transactionId
-        : fromResults.transactionId;
-    if (!txHash) {
-      throw circleErrors.invalid("A SwiftBatch transaction hash is required.");
+      typeof input.transactionId === "string" && input.transactionId.trim()
+        ? input.transactionId.trim()
+        : fromResults.transactionId || (intent.id ? `circle-batch-${intent.id}` : null);
+    if (!txHash && !transactionId) {
+      throw circleErrors.invalid("A BatchPay transaction hash or transaction ID is required.");
     }
     await supabase
       .from(circleTables.paymentRecipients)
       .update({
-        tx_hash: txHash,
-        transaction_id: transactionId,
+        tx_hash: txHash ?? null,
+        transaction_id: transactionId ?? null,
         status: "submitted",
         updated_at: new Date().toISOString(),
       })
@@ -510,14 +518,18 @@ export async function submitPaymentExecution(input: {
           : "";
       const txHash = isValidTxHash(row.txHash) ? row.txHash : null;
       const transactionId =
-        typeof row.transactionId === "string" ? row.transactionId : null;
+        typeof row.transactionId === "string" && row.transactionId.trim()
+          ? row.transactionId.trim()
+          : typeof input.transactionId === "string" && input.transactionId.trim()
+            ? input.transactionId.trim()
+            : (intent.id ? `circle-send-${intent.id}` : null);
       if (!wallet) continue;
       await supabase
         .from(circleTables.paymentRecipients)
         .update({
           tx_hash: txHash,
           transaction_id: transactionId,
-          status: txHash ? "submitted" : "pending",
+          status: txHash || transactionId ? "submitted" : "pending",
           updated_at: new Date().toISOString(),
         })
         .eq("payment_intent_id", intent.id)
@@ -553,29 +565,67 @@ export async function submitPaymentExecution(input: {
     status: "submitted",
     extra: { executionMethod: rail, recipientCount: recipients.length },
   });
+
+  // Credit general transaction cashback server-side (>= 20 USDC/EURC earns SwiftPoints)
+  try {
+    const totalAmount = intent.total_amount ?? "0";
+    await processTransactionCashback({
+      walletAddress: input.actorWallet,
+      amount: totalAmount,
+      token: intent.asset,
+      transactionId: typeof input.transactionId === "string" ? input.transactionId : undefined,
+      txHash: typeof input.txHash === "string" ? input.txHash : undefined,
+    });
+  } catch (cashbackErr) {
+    console.warn("[CirclePay] Failed to process transaction cashback:", cashbackErr);
+  }
+
   return getPaymentIntent(intent.id, input.actorWallet);
 }
 
 export async function confirmPaymentFromWebhook(input: {
-  txHash: string;
+  txHash?: string | null;
   providerTransactionId?: string | null;
 }) {
   const supabase = circleDb();
-  const hash = input.txHash.toLowerCase();
-  const { data: matches } = await supabase
-    .from(circleTables.paymentRecipients)
-    .select("*")
-    .eq("tx_hash", hash);
+  const hash = input.txHash ? input.txHash.toLowerCase() : null;
+  let matches: CirclePaymentRecipientRecord[] | null = null;
+  if (hash) {
+    const { data } = await supabase
+      .from(circleTables.paymentRecipients)
+      .select("*")
+      .eq("tx_hash", hash);
+    matches = (data as CirclePaymentRecipientRecord[] | null) ?? null;
+  }
+  if ((!matches || matches.length === 0) && input.providerTransactionId) {
+    const { data } = await supabase
+      .from(circleTables.paymentRecipients)
+      .select("*")
+      .eq("transaction_id", input.providerTransactionId);
+    matches = (data as CirclePaymentRecipientRecord[] | null) ?? null;
+  }
   if (!matches || matches.length === 0) return null;
 
-  const { data: newlyConfirmed } = await supabase
-    .from(circleTables.paymentRecipients)
-    .update({
-      status: "confirmed",
-      transaction_id: input.providerTransactionId ?? matches[0].transaction_id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("tx_hash", hash)
+  const updateFilter = hash
+    ? supabase
+        .from(circleTables.paymentRecipients)
+        .update({
+          status: "confirmed",
+          transaction_id: input.providerTransactionId ?? matches[0].transaction_id,
+          tx_hash: hash,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tx_hash", hash)
+    : supabase
+        .from(circleTables.paymentRecipients)
+        .update({
+          status: "confirmed",
+          transaction_id: input.providerTransactionId ?? matches[0].transaction_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("transaction_id", input.providerTransactionId!);
+
+  const { data: newlyConfirmed } = await updateFilter
     .neq("status", "confirmed")
     .select("*");
 
@@ -610,8 +660,22 @@ export async function confirmPaymentFromWebhook(input: {
 
   if (!intent) return newlyConfirmed?.[0] ?? matches[0];
 
-  if (paymentStatus === "confirmed") {
+  if (paymentStatus === "confirmed" && hash) {
     await confirmLedgerEntry(`pay:${intent.idempotency_key}`, hash);
+  }
+
+  if (paymentStatus === "confirmed" && intent.sender_user_wallet && intent.total_amount) {
+    try {
+      await processTransactionCashback({
+        walletAddress: intent.sender_user_wallet,
+        amount: intent.total_amount,
+        token: intent.asset,
+        txHash: hash ?? undefined,
+        transactionId: input.providerTransactionId ?? undefined,
+      });
+    } catch (cashbackErr) {
+      console.warn("[CirclePay] Webhook cashback error:", cashbackErr);
+    }
   }
 
   if (newlyConfirmed && newlyConfirmed.length > 0) {
@@ -661,7 +725,7 @@ export async function confirmPaymentFromWebhook(input: {
         ownerWallet: row.recipient_user_wallet,
         kind: "circle_payment",
         title: "Circle payment received",
-        body: `You received ${row.amount} ${intent.asset} in SwiftCircle.`,
+        body: `You received ${row.amount} ${intent.asset} in Circle.`,
       });
     }
   }

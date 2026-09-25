@@ -2,6 +2,7 @@ import type { Messages } from "./en";
 
 export const ar: Messages = {
   common: {
+    backToDashboard: "العودة إلى لوحة التحكم",
     continue: "متابعة",
     back: "رجوع",
     search: "بحث",
@@ -67,6 +68,7 @@ export const ar: Messages = {
     earn: "عائد",
     batchPay: "BatchPay",
     recurePay: "RecurePay",
+    activity: "النشاط",
     settings: "الإعدادات",
   },
   pages: {
@@ -90,7 +92,7 @@ export const ar: Messages = {
     saveSubtitle: "جيوب ادخار بلا فائدة وSpend&Save",
     saveDetailSubtitle: "تفاصيل الجيب",
     earnTitle: "عائد",
-    earnSubtitle: "شغّل الـ USDC غير المستخدم.",
+    earnSubtitle: "شغّل الـ USDC غير المستخدم مع إبقاء أموالك متاحة.",
     batchTitle: "BatchPay",
     batchSubtitle: "تسوية جماعية للمؤسسات",
     recureTitle: "RecurePay",
@@ -101,9 +103,11 @@ export const ar: Messages = {
     businessProfileSubtitle: "الهوية العامة لعملك على SwiftPay",
   },
   settings: {
+    fullName: "الاسم الكامل",
+    fullNameHint: "يظهر في ملفك الشخصي وفي الشريط العلوي. يبقى @اسم_المستخدم هو الطريقة التي يدفع لك بها الآخرون.",
     appearanceTitle: "المظهر",
     appearanceBody:
-      "داكن أو فاتح أو حسب النظام. الوضع الفاتح يمكنه التبديل بين الكشمير والزجاج السائل.",
+      "داكن أو فاتح أو حسب النظام. الوضع الفاتح يمكنه التبديل بين الكشمير والأبيض.",
     theme: "السمة",
     lightSurface: "السطح الفاتح",
     languageTitle: "اللغة",
@@ -120,7 +124,7 @@ export const ar: Messages = {
     sessionsBody:
       "راجع الجلسات النشطة في هذا المتصفح، وأدر تسجيل الدخول بالمحفظة، واخرج من الأجهزة المشتركة.",
     alertsTitle: "التنبيهات",
-    alertsBody: "قواعد الإشعارات وساعات الهدوء ومسح الرسائل المقروءة.",
+    alertsBody: "كتم الإشعارات، وتحديد المقروء منها أو مسحه.",
     preferencesEyebrow: "الإعدادات",
     preferencesTitle: "تفضيلات الحساب",
     preferencesCopy:
@@ -130,8 +134,8 @@ export const ar: Messages = {
     system: "النظام",
     cashmere: "كشمير",
     cashmereBody: "ضوء رقّ دافئ، السطح الأصلي لـ SwiftPay.",
-    liquidGlass: "زجاج سائل",
-    liquidGlassBody: "صقيع أبيض وحواف لامعة وارتفاع زجاجي واضح.",
+    liquidGlass: "أبيض",
+    liquidGlassBody: "لوحات بيضاء مع ارتفاع صقيعي ناعم.",
     connectToSeeType: "اربط محفظة لعرض نوع الحساب.",
     accountType: "نوع الحساب",
     cannotRevert: "لا يمكن إرجاع حسابات الأعمال إلى شخصي.",
@@ -152,9 +156,12 @@ export const ar: Messages = {
     profileUpdated: "تم تحديث الملف.",
     enterBusinessName: "أدخل اسم العمل.",
     connectBeforeSave: "اربط محفظة قبل حفظ الملف.",
+    notifications: "الإشعارات",
+    muteAll: "كتم كل الإشعارات",
+    signedInWith: "تم تسجيل الدخول بواسطة",
     howPinged: "كيف تصلك التنبيهات",
     howPingedBody:
-      "هذه القواعد تغيّر الإشعارات وما تبرزه الجرس فقط. المال على السلسلة يصل كما هو.",
+      "الكتم يوقف التنبيهات المنبثقة وإبراز الجرس فقط. تصل المدفوعات على السلسلة كالمعتاد.",
     quietHoursOn: "ساعات الهدوء مفعّلة",
     liveToasts: "إشعارات فورية",
     liveToastsBody: "أظهر إشعاراً عند وصول مال أو مطالبة أو طلب.",
@@ -185,6 +192,7 @@ export const ar: Messages = {
     clearedRead: "تم مسح الإشعارات المقروءة",
   },
   onboarding: {
+    fullName: "الاسم الكامل",
     languageEyebrow: "مرحباً",
     languageTitle: "اختر لغتك",
     languageSubtitle: "الإنجليزية محددة. يمكنك تغيير ذلك لاحقاً.",
@@ -261,7 +269,7 @@ export const ar: Messages = {
       "أداء الخزينة وسياق الأرباح وضوابط الحفظ التلقائي للأرصدة المدعومة.",
     flowSwapTitle: "تبديل",
     flowSwapBody:
-      "بدّل أرصدة العملات المستقرة المدعومة عبر مسارات Circle على Arc Testnet.",
+      "بدّل أرصدة العملات المستقرة المدعومة عبر مسارات Circle على {network}.",
     flowBatchTitle: "تسوية جماعية",
     flowBatchBody: "رفع CSV والتحقق والتسوية لما يصل إلى 500 مستلم.",
     flowRequestTitle: "طلبات الدفع",
@@ -298,17 +306,17 @@ export const ar: Messages = {
     storyPayTitle: "أرسل مرة. تسوية فورية.",
     storyPayBody:
       "أرسل USDC أو EURC ببضع نقرات. يُحل المستلم من اسم مستخدم أو محفظة، وتبقى الرسوم ظاهرة، وتؤكد Arc فوراً.",
-    storyPayAlt: "شخص يرسل دفعة SwiftPay من جهاز MacBook",
+    storyPayAlt: "شخص يسترخي في السرير ويرسل دفعة عبر SwiftPay من حاسوبه المحمول",
     storyCircleKicker: "Circle",
     storyCircleTitle: "حرّك المال كمجموعة لا كورقة حساب.",
     storyCircleBody:
       "يحول Circle المجموعة إلى غرفة مال. قسّموا واطلبوا وادّخروا معاً والدردشة في نفس مكان الأموال.",
-    storyCircleAlt: "مجموعة تعمل معاً حول حواسيب محمولة على طاولة مشتركة",
+    storyCircleAlt: "مجموعة من الأصدقاء يقفون في صف، وكل منهم يدفع من هاتفه",
     storyRecureKicker: "RecurePay",
     storyRecureTitle: "اضبطه مرة. يستمر في الحركة.",
     storyRecureBody:
       "حوّل دفعة إلى جدول. حدّد التكرار ووقت البدء والانتهاء ثم أدِر كل تشغيل من RecurePay.",
-    storyRecureAlt: "شخص في السرير مع حاسوب محمول يجدول دفعة متكررة",
+    storyRecureAlt: "شخص نائم في السرير بجانب حاسوب محمول وقهوة، بينما تُنفَّذ مدفوعاته في موعدها",
     whyEyebrow: "لماذا SwiftPay",
     whyTitle: "مبني كالخدمات المالية. يُسوّى على السلسلة.",
     whyCopy:
@@ -355,10 +363,10 @@ export const ar: Messages = {
       "استخدم اللوحة لقيمة المحفظة وأرصدة الرموز والإرسال المباشر والمستفيدين والإيصالات والنشاط. لوحة الإرسال منظمة كتدفق دفع خطوة بخطوة.",
     faq2Q: "ما الصفحات المتاحة؟",
     faq2A:
-      "يشمل SwiftPay لوحة التحكم وSwift+Save والعائد والتبديل وBatchPay وRecurePay وطلبات الدفع وCircle والمستندات والإعدادات. تدفقات المنتج الرئيسية مرتبطة من قسم المنتج.",
-    faq3Q: "ما الفرق بين Swift+Save والعائد؟",
+      "يشمل SwiftPay لوحة التحكم وSave والعائد والتبديل وBatchPay وRecurePay وطلبات الدفع وCircle والمستندات والإعدادات. تدفقات المنتج الرئيسية مرتبطة من قسم المنتج.",
+    faq3Q: "ما الفرق بين Save والعائد؟",
     faq3A:
-      "ينشئ Swift+Save جيوب ادخار بلا فائدة وقواعد Spend&Save. العائد منفصل ويعرض أداء الخزينة وسياق الأرباح والحفظ التلقائي عند الدعم.",
+      "ينشئ Save جيوب ادخار بلا فائدة وقواعد Spend&Save. العائد منفصل ويعرض أداء الخزينة وسياق الأرباح والحفظ التلقائي عند الدعم.",
     faq4Q: "هل يمكنني الطلب أو الدفع الجماعي أو جدولة المدفوعات؟",
     faq4A:
       "نعم. الطلبات تنشئ روابط وQR، وBatchPay يعالج دفعات CSV حتى 500 مستلم، وRecurePay يدير الجداول، وCircle يشارك الدردشة والتقسيم والادخار.",
@@ -367,7 +375,7 @@ export const ar: Messages = {
       "سجّل الدخول بمحفظة Circle عبر Google أو اربط محفظة خارجية. تتيح الإعدادات تعديل الملف واسم المستخدم والصورة من الجهاز.",
     faq6Q: "ما الشبكة والأصول التي يستخدمها SwiftPay؟",
     faq6A:
-      "التطبيق مبني حول Arc Testnet مع غاز أصلي بـ USDC وتدفقات عملات مستقرة مثل USDC وEURC. تعرض المعاملات سياق ArcScan عند التوفر.",
+      "التطبيق مبني حول {network} مع غاز أصلي بـ USDC وتدفقات عملات مستقرة مثل USDC وEURC. تعرض المعاملات سياق ArcScan عند التوفر.",
     ctaEyebrow: "ابدأ",
     ctaTitle: "المال يتحرك بشكل أفضل مع SwiftPay.",
     ctaCopy:
@@ -390,7 +398,7 @@ export const ar: Messages = {
     footerBatch: "تسوية جماعية",
     footerLegal: "© 2026 SwiftPay. طبقة مدفوعات العملات المستقرة",
     showcaseSwapCopy:
-      "بدّل USDC وEURC على Arc Testnet عبر مسارات Circle.",
+      "بدّل USDC وEURC على {network} عبر مسارات Circle.",
     showcaseGetQuote: "احصل على عرض سعر",
     showcaseYouPay: "تدفع",
     showcaseYouReceive: "تستلم",
@@ -410,13 +418,13 @@ export const ar: Messages = {
     yourFunds: "أموالك جاهزة",
     businessBalance: "رصيد العمل",
     livePortfolio:
-      "محفظة مباشرة وأرصدة رموز ونشاط تسوية على Arc Testnet.",
+      "محفظة مباشرة وأرصدة رموز ونشاط تسوية على {network}.",
     sendPayment: "إرسال دفعة",
     requestPayment: "طلب دفعة",
     transactionReceipt: "إيصال المعاملة",
     sent: "مُرسل",
     received: "مستلم",
-    arcReceipt: "إيصال Arc Testnet",
+    arcReceipt: "إيصال {network}",
   },
   search: {
     peopleAndPages: "بحث عن أشخاص وصفحات",
@@ -450,7 +458,7 @@ export const ar: Messages = {
     copyUsername: "نسخ اسم المستخدم",
   },
   save: {
-    connectToUse: "اربط لاستخدام Swift+Save",
+    connectToUse: "اربط لاستخدام Save",
     connectToUseBody:
       "سجّل الدخول عبر Google أو محفظة خارجية لإنشاء جيوب ادخار.",
     nonInterest: "ادخار بلا فائدة",
@@ -461,8 +469,8 @@ export const ar: Messages = {
   },
   earn: {
     eyebrow: "SwiftPay Earn",
-    heading: "شغّل الـ USDC غير المستخدم.",
-    body: "اكسب عائداً متغيراً على USDC مع بقاء المال متاحاً. يأتي العائد من Aave عند وجود سوق حي، وليس من أرصدة وهمية.",
+    heading: "Earn",
+    body: "شغّل الـ USDC غير المستخدم مع إبقائه متاحاً لمدفوعاتك القادمة.",
     production: "إنتاج",
     convertBalances: "تحويل الأرصدة",
   },
@@ -497,9 +505,9 @@ export const ar: Messages = {
     body: "أرسل رمزاً واحداً إلى ما يصل إلى {count} مستلم برسوم منصة {fee}٪ في نفس استدعاء العقد.",
   },
   recure: {
-    eyebrow: "SwiftRecurepay",
+    eyebrow: "RecurePay",
     heading: "مدفوعات عملات مستقرة متكررة",
-    body: "جدول USDC وEURC على Arc Testnet. فوّض Autopay مرة واحدة (موافقة الرمز لمنفّذ SwiftRecurepay). بعد ذلك تعمل المدفوعات المستحقة في الخلفية. هذه الصفحة غير مطلوبة.",
+    body: "جدول USDC وEURC على {network}. فوّض Autopay مرة واحدة.",
     dueQueue: "قائمة المستحق",
     create: "إنشاء",
     schedules: "الجداول",

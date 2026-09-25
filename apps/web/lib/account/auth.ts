@@ -61,13 +61,92 @@ export async function requireAuthenticatedAccount(input: {
   return { account, actorWallet };
 }
 
+export type BusinessAccountAuthContext = {
+  account: AccountRecord;
+  actorWallet: string;
+  businessWallet: string;
+  role: "owner" | "admin" | "finance" | "member" | "viewer";
+  workspaceId: string | null;
+};
+
 export async function requireBusinessAccount(input: {
   circleSocialUuid?: unknown;
   ownerWallet: unknown;
-}) {
+  workspaceId?: unknown;
+}): Promise<BusinessAccountAuthContext> {
   const context = await requireAuthenticatedAccount(input);
+
+  // One account is either PERSONAL or BUSINESS
   if (context.account.account_type !== "BUSINESS") {
     throw accountErrors.businessRequired();
   }
-  return context;
+
+  return resolveBusinessAccount(context, input.workspaceId);
+}
+
+/**
+ * For callers that have already authenticated the wallet (ALLIE's chat route):
+ * the business context, or null when this is not a Business account.
+ */
+export async function loadBusinessAccount(
+  actorWallet: string,
+): Promise<BusinessAccountAuthContext | null> {
+  const account = await loadAccount(actorWallet);
+  if (!account || account.account_type !== "BUSINESS") return null;
+  return resolveBusinessAccount({ account, actorWallet });
+}
+
+/** Which wallet the business's records live under: its workspace's, if any. */
+async function resolveBusinessAccount(
+  context: { account: AccountRecord; actorWallet: string },
+  workspaceId?: unknown,
+): Promise<BusinessAccountAuthContext> {
+  const lowerActor = context.actorWallet.toLowerCase();
+  const input = { workspaceId };
+
+  // Check if user owns an active business workspace
+  try {
+    const { businessDb, businessTables } = await import("@/lib/business/db");
+    const supabase = businessDb();
+
+    let query = supabase
+      .from(businessTables.workspaces)
+      .select("id, kind, owner_user_wallet, payment_wallet, status, name")
+      .eq("owner_user_wallet", lowerActor)
+      .eq("kind", "business")
+      .eq("status", "active");
+
+    if (typeof input.workspaceId === "string" && input.workspaceId.trim()) {
+      query = query.eq("id", input.workspaceId.trim());
+    }
+
+    const { data: wsRows, error: wsErr } = await query;
+    if (!wsErr && wsRows && wsRows.length > 0) {
+      const activeWs = wsRows[0];
+      const businessWallet = (
+        activeWs.payment_wallet || activeWs.owner_user_wallet || lowerActor
+      ).toLowerCase();
+
+      const businessAccount =
+        (await loadAccount(businessWallet)) || context.account;
+
+      return {
+        account: businessAccount,
+        actorWallet: lowerActor,
+        businessWallet,
+        role: "owner",
+        workspaceId: activeWs.id,
+      };
+    }
+  } catch (err) {
+    console.warn("[requireBusinessAccount] workspace check failed:", err);
+  }
+
+  return {
+    account: context.account,
+    actorWallet: lowerActor,
+    businessWallet: lowerActor,
+    role: "owner",
+    workspaceId: null,
+  };
 }

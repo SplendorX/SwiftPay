@@ -3,6 +3,7 @@ import { businessDb, businessTables, readBusinessDbError } from "@/lib/business/
 import { businessErrors } from "@/lib/business/errors";
 import { parseApprovalPolicy } from "@/lib/business/policy";
 import { normalizeHandle, validateBusinessUsername } from "@/lib/business/usernames";
+import { businessVerificationStatus, readReviewStatus } from "@/lib/business/verification";
 import type {
   ApprovalTier,
   BusinessProfileRecord,
@@ -125,20 +126,37 @@ export async function updateBusinessProfile(input: {
 
   const currentProfile = await supabase
     .from(businessTables.profiles)
-    .select("description, logo_url, website")
+    .select("description, logo_url, website, category, contact_email, country, contact_phone")
     .eq("workspace_id", workspace.id)
     .maybeSingle();
 
-  const finalDesc = profileUpdates.description !== undefined ? profileUpdates.description : currentProfile.data?.description;
-  const finalLogo = profileUpdates.logo_url !== undefined ? profileUpdates.logo_url : currentProfile.data?.logo_url;
-  const finalWebsite = profileUpdates.website !== undefined ? profileUpdates.website : currentProfile.data?.website;
+  // The value after this save: the update where given, else what's stored.
+  const final = (key: string) => {
+    const value = key in profileUpdates ? profileUpdates[key] : (currentProfile.data as Record<string, unknown> | null)?.[key];
+    return typeof value === "string" ? value : null;
+  };
 
-  const isComplete = Boolean(
-    typeof finalDesc === "string" && finalDesc.trim() &&
-    typeof finalLogo === "string" && finalLogo.trim() &&
-    typeof finalWebsite === "string" && finalWebsite.trim()
+  // The review lives on the owner's business profile (Settings → Profile).
+  const ownerProfile = await supabase
+    .from("business_account_profiles")
+    .select("*")
+    .eq("wallet_address", workspace.owner_user_wallet.toLowerCase())
+    .maybeSingle();
+
+  // Complete profile + approved review — see verification.ts.
+  profileUpdates.verification_status = businessVerificationStatus(
+    {
+      businessName: typeof input.name === "string" && input.name.trim() ? input.name : workspace.name,
+      category: final("category"),
+      contactEmail: final("contact_email"),
+      country: final("country"),
+      description: final("description"),
+      logoUrl: final("logo_url"),
+      phone: final("contact_phone"),
+      website: final("website"),
+    },
+    readReviewStatus((ownerProfile.data as { review_status?: unknown } | null)?.review_status),
   );
-  profileUpdates.verification_status = isComplete ? "VERIFIED" : "UNVERIFIED";
 
   const profile = await supabase
     .from(businessTables.profiles)

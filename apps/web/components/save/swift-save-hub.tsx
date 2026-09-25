@@ -47,6 +47,7 @@ import { Button } from "@/components/ui/button";
 import { PagedActivityBox } from "@/components/ui/paged-activity-box";
 import { Progress } from "@/components/ui/progress";
 import {
+  currentCircleAuth,
   getCircleLoginIdentity,
   readCircleLogin,
   readCircleWallets,
@@ -91,10 +92,12 @@ import {
   type SavingsPocketRecord,
   type SavingsSummary,
   type SavingsTransactionRecord,
+  type SavingsTransactionStatus,
+  type SavingsTransactionType,
   type SpendSaveConfigRecord,
   type SpendSaveEventRecord,
 } from "@/lib/save/types";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import {
   fetchWalletSession,
   signInWalletSession,
@@ -104,12 +107,118 @@ import {
   extractCircleTxHash,
 } from "@/lib/circle-tx";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Something went wrong.";
+}
+
+type SavingsActivityFilter = "ALL" | "SPEND_SAVE" | "DEPOSIT" | "WITHDRAWAL";
+
+type SavingsActivityItem = {
+  amount: string;
+  createdAt: string;
+  currency: ArcTokenSymbol;
+  group: SavingsActivityFilter;
+  id: string;
+  pocketId: string | null;
+  /** Present only for Spend&Save, where the originating payment is known. */
+  spend?: {
+    paymentAmount: string;
+    paymentTxHash: string | null;
+    savePercentage: number;
+  };
+  status: SavingsTransactionStatus;
+  /** The ledger row, when one exists — carries the reverse-refund action. */
+  transaction?: SavingsTransactionRecord;
+  txHash: string | null;
+  typeLabel: string;
+};
+
+function activityGroup(type: SavingsTransactionType): SavingsActivityFilter {
+  if (type === "SPEND_SAVE") return "SPEND_SAVE";
+  if (type === "DEPOSIT") return "DEPOSIT";
+  if (type === "WITHDRAWAL") return "WITHDRAWAL";
+  return "ALL";
+}
+
+/**
+ * One activity feed from the two savings sources.
+ *
+ * Every Spend&Save has a ledger row *and* an event row describing the payment
+ * that triggered it, so listing both duplicated each save. The ledger is the
+ * spine — it covers deposits and withdrawals too, and carries the refund
+ * action — and each Spend&Save row is enriched with its event. An event whose
+ * ledger row has not landed yet is still included, so nothing disappears.
+ */
+function buildSavingsActivity(
+  transactions: SavingsTransactionRecord[],
+  spendEvents: SpendSaveEventRecord[],
+): SavingsActivityItem[] {
+  const eventByTransaction = new Map<string, SpendSaveEventRecord>();
+  for (const event of spendEvents) {
+    if (event.savings_transaction_id) {
+      eventByTransaction.set(event.savings_transaction_id, event);
+    }
+  }
+
+  const items: SavingsActivityItem[] = transactions.map((tx) => {
+    const event = eventByTransaction.get(tx.id);
+    return {
+      amount: tx.amount,
+      createdAt: tx.created_at,
+      currency: tx.currency,
+      group: activityGroup(tx.type),
+      id: `tx:${tx.id}`,
+      pocketId: tx.pocket_id,
+      status: tx.status,
+      transaction: tx,
+      txHash: tx.tx_hash,
+      typeLabel: tx.type.replace(/_/g, " "),
+      ...(event
+        ? {
+            spend: {
+              paymentAmount: event.payment_amount,
+              paymentTxHash: event.payment_tx_hash,
+              savePercentage: Number(event.save_percentage),
+            },
+          }
+        : {}),
+    };
+  });
+
+  const linked = new Set(
+    transactions.map((tx) => tx.id).filter((id) => eventByTransaction.has(id)),
+  );
+
+  for (const event of spendEvents) {
+    if (event.savings_transaction_id && linked.has(event.savings_transaction_id)) {
+      continue;
+    }
+    items.push({
+      amount: event.save_amount,
+      createdAt: event.created_at,
+      currency: event.currency,
+      group: "SPEND_SAVE",
+      id: `event:${event.id}`,
+      pocketId: event.pocket_id,
+      spend: {
+        paymentAmount: event.payment_amount,
+        paymentTxHash: event.payment_tx_hash,
+        savePercentage: Number(event.save_percentage),
+      },
+      status: event.status,
+      txHash: null,
+      typeLabel: "SPEND SAVE",
+    });
+  }
+
+  return items.sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 }
 
 export function SwiftSaveHub() {
@@ -130,6 +239,7 @@ export function SwiftSaveHub() {
   const circleSdkRef = useRef<W3SSdk | null>(null);
 
   const [authWallet, setAuthWallet] = useState<string | null>(null);
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [circleSocialUuid, setCircleSocialUuid] = useState<string | undefined>();
   const [circleLogin, setCircleLogin] = useState<CircleLoginResult | null>(null);
@@ -143,7 +253,32 @@ export function SwiftSaveHub() {
   );
   const [spendSave, setSpendSave] = useState<SpendSaveConfigRecord | null>(null);
   const [spendEvents, setSpendEvents] = useState<SpendSaveEventRecord[]>([]);
+  const [activityFilter, setActivityFilter] = useState<SavingsActivityFilter>(
+    "ALL",
+  );
   const [isLoading, setIsLoading] = useState(true);
+  const savingsActivity = useMemo(
+    () => buildSavingsActivity(transactions, spendEvents),
+    [spendEvents, transactions],
+  );
+  const activityCounts = useMemo(
+    () => ({
+      ALL: savingsActivity.length,
+      DEPOSIT: savingsActivity.filter((item) => item.group === "DEPOSIT").length,
+      SPEND_SAVE: savingsActivity.filter((item) => item.group === "SPEND_SAVE")
+        .length,
+      WITHDRAWAL: savingsActivity.filter((item) => item.group === "WITHDRAWAL")
+        .length,
+    }),
+    [savingsActivity],
+  );
+  const visibleActivity = useMemo(
+    () =>
+      activityFilter === "ALL"
+        ? savingsActivity
+        : savingsActivity.filter((item) => item.group === activityFilter),
+    [activityFilter, savingsActivity],
+  );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -165,7 +300,7 @@ export function SwiftSaveHub() {
   } | null>(null);
 
   const vault = swiftSaveVaultAddress();
-  const token = arcTestnetTokens[currency];
+  const token = arcTokens[currency];
   const walletAddress = address?.toLowerCase() ?? "";
 
   const { data: walletTokenBalance, refetch: refetchBalance } = useReadContract({
@@ -173,7 +308,7 @@ export function SwiftSaveHub() {
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     query: { enabled: Boolean(address) },
   });
 
@@ -185,7 +320,7 @@ export function SwiftSaveHub() {
       address && vault
         ? [address, vault]
         : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     query: { enabled: Boolean(address && vault) },
   });
 
@@ -202,6 +337,48 @@ export function SwiftSaveHub() {
     (Boolean(authWallet) &&
       Boolean(address) &&
       authWallet === address?.toLowerCase());
+
+  // A link such as ALLIE's "Open Save to deposit" carries the move in the URL:
+  // /save?intent=deposit&amount=5&pocket=Rent. The amount is held until the
+  // person opens that kind of move, and a pocket that can be identified
+  // (named, or the only one) opens straight away.
+  const [linkPrefill, setLinkPrefill] = useState<{
+    mode: "deposit" | "withdraw";
+    amount: string;
+    pocket: string;
+    opened: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const intent = params.get("intent") ?? params.get("action");
+    const amount = params.get("amount")?.trim() ?? "";
+    if (intent !== "deposit" && intent !== "withdraw") return;
+    setLinkPrefill({
+      mode: intent,
+      amount: /^\d+(\.\d+)?$/.test(amount) ? amount : "",
+      pocket: params.get("pocket")?.trim().toLowerCase() ?? "",
+      opened: false,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!linkPrefill || linkPrefill.opened || isLoading || !isWalletAuthenticated) {
+      return;
+    }
+    const open = pockets.filter((pocket) => pocket.status === "active");
+    const target = linkPrefill.pocket
+      ? open.find((pocket) => pocket.name.trim().toLowerCase() === linkPrefill.pocket)
+      : open.length === 1
+        ? open[0]
+        : undefined;
+    setLinkPrefill({ ...linkPrefill, opened: true });
+    if (!target) return;
+    if (linkPrefill.mode === "withdraw" && getPocketLockState(target).locked) return;
+    setActivePocket(target);
+    setAmountMode(linkPrefill.mode);
+    setActionError(null);
+  }, [isLoading, isWalletAuthenticated, linkPrefill, pockets]);
 
   const loadAll = useCallback(async () => {
     const owner = address;
@@ -245,6 +422,16 @@ export function SwiftSaveHub() {
 
   useEffect(() => {
     void loadAll();
+  }, [loadAll]);
+
+  useEffect(() => {
+    function handleSavingsUpdated() {
+      void loadAll();
+    }
+    window.addEventListener("swiftpay:savings-updated", handleSavingsUpdated);
+    return () => {
+      window.removeEventListener("swiftpay:savings-updated", handleSavingsUpdated);
+    };
   }, [loadAll]);
 
   // Circle embedded wallet session (for vault deposit/withdraw without external signer)
@@ -393,9 +580,9 @@ export function SwiftSaveHub() {
   ]);
 
   async function ensureArcNetwork() {
-    if (chainId === arcTestnet.id) return true;
+    if (chainId === arcChain.id) return true;
     try {
-      await switchChainAsync({ chainId: arcTestnet.id });
+      await switchChainAsync({ chainId: arcChain.id });
       return true;
     } catch (err) {
       setError(getErrorMessage(err));
@@ -418,7 +605,7 @@ export function SwiftSaveHub() {
           signMessageAsync({ message, account: address }),
       });
       setAuthWallet(address.toLowerCase());
-      setSuccess("Wallet authorized for Swift+Save.");
+      setSuccess("Wallet authorized for Save.");
       await loadAll();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -439,7 +626,7 @@ export function SwiftSaveHub() {
       abi: erc20Abi,
       functionName: "approve",
       args: [vault, maxUint256],
-      chainId: arcTestnet.id,
+      chainId: arcChain.id,
     });
     setPendingTxHash(hash);
     // Wait via receipt hook is async; for approve we poll simply via refetch after short wait
@@ -458,10 +645,7 @@ export function SwiftSaveHub() {
       login,
       walletId,
       executeChallenge: async (challengeId: string) => {
-        sdk.setAuthentication({
-          encryptionKey: login.encryptionKey,
-          userToken: login.userToken,
-        });
+        sdk.setAuthentication(currentCircleAuth(login));
         return new Promise<{ transactionId?: string; txHash?: string }>(
           (resolve, reject) => {
             sdk.execute(challengeId, (error, result) => {
@@ -558,7 +742,7 @@ export function SwiftSaveHub() {
               prepared.tokenAddress as Address,
               amountUnits,
             ],
-            chainId: arcTestnet.id,
+            chainId: arcChain.id,
           });
           setPendingTxHash(hash);
           setPendingConfirm({
@@ -619,7 +803,7 @@ export function SwiftSaveHub() {
               prepared.tokenAddress as Address,
               amountUnits,
             ],
-            chainId: arcTestnet.id,
+            chainId: arcChain.id,
           });
           setPendingTxHash(hash);
           setPendingConfirm({
@@ -649,7 +833,7 @@ export function SwiftSaveHub() {
         originalTransactionId: tx.id,
         circleSocialUuid,
         mode: isCircleMode ? "circle" : "external",
-        chainId: arcTestnet.id,
+        chainId: arcChain.id,
         writeContractAsync: isCircleMode
           ? undefined
           : async (args) =>
@@ -729,7 +913,7 @@ export function SwiftSaveHub() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-primary/10 via-background to-background p-6">
+      <div className="rounded-2xl border border-border/80 bg-card p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-xl space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
@@ -742,10 +926,22 @@ export function SwiftSaveHub() {
             <p className="text-sm text-muted-foreground sm:text-base">
               {t("save.body")}
             </p>
-            <p className="flex items-start gap-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {SWIFT_SAVE_DISCLAIMER}
-            </p>
+            <div className="text-xs text-muted-foreground">
+              <button
+                aria-expanded={disclaimerOpen}
+                aria-label="What Save is"
+                className="save-disclaimer-toggle"
+                onClick={() => setDisclaimerOpen((open) => !open)}
+                type="button"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+              {disclaimerOpen ? (
+                <p className="mt-2 max-w-xl leading-5">
+                  {SWIFT_SAVE_DISCLAIMER}
+                </p>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {!isWalletAuthenticated ? (
@@ -874,8 +1070,7 @@ export function SwiftSaveHub() {
       </div>
 
       {/* Spend&Save status card */}
-      <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/15 via-card to-card p-5 shadow-sm">
-        <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
+      <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-lg">
             <div className="flex flex-wrap items-center gap-2">
@@ -1161,94 +1356,102 @@ export function SwiftSaveHub() {
       </section>
 
       <PagedActivityBox
-        empty="No automatic savings yet. Activate Spend&Save and make an eligible payment."
-        items={spendEvents}
-        title="Spend&Save history"
-        renderItem={(event) => {
-          const pocket = pockets.find((item) => item.id === event.pocket_id);
+        activeFilter={activityFilter}
+        empty={
+          activityFilter === "ALL"
+            ? "Deposits, withdrawals, and Spend&Save transfers will appear here."
+            : "Nothing matches this filter yet."
+        }
+        filters={[
+          { count: activityCounts.ALL, id: "ALL", label: "All" },
+          {
+            count: activityCounts.SPEND_SAVE,
+            id: "SPEND_SAVE",
+            label: "Spend&Save",
+          },
+          { count: activityCounts.DEPOSIT, id: "DEPOSIT", label: "Deposits" },
+          {
+            count: activityCounts.WITHDRAWAL,
+            id: "WITHDRAWAL",
+            label: "Withdrawals",
+          },
+        ]}
+        items={visibleActivity}
+        onFilterChange={(id) => setActivityFilter(id as SavingsActivityFilter)}
+        title="Savings activity"
+        renderItem={(item) => {
+          const pocket = pockets.find((entry) => entry.id === item.pocketId);
+          const tx = item.transaction;
           return (
             <div
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
-              key={event.id}
+              key={item.id}
             >
-              <div>
+              <div className="min-w-0">
                 <p className="font-medium">
-                  {formatMoneyShort(event.payment_amount)} spent ·{" "}
-                  {formatMoneyShort(event.save_amount)} saved
+                  {item.spend
+                    ? `${formatMoneyShort(item.spend.paymentAmount)} spent · ${formatMoneyShort(item.amount)} saved`
+                    : `${item.typeLabel} · ${formatMoney(item.amount, item.currency)}`}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {Number(event.save_percentage)}% → {pocket?.name ?? "Pocket"} ·{" "}
-                  {event.status}
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <Badge
+                    variant={
+                      item.status === "COMPLETED" ? "default" : "secondary"
+                    }
+                  >
+                    {item.status}
+                  </Badge>
+                  {item.spend ? (
+                    <span>
+                      {item.spend.savePercentage}% → {pocket?.name ?? "Pocket"}
+                    </span>
+                  ) : pocket ? (
+                    <span>{pocket.name}</span>
+                  ) : null}
+                  <span>{new Date(item.createdAt).toLocaleString()}</span>
                 </p>
               </div>
-              {event.payment_tx_hash ? (
-                <a
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                  href={explorerTxUrl(event.payment_tx_hash)}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Payment tx
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : null}
+              <div className="flex shrink-0 items-center gap-2">
+                {item.spend?.paymentTxHash ? (
+                  <a
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    href={explorerTxUrl(item.spend.paymentTxHash)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Payment tx
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : null}
+                {item.txHash ? (
+                  <a
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    href={explorerTxUrl(item.txHash)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : null}
+                {tx &&
+                tx.type === "SPEND_SAVE" &&
+                tx.status === "COMPLETED" &&
+                isWalletAuthenticated ? (
+                  <Button
+                    disabled={isActing}
+                    onClick={() => void handleReverseSpendSave(tx)}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    Reverse refund
+                  </Button>
+                ) : null}
+              </div>
             </div>
           );
         }}
-      />
-
-      <PagedActivityBox
-        empty="Deposits, withdrawals, and Spend&Save transfers will appear here."
-        items={transactions}
-        title="Savings activity"
-        renderItem={(tx) => (
-          <div
-            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
-            key={tx.id}
-          >
-            <div>
-              <p className="font-medium">
-                {tx.type} · {formatMoney(tx.amount, tx.currency)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                <Badge
-                  variant={tx.status === "COMPLETED" ? "default" : "secondary"}
-                >
-                  {tx.status}
-                </Badge>
-                <span className="ml-2">
-                  {new Date(tx.created_at).toLocaleString()}
-                </span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {tx.tx_hash ? (
-                <a
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                  href={explorerTxUrl(tx.tx_hash)}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  View
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : null}
-              {tx.type === "SPEND_SAVE" &&
-              tx.status === "COMPLETED" &&
-              isWalletAuthenticated ? (
-                <Button
-                  disabled={isActing}
-                  onClick={() => void handleReverseSpendSave(tx)}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  Reverse refund
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        )}
       />
 
       <CreatePocketDialog
@@ -1280,6 +1483,9 @@ export function SwiftSaveHub() {
         <AmountConfirmDialog
           currency={activePocket.currency}
           error={actionError}
+          initialAmount={
+            linkPrefill?.mode === amountMode ? linkPrefill.amount : undefined
+          }
           isSubmitting={
             isActing || isWritePending || isConfirming || Boolean(pendingConfirm)
           }
@@ -1290,6 +1496,8 @@ export function SwiftSaveHub() {
               setAmountMode(null);
               setActivePocket(null);
               setActionError(null);
+              // The link's amount is used once.
+              setLinkPrefill(null);
             }
           }}
           open={Boolean(amountMode)}

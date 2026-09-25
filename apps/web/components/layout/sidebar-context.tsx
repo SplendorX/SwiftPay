@@ -12,24 +12,19 @@ import {
 
 type SidebarContextValue = {
   collapsed: boolean;
-  retracted: boolean;
   toggleCollapsed: () => void;
-  toggleRetracted: () => void;
 };
 
 const collapsedKey = "swiftpay.sidebar.collapsed";
-const retractedKey = "swiftpay.sidebar.retracted";
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [retracted, setRetracted] = useState(false);
 
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem(collapsedKey) === "1");
-      setRetracted(localStorage.getItem(retractedKey) === "1");
     } catch {
       /* ignore */
     }
@@ -47,26 +42,12 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const toggleRetracted = useCallback(() => {
-    setRetracted((current) => {
-      const next = !current;
-      try {
-        localStorage.setItem(retractedKey, next ? "1" : "0");
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }, []);
-
   const value = useMemo(
     () => ({
       collapsed,
-      retracted,
       toggleCollapsed,
-      toggleRetracted,
     }),
-    [collapsed, retracted, toggleCollapsed, toggleRetracted],
+    [collapsed, toggleCollapsed],
   );
 
   return (

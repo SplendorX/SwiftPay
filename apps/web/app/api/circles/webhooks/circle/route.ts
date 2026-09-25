@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
-  if (!verifyCircleWebhookSignature(rawBody, request)) {
+  if (!(await verifyCircleWebhookSignature(rawBody, request))) {
     return NextResponse.json({ message: "Unauthorized webhook." }, { status: 401 });
   }
   let payload: Record<string, unknown>;

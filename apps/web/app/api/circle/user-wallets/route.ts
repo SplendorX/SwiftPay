@@ -1,13 +1,25 @@
+import { arcCircleBlockchain } from "@/lib/chains";
 import { NextResponse } from "next/server";
+
+import {
+  createCircleWalletSession,
+  setWalletSessionCookies,
+} from "@/lib/circle-wallet-session";
 import { request as httpsRequest } from "node:https";
+import { allowInsecureLocalTls } from "@/lib/insecure-local-tls";
 
 const circleBaseUrl =
   process.env.CIRCLE_BASE_URL?.trim() ||
   process.env.NEXT_PUBLIC_CIRCLE_BASE_URL?.trim() ||
   "https://api.circle.com";
-const circleApiKey = process.env.CIRCLE_API_KEY;
+const circleApiKey =
+  process.env.CIRCLE_API_KEY ||
+  process.env.CIRCLE_DEVELOPER_CONTROLLED_API_KEY;
 
 export const runtime = "nodejs";
+
+const circleRequestAttempts = 3;
+const circleRetryDelayMs = 400;
 
 type CircleAction =
   | "createTransfer"
@@ -20,12 +32,15 @@ type CircleAction =
   | "getTokenBalance"
   | "initializeUser"
   | "listTransactions"
-  | "listWallets";
+  | "listWallets"
+  | "refreshUserToken"
+  | "signTypedData";
 
 type CircleActionBody = {
   action?: CircleAction;
   amount?: string;
   blockchain?: string;
+  blockchains?: string[];
   callData?: string;
   contractAddress?: string;
   destinationAddress?: string;
@@ -33,6 +48,8 @@ type CircleActionBody = {
   feeLevel?: "HIGH" | "LOW" | "MEDIUM";
   challengeId?: string;
   pageSize?: number;
+  data?: string;
+  memo?: string;
   refId?: string;
   tokenAddress?: string;
   tokenId?: string;
@@ -40,6 +57,7 @@ type CircleActionBody = {
   id?: string;
   txHash?: string;
   txType?: "INBOUND" | "OUTBOUND";
+  refreshToken?: string;
   userToken?: string;
   walletId?: string;
   walletIds?: string[];
@@ -117,6 +135,20 @@ function getRequestFailureReason(error: unknown) {
   return "unknown request error";
 }
 
+const retryableCauseCodes = new Set([
+  "ECONNABORTED",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "EPIPE",
+  "ETIMEDOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
 function isRetryableNetworkError(error: unknown) {
   if (!(error instanceof Error)) {
     return false;
@@ -130,11 +162,7 @@ function isRetryableNetworkError(error: unknown) {
       ? String(error.cause.code)
       : "";
 
-  return (
-    message.includes("socket hang up") ||
-    causeCode === "ECONNRESET" ||
-    causeCode === "ETIMEDOUT"
-  );
+  return message.includes("socket hang up") || retryableCauseCodes.has(causeCode);
 }
 
 function wait(milliseconds: number) {
@@ -233,7 +261,7 @@ async function requestCircleApi(
     try {
       return await requestCircleWithSystemTls(targetUrl, options);
     } catch (error) {
-      if (!isNodeCertificateError(error)) {
+      if (!isNodeCertificateError(error) || !allowInsecureLocalTls()) {
         throw error;
       }
 
@@ -241,16 +269,25 @@ async function requestCircleApi(
     }
   }
 
-  try {
-    return await requestWithLocalFallback();
-  } catch (error) {
-    if (isRetryableNetworkError(error)) {
-      await wait(300);
-      return requestWithLocalFallback();
-    }
+  // Every mutating body reaching this point already carries a fixed
+  // idempotencyKey, so Circle de-duplicates anything a retry re-sends.
+  let lastError: unknown;
 
-    throw error;
+  for (let attempt = 1; attempt <= circleRequestAttempts; attempt += 1) {
+    try {
+      return await requestWithLocalFallback();
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableNetworkError(error) || attempt === circleRequestAttempts) {
+        throw error;
+      }
+
+      await wait(circleRetryDelayMs * attempt);
+    }
   }
+
+  throw lastError;
 }
 
 async function requestCircle(
@@ -267,6 +304,7 @@ async function requestCircle(
 
   try {
     const response = await requestCircleApi(new URL(path, circleBaseUrl), options);
+    console.log(`[Circle ${options.method} ${path}] status:`, response.status, JSON.stringify(response.body));
 
     return NextResponse.json(response.body, { status: response.status });
   } catch (error) {
@@ -275,15 +313,16 @@ async function requestCircle(
 
     return NextResponse.json(
       {
-        message:
-          `Circle user wallet service could not be reached: ${reason}. Check CIRCLE_API_KEY, CIRCLE_BASE_URL, and local network access.`,
+        message: isRetryableNetworkError(error)
+          ? `Circle user wallet service did not respond after ${circleRequestAttempts} attempts: ${reason}. This is usually a temporary network issue — wait a moment and try again.`
+          : `Circle user wallet service could not be reached: ${reason}. Check CIRCLE_API_KEY, CIRCLE_BASE_URL, and local network access.`,
       },
       { status: 502 },
     );
   }
 }
 
-export async function POST(request: Request) {
+async function handleCircleAction(request: Request) {
   let body: CircleActionBody;
 
   try {
@@ -303,6 +342,30 @@ export async function POST(request: Request) {
   }
 
   switch (body.action) {
+    // Google (social) logins expire after about an hour; Circle trades the
+    // login's refresh token for a new user token without a new sign-in.
+    case "refreshUserToken": {
+      if (!body.userToken) {
+        return missingParameter("userToken");
+      }
+      if (typeof body.refreshToken !== "string" || !body.refreshToken) {
+        return missingParameter("refreshToken");
+      }
+      if (!body.deviceId) {
+        return missingParameter("deviceId");
+      }
+
+      return requestCircle("/v1/w3s/users/token/refresh", {
+        body: {
+          deviceId: body.deviceId,
+          idempotencyKey: crypto.randomUUID(),
+          refreshToken: body.refreshToken,
+        },
+        method: "POST",
+        userToken: body.userToken,
+      });
+    }
+
     case "getEntityConfig": {
       return requestCircle("/v1/w3s/config/entity", {
         method: "GET",
@@ -331,7 +394,7 @@ export async function POST(request: Request) {
       return requestCircle("/v1/w3s/user/initialize", {
         body: {
           accountType: "SCA",
-          blockchains: ["ARC-TESTNET"],
+          blockchains: [arcCircleBlockchain],
           idempotencyKey: crypto.randomUUID(),
         },
         method: "POST",
@@ -344,19 +407,26 @@ export async function POST(request: Request) {
         return missingParameter("userToken");
       }
 
+      const requestedBlockchain =
+        typeof body.blockchain === "string" && body.blockchain.trim()
+          ? body.blockchain.trim().toUpperCase()
+          : arcCircleBlockchain;
+
       return requestCircle("/v1/w3s/user/wallets", {
         body: {
           accountType: "SCA",
-          blockchains: ["ARC-TESTNET"],
+          blockchains: [requestedBlockchain],
           idempotencyKey: crypto.randomUUID(),
-          metadata: {
-            name:
-              typeof body.walletName === "string" && body.walletName.trim()
-                ? body.walletName.trim().slice(0, 80)
-                : "Business",
-            refId:
-              typeof body.refId === "string" ? body.refId.slice(0, 120) : undefined,
-          },
+          metadata: [
+            {
+              name:
+                typeof body.walletName === "string" && body.walletName.trim()
+                  ? body.walletName.trim().slice(0, 80)
+                  : requestedBlockchain,
+              refId:
+                typeof body.refId === "string" ? body.refId.slice(0, 120) : undefined,
+            },
+          ],
         },
         method: "POST",
         userToken: body.userToken,
@@ -529,10 +599,80 @@ export async function POST(request: Request) {
       });
     }
 
+    case "signTypedData": {
+      if (!body.userToken) {
+        return missingParameter("userToken");
+      }
+
+      if (!body.walletId) {
+        return missingParameter("walletId");
+      }
+
+      if (!body.data) {
+        return missingParameter("data");
+      }
+
+      // EIP-712 signing for user-controlled wallets. The vault router takes a
+      // time-boxed signed authorization, so Earn needs this alongside
+      // contract execution.
+      return requestCircle("/v1/w3s/user/sign/typedData", {
+        body: {
+          data: body.data,
+          memo: body.memo,
+          walletId: body.walletId,
+        },
+        method: "POST",
+        userToken: body.userToken,
+      });
+    }
+
     default:
       return NextResponse.json(
         { message: "Unknown Circle wallet action." },
         { status: 400 },
       );
   }
+}
+
+/**
+ * Actions that open the PIN prompt for a payment. Each one also renews the
+ * signed wallet session from the same Circle token, so the bookkeeping calls
+ * made after the payment (request paid, Spend&Save, activity, cashback) are
+ * authorized by the session rather than by a Circle identity string.
+ */
+const sessionRenewingActions = new Set<CircleAction>([
+  "createContractExecution",
+  "createTransfer",
+  "signTypedData",
+]);
+
+export async function POST(request: Request) {
+  let peek: CircleActionBody | null = null;
+  try {
+    peek = (await request.clone().json()) as CircleActionBody;
+  } catch {
+    // handleCircleAction reports the malformed body.
+  }
+
+  const userToken =
+    peek?.action && sessionRenewingActions.has(peek.action) && typeof peek.userToken === "string"
+      ? peek.userToken.trim()
+      : "";
+  // Runs alongside the Circle call; a failed renewal never blocks a payment.
+  const renewal = userToken
+    ? createCircleWalletSession(userToken).catch((error: unknown) => {
+        console.warn(
+          "[circle-wallet-session] renewal failed:",
+          error instanceof Error ? error.message : error,
+        );
+        return null;
+      })
+    : null;
+
+  const response = await handleCircleAction(request);
+  const issued = renewal ? await renewal : null;
+  if (issued && response.ok) {
+    await setWalletSessionCookies(response, issued.token);
+  }
+  return response;
 }

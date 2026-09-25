@@ -1,31 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { circleSessionEventName } from "@/lib/circle-session";
 import {
-  readPreferredWalletMode,
   resolvePlatformWalletMode,
   walletModeEventName,
-  writePreferredWalletMode,
-  type WalletMode,
+  type PlatformWalletMode,
 } from "@/lib/wallet-mode";
 
+/**
+ * The wallet this session runs on. One wallet per profile: it follows the
+ * sign-in (Google/email -> Circle wallet, otherwise the connected wallet), so
+ * the setter cannot pick the other one. It only re-reads the session, for
+ * pages that call it after a sign-in or sign-out.
+ */
 export function usePreferredWalletMode(
-  fallback: WalletMode = "circle",
-): [WalletMode, (mode: WalletMode | ((current: WalletMode) => WalletMode)) => void] {
-  const [mode, setMode] = useState<WalletMode>(() => {
-    if (typeof window === "undefined") {
-      return fallback;
-    }
-
-    return readPreferredWalletMode() ?? resolvePlatformWalletMode();
-  });
-  const persistChanges = useRef(false);
+  fallback: PlatformWalletMode = "circle",
+): [PlatformWalletMode, (mode: PlatformWalletMode | ((current: PlatformWalletMode) => PlatformWalletMode)) => void] {
+  // Start from the fallback on the server *and* the first browser render, so
+  // the two match; the effect below switches to the real mode right after.
+  // Reading storage here made the phone's first render differ from the
+  // server's (React #418), and BatchPay — the one page with an "external"
+  // fallback — failed to open for Google/email sign-ins.
+  const [mode, setMode] = useState<PlatformWalletMode>(fallback);
 
   useEffect(() => {
     function refresh() {
-      setMode(readPreferredWalletMode() ?? resolvePlatformWalletMode());
+      setMode(resolvePlatformWalletMode());
     }
 
     refresh();
@@ -40,21 +42,10 @@ export function usePreferredWalletMode(
     };
   }, []);
 
-  useEffect(() => {
-    if (!persistChanges.current) {
-      return;
-    }
-
-    persistChanges.current = false;
-    writePreferredWalletMode(mode);
-  }, [mode]);
-
   const setWalletMode = useCallback(
-    (next: WalletMode | ((current: WalletMode) => WalletMode)) => {
-      persistChanges.current = true;
-      setMode((current) =>
-        typeof next === "function" ? next(current) : next,
-      );
+    // The requested mode is ignored on purpose; see above.
+    (_next: PlatformWalletMode | ((current: PlatformWalletMode) => PlatformWalletMode)) => {
+      setMode(resolvePlatformWalletMode());
     },
     [],
   );

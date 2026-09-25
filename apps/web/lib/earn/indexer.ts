@@ -10,8 +10,8 @@ import {
 import { earnConfig } from "@/lib/earn/config";
 import { formatUnitsToDecimal } from "@/lib/earn/decimal";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnet } from "@/lib/wagmi";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
+import { arcTokens } from "@/lib/tokens";
 
 const depositEvent = parseAbiItem(
   "event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)",
@@ -30,8 +30,8 @@ const feeTable = process.env.SUPABASE_EARN_FEE_EVENTS_TABLE ?? "earn_fee_events"
 const cursorTable =
   process.env.SUPABASE_EARN_INDEX_CURSORS_TABLE ?? "earn_index_cursors";
 
-const USDC_DECIMALS = arcTestnetTokens.USDC.decimals;
-const CHAIN_ID = arcTestnet.id;
+const USDC_DECIMALS = arcTokens.USDC.decimals;
+const CHAIN_ID = arcChain.id;
 
 export type IndexResult = {
   fromBlock: bigint;
@@ -46,8 +46,8 @@ export type IndexResult = {
 
 function createClient() {
   return createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
 }
 

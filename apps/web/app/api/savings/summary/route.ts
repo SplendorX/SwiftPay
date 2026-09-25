@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     ownerWallet,
   });
   if (!canAccess) {
-    return jsonError("Authorize this wallet before loading Swift+Save.", 401);
+    return jsonError("Authorize this wallet before loading Save.", 401);
   }
 
   try {

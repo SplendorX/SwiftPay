@@ -69,6 +69,10 @@ export async function requireWorkspaceContext(input: {
     throw businessErrors.forbidden("This workspace is archived.");
   }
 
+  if (workspace.owner_user_wallet.toLowerCase() !== actorWallet.toLowerCase()) {
+    throw businessErrors.forbidden("You do not have access to this workspace.");
+  }
+
   const member = await loadMembership(workspace.id, actorWallet);
   assertPermission(member, input.permission);
 

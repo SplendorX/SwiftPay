@@ -2,64 +2,108 @@
 
 import { ArrowDownToLine, ArrowUpFromLine, TrendingUp } from "lucide-react";
 import Link from "next/link";
-import { useAccount, useReadContract } from "wagmi";
-import { usePlatformWallet } from "@/lib/use-platform-wallet";
+import { useCallback, useEffect, useState } from "react";
 
-import { earnConfig, isEarnDepositEnabled } from "@/lib/earn/config";
-import { swiftPayVaultAbi } from "@/lib/earn/abis";
-import { formatUsdDisplay } from "@/lib/earn/performance";
-import { formatUnitsToDecimal } from "@/lib/earn/decimal";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { browserPosition } from "@/lib/earn/browser";
+import { useEarnWallet } from "@/lib/earn/use-earn-wallet";
+import { formatUsdGrouped } from "@/lib/earn/display";
+import {
+  EARN_POSITION_EVENT,
+  EARN_SELECTION_EVENT,
+  readSelectedEarnVault,
+} from "@/lib/earn/selected-vault";
+import type { EarnPosition } from "@/lib/earn/types";
+import { formatUsdcDisplay, tryParseUsdc } from "@/lib/onchain-money";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
 
 type DashboardEarnSummaryProps = {
   /** Spendable USDC balance in base units (wallet). */
   availableUsdc?: bigint;
+  /** Mirrors the dashboard privacy toggle. */
+  hideBalance?: boolean;
 };
 
-function formatMoney(units: bigint | undefined, decimals = 6): string {
+function formatMoney(units: bigint | undefined): string {
   if (units === undefined) return "n/a";
-  return formatUsdDisplay(formatUnitsToDecimal(units, decimals));
+  return formatUsdcDisplay(units);
 }
 
 /**
- * Unified Available / Earn / Total strip for the main dashboard (#29).
+ * Unified Available / Earn / Total strip for the main dashboard.
+ * Earn values come from App Kit position data for the selected vault.
  */
 export function DashboardEarnSummary({
   availableUsdc,
+  hideBalance = false,
 }: DashboardEarnSummaryProps) {
-  const { address: wagmiAddress } = useAccount();
-  const {
-    address: platformAddress,
-    isBusinessWorkspace,
-    isConnected,
-  } = usePlatformWallet();
-  const address = platformAddress ?? (isBusinessWorkspace ? undefined : wagmiAddress);
-  const vault = earnConfig.vaultAddress;
-  const mode = earnConfig.mode;
-  const depositsEnabled = isEarnDepositEnabled(mode) && Boolean(vault);
-  const usdc = arcTestnetTokens.USDC;
+  const { address, isConnected } = usePlatformWallet();
+  const earnWallet = useEarnWallet();
+  const [vaultAddress, setVaultAddress] = useState<string | null>(null);
+  const [position, setPosition] = useState<EarnPosition | null>(null);
 
-  const { data: shareBalance } = useReadContract({
-    address: vault ?? undefined,
-    abi: swiftPayVaultAbi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: Boolean(address && vault) },
-  });
+  const refreshSelection = useCallback(() => {
+    setVaultAddress(readSelectedEarnVault());
+  }, []);
 
-  const { data: earnAssets } = useReadContract({
-    address: vault ?? undefined,
-    abi: swiftPayVaultAbi,
-    functionName: "convertToAssets",
-    args: shareBalance !== undefined ? [shareBalance as bigint] : undefined,
-    query: { enabled: Boolean(vault && shareBalance !== undefined) },
-  });
+  useEffect(() => {
+    refreshSelection();
+    window.addEventListener(EARN_SELECTION_EVENT, refreshSelection);
+    window.addEventListener("storage", refreshSelection);
+    return () => {
+      window.removeEventListener(EARN_SELECTION_EVENT, refreshSelection);
+      window.removeEventListener("storage", refreshSelection);
+    };
+  }, [refreshSelection]);
 
+  const loadPosition = useCallback(async () => {
+    // The position is read through the wallet's own adapter, so it needs a
+    // connected external wallet — the same one that would sign a deposit.
+    if (!address || !vaultAddress || !earnWallet.resolveProvider) {
+      setPosition(null);
+      return;
+    }
+    try {
+      const next = await browserPosition({
+        currentChainId: earnWallet.currentChainId,
+        resolveProvider: earnWallet.resolveProvider,
+        vaultAddress,
+      });
+      setPosition(next);
+    } catch {
+      setPosition(null);
+    }
+  }, [address, earnWallet.currentChainId, earnWallet.resolveProvider, vaultAddress]);
+
+  useEffect(() => {
+    void loadPosition();
+    window.addEventListener(EARN_POSITION_EVENT, loadPosition);
+    return () => {
+      window.removeEventListener(EARN_POSITION_EVENT, loadPosition);
+    };
+  }, [loadPosition]);
+
+  const earnUnits =
+    position?.currentBalance != null
+      ? tryParseUsdc(position.currentBalance)
+      : undefined;
+  const masked = "••••••";
+  const earnLabel = !isConnected
+    ? "n/a"
+    : hideBalance
+      ? masked
+      : formatUsdGrouped(position?.currentBalance) ?? "—";
+  const yieldLabel =
+    hideBalance
+      ? null
+      : position?.pnl?.status === "available" && position.pnl.totalYieldEarned
+        ? `+ ${formatUsdGrouped(position.pnl.totalYieldEarned)} earned`
+        : position?.pnl?.status === "pending"
+          ? "Reconciling…"
+          : null;
   const available = availableUsdc;
-  const earn = typeof earnAssets === "bigint" ? earnAssets : undefined;
   const total =
-    available !== undefined || earn !== undefined
-      ? (available ?? 0n) + (earn ?? 0n)
+    available !== undefined || earnUnits !== undefined
+      ? (available ?? 0n) + (earnUnits ?? 0n)
       : undefined;
 
   return (
@@ -71,40 +115,34 @@ export function DashboardEarnSummary({
             Unified balance
           </p>
         </div>
-        {mode === "simulation" && (
-          <span className="earn-pill earn-pill-warn">Simulation · not real yield</span>
-        )}
-        {mode === "unavailable" && (
-          <span className="earn-pill">Earn unavailable</span>
-        )}
       </div>
 
-      <div className="earn-dashboard-grid">
-        <div className="earn-dashboard-stat">
-          <p className="earn-stat-label">Available to spend</p>
-          <p className="earn-dashboard-value">
-            ${isConnected ? formatMoney(available, usdc.decimals) : "n/a"}
-          </p>
+      <dl className="earn-dashboard-stack">
+        <div className="earn-dashboard-row">
+          <dt>Available to spend</dt>
+          <dd>
+            {!isConnected ? "n/a" : hideBalance ? masked : `$${formatMoney(available)}`}
+          </dd>
         </div>
-        <div className="earn-dashboard-stat">
-          <p className="earn-stat-label">Earn</p>
-          <p className="earn-dashboard-value">
-            ${isConnected ? formatMoney(earn, usdc.decimals) : "n/a"}
-          </p>
+        <div className="earn-dashboard-row">
+          <dt>Earn</dt>
+          <dd>
+            {earnLabel}
+            {yieldLabel ? (
+              <span className="earn-dashboard-yield">{yieldLabel}</span>
+            ) : null}
+          </dd>
         </div>
-        <div className="earn-dashboard-stat earn-dashboard-stat-total">
-          <p className="earn-stat-label">Total</p>
-          <p className="earn-dashboard-value">
-            ${isConnected ? formatMoney(total, usdc.decimals) : "n/a"}
-          </p>
+        <div className="earn-dashboard-row earn-dashboard-row-total">
+          <dt>Total</dt>
+          <dd>
+            {!isConnected ? "n/a" : hideBalance ? masked : `$${formatMoney(total)}`}
+          </dd>
         </div>
-      </div>
+      </dl>
 
       <div className="earn-actions earn-dashboard-actions">
-        <Link
-          className={`earn-btn earn-btn-primary ${!depositsEnabled ? "pointer-events-none opacity-50" : ""}`}
-          href="/earn?action=deposit"
-        >
+        <Link className="earn-btn earn-btn-primary" href="/earn?action=deposit">
           <ArrowDownToLine className="h-4 w-4" />
           Move to Earn
         </Link>
@@ -115,8 +153,8 @@ export function DashboardEarnSummary({
       </div>
 
       <p className="earn-footnote">
-        One account. Spendable wallet USDC and Earn vault shares. Yield is
-        variable and not guaranteed.
+        Spendable wallet USDC stays in your wallet. Earn is a separate vault
+        position and is not moved automatically to fund payments.
       </p>
     </section>
   );

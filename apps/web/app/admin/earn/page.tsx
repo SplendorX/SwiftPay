@@ -78,7 +78,7 @@ export default function AdminEarnPage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/earn${key ? `?key=${encodeURIComponent(key)}` : ""}`,
+        "/api/admin/earn",
         {
           headers: key
             ? { Authorization: `Bearer ${key}` }

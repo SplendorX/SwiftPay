@@ -3,12 +3,16 @@
 import { AlertCircle, CheckCircle2, Loader2, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAddress, isAddress } from "viem";
+import {
+  useAccountModal,
+  useChainModal,
+  useConnectModal,
+} from "@rainbow-me/rainbowkit";
 import { useAccount } from "wagmi";
 
 import { Button } from "@/components/ui/button";
-import { openAppKit } from "@/lib/appkit";
 import { cn } from "@/lib/utils";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 
 type WalletConnectButtonProps = {
   className?: string;
@@ -37,24 +41,28 @@ export function WalletConnectButton({
   const [mounted, setMounted] = useState(false);
   const isConnecting = status === "connecting" || status === "reconnecting";
   const isWrongNetwork = Boolean(
-    isConnected && chainId && chainId !== arcTestnet.id,
+    isConnected && chainId && chainId !== arcChain.id,
   );
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const { openConnectModal: showConnectModal } = useConnectModal();
+  const { openAccountModal: showAccountModal } = useAccountModal();
+  const { openChainModal: showChainModal } = useChainModal();
+
   async function openConnectModal() {
     onConnectIntent?.();
-    await openAppKit({ view: "Connect" });
+    showConnectModal?.();
   }
 
   async function openAccountModal() {
-    await openAppKit({ view: "Account" });
+    showAccountModal?.();
   }
 
   async function openNetworkModal() {
-    await openAppKit({ view: "Networks" });
+    showChainModal?.();
   }
 
   const widthClass = fullWidth ? "w-full" : "";

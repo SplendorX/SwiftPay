@@ -43,6 +43,11 @@ export type BusinessAccountProfile = {
   verification_status: "UNVERIFIED" | "PENDING" | "VERIFIED";
   wallet_address: string;
   website: string | null;
+  /** Needs business-profile-details.sql; absent on older databases. */
+  year_founded?: number | null;
+  annual_volume?: string | null;
+  /** Needs business-verification-reviews.sql; absent on older databases. */
+  review_status?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 };
 
 export type InvoiceItemInput = {
@@ -94,6 +99,8 @@ export type InvoiceRecord = {
 
 export type InvoiceWithItems = InvoiceRecord & {
   items: InvoiceItemRecord[];
+  /** Set on create: whether the invoice was emailed to customer_email. */
+  email_delivery?: "sent" | "failed" | "not_configured" | null;
 };
 
 export type InvoiceSummary = {

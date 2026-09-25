@@ -5,25 +5,19 @@ import { processDueAutoSaveRules } from "@/lib/earn/auto-save";
 import { earnConfig } from "@/lib/earn/config";
 import { indexEarnVaultEvents } from "@/lib/earn/indexer";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcTestnetTokens } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 import type { Address } from "viem";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 
 const snapshotsTable =
   process.env.SUPABASE_EARN_APY_SNAPSHOTS_TABLE ?? "earn_apy_snapshots";
 
-function isAuthorized(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return process.env.NODE_ENV !== "production";
-  }
-  return request.headers.get("authorization") === `Bearer ${cronSecret}`;
-}
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ message: "Unauthorized cron request." }, { status: 401 });
   }
 
@@ -33,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const apy = await fetchAaveApy({
       pool: earnConfig.aavePoolAddress,
-      asset: arcTestnetTokens.USDC.address as Address,
+      asset: arcTokens.USDC.address as Address,
       feeBps: earnConfig.performanceFeeBps,
       mode: earnConfig.mode,
     });
@@ -42,7 +36,7 @@ export async function GET(request: NextRequest) {
       try {
         const supabase = createSupabaseAdminClient();
         await supabase.from(snapshotsTable).insert({
-          chain_id: arcTestnet.id,
+          chain_id: arcChain.id,
           strategy_address: earnConfig.strategyAddress.toLowerCase(),
           gross_apy_bps: apy.grossApyBps,
           net_apy_bps: apy.netApyBps,

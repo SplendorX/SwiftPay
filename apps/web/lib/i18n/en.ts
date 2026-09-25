@@ -1,5 +1,6 @@
 export const en = {
   common: {
+    backToDashboard: "Back to dashboard",
     continue: "Continue",
     back: "Back",
     search: "Search",
@@ -65,6 +66,7 @@ export const en = {
     earn: "Earn",
     batchPay: "BatchPay",
     recurePay: "RecurePay",
+    activity: "Activity",
     settings: "Settings",
   },
   pages: {
@@ -88,7 +90,7 @@ export const en = {
     saveSubtitle: "Non-interest savings pockets and Spend&Save",
     saveDetailSubtitle: "Pocket detail",
     earnTitle: "Earn",
-    earnSubtitle: "Put your idle USDC to work.",
+    earnSubtitle: "Put your idle USDC to work while keeping your funds accessible.",
     batchTitle: "BatchPay",
     batchSubtitle: "Enterprise batch settlement",
     recureTitle: "RecurePay",
@@ -99,9 +101,11 @@ export const en = {
     businessProfileSubtitle: "Public business branding on SwiftPay",
   },
   settings: {
+    fullName: "Full name",
+    fullNameHint: "Shown on your profile and in the top bar. Your @username stays the way people pay you.",
     appearanceTitle: "Appearance",
     appearanceBody:
-      "Dark, light, or system. Light mode can switch between cashmere and liquid glass.",
+      "Dark, light, or system. Light mode can switch between cashmere and white.",
     theme: "Theme",
     lightSurface: "Light surface",
     languageTitle: "Language",
@@ -118,7 +122,7 @@ export const en = {
     sessionsBody:
       "Review active sessions in this browser, manage wallet sign-in, and sign out from shared devices.",
     alertsTitle: "Alerts",
-    alertsBody: "Toast rules, quiet hours, and clearing read notification messages.",
+    alertsBody: "Mute notifications, and mark or clear the ones you've read.",
     preferencesEyebrow: "Settings",
     preferencesTitle: "Account preferences",
     preferencesCopy:
@@ -128,8 +132,8 @@ export const en = {
     system: "System",
     cashmere: "Cashmere",
     cashmereBody: "Warm parchment light, the original SwiftPay surface.",
-    liquidGlass: "Liquid Glass",
-    liquidGlassBody: "White frost, specular edges, and a clear-glass lift.",
+    liquidGlass: "White",
+    liquidGlassBody: "White boards with a soft frosted lift.",
     connectToSeeType: "Connect a wallet to see account type.",
     accountType: "Account type",
     cannotRevert: "Business accounts cannot be changed back to Personal.",
@@ -150,9 +154,12 @@ export const en = {
     profileUpdated: "Profile updated.",
     enterBusinessName: "Enter a business name.",
     connectBeforeSave: "Connect a wallet before saving your profile.",
+    notifications: "Notifications",
+    muteAll: "Mute all notifications",
+    signedInWith: "Signed in with",
     howPinged: "How you get pinged",
     howPingedBody:
-      "These rules only change toasts and what the bell highlights. On-chain money still arrives.",
+      "Muting only stops pop-up alerts and bell highlights. Payments still arrive on-chain.",
     quietHoursOn: "Quiet hours on",
     liveToasts: "Live toasts",
     liveToastsBody: "Pop a notice when money, a claim, or a request lands.",
@@ -183,6 +190,7 @@ export const en = {
     clearedRead: "Cleared read notifications",
   },
   onboarding: {
+    fullName: "Full name",
     languageEyebrow: "Welcome",
     languageTitle: "Choose your language",
     languageSubtitle:
@@ -262,7 +270,7 @@ export const en = {
       "Vault performance, earnings context, and Auto-Save controls for supported balances.",
     flowSwapTitle: "Swap",
     flowSwapBody:
-      "Swap supported stablecoin balances with Circle-powered routes on Arc Testnet.",
+      "Swap supported stablecoin balances with Circle-powered routes on {network}.",
     flowBatchTitle: "Batch settlement",
     flowBatchBody: "CSV upload, validation, and settlement for up to 500 recipients.",
     flowRequestTitle: "Payment requests",
@@ -299,17 +307,17 @@ export const en = {
     storyPayTitle: "Send once. Settle instantly.",
     storyPayBody:
       "Send USDC or EURC in a few taps. Recipients resolve from a username or a wallet, fees stay visible, and Arc confirms before the next breath.",
-    storyPayAlt: "Person sending a SwiftPay payment from a MacBook",
+    storyPayAlt: "Someone relaxing in bed, sending a SwiftPay payment from their laptop",
     storyCircleKicker: "Circle",
     storyCircleTitle: "Move money as a group, not a spreadsheet.",
     storyCircleBody:
       "Circle turns a group into a money room. Split, request, and save together while chat stays in the same place as the funds.",
-    storyCircleAlt: "A group working together around laptops at a shared table",
+    storyCircleAlt: "A group of friends standing in a row, each paying on their phone",
     storyRecureKicker: "RecurePay",
     storyRecureTitle: "Set it once. It keeps moving.",
     storyRecureBody:
       "Turn a payment into a schedule. Set frequency, start time, and end time, then manage every run from RecurePay.",
-    storyRecureAlt: "Person in bed with a laptop, scheduling a recurring payment",
+    storyRecureAlt: "Someone asleep in bed beside a laptop and coffee, while their payments run on schedule",
     whyEyebrow: "Why SwiftPay",
     whyTitle: "Built like fintech. Settles onchain.",
     whyCopy:
@@ -356,10 +364,10 @@ export const en = {
       "Use the dashboard for portfolio value, token balances, direct sends, beneficiaries, transaction receipts, and wallet activity. The send panel is organized as a step-by-step payment flow.",
     faq2Q: "Which pages are available?",
     faq2A:
-      "SwiftPay includes Dashboard, Swift+Save, Earn, Swap, BatchPay, RecurePay, Payment requests, Circle, Docs, and Settings. The main product workflows are linked directly from the product section.",
-    faq3Q: "How are Swift+Save and Earn different?",
+      "SwiftPay includes Dashboard, Save, Earn, Swap, BatchPay, RecurePay, Payment requests, Circle, Docs, and Settings. The main product workflows are linked directly from the product section.",
+    faq3Q: "How are Save and Earn different?",
     faq3A:
-      "Swift+Save creates non-interest savings pockets and Spend&Save rules. Earn is separate and shows vault performance, earnings context, and Auto-Save controls where supported.",
+      "Save creates non-interest savings pockets and Spend&Save rules. Earn is separate and shows vault performance, earnings context, and Auto-Save controls where supported.",
     faq4Q: "Can I request, batch, or schedule payments?",
     faq4A:
       "Yes. Payment requests create links and QR codes, BatchPay handles CSV payouts up to 500 recipients, RecurePay manages recurring schedules, and Circle groups share chat, splits, and savings.",
@@ -368,7 +376,7 @@ export const en = {
       "Sign in with a Circle Google wallet or connect an external wallet. Settings lets users edit their wallet profile, username, and profile photo from their local device.",
     faq6Q: "What network and assets does SwiftPay use?",
     faq6A:
-      "The app is built around Arc Testnet with USDC-native gas and stablecoin workflows such as USDC and EURC. Transactions expose ArcScan context where available.",
+      "The app is built around {network} with USDC-native gas and stablecoin workflows such as USDC and EURC. Transactions expose ArcScan context where available.",
     ctaEyebrow: "Get started",
     ctaTitle: "Money Moves Better With SwiftPay.",
     ctaCopy:
@@ -391,7 +399,7 @@ export const en = {
     footerBatch: "Batch settlement",
     footerLegal: "© 2026 SwiftPay. The stablecoin payment layer",
     showcaseSwapCopy:
-      "Exchange USDC and EURC on Arc Testnet with Circle-powered routes.",
+      "Exchange USDC and EURC on {network} with Circle-powered routes.",
     showcaseGetQuote: "Get quote",
     showcaseYouPay: "You pay",
     showcaseYouReceive: "You receive",
@@ -411,13 +419,13 @@ export const en = {
     yourFunds: "Your funds, ready",
     businessBalance: "Business balance",
     livePortfolio:
-      "Live portfolio, token balances, and settlement activity on Arc Testnet.",
+      "Live portfolio, token balances, and settlement activity on {network}.",
     sendPayment: "Send Payment",
     requestPayment: "Request Payment",
     transactionReceipt: "Transaction receipt",
     sent: "Sent",
     received: "Received",
-    arcReceipt: "Arc Testnet receipt",
+    arcReceipt: "{network} receipt",
   },
   search: {
     peopleAndPages: "Search people & pages",
@@ -451,7 +459,7 @@ export const en = {
     copyUsername: "Copy username",
   },
   save: {
-    connectToUse: "Connect to use Swift+Save",
+    connectToUse: "Connect to use Save",
     connectToUseBody:
       "Sign in with Google or an external wallet to create savings pockets.",
     nonInterest: "Non-interest savings",
@@ -462,15 +470,15 @@ export const en = {
   },
   earn: {
     eyebrow: "SwiftPay Earn",
-    heading: "Make your idle USDC work.",
-    body: "Earn variable yield on your USDC while keeping your money accessible. Yield comes from Aave when a live market is configured, never from fake balances.",
+    heading: "Earn",
+    body: "Put your idle USDC to work while keeping it available for your future payments.",
     production: "Production",
     convertBalances: "Convert balances",
   },
   swap: {
     eyebrow: "Swap",
     heading: "Convert balances",
-    body: "Choose the stablecoin pair, get a Circle quote, and execute the swap from the connected wallet. A 0.3% platform fee is included in the swap.",
+    body: "Choose the stablecoin pair, get a Circle quote, and execute the swap from the connected wallet. A 0.3% service fee is included in the swap.",
     dashboard: "Dashboard",
   },
   pay: {
@@ -495,12 +503,12 @@ export const en = {
   batch: {
     oneCall: "One-call payouts",
     heading: "Batch settlement",
-    body: "Send one token to up to {count} recipients with a {fee}% platform fee routed in the same contract call.",
+    body: "Send one token to up to {count} recipients with a {fee}% service fee routed in the same contract call.",
   },
   recure: {
-    eyebrow: "SwiftRecurepay",
+    eyebrow: "RecurePay",
     heading: "Recurring stablecoin payments",
-    body: "Schedule USDC and EURC on Arc Testnet. Authorize Autopay once (token approval to the SwiftRecurepay executor). After that, due payments run in the background. This page is not required.",
+    body: "Schedule USDC and EURC on {network}. Authorize Autopay once.",
     dueQueue: "Due queue",
     create: "Create",
     schedules: "Schedules",

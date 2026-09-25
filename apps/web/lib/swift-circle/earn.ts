@@ -112,7 +112,7 @@ export async function proposeEarnContribution(input: {
   idempotencyKey?: unknown;
   requestId?: string;
 }) {
-  consumeCircleRateLimit({ bucket: "EARN", wallet: input.actorWallet });
+  await consumeCircleRateLimit({ bucket: "EARN", wallet: input.actorWallet });
   const circle = await loadCircle(input.circleId);
   assertCircleActive(circle);
   assertNotFrozen(circle);

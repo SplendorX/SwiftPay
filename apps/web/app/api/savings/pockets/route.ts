@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         pocket,
         warning:
           lock.value?.kind === "fixed" && pocket.lock_kind !== "fixed"
-            ? "Pocket created, but fixed lock needs the latest Swift+Save SQL migration."
+            ? "Pocket created, but fixed lock needs the latest Save SQL migration."
             : undefined,
       },
       { status: 201 },

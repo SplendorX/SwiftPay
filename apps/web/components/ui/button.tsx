@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] hover:shadow-[0_8px_30px_rgba(91,33,182,0.28)]",
+          "sp-bubble bg-primary text-primary-foreground hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] hover:shadow-[0_8px_30px_rgba(91,33,182,0.28)]",
         outline:
           "border-[color:var(--border)] bg-transparent hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary:

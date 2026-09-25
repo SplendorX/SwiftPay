@@ -54,7 +54,7 @@ function readSupabaseError(error: { message?: string } | null) {
     return "Create recurring tables with packages/database/supabase/recurring-schedules.sql.";
   }
 
-  return message || "SwiftRecurepay could not save this schedule.";
+  return message || "RecurePay could not save this schedule.";
 }
 
 function normalizeText(value: unknown, maxLength: number) {

@@ -10,12 +10,12 @@ import {
 import { swiftSaveVaultAddress } from "@/lib/save/config";
 import { isValidTxHash } from "@/lib/save/validation";
 import { circleTreasuryAddress } from "@/lib/swift-circle/adapter";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 import { circleDb, circleTables, readCircleDbError } from "@/lib/swift-circle/db";
 import { circleErrors } from "@/lib/swift-circle/errors";
 import { logCircleEvent } from "@/lib/swift-circle/logging";
 import { parseUnits } from "@/lib/swift-circle/money";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 /** ERC-20 Transfer(address,address,uint256) topic. */
 export const ERC20_TRANSFER_TOPIC =
@@ -124,8 +124,8 @@ export function verifyDepositReceipt(input: {
 
 function createDepositPublicClient() {
   return createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0], { timeout: 8_000 }),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0], { timeout: 8_000 }),
   });
 }
 
@@ -167,7 +167,7 @@ export async function verifyTreasuryDeposit(input: {
     };
   }
   const tokenInfo =
-    input.asset === "EURC" ? arcTestnetTokens.EURC : arcTestnetTokens.USDC;
+    input.asset === "EURC" ? arcTokens.EURC : arcTokens.USDC;
   const receipt = await readArcReceipt(input.txHash, input.waitMs ?? 0);
   return verifyDepositReceipt({
     receipt,
@@ -295,7 +295,7 @@ export async function verifyContributionRow(input: {
     };
   }
   const tokenInfo =
-    input.asset === "EURC" ? arcTestnetTokens.EURC : arcTestnetTokens.USDC;
+    input.asset === "EURC" ? arcTokens.EURC : arcTokens.USDC;
   const receipt = await readArcReceipt(hash, input.waitMs ?? 0);
   return verifyDepositReceipt({
     receipt,

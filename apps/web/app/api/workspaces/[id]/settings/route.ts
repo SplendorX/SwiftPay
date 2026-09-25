@@ -8,11 +8,30 @@ import {
   readActor,
   readJsonBody,
 } from "@/lib/business/http";
+import { requireWorkspaceContext } from "@/lib/business/auth";
 import { updateWorkspaceSettings } from "@/lib/business/profile";
+import { loadBusinessDetail } from "@/lib/business/service";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  try {
+    const { id } = await context.params;
+    const { actorWallet, circleSocialUuid } = await readActor(request);
+    await requireWorkspaceContext({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      permission: "business.view",
+      workspaceId: id,
+    });
+    const detail = await loadBusinessDetail(id);
+    return jsonOk({ settings: detail.settings });
+  } catch (error) {
+    return jsonBusinessError(error);
+  }
+}
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {

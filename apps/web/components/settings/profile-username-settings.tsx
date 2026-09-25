@@ -163,6 +163,7 @@ export function ProfileUsernameSettings({
   const [activatedExternalProfile, setActivatedExternalProfile] = useState("");
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [usernameInput, setUsernameInput] = useState("");
+  const [fullNameInput, setFullNameInput] = useState("");
   const [avatarImageInput, setAvatarImageInput] = useState("");
   const [avatarFileName, setAvatarFileName] = useState("");
   const [avatarPreviewFailed, setAvatarPreviewFailed] = useState(false);
@@ -296,6 +297,7 @@ export function ProfileUsernameSettings({
         if (!cancelled && nextProfile) {
           setProfile(nextProfile);
           setUsernameInput(nextProfile.username);
+          setFullNameInput(nextProfile.display_name ?? "");
           setAvatarImageInput(nextProfile.avatar_url ?? "");
           setAvatarFileName("");
           setAvatarPreviewFailed(false);
@@ -338,6 +340,7 @@ export function ProfileUsernameSettings({
       ) {
         setProfile(updatedProfile);
         setUsernameInput(updatedProfile.username);
+        setFullNameInput(updatedProfile.display_name ?? "");
         setAvatarImageInput(updatedProfile.avatar_url ?? "");
         setAvatarFileName("");
         setAvatarPreviewFailed(false);
@@ -425,12 +428,14 @@ export function ProfileUsernameSettings({
       const updatedProfile = await updateProfileUsername({
         avatarUrl: avatarImageInput.trim() || null,
         circleSocialUuid: circleIdentity.socialUserUUID,
+        displayName: fullNameInput.trim() || null,
         username: usernameInput,
         walletAddress: activeWalletAddress,
       });
 
       setProfile(updatedProfile);
       setUsernameInput(updatedProfile.username);
+      setFullNameInput(updatedProfile.display_name ?? "");
       setAvatarImageInput(updatedProfile.avatar_url ?? "");
       setAvatarFileName("");
       setAvatarPreviewFailed(false);
@@ -456,6 +461,7 @@ export function ProfileUsernameSettings({
   const profileChanged = Boolean(
     profile &&
       (usernameInput !== profile.username ||
+        fullNameInput.trim() !== (profile.display_name ?? "") ||
         avatarImage !== (profile.avatar_url ?? "")),
   );
 
@@ -552,6 +558,32 @@ export function ProfileUsernameSettings({
                     : "Upload photo"}
               </label>
             </div>
+          </div>
+
+          <div>
+            <label
+              className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+              htmlFor="profile-full-name"
+            >
+              Full name
+            </label>
+            <Input
+              autoComplete="name"
+              className="mt-2 h-11"
+              id="profile-full-name"
+              maxLength={80}
+              onChange={(event) => {
+                setFullNameInput(event.target.value);
+                setError(null);
+                setSuccess(null);
+              }}
+              placeholder="Ada Lovelace"
+              value={fullNameInput}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Shown on your profile and in the top bar. Your handle stays the
+              way people pay you.
+            </p>
           </div>
 
           <div>

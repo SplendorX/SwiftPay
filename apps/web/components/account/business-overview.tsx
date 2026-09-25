@@ -15,8 +15,8 @@ import { fetchPayrollDashboard } from "@/lib/payroll/client";
 import type { PayrollDashboardSummary } from "@/lib/payroll/types";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { erc20Abi } from "@/lib/contracts";
-import { arcTestnetTokens } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 import type { WalletTransfer } from "@/lib/arcscan-history";
 import {
   callCircleWalletApi,
@@ -43,14 +43,15 @@ import {
 } from "@/components/business/overview/overview-data";
 
 const arcPublicClient = createPublicClient({
-  chain: arcTestnet,
-  transport: http(arcTestnet.rpcUrls.default.http[0]),
+  chain: arcChain,
+  transport: http(arcChain.rpcUrls.default.http[0]),
 });
 
 export function BusinessOverview() {
   const t = useT();
   const { account, circleSocialUuid, loading: accountLoading, ownerWallet, profile } = useAccountContext();
   const { address, circleSocialUuid: walletCircleUuid } = usePlatformWallet();
+  const isBusiness = account?.account_type === "BUSINESS";
 
   const effectiveSocialUuid = circleSocialUuid || walletCircleUuid;
   const activeWallet = (ownerWallet || address)?.toLowerCase() ?? null;
@@ -67,7 +68,8 @@ export function BusinessOverview() {
 
   // 1. Fetch live database records (Invoices & Payroll)
   useEffect(() => {
-    if (!activeWallet) {
+    setError(null);
+    if (!activeWallet || !isBusiness) {
       setLoadingData(false);
       return;
     }
@@ -103,7 +105,7 @@ export function BusinessOverview() {
     return () => {
       isMounted = false;
     };
-  }, [effectiveSocialUuid, activeWallet]);
+  }, [effectiveSocialUuid, activeWallet, isBusiness]);
 
   // 2. Fetch real on-chain transfer history from ArcScan for active business wallet
   const targetAddress = (address || ownerWallet) as `0x${string}` | undefined;
@@ -131,24 +133,24 @@ export function BusinessOverview() {
     };
   }, [targetAddress]);
 
-  // 3. Read real on-chain token balances on Arc Testnet
+  // 3. Read real on-chain token balances on the active Arc network
   const isAddressValid = Boolean(targetAddress && isAddress(targetAddress));
 
   const { data: rawUsdcBalance } = useReadContract({
-    address: arcTestnetTokens.USDC.address,
+    address: arcTokens.USDC.address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: isAddressValid ? [targetAddress!] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     query: { enabled: isAddressValid },
   });
 
   const { data: rawEurcBalance } = useReadContract({
-    address: arcTestnetTokens.EURC.address,
+    address: arcTokens.EURC.address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: isAddressValid ? [targetAddress!] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     query: { enabled: isAddressValid },
   });
 
@@ -166,13 +168,13 @@ export function BusinessOverview() {
       try {
         const [usdcBigInt, eurcBigInt] = await Promise.all([
           arcPublicClient.readContract({
-            address: arcTestnetTokens.USDC.address,
+            address: arcTokens.USDC.address,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [getAddress(targetAddress!)],
           }).catch(() => null),
           arcPublicClient.readContract({
-            address: arcTestnetTokens.EURC.address,
+            address: arcTokens.EURC.address,
             abi: erc20Abi,
             functionName: "balanceOf",
             args: [getAddress(targetAddress!)],
@@ -182,10 +184,10 @@ export function BusinessOverview() {
         if (!isMounted) return;
 
         if (typeof usdcBigInt === "bigint") {
-          setDirectUsdcBalance(parseFloat(formatUnits(usdcBigInt, arcTestnetTokens.USDC.decimals)) || 0);
+          setDirectUsdcBalance(parseFloat(formatUnits(usdcBigInt, arcTokens.USDC.decimals)) || 0);
         }
         if (typeof eurcBigInt === "bigint") {
-          setDirectEurcBalance(parseFloat(formatUnits(eurcBigInt, arcTestnetTokens.EURC.decimals)) || 0);
+          setDirectEurcBalance(parseFloat(formatUnits(eurcBigInt, arcTokens.EURC.decimals)) || 0);
         }
       } catch (err) {
         console.warn("Direct RPC balance check failed:", err);
@@ -233,7 +235,7 @@ export function BusinessOverview() {
 
   const usdcBalance = useMemo(() => {
     if (typeof rawUsdcBalance === "bigint") {
-      return parseFloat(formatUnits(rawUsdcBalance, arcTestnetTokens.USDC.decimals)) || 0;
+      return parseFloat(formatUnits(rawUsdcBalance, arcTokens.USDC.decimals)) || 0;
     }
     if (directUsdcBalance !== null) {
       return directUsdcBalance;
@@ -243,7 +245,7 @@ export function BusinessOverview() {
 
   const eurcBalance = useMemo(() => {
     if (typeof rawEurcBalance === "bigint") {
-      return parseFloat(formatUnits(rawEurcBalance, arcTestnetTokens.EURC.decimals)) || 0;
+      return parseFloat(formatUnits(rawEurcBalance, arcTokens.EURC.decimals)) || 0;
     }
     if (directEurcBalance !== null) {
       return directEurcBalance;
@@ -255,12 +257,12 @@ export function BusinessOverview() {
     return <BusinessOverviewSkeleton />;
   }
 
-  if (account && account.account_type !== "BUSINESS") {
+  if (!isBusiness) {
     return (
       <div className="section-panel p-8">
         <h2 className="font-heading text-2xl">{t("business.overview")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Overview is available after you upgrade this account to Business.
+          Business overview is exclusive to SwiftPay Business accounts. Upgrade this account to Business to unlock invoicing, payroll, and business analytics.
         </p>
         <Button asChild className="mt-5">
           <Link href="/settings#account-type">Upgrade to Business</Link>
@@ -270,7 +272,8 @@ export function BusinessOverview() {
   }
 
   const completion = profileCompletionPercent(profile);
-  const businessDisplayName = profile?.business_name || account?.username || "SwiftPay Business";
+  const businessDisplayName =
+    profile?.business_name || account?.username || "SwiftPay Business";
 
   // 4. Compute 100% REAL data models without dummy placeholders
   const {

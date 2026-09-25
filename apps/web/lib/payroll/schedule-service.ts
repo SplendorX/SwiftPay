@@ -134,3 +134,24 @@ export async function resumePayrollSchedule(accountId: string, id: string): Prom
   if (error) throw new Error(readPayrollDbError(error, "Could not resume schedule."));
   return data as PayrollScheduleRecord;
 }
+
+/**
+ * Removes a schedule for good. Runs it already drafted stay — the database
+ * sets their schedule link to null — so payroll history is never lost.
+ */
+export async function deletePayrollSchedule(accountId: string, id: string): Promise<void> {
+  const supabase = payrollDb();
+  const { data, error } = await supabase
+    .from(payrollTables.schedules)
+    .delete()
+    .eq("account_id", accountId.toLowerCase())
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    throw new Error(readPayrollDbError(error, "Could not delete the payroll schedule."));
+  }
+  if (!data || data.length === 0) {
+    throw payrollErrors.invalidState("That schedule was not found, or it belongs to another account.");
+  }
+}

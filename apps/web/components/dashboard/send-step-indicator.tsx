@@ -14,14 +14,24 @@ const steps = [
 type SendStepIndicatorProps = {
   activeStep: 1 | 2 | 3 | 4;
   className?: string;
+  /**
+   * Set once the payment has settled. Without it the final step can never
+   * read as done — `id < activeStep` is false for the last step by
+   * definition, so "Confirm" would keep showing its number after success.
+   */
+  isComplete?: boolean;
 };
 
-export function SendStepIndicator({ activeStep, className }: SendStepIndicatorProps) {
+export function SendStepIndicator({
+  activeStep,
+  className,
+  isComplete = false,
+}: SendStepIndicatorProps) {
   return (
     <div className={cn("send-steps", className)}>
       {steps.map((step) => {
-        const isActive = step.id === activeStep;
-        const isDone = step.id < activeStep;
+        const isDone = isComplete || step.id < activeStep;
+        const isActive = step.id === activeStep && !isDone;
 
         return (
           <div

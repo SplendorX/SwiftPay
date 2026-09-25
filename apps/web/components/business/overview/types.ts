@@ -67,6 +67,8 @@ export type BusinessActivityItem = {
   dateFormatted: string;
   category: BusinessActivityCategory;
   txHash?: string;
+  /** Wallet on the other side of an on-chain transfer. */
+  counterparty?: string;
 };
 
 export type BusinessInsightItemData = {

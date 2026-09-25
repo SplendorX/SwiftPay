@@ -1,43 +1,64 @@
 "use client";
 
+import { arcChain } from "@/lib/chains";
 import { useState } from "react";
 import { AtSign, Check, Loader2, UserRound, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StyledSelect } from "@/components/ui/styled-select";
+import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { createTeamMemberClient } from "@/lib/payroll/client";
 import type { MemberType, PaymentDestinationType, PaymentFrequency, TeamMemberRecord } from "@/lib/payroll/types";
+
+/** What ALLIE already knows about the new member; the form starts from it. */
+export type TeamMemberPrefill = {
+  fullName?: string;
+  role?: string;
+  memberType?: MemberType;
+  swiftpayUsername?: string;
+  walletAddress?: string;
+  amount?: string;
+  frequency?: PaymentFrequency;
+};
 
 export function AddTeamMemberModal({
   isOpen,
   onClose,
   ownerWallet,
   circleSocialUuid,
+  workspaceId,
   onCreated,
+  initial,
 }: {
   isOpen: boolean;
   onClose: () => void;
   ownerWallet: string;
   circleSocialUuid?: string;
+  workspaceId?: string;
   onCreated: (member: TeamMemberRecord) => void;
+  initial?: TeamMemberPrefill;
 }) {
+  const workspaceContext = useOptionalWorkspace();
+  const effectiveWorkspaceId = workspaceId ?? workspaceContext?.workspace?.id;
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Step 1: Basic Info
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(initial?.fullName ?? "");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
-  const [memberType, setMemberType] = useState<MemberType>("EMPLOYEE");
+  const [role, setRole] = useState(initial?.role ?? "");
+  const [memberType, setMemberType] = useState<MemberType>(initial?.memberType ?? "EMPLOYEE");
 
   // Step 2: Payment Destination
-  const [destinationType, setDestinationType] = useState<PaymentDestinationType>("SWIFTPAY_USER");
-  const [swiftpayUsername, setSwiftpayUsername] = useState("");
-  const [walletAddress, setWalletAddress] = useState("");
+  const [destinationType, setDestinationType] = useState<PaymentDestinationType>(
+    initial?.walletAddress ? "EXTERNAL_WALLET" : "SWIFTPAY_USER",
+  );
+  const [swiftpayUsername, setSwiftpayUsername] = useState(initial?.swiftpayUsername ?? "");
+  const [walletAddress, setWalletAddress] = useState(initial?.walletAddress ?? "");
 
   // Step 3: Payment Setup
   const [paymentType, setPaymentType] = useState<"FIXED" | "MANUAL">("FIXED");
-  const [amount, setAmount] = useState("2500");
-  const [frequency, setFrequency] = useState<PaymentFrequency>("MONTHLY");
+  const [amount, setAmount] = useState(initial?.amount ?? "2500");
+  const [frequency, setFrequency] = useState<PaymentFrequency>(initial?.frequency ?? "MONTHLY");
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,6 +105,7 @@ export function AddTeamMemberModal({
           paymentFrequency: frequency,
         },
         circleSocialUuid,
+        effectiveWorkspaceId,
       );
       onCreated(member);
       handleClose();
@@ -272,7 +294,7 @@ export function AddTeamMemberModal({
               <label className="text-xs font-semibold text-muted-foreground">Payment Asset</label>
               <div className="mt-1 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-semibold">
                 <span>USDC</span>
-                <span className="text-xs text-muted-foreground">(Arc Testnet)</span>
+                <span className="text-xs text-muted-foreground">({arcChain.name})</span>
               </div>
             </div>
 

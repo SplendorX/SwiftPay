@@ -9,8 +9,8 @@ import { privateKeyToAccount } from "viem/accounts";
 
 import { createRecurringPublicClient } from "@/lib/recurring/circle-adapter";
 import { erc20Abi } from "@/lib/contracts";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
 
 let workspaceEnvLoaded = false;
 const loadedEnv: Record<string, string> = {};
@@ -75,8 +75,8 @@ function createTreasuryClients(treasury: Address) {
       }
       const walletClient = createWalletClient({
         account,
-        chain: arcTestnet,
-        transport: http(arcTestnet.rpcUrls.default.http[0]),
+        chain: arcChain,
+        transport: http(arcChain.rpcUrls.default.http[0]),
       });
       return { account, publicClient, walletClient };
     } catch {
@@ -88,7 +88,7 @@ function createTreasuryClients(treasury: Address) {
 
 /**
  * Thin adapter over existing SwiftPay / Circle / Arc rails.
- * SwiftCircle never calls raw Circle APIs from route handlers.
+ * Circle (the SwiftPay feature) never calls raw Circle APIs from route handlers.
  */
 export function circleTreasuryAddress(): Address | null {
   for (const value of [
@@ -114,7 +114,7 @@ export async function getTreasuryTokenBalance(asset: ArcTokenSymbol) {
   if (!treasury) {
     return { balance: 0n, configured: false as const };
   }
-  const token = arcTestnetTokens[asset];
+  const token = arcTokens[asset];
   const client = createRecurringPublicClient();
   const balance = await client.readContract({
     abi: erc20Abi,
@@ -129,7 +129,7 @@ export async function getWalletTokenBalance(input: {
   wallet: Address;
   asset: ArcTokenSymbol;
 }) {
-  const token = arcTestnetTokens[input.asset];
+  const token = arcTokens[input.asset];
   const client = createRecurringPublicClient();
   const balance = await client.readContract({
     abi: erc20Abi,
@@ -164,7 +164,7 @@ export async function submitTreasuryTransfer(input: {
       error: "Withdrawal amount must be greater than zero.",
     };
   }
-  const token = arcTestnetTokens[input.asset];
+  const token = arcTokens[input.asset];
   if (!token?.address || !isAddress(token.address)) {
     return {
       ok: false as const,

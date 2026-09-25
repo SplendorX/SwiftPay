@@ -1,5 +1,6 @@
 "use client";
 
+import { arcChain, arcExplorerUrl } from "@/lib/chains";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -24,6 +25,9 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { LandingVideoBackground } from "@/components/landing/landing-video-background";
+import { AllieShowcase } from "@/components/landing/allie-showcase";
+import { BusinessShowcase } from "@/components/landing/business-showcase";
 import { FeatureStories } from "@/components/landing/feature-stories";
 import { HeroWelcome } from "@/components/landing/hero-welcome";
 import { LandingFooter } from "@/components/landing/landing-footer";
@@ -56,7 +60,7 @@ export function LandingPage() {
     },
     {
       body: t("landing.flowCircleBody"),
-      href: "/swiftCircle",
+      href: "/circle",
       icon: UsersRound,
       title: t("landing.flowCircleTitle"),
     },
@@ -73,14 +77,14 @@ export function LandingPage() {
       title: t("landing.flowEarnTitle"),
     },
     {
-      body: t("landing.flowSwapBody"),
+      body: t("landing.flowSwapBody", { network: arcChain.name }),
       href: "/swap",
       icon: RefreshCw,
       title: t("landing.flowSwapTitle"),
     },
     {
       body: t("landing.flowBatchBody"),
-      href: "/swiftBatch",
+      href: "/batchpay",
       icon: Users,
       title: t("landing.flowBatchTitle"),
     },
@@ -92,7 +96,7 @@ export function LandingPage() {
     },
     {
       body: t("landing.flowRecureBody"),
-      href: "/swiftRecurepay",
+      href: "/recurepay",
       icon: CalendarClock,
       title: t("landing.flowRecureTitle"),
     },
@@ -142,7 +146,7 @@ export function LandingPage() {
     { answer: t("landing.faq3A"), question: t("landing.faq3Q") },
     { answer: t("landing.faq4A"), question: t("landing.faq4Q") },
     { answer: t("landing.faq5A"), question: t("landing.faq5Q") },
-    { answer: t("landing.faq6A"), question: t("landing.faq6Q") },
+    { answer: t("landing.faq6A", { network: arcChain.name }), question: t("landing.faq6Q") },
   ];
   const whyItems = [
     {
@@ -172,17 +176,22 @@ export function LandingPage() {
     {
       body: t("landing.trustVerifiedBody"),
       icon: FileCheck2,
-      link: "https://testnet.arcscan.app",
+      link: arcExplorerUrl,
       linkLabel: t("landing.trustVerifiedLink"),
       title: t("landing.trustVerifiedTitle"),
     },
-    {
-      body: t("landing.trustTestnetBody"),
-      icon: FlaskConical,
-      link: null,
-      linkLabel: null,
-      title: t("landing.trustTestnetTitle"),
-    },
+    // Only true on testnet; on mainnet the card would misstate the risk.
+    ...(arcChain.testnet
+      ? [
+          {
+            body: t("landing.trustTestnetBody"),
+            icon: FlaskConical,
+            link: null,
+            linkLabel: null,
+            title: t("landing.trustTestnetTitle"),
+          },
+        ]
+      : []),
   ];
 
   useEffect(() => {
@@ -231,10 +240,19 @@ export function LandingPage() {
   return (
     <MarketingShell>
       {/* ── Hero ── */}
-      <section className="marketing-hero marketing-hero-with-showcase">
+      <section className="marketing-hero marketing-hero-with-showcase landing-video-stage">
+        <LandingVideoBackground
+          mobileSrc="/video/hero-bg-mobile.mp4?v=2"
+          poster="/video/hero-bg-poster.jpg?v=2"
+          position="60% center"
+          src="/video/hero-bg.mp4?v=2"
+        />
         <HeroWelcome />
         <ProductShowcase placement="hero" />
       </section>
+
+      {/* ── Meet ALLIE ── */}
+      <AllieShowcase />
 
       {/* ── Products ── */}
       <section className="marketing-section" id="products">
@@ -272,7 +290,7 @@ export function LandingPage() {
           <h2 className="section-title">{t("landing.demosTitle")}</h2>
           <p className="section-copy">{t("landing.demosCopy")}</p>
         </div>
-        <Stagger className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <Stagger className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {demos.map((demo) => (
             <StaggerItem key={demo.title}>
               <article className="marketing-demo-card h-full">
@@ -290,6 +308,7 @@ export function LandingPage() {
       </section>
 
       <FeatureStories />
+      <BusinessShowcase />
 
       {/* ── Why SwiftPay ── */}
       <section className="marketing-section">
@@ -432,7 +451,7 @@ export function LandingPage() {
             <img
               alt={t("landing.ctaImageAlt")}
               draggable={false}
-              src="/landing/pay-mac.jpg"
+              src="/landing/pay-laptop.jpg"
             />
           </div>
         </div>
@@ -441,15 +460,14 @@ export function LandingPage() {
       <LandingFooter />
 
       {signInOpen ? (
-        <div
-          aria-modal="true"
-          className="sign-in-modal"
-          onClick={closeSignIn}
-          role="dialog"
-        >
+        <div className="sign-in-modal" onClick={closeSignIn}>
+          {/* The dialog role sits on the card, not the backdrop: themes style
+              [role="dialog"] as a solid panel, which would hide the blur. */}
           <div
+            aria-modal="true"
             className="sign-in-modal-card"
             onClick={(event) => event.stopPropagation()}
+            role="dialog"
           >
             <button
               aria-label={t("landing.closeSignIn")}

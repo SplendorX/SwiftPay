@@ -4,6 +4,7 @@ import {
   ArrowDownLeft,
   Ban,
   Bell,
+  Check,
   CheckCheck,
   ExternalLink,
   Loader2,
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 import { useAccount } from "wagmi";
 
 import { Button } from "@/components/ui/button";
+import { personalCircleWallet } from "@/lib/business/provision-wallet";
 import {
   circleSessionEventName,
   getCircleLoginIdentity,
@@ -57,7 +59,7 @@ import {
   fetchWalletSessionForAddress,
   walletSessionChangedEventName,
 } from "@/lib/wallet-auth-client";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 import { cn } from "@/lib/utils";
 
 function relativeTime(iso: string) {
@@ -77,7 +79,7 @@ function relativeTime(iso: string) {
 function explorerTxUrl(hash: string) {
   const base =
     process.env.NEXT_PUBLIC_ARC_EXPLORER_URL?.trim() ||
-    arcTestnet.blockExplorers.default.url;
+    arcChain.blockExplorers.default.url;
   return `${base.replace(/\/$/, "")}/tx/${hash}`;
 }
 
@@ -153,11 +155,20 @@ function paymentRequestHref(item: SavingsNotificationRecord) {
     const url = new URL(rawLink);
     href = `${url.pathname}${url.search}`;
   } catch {
-    href = rawLink.startsWith("/dashboard?") ? rawLink : null;
+    href =
+      rawLink.startsWith("/dashboard?") || rawLink.startsWith("/send?")
+        ? rawLink
+        : null;
   }
 
   if (!href) {
     return null;
+  }
+
+  // The payment form lives on /send. Requests sent before it moved still
+  // carry a /dashboard link.
+  if (href.startsWith("/dashboard?")) {
+    href = `/send${href.slice("/dashboard".length)}`;
   }
 
   const requestId = extractPaymentRequestId(item);
@@ -200,7 +211,7 @@ export function NotificationsBell({ className }: { className?: string }) {
     const login = readCircleLogin();
     setCircleLogin(login);
     const wallets = readCircleWallets();
-    setCircleWalletAddress(wallets[0]?.address ?? "");
+    setCircleWalletAddress(personalCircleWallet(wallets)?.address ?? "");
   }, []);
 
   useEffect(() => {
@@ -372,8 +383,13 @@ export function NotificationsBell({ className }: { className?: string }) {
             !isDeclined &&
             !isCircleInvite;
 
+          // Circle events still surface — only a real invitation gets the
+          // Review action below. Keeping them here preserves the toast that
+          // used to fire when every circle event was miscounted as an invite.
+          const isCircleEvent = isCircleNotification(item);
+
           if (
-            (isReceive || isRequest || isDeclined || isCircleInvite) &&
+            (isReceive || isRequest || isDeclined || isCircleInvite || isCircleEvent) &&
             !item.read_at &&
             !knownIdsRef.current.has(item.id)
           ) {
@@ -684,7 +700,8 @@ export function NotificationsBell({ className }: { className?: string }) {
                     !isDeclinedNotice &&
                     !isCircleInvite;
                   const isRequest =
-                    !isCircleInvite && isPaymentRequestNotification(item);
+                    !isCircleInvite &&
+                    isPaymentRequestNotification(item);
                   const requestDeclined =
                     isRequest && isPaymentRequestMarkedDeclined(item);
                   const requestPaid =

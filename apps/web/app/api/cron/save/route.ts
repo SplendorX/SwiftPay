@@ -4,26 +4,20 @@ import {
   readSavingsSupabaseError,
   reconcilePendingSavingsTransactions,
 } from "@/lib/save/service";
+import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-function isAuthorized(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return process.env.NODE_ENV !== "production";
-  }
-  return request.headers.get("authorization") === `Bearer ${cronSecret}`;
-}
 
 /**
- * Reconciliation worker for Swift+Save.
+ * Reconciliation worker for Save.
  * Finds pending savings txs, checks chain receipts, confirms or fails,
  * and writes reconciliation alerts. No BullMQ/Redis in this monorepo —
  * uses the same Vercel cron pattern as Earn/Recurring.
  */
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json(
       { message: "Unauthorized cron request." },
       { status: 401 },
@@ -43,7 +37,7 @@ export async function GET(request: NextRequest) {
         message:
           error instanceof Error
             ? error.message
-            : readSavingsSupabaseError(null, "Swift+Save cron failed."),
+            : readSavingsSupabaseError(null, "Save cron failed."),
       },
       { status: 500 },
     );

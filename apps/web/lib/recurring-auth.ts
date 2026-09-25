@@ -1,13 +1,36 @@
 import { cookies } from "next/headers";
 import { getAddress, isAddress } from "viem";
 
-import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   readWalletToken,
+  sessionWallets,
   walletSessionCookieName,
 } from "@/lib/wallet-session";
 
-const profilesTable = process.env.SUPABASE_PROFILES_TABLE ?? "profiles";
+/** Every wallet the browser's signed session vouches for, lowercased. */
+export async function getSessionWallets() {
+  const cookieStore = await cookies();
+  return sessionWallets(
+    readWalletToken(cookieStore.get(walletSessionCookieName)?.value, "session"),
+  );
+}
+
+export async function sessionControlsWallet(wallet: string) {
+  return (await getSessionWallets()).includes(wallet.toLowerCase());
+}
+
+/**
+ * The wallet a request acts for: the one it names when the signed session
+ * covers it (a session can hold an external and a Circle wallet), otherwise
+ * the session's owner, otherwise the named wallet for the caller to authorize.
+ */
+export async function resolveSessionActorWallet(requested: unknown) {
+  const supplied = normalizeOwnerWallet(requested);
+  if (supplied && (await sessionControlsWallet(supplied))) {
+    return supplied;
+  }
+  return (await getSessionOwnerWallet()) ?? supplied;
+}
 
 export async function getSessionOwnerWallet() {
   const cookieStore = await cookies();
@@ -27,76 +50,16 @@ export function normalizeOwnerWallet(value: unknown) {
   return getAddress(value).toLowerCase();
 }
 
-function normalizeCircleSocialUuid(value: unknown) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const socialUuid = value.trim();
-  return socialUuid || null;
-}
-
 /**
- * Authorize an owner wallet for sensitive APIs (notifications, savings, recurring).
- * Accepts either:
- * 1) Signed wallet session cookie for that address, or
- * 2) Circle Google social UUID bound to that wallet in profiles.
+ * Authorize an owner wallet for sensitive APIs: the browser's signed wallet
+ * session must cover it. Circle (Google / email) users get that session from
+ * /api/auth/circle at sign-in. The Circle social UUID is not a credential: it
+ * used to be accepted here, and it was readable from public profile lookups.
+ * `circleSocialUuid` stays in the signature so existing callers compile.
  */
 export async function assertRecurringAccess(input: {
   circleSocialUuid?: unknown;
   ownerWallet: string;
 }) {
-  const owner = input.ownerWallet.toLowerCase();
-  const sessionOwnerWallet = await getSessionOwnerWallet();
-
-  if (sessionOwnerWallet && sessionOwnerWallet === owner) {
-    return true;
-  }
-
-  const circleSocialUuid = normalizeCircleSocialUuid(input.circleSocialUuid);
-
-  if (!circleSocialUuid) {
-    return false;
-  }
-
-  try {
-    const supabase = createSupabaseAdminClient();
-
-    // Primary: profile row keyed by wallet address.
-    const byWallet = await supabase
-      .from(profilesTable)
-      .select("wallet_address,circle_social_uuid")
-      .eq("wallet_address", owner)
-      .maybeSingle();
-
-    if (
-      !byWallet.error &&
-      byWallet.data?.circle_social_uuid &&
-      byWallet.data.circle_social_uuid === circleSocialUuid
-    ) {
-      return true;
-    }
-
-    // Fallback: profile row keyed by social UUID (wallet may have been updated).
-    const bySocial = await supabase
-      .from(profilesTable)
-      .select("wallet_address,circle_social_uuid")
-      .eq("circle_social_uuid", circleSocialUuid)
-      .maybeSingle();
-
-    if (
-      !bySocial.error &&
-      bySocial.data?.wallet_address &&
-      bySocial.data.wallet_address.toLowerCase() === owner
-    ) {
-      return true;
-    }
-  } catch (error) {
-    console.warn(
-      "[assertRecurringAccess]",
-      error instanceof Error ? error.message : "profile lookup failed",
-    );
-  }
-
-  return false;
+  return sessionControlsWallet(input.ownerWallet);
 }

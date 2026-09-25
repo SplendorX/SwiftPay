@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 function gone() {
   return jsonCircleError(
-    circleErrors.invalid("Circle Earn is no longer part of SwiftCircle. Use Circle Save pockets."),
+    circleErrors.invalid("Circle Earn is no longer part of Circle. Use Circle Save pockets."),
   );
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { arcCircleBlockchain } from "@/lib/chains";
 import {
   AlertCircle,
   ArrowRight,
@@ -17,23 +18,28 @@ import { TokenIcon } from "@/components/token-icon";
 import {
   CircleClientError,
   circleStorageKeys as storageKeys,
+  clearCircleSession,
   getCircleErrorMessage as getClientErrorMessage,
   getCircleLoginIdentity,
+  isArcCircleWallet,
+  preferArcCircleWallets,
   readCircleLogin as readStoredLogin,
-  readCircleWallets,
   readCircleSessionStorage as readStorage,
+  readCircleWallets,
   removeCircleSessionStorage as removeStorage,
   writeCircleLogin,
-  writeCircleWallets,
   writeCircleSessionStorage as writeStorage,
+  writeCircleWallets,
   type CircleClientErrorPayload,
   type CircleLoginResult,
   type CircleTokenBalance,
   type CircleWallet,
 } from "@/lib/circle-session";
 import { useOptionalAccount } from "@/components/account/account-provider";
+import { personalCircleWallet } from "@/lib/business/provision-wallet";
 import { fetchAccountState } from "@/lib/account/client";
 import { ensureProfile } from "@/lib/profile";
+import { ensureCircleWalletSession } from "@/lib/wallet-auth-client";
 import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import { writePreferredWalletMode } from "@/lib/wallet-mode";
 
@@ -118,7 +124,7 @@ function decodeJwtPayload(token: string) {
       "=",
     );
 
-    return JSON.parse(atob(padded)) as { aud?: string; nonce?: string };
+    return JSON.parse(atob(padded)) as { aud?: string; exp?: number; nonce?: string };
   } catch {
     return null;
   }
@@ -203,8 +209,11 @@ function isDeviceIdTimeout(error: unknown) {
     .includes("failed to receive deviceid");
 }
 
-function getDeviceIdFailureMessage() {
-  return "Circle could not create a device ID. This happens before Google OAuth: the Circle Web SDK opens a hidden frame at pw-auth.circle.com and it did not respond in time. Disable blockers for this site, allow pw-auth.circle.com, then retry Continue with Google.";
+function getDeviceIdFailureMessage(hasIdToken = false) {
+  if (hasIdToken) {
+    return "Google login was approved, but the device session could not be established with Circle. Click 'Clear and Retry Google Login' below to establish a fresh device session.";
+  }
+  return "Circle could not create a device ID. The Circle Web SDK requires a frame at pw-auth.circle.com to establish device security. If you are using Brave Shields, an ad blocker, or third-party cookie blocking, please allow pw-auth.circle.com, then retry Continue with Google.";
 }
 
 function getGoogleLoginErrorMessage(
@@ -219,7 +228,7 @@ function getGoogleLoginErrorMessage(
   const normalized = message.toLowerCase();
 
   if (isDeviceIdTimeout(error) || normalized.includes("device id")) {
-    return getDeviceIdFailureMessage();
+    return getDeviceIdFailureMessage(Boolean(diagnostic?.hasIdToken));
   }
 
   if (
@@ -294,11 +303,14 @@ async function callCircleWalletApi<T>(
 
 type CircleGoogleLoginProps = {
   embedded?: boolean;
+  /** With `embedded`: controls only, no "Circle wallet" heading. */
+  bare?: boolean;
   showRefreshWallet?: boolean;
 };
 
 export function CircleGoogleLogin({
   embedded = false,
+  bare = false,
   showRefreshWallet = true,
 }: CircleGoogleLoginProps) {
   const router = useRouter();
@@ -339,7 +351,7 @@ export function CircleGoogleLogin({
     useState<GoogleOAuthDiagnostic | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const appId = resolvedAppId || envAppId;
-  const primaryWallet = wallets[0];
+  const primaryWallet = personalCircleWallet(wallets);
   const isConfigured = Boolean(appId && googleClientId);
   const redirectUri = useMemo(() => {
     if (typeof window !== "undefined") {
@@ -416,29 +428,10 @@ export function CircleGoogleLogin({
           setOauthDiagnostic(nextOauthDiagnostic);
         }
 
-        let storedDeviceToken = readStorage(storageKeys.deviceToken);
-        let storedDeviceEncryptionKey = readStorage(
+        const storedDeviceToken = readStorage(storageKeys.deviceToken);
+        const storedDeviceEncryptionKey = readStorage(
           storageKeys.deviceEncryptionKey,
         );
-
-        const hasRedirectHash = Boolean(
-          typeof window !== "undefined" &&
-            window.location.hash &&
-            window.location.hash.includes("id_token"),
-        );
-
-        if (
-          hasRedirectHash &&
-          (!storedDeviceToken || !storedDeviceEncryptionKey)
-        ) {
-          try {
-            const freshTokens = await ensureDeviceToken({ forceRefresh: true });
-            storedDeviceToken = freshTokens.deviceToken;
-            storedDeviceEncryptionKey = freshTokens.deviceEncryptionKey;
-          } catch (tokenErr) {
-            console.warn("Could not ensure device token on redirect", tokenErr);
-          }
-        }
 
         const storedLogin = readStoredLogin();
         const sdkConfigs = {
@@ -532,7 +525,11 @@ export function CircleGoogleLogin({
   }, [appConfigChecked, appId, googleClientId, isConfigured, redirectUri]);
 
   const resolveDeviceId = useCallback(async () => {
-    const storedDeviceId = readStorage(storageKeys.deviceId);
+    const storedDeviceId =
+      readStorage(storageKeys.deviceId) ||
+      (typeof window !== "undefined"
+        ? window.localStorage.getItem(storageKeys.deviceId) || ""
+        : "");
 
     if (storedDeviceId) {
       setDeviceId(storedDeviceId);
@@ -562,13 +559,18 @@ export function CircleGoogleLogin({
 
           setDeviceId(nextDeviceId);
           writeStorage(storageKeys.deviceId, nextDeviceId);
+          if (typeof window !== "undefined") {
+            try {
+              window.localStorage.setItem(storageKeys.deviceId, nextDeviceId);
+            } catch {}
+          }
           return nextDeviceId;
         } catch (error) {
           lastError = error;
 
           if (attempt < 2) {
             await new Promise((resolve) => {
-              window.setTimeout(resolve, 400 * (attempt + 1));
+              window.setTimeout(resolve, 500 * (attempt + 1));
             });
           }
         }
@@ -589,7 +591,16 @@ export function CircleGoogleLogin({
   }, []);
 
   useEffect(() => {
-    if (!sdkReady || !sdkRef.current) {
+    if (!sdkReady || !sdkRef.current || loginResult?.userToken) {
+      return;
+    }
+
+    const hasRedirectHash = Boolean(
+      typeof window !== "undefined" &&
+        window.location.hash &&
+        window.location.hash.includes("id_token"),
+    );
+    if (hasRedirectHash) {
       return;
     }
 
@@ -600,15 +611,9 @@ export function CircleGoogleLogin({
         await ensureDeviceToken();
       } catch (deviceError) {
         if (!cancelled) {
-          setError(
-            getGoogleLoginErrorMessage(
-              deviceError,
-              "Device ID could not be created.",
-              redirectUri,
-              null,
-              appId,
-              googleClientId,
-            ),
+          console.warn(
+            "[prepareCircleLogin] Background device token preparation:",
+            deviceError,
           );
         }
       }
@@ -619,7 +624,7 @@ export function CircleGoogleLogin({
     return () => {
       cancelled = true;
     };
-  }, [redirectUri, resolveDeviceId, sdkReady]);
+  }, [loginResult?.userToken, sdkReady]);
 
   async function loadBalances(userToken: string, walletId: string) {
     const payload = await callCircleWalletApi<{
@@ -655,7 +660,7 @@ export function CircleGoogleLogin({
           userToken,
         },
       );
-      const nextWallets = payload.wallets ?? [];
+      const nextWallets = preferArcCircleWallets(payload.wallets ?? []);
       setWallets(nextWallets);
       writeCircleWallets(nextWallets);
 
@@ -663,6 +668,7 @@ export function CircleGoogleLogin({
 
       if (walletAddress) {
         const identity = getCircleLoginIdentity(options.login ?? loginResult);
+        await ensureCircleWalletSession(userToken);
         await ensureProfile({
           authProvider: "google",
           circleSocialUuid: identity.socialUserUUID,
@@ -779,25 +785,36 @@ export function CircleGoogleLogin({
         deviceEncryptionKey || readStorage(storageKeys.deviceEncryptionKey);
 
       if (storedToken && storedKey) {
-        const stored = {
-          deviceEncryptionKey: storedKey,
-          deviceToken: storedToken,
-        } satisfies DeviceTokenResponse;
-        setDeviceToken(stored.deviceToken);
-        setDeviceEncryptionKey(stored.deviceEncryptionKey);
-        updateSdkLoginConfig(stored);
-        return stored;
+        const payload = decodeJwtPayload(storedToken);
+        const isExpired =
+          Boolean(payload?.exp && Date.now() >= payload.exp * 1000 - 30000);
+        if (!isExpired) {
+          const stored = {
+            deviceEncryptionKey: storedKey,
+            deviceToken: storedToken,
+          } satisfies DeviceTokenResponse;
+          setDeviceToken(stored.deviceToken);
+          setDeviceEncryptionKey(stored.deviceEncryptionKey);
+          updateSdkLoginConfig(stored);
+          return stored;
+        }
       }
 
       if (deviceTokenRequestRef.current) {
         return deviceTokenRequestRef.current;
       }
-    }
-
-    const sdk = sdkRef.current;
-
-    if (!sdk) {
-      throw new Error("Circle SDK is still loading.");
+    } else {
+      removeStorage(storageKeys.deviceToken);
+      removeStorage(storageKeys.deviceEncryptionKey);
+      removeStorage(storageKeys.deviceId);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.removeItem("deviceId");
+        } catch {}
+      }
+      setDeviceId("");
+      setDeviceToken("");
+      setDeviceEncryptionKey("");
     }
 
     const request = (async () => {
@@ -875,7 +892,7 @@ export function CircleGoogleLogin({
     }
 
     try {
-      const tokens = await ensureDeviceToken({ forceRefresh: true });
+      const tokens = await ensureDeviceToken();
       updateSdkLoginConfig(tokens);
       setupCompletionStartedRef.current = false;
       writeStorage(storageKeys.setupIntent, "true");
@@ -885,16 +902,15 @@ export function CircleGoogleLogin({
       await sdk.performLogin(googleProvider);
     } catch (loginError) {
       console.error("Google login start failed", loginError);
-      const diagnostic = readGoogleOAuthDiagnostic();
 
       removeStorage(storageKeys.setupIntent);
-      setOauthDiagnostic(diagnostic);
+      setOauthDiagnostic(null);
       setError(
         getGoogleLoginErrorMessage(
           loginError,
           "Google login could not start.",
           redirectUri,
-          diagnostic,
+          null,
           appId,
           googleClientId,
         ),
@@ -997,6 +1013,7 @@ export function CircleGoogleLogin({
     const payload = await callCircleWalletApi<{ challengeId?: string }>(
       "createWallet",
       {
+        blockchain: arcCircleBlockchain,
         refId: `swiftpay-arc-${Date.now()}`,
         userToken: auth.userToken,
         walletName: "SwiftPay",
@@ -1043,9 +1060,15 @@ export function CircleGoogleLogin({
         return;
       }
 
-      if (existingWallets.length > 0) {
+      if (existingWallets.some(isArcCircleWallet)) {
         removeStorage(storageKeys.setupIntent);
         setStatus("Circle wallet ready");
+        return;
+      }
+
+      if (existingWallets.length > 0) {
+        await createArcWallet(auth);
+        removeStorage(storageKeys.setupIntent);
         return;
       }
 
@@ -1125,7 +1148,7 @@ export function CircleGoogleLogin({
 
   const primaryAction = !loginResult ? (
     <button
-      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+      className="sp-bubble inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
       disabled={!appConfigChecked || !sdkReady || isBusy}
       onClick={() => void handleGoogleLogin()}
       type="button"
@@ -1141,7 +1164,7 @@ export function CircleGoogleLogin({
     </button>
   ) : primaryWallet ? (
     <Link
-      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+      className="sp-bubble inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
       href={
         accountContext?.account?.account_type_selected === false
           ? "/onboarding"
@@ -1159,7 +1182,7 @@ export function CircleGoogleLogin({
     </Link>
   ) : (
     <button
-      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+      className="sp-bubble inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
       disabled={isBusy}
       onClick={() => void handleInitializeWallet()}
       type="button"
@@ -1180,7 +1203,7 @@ export function CircleGoogleLogin({
 
   return (
     <Shell className={shellClassName} id="google-login">
-      {embedded ? (
+      {embedded && bare ? null : embedded ? (
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-foreground">Circle wallet</p>
@@ -1274,6 +1297,7 @@ export function CircleGoogleLogin({
             onClick={() => {
               setError(null);
               setOauthDiagnostic(null);
+              clearCircleSession({ clearDevice: true });
               removeStorage(googleOAuthDiagnosticStorageKey);
               void handleGoogleLogin();
             }}

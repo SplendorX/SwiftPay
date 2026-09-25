@@ -4,6 +4,8 @@ export type WalletSessionStatus = {
   connectorName?: string;
   expiresAt?: string;
   ownerWallet?: string;
+  /** Every wallet the session covers (lowercased), including ownerWallet. */
+  wallets?: string[];
 };
 
 const walletSignInRequests = new Map<string, Promise<WalletSessionStatus>>();
@@ -71,11 +73,20 @@ export async function fetchWalletSessionForAddress(
     return session;
   }
 
-  if (session.ownerWallet.toLowerCase() === connectedWallet.toLowerCase()) {
-    return session;
+  const connected = connectedWallet.toLowerCase();
+  const covered = session.wallets ?? [session.ownerWallet.toLowerCase()];
+
+  if (covered.includes(connected)) {
+    return { ...session, ownerWallet: connectedWallet };
   }
 
   const previousOwnerWallet = session.ownerWallet;
+
+  // The session also vouches for other wallets (e.g. the Circle wallet), so
+  // keep it; this wallet simply is not signed in yet.
+  if (covered.length > 1) {
+    return { authenticated: false, previousOwnerWallet };
+  }
 
   // Connected wallet changed — drop the previous wallet's session cookie.
   try {
@@ -185,4 +196,45 @@ async function signInWalletSessionOnce(input: {
 
   notifyWalletSessionChanged();
   return verifyPayload;
+}
+
+const circleSessionRequests = new Map<string, Promise<boolean>>();
+
+/**
+ * Turn the stored Circle user token (Google / email users) into the signed
+ * wallet session the server checks. Runs once per token per page load; a
+ * failure is non-fatal because payments renew the session again themselves.
+ */
+export function ensureCircleWalletSession(userToken?: string | null) {
+  if (!userToken) {
+    return Promise.resolve(false);
+  }
+
+  const existing = circleSessionRequests.get(userToken);
+  if (existing) {
+    return existing;
+  }
+
+  const request = fetch("/api/auth/circle", {
+    body: JSON.stringify({ userToken }),
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  })
+    .then((response) => {
+      if (response.ok) {
+        notifyWalletSessionChanged();
+      } else {
+        // Let a later call retry, e.g. after the user signs in again.
+        circleSessionRequests.delete(userToken);
+      }
+      return response.ok;
+    })
+    .catch(() => {
+      circleSessionRequests.delete(userToken);
+      return false;
+    });
+
+  circleSessionRequests.set(userToken, request);
+  return request;
 }

@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
+import {
+  circleSessionEventName,
+  getCircleLoginIdentity,
+  readCircleLogin,
+  readSignInEmail,
+} from "@/lib/circle-session";
 import { useT } from "@/components/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +24,34 @@ export function AccountTypeSettings() {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [circleLogin, setCircleLogin] = useState(() => readCircleLogin());
+
+  // The sign-in method belongs beside the account type: a Google session and a
+  // self-custody wallet behave differently, and only one of them has an email.
+  useEffect(() => {
+    function refresh() {
+      setCircleLogin(readCircleLogin());
+    }
+
+    refresh();
+    window.addEventListener(circleSessionEventName, refresh);
+    window.addEventListener("storage", refresh);
+    return () => {
+      window.removeEventListener(circleSessionEventName, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+
+  const identity = getCircleLoginIdentity(circleLogin);
+  const signedInWith = circleLogin
+    ? identity.email ?? identity.name ?? "Google"
+    : null;
+  const signInRow = signedInWith ? (
+    <p className="mt-2 text-xs text-muted-foreground">
+      {t("settings.signedInWith")}{" "}
+      <span className="font-semibold text-foreground">{signedInWith}</span>
+    </p>
+  ) : null;
 
   if (!context?.account) {
     return <p className="text-sm text-muted-foreground">{t("settings.connectToSeeType")}</p>;
@@ -28,6 +62,7 @@ export function AccountTypeSettings() {
       <div>
         <p className="text-sm font-semibold">{t("settings.accountType")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{t("common.business")}</p>
+        {signInRow}
         <p className="mt-3 text-xs text-muted-foreground">
           {t("settings.cannotRevert")}
         </p>
@@ -42,7 +77,8 @@ export function AccountTypeSettings() {
     try {
       await upgradeAccountClient(
         context.ownerWallet,
-        { businessName: name, confirmed: true },
+        // A Google / email sign-in starts the business's contact email.
+        { businessName: name, confirmed: true, contactEmail: readSignInEmail() },
       );
       await context.refresh();
       router.push("/business");
@@ -57,6 +93,7 @@ export function AccountTypeSettings() {
     <div>
       <p className="text-sm font-semibold">{t("settings.accountType")}</p>
       <p className="mt-1 text-sm text-muted-foreground">{t("common.personal")}</p>
+      {signInRow}
       {!open ? (
         <Button className="mt-4" onClick={() => setOpen(true)} variant="outline">
           {t("settings.upgradeToBusiness")}

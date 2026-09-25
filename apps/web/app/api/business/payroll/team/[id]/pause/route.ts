@@ -11,10 +11,15 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
-    const { actorWallet, circleSocialUuid } = await readActor(request);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
-    const paused = await pauseTeamMember(actorWallet, id);
+    const paused = await pauseTeamMember(targetAccountId, id);
     return jsonOk(paused);
   } catch (error) {
     return jsonBusinessError(error);

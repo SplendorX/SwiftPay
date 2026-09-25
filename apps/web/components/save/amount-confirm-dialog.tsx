@@ -30,6 +30,8 @@ type AmountConfirmDialogProps = {
   /** Optional fee lines for transparency (shown on deposit). */
   networkFeeLabel?: string;
   platformFeeLabel?: string;
+  /** Prefill from a link, e.g. ALLIE's handoff. */
+  initialAmount?: string;
 };
 
 export function AmountConfirmDialog({
@@ -45,8 +47,9 @@ export function AmountConfirmDialog({
   onConfirm,
   networkFeeLabel = "$0.00",
   platformFeeLabel = "$0.00",
+  initialAmount = "",
 }: AmountConfirmDialogProps) {
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(initialAmount);
 
   const preview = useMemo(() => {
     const n = Number(amount);
@@ -132,7 +135,7 @@ export function AmountConfirmDialog({
                     <span>{networkFeeLabel}</span>
                   </div>
                   <div className="flex justify-between gap-2">
-                    <span>Platform fee</span>
+                    <span>Service fee</span>
                     <span>{platformFeeLabel}</span>
                   </div>
                 </div>

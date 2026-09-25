@@ -16,13 +16,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const body = await readJsonBody(request);
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
     const invoice = await sendInvoice({
       circleSocialUuid,
       invoiceId: id,
       origin:
         typeof body?.origin === "string" ? body.origin : request.nextUrl.origin,
       ownerWallet: actorWallet,
+      workspaceId,
     });
     return jsonOk({ invoice });
   } catch (error) {

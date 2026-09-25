@@ -119,16 +119,26 @@ export async function updateBusinessAccountProfileClient(
   );
 }
 
-export async function fetchBusinessOverview(ownerWallet: string, circleSocialUuid?: string) {
+export async function fetchBusinessOverview(
+  ownerWallet: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+) {
   return parseJson<{
     account: AccountRecord;
     invoices: InvoiceRecord[];
     profile: BusinessAccountProfile | null;
     summary: InvoiceSummary;
   }>(
-    await fetch(withWallet("/api/business/overview", ownerWallet, { circleSocialUuid }), {
-      cache: "no-store",
-    }),
+    await fetch(
+      withWallet("/api/business/overview", ownerWallet, {
+        circleSocialUuid,
+        workspaceId,
+      }),
+      {
+        cache: "no-store",
+      },
+    ),
   );
 }
 
@@ -136,6 +146,7 @@ export async function fetchInvoices(
   ownerWallet: string,
   page = 1,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ) {
   return parseJson<{
     invoices: InvoiceRecord[];
@@ -147,6 +158,7 @@ export async function fetchInvoices(
       withWallet("/api/business/invoices", ownerWallet, {
         circleSocialUuid,
         page: String(page),
+        workspaceId,
       }),
       { cache: "no-store" },
     ),
@@ -157,10 +169,11 @@ export async function createInvoiceClient(
   ownerWallet: string,
   body: { items: InvoiceItemInput[] } & Record<string, unknown>,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ) {
   return parseJson<{ invoice: InvoiceWithItems }>(
     await fetch("/api/business/invoices", {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { ...body, workspaceId })),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -171,12 +184,30 @@ export async function sendInvoiceClient(
   ownerWallet: string,
   invoiceId: string,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ) {
   return parseJson<{ invoice: InvoiceWithItems }>(
     await fetch(`/api/business/invoices/${invoiceId}/send`, {
       body: JSON.stringify(
-        authBody(ownerWallet, circleSocialUuid, { origin: window.location.origin }),
+        authBody(ownerWallet, circleSocialUuid, { origin: window.location.origin, workspaceId }),
       ),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }),
+  );
+}
+
+/** Email an open invoice to its customer; `email` sets the address when it has none. */
+export async function emailInvoiceClient(
+  ownerWallet: string,
+  invoiceId: string,
+  email?: string,
+  circleSocialUuid?: string,
+  workspaceId?: string,
+) {
+  return parseJson<{ invoice: InvoiceWithItems }>(
+    await fetch(`/api/business/invoices/${invoiceId}/email`, {
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { email, workspaceId })),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -187,10 +218,11 @@ export async function cancelInvoiceClient(
   ownerWallet: string,
   invoiceId: string,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ) {
   return parseJson<{ invoice: InvoiceWithItems }>(
     await fetch(`/api/business/invoices/${invoiceId}/cancel`, {
-      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid)),
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, { workspaceId })),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),
@@ -215,10 +247,11 @@ export async function fetchInvoice(
   ownerWallet: string,
   invoiceId: string,
   circleSocialUuid?: string,
+  workspaceId?: string,
 ) {
   return parseJson<{ invoice: InvoiceWithItems }>(
     await fetch(
-      withWallet(`/api/business/invoices/${invoiceId}`, ownerWallet, { circleSocialUuid }),
+      withWallet(`/api/business/invoices/${invoiceId}`, ownerWallet, { circleSocialUuid, workspaceId }),
       { cache: "no-store" },
     ),
   );
@@ -234,6 +267,55 @@ export async function payPublicInvoice(
   }>(
     await fetch(`/api/invoices/${encodeURIComponent(publicId)}/pay`, {
       body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }),
+  );
+}
+
+export type BusinessVerificationState = {
+  ready: boolean;
+  eligible: boolean;
+  missing: string[];
+  country: { code: string; name: string } | null;
+  options: {
+    type: "VAT" | "REGISTRATION" | "TAX" | "LEI";
+    label: string;
+    placeholder: string;
+    automatic: boolean;
+    source?: string;
+  }[];
+  review: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  status: "UNVERIFIED" | "PENDING" | "VERIFIED";
+  submission: {
+    createdAt: string;
+    idNumber: string;
+    idType: string;
+    method: "AUTOMATIC" | "MANUAL";
+    note: string | null;
+    reason: string | null;
+    registryName: string | null;
+    source: string | null;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+  } | null;
+};
+
+export async function fetchBusinessVerification(ownerWallet: string, circleSocialUuid?: string) {
+  return parseJson<BusinessVerificationState>(
+    await fetch(withWallet("/api/business/verification", ownerWallet, { circleSocialUuid }), {
+      cache: "no-store",
+    }),
+  );
+}
+
+export async function submitBusinessVerification(
+  ownerWallet: string,
+  body: { idType: string; idNumber: string },
+  circleSocialUuid?: string,
+) {
+  return parseJson<BusinessVerificationState>(
+    await fetch("/api/business/verification", {
+      body: JSON.stringify(authBody(ownerWallet, circleSocialUuid, body)),
       headers: { "Content-Type": "application/json" },
       method: "POST",
     }),

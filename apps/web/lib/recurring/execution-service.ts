@@ -1,4 +1,4 @@
-import type { Address, Hash } from "viem";
+import type { Address, Hash, Hex } from "viem";
 
 import {
   circleAdapterGetReceipt,
@@ -8,6 +8,7 @@ import {
   computeRecurringFeeUnits,
   isRecurringOperatorConfigured,
 } from "@/lib/recurring/circle-adapter";
+import { requireScheduleReauthorization } from "@/lib/recurring-service";
 import { logRecurringEvent } from "@/lib/recurring/logging";
 import { evaluateAutopayPolicy } from "@/lib/recurring/policy";
 import { evaluateAutopayRisk } from "@/lib/recurring/risk";
@@ -98,6 +99,17 @@ export async function submitAuthorizedPayment(
     userId: schedule.owner_wallet,
   });
   if (!risk.allowed) {
+    // No allowance at all to the current executor: the authorization cannot
+    // work (e.g. it approved an older executor). Ask the owner to re-authorize
+    // rather than retrying forever. A partial allowance is left to retry.
+    if (risk.code === "INSUFFICIENT_ALLOWANCE" && chainState.allowance === 0n) {
+      await requireScheduleReauthorization(schedule.id).catch(() => undefined);
+      logRecurringEvent("recurring.schedule.reauthorization_required", {
+        occurrenceId: occurrence.id,
+        recurringPaymentId: schedule.id,
+        userId: schedule.owner_wallet,
+      });
+    }
     return {
       code: risk.code,
       permanent: isPermanentFailureCode(risk.code),
@@ -106,12 +118,22 @@ export async function submitAuthorizedPayment(
     };
   }
 
+  // Schedules authorized before mandates existed have nothing the executor
+  // will accept; the owner has to authorize them again.
+  if (!schedule.authorization_mandate_id) {
+    await requireScheduleReauthorization(schedule.id).catch(() => undefined);
+    return {
+      code: "PROVIDER_PERMANENT_REJECTION",
+      permanent: true,
+      reason: "Autopay needs to be authorized again for the new executor.",
+      status: "rejected",
+    };
+  }
+
   const submitted = await circleAdapterSubmitPayment({
     amountUnits,
     executionId: occurrence.id,
-    payer: schedule.owner_wallet as Address,
-    recipient: schedule.beneficiary_wallet as Address,
-    tokenSymbol: schedule.token_symbol,
+    mandateId: schedule.authorization_mandate_id as Hex,
   });
 
   if (!submitted.ok) {

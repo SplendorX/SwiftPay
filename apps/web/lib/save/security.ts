@@ -1,5 +1,5 @@
 /**
- * Pure security helpers for Swift+Save — unit/integration tested without Supabase.
+ * Pure security helpers for Swift Save — unit/integration tested without Supabase.
  */
 
 export function assertOwnerMatch(

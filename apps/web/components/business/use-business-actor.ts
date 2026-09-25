@@ -22,15 +22,11 @@ import {
 
 export function useBusinessActor() {
   const { address } = useAccount();
-  const [login, setLogin] = useState<CircleLoginResult | null>(() =>
-    typeof window === "undefined" ? null : readCircleLogin(),
-  );
-  const [wallets, setWallets] = useState<CircleWallet[]>(() =>
-    typeof window === "undefined" ? [] : readCircleWallets(),
-  );
-  const [walletMode, setWalletMode] = useState<WalletMode>(() =>
-    typeof window === "undefined" ? "external" : resolvePlatformWalletMode(),
-  );
+  // Same on the server and the first browser render (no hydration mismatch);
+  // the effect below loads the stored session straight after.
+  const [login, setLogin] = useState<CircleLoginResult | null>(null);
+  const [wallets, setWallets] = useState<CircleWallet[]>([]);
+  const [walletMode, setWalletMode] = useState<WalletMode>("external");
 
   useEffect(() => {
     function refresh() {

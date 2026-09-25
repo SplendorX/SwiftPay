@@ -1,5 +1,6 @@
 "use client";
 
+import { arcExplorerUrl, arcChain } from "@/lib/chains";
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { XLogoLink } from "@/components/brand/x-logo-link";
 import { circleFaucetUrl } from "@/components/circle-faucet-link";
@@ -8,8 +9,10 @@ import { useT } from "@/components/locale-provider";
 
 const resourceLinks = [
   { href: "https://www.arc.io/", label: "Arc Network" },
-  { href: "https://testnet.arcscan.app", label: "Arc Explorer" },
-  { href: circleFaucetUrl, label: "Circle testnet faucet" },
+  { href: arcExplorerUrl, label: "Arc Explorer" },
+  ...(arcChain.testnet
+    ? [{ href: circleFaucetUrl, label: "Circle testnet faucet" }]
+    : []),
   { href: "https://x.com/getswiftpay?s=11", label: "X / Twitter" },
 ];
 
@@ -54,8 +57,8 @@ export function LandingFooter() {
     { href: "/swap", label: t("nav.swap") },
     { href: "/dashboard", label: t("common.send") },
     { href: "/pay", label: t("landing.footerPaymentLinks") },
-    { href: "/swiftRecurepay", label: t("landing.footerScheduled") },
-    { href: "/swiftBatch", label: t("landing.footerBatch") },
+    { href: "/recurepay", label: t("landing.footerScheduled") },
+    { href: "/batchpay", label: t("landing.footerBatch") },
   ];
 
   return (

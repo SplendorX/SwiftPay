@@ -22,18 +22,18 @@ async function parseJson<T>(response: Response): Promise<T> {
   if (!contentType.includes("application/json") || text.trimStart().startsWith("<!")) {
     throw new Error(
       response.ok
-        ? "SwiftCircle returned a non-JSON response."
-        : `SwiftCircle request failed (${response.status}).`,
+        ? "Circle returned a non-JSON response."
+        : `Circle request failed (${response.status}).`,
     );
   }
   let payload: T & { message?: string };
   try {
     payload = JSON.parse(text) as T & { message?: string };
   } catch {
-    throw new Error(`SwiftCircle returned invalid JSON (${response.status}).`);
+    throw new Error(`Circle returned invalid JSON (${response.status}).`);
   }
   if (!response.ok) {
-    throw new Error(payload.message ?? `SwiftCircle request failed (${response.status}).`);
+    throw new Error(payload.message ?? `Circle request failed (${response.status}).`);
   }
   return payload;
 }

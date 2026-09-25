@@ -12,8 +12,13 @@ export async function POST(
   try {
     const { id } = await context.params;
     const body = await readJsonBody(request);
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
     const metadata =
       (body?.metadata as Record<string, unknown>) ?? {
@@ -23,7 +28,7 @@ export async function POST(
       };
 
     const approved = await approvePayrollRun(
-      actorWallet,
+      targetAccountId,
       id,
       actorWallet,
       metadata,

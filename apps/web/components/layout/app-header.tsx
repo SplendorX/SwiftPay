@@ -4,10 +4,11 @@ import type { ReactNode } from "react";
 
 import { CommandPaletteTrigger } from "@/components/command-palette";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
-import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { SupportLauncher } from "@/components/support/support-launcher";
 import { PlatformNavDrawer } from "@/components/platform-nav-drawer";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TopBarPoints } from "@/components/layout/top-bar-points";
 import { cn } from "@/lib/utils";
 
 type AppHeaderProps = {
@@ -19,21 +20,27 @@ export function AppHeader({ actions, className }: AppHeaderProps) {
   return (
     <header className={cn("app-topbar w-full min-w-0", className)}>
       <div className="app-topbar-inner">
-        <div className="app-sidebar-toggle">
-          <SidebarToggle />
+        {/* Phones and tablets: the menu button leads, and the brand moves into
+            the drawer. Desktop keeps the logo here. */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <PlatformNavDrawer />
+          <div className="hidden lg:flex">
+            <SidebarBrand />
+          </div>
         </div>
-        <SidebarBrand />
 
         <div className="ml-auto flex min-w-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
           <CommandPaletteTrigger />
+          {/* Support lives in Settings on small screens, where the bar is full. */}
+          <SupportLauncher className="hidden shrink-0 lg:inline-flex" />
           <NotificationsBell className="shrink-0" />
           <div className="hidden shrink-0 items-center sm:flex">
             <ThemeToggle />
           </div>
+          <TopBarPoints />
           <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
             {actions}
           </div>
-          <PlatformNavDrawer />
         </div>
       </div>
     </header>

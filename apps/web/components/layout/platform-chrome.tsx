@@ -12,6 +12,9 @@ import { pageCopyForPath } from "@/lib/i18n";
 
 type PlatformChromeProps = {
   actions?: ReactNode;
+  /** Renders a back link above the title. Task pages point it at /dashboard. */
+  backHref?: string;
+  backLabel?: string;
   children: ReactNode;
   hideHeader?: boolean;
   subtitle?: string;
@@ -20,6 +23,8 @@ type PlatformChromeProps = {
 
 export function PlatformChrome({
   actions,
+  backHref,
+  backLabel,
   children,
   hideHeader,
   subtitle,
@@ -38,6 +43,8 @@ export function PlatformChrome({
         <div className="platform-shell w-full min-w-0 bg-background">
           <AppHeader actions={actions} />
           <AppFrame
+            backHref={backHref}
+            backLabel={backLabel}
             hideHeader={hideHeader}
             subtitle={resolvedSubtitle}
             title={resolvedTitle}

@@ -77,12 +77,12 @@ export function computeEarnPerformance(params: {
   /** Live position assets (USDC base units). */
   currentValueUnits: bigint;
   decimals?: number;
-  /** Performance fee in BPS (e.g. 1000 = 10%). */
+  /** Performance fee in BPS (e.g. 500 = 5%). */
   performanceFeeBps?: number;
 }): EarnPerformanceSummary {
   const decimals = params.decimals ?? 6;
   const feeBps = Math.min(
-    Math.max(0, Math.trunc(params.performanceFeeBps ?? 1000)),
+    Math.max(0, Math.trunc(params.performanceFeeBps ?? 500)),
     2000,
   );
 

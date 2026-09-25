@@ -1,5 +1,6 @@
 "use client";
 
+import { switchToArc } from "@/lib/arc-network";
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -56,6 +57,7 @@ import type {
 } from "@/lib/payroll/types";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
+  currentCircleAuth,
   callCircleWalletApi,
   findCircleTokenBalance,
   readCircleLogin,
@@ -84,9 +86,9 @@ import {
   swiftBatchFeeRecipient,
 } from "@/lib/contracts";
 import { drawSwiftPayBrand } from "@/lib/brand-canvas";
-import { arcTestnetTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain, arcExplorerUrl } from "@/lib/chains";
 
 type CircleContractChallenge = {
   challengeId?: string;
@@ -126,8 +128,8 @@ function getCircleTransactionHash(value: CircleContractChallenge | CircleChallen
 }
 
 const arcPublicClient = createPublicClient({
-  chain: arcTestnet,
-  transport: http(arcTestnet.rpcUrls.default.http[0]),
+  chain: arcChain,
+  transport: http(arcChain.rpcUrls.default.http[0]),
 });
 
 const configuredBatchAddress =
@@ -203,14 +205,14 @@ export default function PayrollRunDetailPage({
 
   // Token & balance verification
   const tokenSymbol: ArcTokenSymbol = (run?.asset as ArcTokenSymbol) || "USDC";
-  const tokenInfo = arcTestnetTokens[tokenSymbol] || arcTestnetTokens["USDC"];
+  const tokenInfo = arcTokens[tokenSymbol] || arcTokens["USDC"];
 
   const { data: wagmiBalanceBigInt, refetch: refetchWagmiBalance } = useReadContract({
     address: tokenInfo.address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: isPayingAddressValid ? [getAddress(payingWalletAddress!)] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     query: { enabled: isPayingAddressValid },
   });
 
@@ -255,7 +257,7 @@ export default function PayrollRunDetailPage({
 
     const target =
       wallets.find((w) => w.address?.toLowerCase() === ownerWallet?.toLowerCase()) ??
-      wallets[0];
+      personalCircleWallet(wallets);
 
     if (target?.id) {
       try {
@@ -313,7 +315,7 @@ export default function PayrollRunDetailPage({
     if (!ownerWallet) return null;
     setLoading(true);
     try {
-      const data = await fetchPayrollRun(ownerWallet, id, circleSocialUuid ?? undefined);
+      const data = await fetchPayrollRun(ownerWallet, id, circleSocialUuid ?? undefined, workspaceContext?.workspace?.id);
       setRun(data);
       setError(null);
       return data;
@@ -329,7 +331,7 @@ export default function PayrollRunDetailPage({
     void loadData();
     const cached = readCircleWallets();
     if (cached.length > 0) setCircleWallets(cached);
-  }, [ownerWallet, id, circleSocialUuid]);
+  }, [ownerWallet, id, circleSocialUuid, workspaceContext?.workspace?.id]);
 
   // Approval handler
   async function handleApprove() {
@@ -346,6 +348,7 @@ export default function PayrollRunDetailPage({
           balanceVerified: activeBalanceFormatted,
         },
         circleSocialUuid ?? undefined,
+        workspaceContext?.workspace?.id,
       );
       setIsApprovalModalOpen(false);
       await loadData();
@@ -361,7 +364,7 @@ export default function PayrollRunDetailPage({
     if (!ownerWallet || !confirm("Are you sure you want to cancel this payroll run?")) return;
     setIsProcessing(true);
     try {
-      await cancelPayrollRunClient(ownerWallet, id, circleSocialUuid ?? undefined);
+      await cancelPayrollRunClient(ownerWallet, id, circleSocialUuid ?? undefined, workspaceContext?.workspace?.id);
       await loadData();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Cancellation failed.");
@@ -399,10 +402,7 @@ export default function PayrollRunDetailPage({
       throw new Error("Circle wallet confirmation is not ready.");
     }
     const sdk = await ensureCircleSdk(circleLogin);
-    sdk.setAuthentication({
-      encryptionKey: circleLogin.encryptionKey,
-      userToken: circleLogin.userToken,
-    });
+    sdk.setAuthentication(currentCircleAuth(circleLogin));
     setProcessingStatus(`Confirm ${label} in Circle wallet…`);
     return new Promise<CircleChallengeResult>((resolve, reject) => {
       sdk.execute(challengeId, (challengeError, result) => {
@@ -495,7 +495,7 @@ export default function PayrollRunDetailPage({
     }
   }
 
-  // Execution via BatchPay smart contract on Arc testnet
+  // Execution via BatchPay smart contract on Arc
   async function handleExecute() {
     if (!ownerWallet || !run) return;
     if (hasInsufficientBalance) {
@@ -567,9 +567,9 @@ export default function PayrollRunDetailPage({
         if (!externalAddress) {
           throw new Error("Connect your wallet to execute blockchain settlement.");
         }
-        if (chainId !== arcTestnet.id) {
-          setProcessingStatus("Switching to Arc Testnet…");
-          await switchChainAsync({ chainId: arcTestnet.id });
+        if (chainId !== arcChain.id) {
+          setProcessingStatus(`Switching to ${arcChain.name}…`);
+          await switchToArc(switchChainAsync);
         }
 
         setProcessingStatus(`Checking ${tokenSymbol} allowance for BatchPay…`);
@@ -587,7 +587,7 @@ export default function PayrollRunDetailPage({
             abi: erc20Abi,
             functionName: "approve",
             args: [configuredBatchAddress, requiredTotalUnits],
-            chainId: arcTestnet.id,
+            chainId: arcChain.id,
           });
           setProcessingStatus("Waiting for approval confirmation…");
           await arcPublicClient.waitForTransactionReceipt({ hash: approveHash });
@@ -599,7 +599,7 @@ export default function PayrollRunDetailPage({
           abi: swiftBatchAbi,
           functionName: "sendBatch",
           args: [tokenInfo.address, recipientsList, amountsList],
-          chainId: arcTestnet.id,
+          chainId: arcChain.id,
         });
 
         setProcessingStatus("Confirming settlement on ArcScan…");
@@ -618,6 +618,7 @@ export default function PayrollRunDetailPage({
           availableBalance: activeBalanceFormatted,
         },
         circleSocialUuid ?? undefined,
+        workspaceContext?.workspace?.id,
       );
 
       await loadData();
@@ -630,11 +631,11 @@ export default function PayrollRunDetailPage({
           title: "Payroll Run Completed",
           subtitle: "Successfully settled payments for all recipients.",
           amount: `${executed.total_amount} ${executed.asset}`,
-          explorerUrl: batchHash ? `https://testnet.arcscan.io/tx/${batchHash}` : undefined,
+          explorerUrl: batchHash ? `${arcExplorerUrl}/tx/${batchHash}` : undefined,
           rows: [
             { label: "Payroll Run", value: executed.name },
             { label: "Recipients", value: `${executed.recipient_count}` },
-            { label: "Platform Fee", value: `${executed.total_fees} ${executed.asset}` },
+            { label: "Service Fee", value: `${executed.total_fees} ${executed.asset}` },
             { label: "Total Required", value: `${executed.total_required} ${executed.asset}` },
             { label: "Status", value: executed.status },
           ],
@@ -664,6 +665,7 @@ export default function PayrollRunDetailPage({
           success: true,
         },
         circleSocialUuid ?? undefined,
+        workspaceContext?.workspace?.id,
       );
       const reloaded = await loadData();
       if (reloaded && reloaded.status === "COMPLETED") {
@@ -675,7 +677,7 @@ export default function PayrollRunDetailPage({
           rows: [
             { label: "Payroll Run", value: reloaded.name },
             { label: "Recipients", value: `${reloaded.recipient_count}` },
-            { label: "Platform Fee", value: `${reloaded.total_fees} ${reloaded.asset}` },
+            { label: "Service Fee", value: `${reloaded.total_fees} ${reloaded.asset}` },
             { label: "Total Required", value: `${reloaded.total_required} ${reloaded.asset}` },
             { label: "Status", value: "Completed" },
           ],
@@ -785,7 +787,7 @@ export default function PayrollRunDetailPage({
                   <p className="mt-1 font-heading text-xl font-bold">{run.total_amount} {run.asset}</p>
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase">Platform Fee (1%)</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">Service Fee (1%)</span>
                   <p className="mt-1 font-heading text-xl font-bold text-muted-foreground">{run.total_fees} {run.asset}</p>
                 </div>
                 <div>
@@ -868,7 +870,7 @@ export default function PayrollRunDetailPage({
 
                       {item.blockchain_tx_hash ? (
                         <a
-                          href={`https://testnet.arcscan.io/tx/${item.blockchain_tx_hash}`}
+                          href={`${arcExplorerUrl}/tx/${item.blockchain_tx_hash}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-xs text-primary hover:underline flex items-center"

@@ -5,6 +5,10 @@ import { loadAccount, requireAuthenticatedAccount, requireBusinessAccount } from
 import { accountDb, accountTables, readAccountDbError } from "@/lib/account/db";
 import { accountErrors } from "@/lib/account/errors";
 import { moneyNumber, parseMoney, roundMoney } from "@/lib/account/money";
+import { verifyInvoiceTransfer } from "@/lib/account/verify-invoice-payment";
+import { businessVerificationStatus, readReviewStatus } from "@/lib/business/verification";
+import { annualVolumeBands, employeeBands } from "@/lib/business-categories";
+import { arcTokens } from "@/lib/tokens";
 import type {
   AccountType,
   BusinessAccountProfile,
@@ -16,6 +20,7 @@ import type {
   InvoiceSummary,
   InvoiceWithItems,
 } from "@/lib/account/types";
+import { sendInvoiceEmail } from "@/lib/email/invoice-email";
 import { createSavingsNotificationResult } from "@/lib/save/notifications";
 import { normalizeUsername, validateUsername } from "@/lib/profile-utils";
 
@@ -60,9 +65,41 @@ export async function getAccountState(input: {
   const { account, actorWallet } = await requireAuthenticatedAccount(input);
   const profile =
     account.account_type === "BUSINESS"
-      ? await loadBusinessProfile(actorWallet)
+      ? await syncBusinessVerification(await loadBusinessProfile(actorWallet))
       : null;
   return { account, profile };
+}
+
+/**
+ * Keeps a stored status honest: a business verified under an older, looser
+ * rule — or whose profile has since lost a field — is re-checked on load.
+ */
+export async function syncBusinessVerification(profile: BusinessAccountProfile | null) {
+  if (!profile) return profile;
+  const status = businessProfileVerificationStatus(profile);
+  if (status === profile.verification_status) return profile;
+  await accountDb()
+    .from(accountTables.businessProfiles)
+    .update({ verification_status: status })
+    .eq("wallet_address", profile.wallet_address.toLowerCase());
+  return { ...profile, verification_status: status };
+}
+
+/** A stored business profile's status: complete profile + approved review. */
+export function businessProfileVerificationStatus(profile: BusinessAccountProfile) {
+  return businessVerificationStatus(
+    {
+      businessName: profile.business_name,
+      category: profile.category,
+      contactEmail: profile.contact_email,
+      country: profile.country,
+      description: profile.description,
+      logoUrl: profile.logo_url,
+      phone: profile.phone,
+      website: profile.website,
+    },
+    readReviewStatus(profile.review_status),
+  );
 }
 
 export async function loadBusinessProfile(wallet: string) {
@@ -88,6 +125,7 @@ async function upsertBusinessProfile(
     currency?: BusinessAsset;
     description?: string | null;
     logoUrl?: string | null;
+    phone?: string | null;
     website?: string | null;
   },
 ) {
@@ -95,12 +133,39 @@ async function upsertBusinessProfile(
   if (!name || name.length > 80) {
     throw accountErrors.invalid("Enter a business name up to 80 characters.");
   }
-  const isComplete = Boolean(
-    input.logoUrl?.trim() &&
-    input.website?.trim() &&
-    input.description?.trim()
+  const current = await loadBusinessProfile(wallet);
+  const existingPhone = input.phone === undefined ? current?.phone : input.phone;
+  // An approval vouches for the name that was checked. Renaming the business
+  // (or moving it to another country) means it has to be verified again.
+  const storedReview = current?.review_status;
+  const identityChanged = Boolean(
+    current &&
+      (current.business_name.trim().toLowerCase() !== name.toLowerCase() ||
+        (current.country ?? "") !== (input.country ?? current.country ?? "")),
+  );
+  const review =
+    storedReview !== undefined && identityChanged && readReviewStatus(storedReview) !== "NONE"
+      ? "NONE"
+      : readReviewStatus(storedReview);
+  // Complete profile + approved review — see verification.ts.
+  const verificationStatus = businessVerificationStatus(
+    {
+      businessName: name,
+      category: input.category,
+      contactEmail: input.contactEmail,
+      country: input.country,
+      description: input.description,
+      logoUrl: input.logoUrl,
+      phone: existingPhone,
+      website: input.website,
+    },
+    review,
   );
   const payload = {
+    // Only written when the column exists (business-verification-reviews.sql).
+    ...(storedReview !== undefined && review !== readReviewStatus(storedReview)
+      ? { review_status: review }
+      : {}),
     business_name: name,
     category: input.category ?? null,
     contact_email: input.contactEmail ?? null,
@@ -108,8 +173,9 @@ async function upsertBusinessProfile(
     currency: input.currency ?? "USDC",
     description: input.description ?? null,
     logo_url: input.logoUrl ?? null,
+    ...(input.phone !== undefined ? { phone: input.phone } : {}),
     updated_at: nowIso(),
-    verification_status: isComplete ? "VERIFIED" : "UNVERIFIED",
+    verification_status: verificationStatus,
     wallet_address: wallet.toLowerCase(),
     website: input.website ?? null,
   };
@@ -186,6 +252,9 @@ export async function completeAccountOnboarding(input: {
   businessDescription?: string | null;
   businessName?: string;
   circleSocialUuid?: unknown;
+  /** The Google / email sign-in address, used as the starting contact email. */
+  contactEmail?: unknown;
+  fullName?: string | null;
   locale: string;
   logoUrl?: string | null;
   ownerWallet: string;
@@ -200,6 +269,11 @@ export async function completeAccountOnboarding(input: {
   const usernameError = validateUsername(username);
   if (usernameError) throw accountErrors.invalid(usernameError);
   const targetType: AccountType = input.accountKind === "business" ? "BUSINESS" : "PERSONAL";
+  // The full name is what the top bar shows for a personal account.
+  const fullName =
+    typeof input.fullName === "string"
+      ? input.fullName.trim().replace(/\s+/g, " ").slice(0, 80)
+      : "";
   const supabase = accountDb();
 
   const profileUpdates: Record<string, unknown> = {
@@ -211,6 +285,7 @@ export async function completeAccountOnboarding(input: {
     onboarding_completed_at: nowIso(),
     updated_at: nowIso(),
     username,
+    ...(fullName ? { display_name: fullName } : {}),
   };
 
   let profileMutation = await supabase
@@ -235,6 +310,7 @@ export async function completeAccountOnboarding(input: {
     await upsertBusinessProfile(actorWallet, {
       businessName: input.businessName ?? "",
       category: input.businessCategory ?? null,
+      contactEmail: contactEmailFrom(input.contactEmail),
       description: input.businessDescription ?? null,
       logoUrl: input.logoUrl ?? null,
       website: input.website ?? null,
@@ -261,10 +337,19 @@ export async function completeAccountOnboarding(input: {
   });
 }
 
+/** A contact email from sign-in, when it is a plausible address. */
+function contactEmailFrom(value: unknown) {
+  if (typeof value !== "string") return null;
+  const email = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 160 ? email : null;
+}
+
 export async function upgradeToBusiness(input: {
   businessCategory?: string | null;
   businessDescription?: string | null;
   businessName: string;
+  /** The Google / email sign-in address, used as the starting contact email. */
+  contactEmail?: unknown;
   circleSocialUuid?: unknown;
   confirmed: boolean;
   logoUrl?: string | null;
@@ -281,6 +366,7 @@ export async function upgradeToBusiness(input: {
   await upsertBusinessProfile(actorWallet, {
     businessName: input.businessName,
     category: input.businessCategory ?? null,
+    contactEmail: contactEmailFrom(input.contactEmail),
     description: input.businessDescription ?? null,
     logoUrl: input.logoUrl ?? null,
     website: input.website ?? null,
@@ -312,6 +398,9 @@ export async function updateBusinessAccountProfile(input: {
   ownerWallet: unknown;
   phone?: unknown;
   website?: unknown;
+  businessSize?: unknown;
+  annualVolume?: unknown;
+  yearFounded?: unknown;
 }) {
   const { actorWallet } = await requireBusinessAccount(input);
   const current = await loadBusinessProfile(actorWallet);
@@ -327,6 +416,8 @@ export async function updateBusinessAccountProfile(input: {
     currency: isAsset(input.currency) ? input.currency : current.currency,
     description: optionalText(input.description, 280) ?? current.description,
     logoUrl: optionalText(input.logoUrl, 500_000) ?? current.logo_url,
+    // Saved with the rest, so it counts toward verification in the same write.
+    phone: optionalText(input.phone, 40) ?? current.phone,
     website: optionalText(input.website, 160) ?? current.website,
   });
   const supabase = accountDb();
@@ -335,10 +426,35 @@ export async function updateBusinessAccountProfile(input: {
     .update({
       address_line: optionalText(input.addressLine, 160) ?? current.address_line,
       industry: optionalText(input.industry, 80) ?? current.industry,
-      phone: optionalText(input.phone, 40) ?? current.phone,
       updated_at: nowIso(),
     })
     .eq("wallet_address", actorWallet);
+
+  // Optional details. Sent as "" to clear; left out to keep what's saved.
+  const details: Record<string, unknown> = {};
+  if (input.businessSize !== undefined) {
+    details.business_size = readBand(input.businessSize, employeeBands, "employee band");
+  }
+  if (input.annualVolume !== undefined) {
+    details.annual_volume = readBand(input.annualVolume, annualVolumeBands, "annual volume");
+  }
+  if (input.yearFounded !== undefined) {
+    details.year_founded = readYearFounded(input.yearFounded);
+  }
+  if (Object.keys(details).length > 0) {
+    const saved = await supabase
+      .from(accountTables.businessProfiles)
+      .update(details)
+      .eq("wallet_address", actorWallet);
+    if (saved.error) {
+      if (/year_founded|annual_volume/.test(saved.error.message ?? "")) {
+        throw accountErrors.invalid(
+          "Year founded and annual volume can't be saved yet: run packages/database/supabase/business-profile-details.sql.",
+        );
+      }
+      throw new Error(readAccountDbError(saved.error, "Could not save the business details."));
+    }
+  }
   return loadBusinessProfile(actorWallet) ?? next;
 }
 
@@ -418,22 +534,35 @@ async function allocatePublicId(invoiceNumber: string) {
   return `${invoiceNumber}-${randomBytes(3).toString("hex")}`;
 }
 
+/**
+ * The next automatic number: one past the highest INV-<digits> this business
+ * has used. The highest, not the latest, so a custom number in between (say
+ * INV-SPRING) never restarts the sequence at INV-0001.
+ */
 async function nextInvoiceNumber(wallet: string) {
   const supabase = accountDb();
   const { data, error } = await supabase
     .from(accountTables.invoices)
     .select("invoice_number")
     .eq("wallet_address", wallet)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .like("invoice_number", "INV-%")
+    .limit(5000);
   if (error) {
     throw new Error(readAccountDbError(error, "Could not allocate an invoice number."));
   }
-  const last = (data as { invoice_number?: string } | null)?.invoice_number ?? "INV-0000";
-  const match = last.match(/(\d+)$/);
-  const next = (match ? Number(match[1]) : 0) + 1;
-  return `INV-${String(next).padStart(4, "0")}`;
+  const highest = ((data ?? []) as { invoice_number?: string }[]).reduce((max, row) => {
+    const match = row.invoice_number?.match(/^INV-(\d+)$/);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return `INV-${String(highest + 1).padStart(4, "0")}`;
+}
+
+function isDuplicateInvoiceNumber(error: { code?: string; message?: string } | null) {
+  return Boolean(
+    error &&
+      (error.code === "23505" || /duplicate key/i.test(error.message ?? "")) &&
+      /number_unique|invoice_number/i.test(error.message ?? ""),
+  );
 }
 
 async function loadInvoiceForOwner(wallet: string, invoiceId: string) {
@@ -465,17 +594,21 @@ export async function getInvoice(input: {
   circleSocialUuid?: unknown;
   invoiceId: string;
   ownerWallet: unknown;
+  workspaceId?: unknown;
 }) {
-  const { actorWallet } = await requireBusinessAccount(input);
-  return loadInvoiceForOwner(actorWallet, input.invoiceId);
+  const { actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
+  return loadInvoiceForOwner(targetWallet, input.invoiceId);
 }
 
 export async function listInvoices(input: {
   circleSocialUuid?: unknown;
   ownerWallet: unknown;
   page?: number;
+  workspaceId?: unknown;
 }) {
-  const { actorWallet } = await requireBusinessAccount(input);
+  const { actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
   const page = Math.max(1, input.page ?? 1);
   const pageSize = 20;
   const from = (page - 1) * pageSize;
@@ -483,7 +616,7 @@ export async function listInvoices(input: {
   const query = await supabase
     .from(accountTables.invoices)
     .select("*", { count: "exact" })
-    .eq("wallet_address", actorWallet)
+    .eq("wallet_address", targetWallet)
     .order("created_at", { ascending: false })
     .range(from, from + pageSize - 1);
   if (query.error) {
@@ -535,12 +668,14 @@ export async function invoiceSummary(wallet: string): Promise<InvoiceSummary> {
 export async function getBusinessOverview(input: {
   circleSocialUuid?: unknown;
   ownerWallet: unknown;
+  workspaceId?: unknown;
 }) {
-  const { account, actorWallet } = await requireBusinessAccount(input);
+  const { account, actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
   const [profile, invoices, summary] = await Promise.all([
-    loadBusinessProfile(actorWallet),
+    loadBusinessProfile(targetWallet),
     listInvoices({ ...input, page: 1 }),
-    invoiceSummary(actorWallet),
+    invoiceSummary(targetWallet),
   ]);
   return {
     account,
@@ -567,14 +702,15 @@ export async function createInvoice(input: {
   origin?: string;
   ownerWallet: unknown;
   paymentTerms?: unknown;
+  workspaceId?: unknown;
 }) {
-  const { actorWallet } = await requireBusinessAccount(input);
+  const { actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
   const totals = totalsFromItems(input.items);
   const currency = isAsset(input.currency) ? input.currency : "USDC";
   const requestedNumber =
     typeof input.invoiceNumber === "string" ? input.invoiceNumber.trim().toUpperCase() : "";
-  const invoiceNumber = requestedNumber || (await nextInvoiceNumber(actorWallet));
-  if (!/^INV-[A-Z0-9-]{1,24}$/.test(invoiceNumber)) {
+  if (requestedNumber && !/^INV-[A-Z0-9-]{1,24}$/.test(requestedNumber)) {
     throw accountErrors.invalid("Invoice numbers must look like INV-1042.");
   }
   const customerUsername = optionalText(
@@ -589,14 +725,23 @@ export async function createInvoice(input: {
       throw accountErrors.invalid("That SwiftPay username was not found.");
     }
   }
-  const publicId = await allocatePublicId(invoiceNumber);
   const origin = input.origin?.replace(/\/$/, "") ?? "";
   const issueDate =
     typeof input.issueDate === "string" && input.issueDate
       ? input.issueDate.slice(0, 10)
       : nowIso().slice(0, 10);
   const supabase = accountDb();
-  const created = await supabase
+
+  // An automatic number can collide when two invoices are created at once;
+  // take the next one and try again. A number the business typed is theirs,
+  // so a clash there is reported instead of silently renumbered.
+  let created;
+  let invoiceNumber = "";
+  let publicId = "";
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    invoiceNumber = requestedNumber || (await nextInvoiceNumber(targetWallet));
+    publicId = await allocatePublicId(invoiceNumber);
+    created = await supabase
     .from(accountTables.invoices)
     .insert({
       allow_partial_payment: Boolean(input.allowPartialPayment),
@@ -625,12 +770,19 @@ export async function createInvoice(input: {
       tax: totals.tax,
       total: totals.total,
       updated_at: nowIso(),
-      wallet_address: actorWallet,
+      wallet_address: targetWallet,
     })
     .select("*")
     .single();
-  if (created.error) {
-    throw new Error(readAccountDbError(created.error, "Could not create the invoice."));
+    if (!isDuplicateInvoiceNumber(created.error)) break;
+    if (requestedNumber) {
+      throw accountErrors.invalid(`${requestedNumber} is already used. Pick another number or leave it blank.`);
+    }
+  }
+  if (!created || created.error) {
+    throw new Error(
+      readAccountDbError(created?.error ?? null, "Could not create the invoice."),
+    );
   }
   const invoice = created.data as InvoiceRecord;
   const items = await supabase.from(accountTables.invoiceItems).insert(
@@ -642,9 +794,20 @@ export async function createInvoice(input: {
   if (items.error) {
     throw new Error(readAccountDbError(items.error, "Could not save invoice items."));
   }
-  const issued = await loadInvoiceForOwner(actorWallet, invoice.id);
+  const issued = await loadInvoiceForOwner(targetWallet, invoice.id);
   await notifyInvoiceRecipient(issued);
-  return issued;
+  // Email the customer when an address was given. A failed send never undoes
+  // the invoice; the result goes back so the business knows.
+  let emailDelivery: InvoiceWithItems["email_delivery"] = null;
+  if (issued.customer_email) {
+    const profile = await loadBusinessProfile(targetWallet).catch(() => null);
+    emailDelivery = await sendInvoiceEmail({
+      businessName: profile?.business_name?.trim() || "A SwiftPay business",
+      invoice: issued,
+      replyTo: profile?.contact_email,
+    });
+  }
+  return { ...issued, email_delivery: emailDelivery };
 }
 
 async function notifyInvoiceRecipient(invoice: InvoiceWithItems) {
@@ -681,9 +844,11 @@ export async function updateInvoice(input: {
   notes?: unknown;
   ownerWallet: unknown;
   paymentTerms?: unknown;
+  workspaceId?: unknown;
 }) {
-  const { actorWallet } = await requireBusinessAccount(input);
-  const current = await loadInvoiceForOwner(actorWallet, input.invoiceId);
+  const { actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
+  const current = await loadInvoiceForOwner(targetWallet, input.invoiceId);
   if (current.status !== "DRAFT") {
     throw accountErrors.invalidInvoiceStatus("Only draft invoices can be edited.");
   }
@@ -741,11 +906,74 @@ export async function updateInvoice(input: {
       updated_at: nowIso(),
     })
     .eq("id", current.id)
-    .eq("wallet_address", actorWallet);
+    .eq("wallet_address", targetWallet);
   if (mutation.error) {
     throw new Error(readAccountDbError(mutation.error, "Could not update the invoice."));
   }
-  return loadInvoiceForOwner(actorWallet, current.id);
+  return loadInvoiceForOwner(targetWallet, current.id);
+}
+
+/** Invoices still awaiting payment: the ones worth (re)emailing. */
+const emailableStatuses = new Set(["SENT", "VIEWED", "PENDING", "PARTIALLY_PAID", "OVERDUE"]);
+
+/**
+ * Email an existing invoice to its customer: a re-send after a failed or
+ * missing email. `toEmail` fills in (and saves) an address when the invoice
+ * has none. Throws when the email is not sent, so the caller can say why.
+ */
+export async function emailInvoice(input: {
+  circleSocialUuid?: unknown;
+  invoiceId: string;
+  ownerWallet: unknown;
+  toEmail?: unknown;
+  workspaceId?: unknown;
+}) {
+  const { actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
+  let invoice = await loadInvoiceForOwner(targetWallet, input.invoiceId);
+  if (!emailableStatuses.has(invoice.status)) {
+    throw accountErrors.invalidInvoiceStatus(
+      invoice.status === "PAID"
+        ? "This invoice is already paid."
+        : "Only an open invoice can be emailed. Send the draft first.",
+    );
+  }
+
+  const given =
+    typeof input.toEmail === "string" ? input.toEmail.trim().toLowerCase() : "";
+  if (given && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(given) || given.length > 160)) {
+    throw accountErrors.invalid("Enter a valid email address.");
+  }
+  if (given && given !== invoice.customer_email) {
+    const saved = await accountDb()
+      .from(accountTables.invoices)
+      .update({ customer_email: given, updated_at: nowIso() })
+      .eq("id", invoice.id)
+      .eq("wallet_address", targetWallet);
+    if (saved.error) {
+      throw new Error(readAccountDbError(saved.error, "Could not save the customer email."));
+    }
+    invoice = { ...invoice, customer_email: given };
+  }
+  if (!invoice.customer_email) {
+    throw accountErrors.invalid("Add the customer's email address to send this invoice.");
+  }
+
+  const profile = await loadBusinessProfile(targetWallet).catch(() => null);
+  const status = await sendInvoiceEmail({
+    businessName: profile?.business_name?.trim() || "A SwiftPay business",
+    invoice,
+    replyTo: profile?.contact_email,
+    // One re-send per invoice per minute: a double click is one email.
+    idempotencyKey: `invoice-${invoice.id}-resend-${Math.floor(Date.now() / 60_000)}`,
+  });
+  if (status === "not_configured") {
+    throw accountErrors.invalid("Invoice emails aren't set up yet. Share the payment link instead.");
+  }
+  if (status !== "sent") {
+    throw new Error(`The email to ${invoice.customer_email} didn't go through. Try again, or share the payment link.`);
+  }
+  return { ...invoice, email_delivery: status };
 }
 
 export async function sendInvoice(input: {
@@ -753,9 +981,11 @@ export async function sendInvoice(input: {
   invoiceId: string;
   origin?: string;
   ownerWallet: unknown;
+  workspaceId?: unknown;
 }) {
-  const { actorWallet } = await requireBusinessAccount(input);
-  const current = await loadInvoiceForOwner(actorWallet, input.invoiceId);
+  const { actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
+  const current = await loadInvoiceForOwner(targetWallet, input.invoiceId);
   if (current.status !== "DRAFT" && current.status !== "CANCELLED") {
     throw accountErrors.invalidInvoiceStatus("This invoice has already been sent.");
   }
@@ -769,11 +999,11 @@ export async function sendInvoice(input: {
       updated_at: nowIso(),
     })
     .eq("id", current.id)
-    .eq("wallet_address", actorWallet);
+    .eq("wallet_address", targetWallet);
   if (mutation.error) {
     throw new Error(readAccountDbError(mutation.error, "Could not send the invoice."));
   }
-  const sent = await loadInvoiceForOwner(actorWallet, current.id);
+  const sent = await loadInvoiceForOwner(targetWallet, current.id);
   await notifyInvoiceRecipient(sent);
   return sent;
 }
@@ -782,9 +1012,11 @@ export async function cancelInvoice(input: {
   circleSocialUuid?: unknown;
   invoiceId: string;
   ownerWallet: unknown;
+  workspaceId?: unknown;
 }) {
-  const { actorWallet } = await requireBusinessAccount(input);
-  const current = await loadInvoiceForOwner(actorWallet, input.invoiceId);
+  const { actorWallet, businessWallet } = await requireBusinessAccount(input);
+  const targetWallet = businessWallet || actorWallet;
+  const current = await loadInvoiceForOwner(targetWallet, input.invoiceId);
   if (current.status === "PAID") throw accountErrors.invoiceAlreadyPaid();
   if (current.status === "CANCELLED") return current;
   const supabase = accountDb();
@@ -792,11 +1024,11 @@ export async function cancelInvoice(input: {
     .from(accountTables.invoices)
     .update({ status: "CANCELLED", updated_at: nowIso() })
     .eq("id", current.id)
-    .eq("wallet_address", actorWallet);
+    .eq("wallet_address", targetWallet);
   if (mutation.error) {
     throw new Error(readAccountDbError(mutation.error, "Could not cancel the invoice."));
   }
-  return loadInvoiceForOwner(actorWallet, current.id);
+  return loadInvoiceForOwner(targetWallet, current.id);
 }
 
 export async function getPublicInvoice(publicId: string, options?: { markViewed?: boolean }) {
@@ -840,7 +1072,10 @@ export async function getPublicInvoice(publicId: string, options?: { markViewed?
       body: `Invoice ${row.invoice_number} was viewed.`,
       fallbackKind: "payment_request",
       kind: "payment_request",
-      metadata: { invoiceId: row.id, publicId },
+      // An update for the business, not a request to pay: the type keeps the
+      // bell from offering Pay / Decline on it. (Stored under the
+      // payment_request kind only because the table's kinds are fixed.)
+      metadata: { invoiceId: row.id, publicId, type: "invoice_viewed" },
       ownerWallet: row.wallet_address,
       title: "Your invoice was viewed",
     });
@@ -897,7 +1132,20 @@ export async function confirmInvoicePayment(input: {
   if (!isAsset(input.asset) || input.asset !== invoice.currency) {
     throw accountErrors.invalidPayment("Pay with the invoice asset.");
   }
-  const paid = moneyNumber(parseMoney(input.amount));
+  // The amount is what the chain says reached the business — never what the
+  // payer's browser claims. A made-up hash, a failed transfer or one sent
+  // somewhere else credits nothing.
+  const onchainReceived = await verifyInvoiceTransfer({
+    destination: publicInvoice.destinationWallet,
+    token: arcTokens[invoice.currency],
+    txHash: txHash as `0x${string}`,
+  });
+  if (onchainReceived === null) {
+    throw accountErrors.invalidPayment(
+      "This transaction isn't confirmed yet, or it didn't pay this invoice's wallet. Try again in a moment.",
+    );
+  }
+  const paid = moneyNumber(roundMoney(onchainReceived));
   if (paid <= 0) {
     throw accountErrors.invalidPayment("Payment amount must be greater than zero.");
   }
@@ -1023,4 +1271,21 @@ export function profileCompletion(profile: BusinessAccountProfile | null) {
   const missing = checks.filter(([, value]) => !value).map(([key]) => key);
   const percent = Math.round(((checks.length - missing.length) / checks.length) * 100);
   return { missing, percent };
+}
+
+/** One of `bands`, null when cleared; anything else is rejected. */
+function readBand(value: unknown, bands: readonly string[], label: string) {
+  if (value === null || value === "") return null;
+  if (typeof value === "string" && bands.includes(value.trim())) return value.trim();
+  throw accountErrors.invalid(`Choose a valid ${label}.`);
+}
+
+function readYearFounded(value: unknown) {
+  if (value === null || value === "") return null;
+  const year = Number(value);
+  const thisYear = new Date().getUTCFullYear();
+  if (!Number.isInteger(year) || year < 1800 || year > thisYear) {
+    throw accountErrors.invalid(`Enter a year founded between 1800 and ${thisYear}.`);
+  }
+  return year;
 }

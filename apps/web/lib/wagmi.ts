@@ -1,83 +1,36 @@
-import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import {
+  coinbaseWallet,
+  injectedWallet,
+  metaMaskWallet,
+  okxWallet,
+  rabbyWallet,
+  rainbowWallet,
+  trustWallet,
+  walletConnectWallet,
+} from "@rainbow-me/rainbowkit/wallets";
+import {
+  arbitrum,
+  arbitrumSepolia,
+  avalanche,
+  avalancheFuji,
+  base,
   baseSepolia,
+  mainnet,
+  optimism,
+  optimismSepolia,
+  polygon,
+  polygonAmoy,
   sepolia,
-  type AppKitNetwork,
-} from "@reown/appkit/networks";
-import { http, type Config } from "wagmi";
+} from "viem/chains";
+import type { Chain } from "viem";
+import { cookieStorage, createStorage, http, type Config } from "wagmi";
 
-import {
-  isArcMainnet,
-  officialArcChainId,
-  officialArcExplorerUrl,
-  officialArcRpcUrl,
-} from "@/lib/network";
+import { arcChain, arcMainnet, arcTestnet } from "@/lib/chains";
 
-export const arcTestnet = {
-  id: 5_042_002,
-  name: "Arc Testnet",
-  iconBackground: "#120b20",
-  iconUrl:
-    "https://cdn.prod.website-files.com/685311a976e7c248b5dfde95/699e21e934a48439675361dc_arc-icon.svg",
-  nativeCurrency: {
-    decimals: 18,
-    name: "USDC",
-    symbol: "USDC",
-  },
-  rpcUrls: {
-    default: {
-      http: ["https://rpc.testnet.arc.network"],
-      webSocket: ["wss://rpc.testnet.arc.network"],
-    },
-    public: {
-      http: ["https://rpc.testnet.arc.network"],
-      webSocket: ["wss://rpc.testnet.arc.network"],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: "ArcScan",
-      url: "https://testnet.arcscan.app",
-    },
-  },
-  testnet: true,
-} as const;
-
-const mainnetChainId = officialArcChainId();
-const mainnetRpc = officialArcRpcUrl();
-const mainnetExplorer = officialArcExplorerUrl();
-
-/** Present only after official Arc mainnet chain ID, RPC, and explorer are published. */
-export const arcMainnet =
-  isArcMainnet() && mainnetChainId && mainnetRpc && mainnetExplorer
-    ? ({
-        id: mainnetChainId,
-        name: "Arc",
-        iconBackground: "#120b20",
-        iconUrl:
-          "https://cdn.prod.website-files.com/685311a976e7c248b5dfde95/699e21e934a48439675361dc_arc-icon.svg",
-        nativeCurrency: {
-          decimals: 18,
-          name: "USDC",
-          symbol: "USDC",
-        },
-        rpcUrls: {
-          default: {
-            http: [mainnetRpc],
-          },
-          public: {
-            http: [mainnetRpc],
-          },
-        },
-        blockExplorers: {
-          default: {
-            name: "ArcScan",
-            url: mainnetExplorer,
-          },
-        },
-        testnet: false,
-      } as const)
-    : null;
+// Re-exported so existing imports keep working; server code should import
+// these from "@/lib/chains" to avoid loading RainbowKit.
+export { arcChain, arcMainnet, arcTestnet };
 
 const configuredProjectId =
   process.env.NEXT_PUBLIC_REOWN_PROJECT_ID?.trim() ||
@@ -106,14 +59,32 @@ export const metadata = {
 
 export const networks = (
   arcMainnet
-    ? [arcMainnet, arcTestnet]
-    : [arcTestnet, baseSepolia, sepolia]
-) as [AppKitNetwork, ...AppKitNetwork[]];
+    ? [arcMainnet, base, mainnet, arbitrum, optimism, avalanche, polygon]
+    : [
+        arcTestnet,
+        baseSepolia,
+        sepolia,
+        arbitrumSepolia,
+        optimismSepolia,
+        avalancheFuji,
+        polygonAmoy,
+      ]
+) as unknown as readonly [Chain, ...Chain[]];
 
-export const wagmiAdapter = new WagmiAdapter({
-  networks,
+/**
+ * RainbowKit's wallet list. Wallets installed in the browser are detected and
+ * listed first on their own; on a phone, picking a wallet deep-links straight
+ * into its app to approve the connection and signatures.
+ */
+export const config = getDefaultConfig({
+  appDescription: metadata.description,
+  appIcon: metadata.icons[0],
+  appName: metadata.name,
+  appUrl: metadata.url,
+  chains: networks,
   projectId,
   ssr: true,
+  storage: createStorage({ storage: cookieStorage }),
   transports: {
     [arcTestnet.id]: http(arcTestnet.rpcUrls.default.http[0]),
     ...(arcMainnet
@@ -121,8 +92,25 @@ export const wagmiAdapter = new WagmiAdapter({
       : {
           [baseSepolia.id]: http(),
           [sepolia.id]: http(),
+          [arbitrumSepolia.id]: http(),
+          [optimismSepolia.id]: http(),
+          [avalancheFuji.id]: http(),
+          [polygonAmoy.id]: http(),
         }),
   },
-});
-
-export const config = wagmiAdapter.wagmiConfig as Config;
+  wallets: [
+    {
+      groupName: "Recommended",
+      wallets: [
+        metaMaskWallet,
+        rabbyWallet,
+        coinbaseWallet,
+        walletConnectWallet,
+      ],
+    },
+    {
+      groupName: "More",
+      wallets: [rainbowWallet, trustWallet, okxWallet, injectedWallet],
+    },
+  ],
+}) as Config;

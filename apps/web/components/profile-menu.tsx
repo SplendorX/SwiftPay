@@ -124,7 +124,7 @@ function ProfileAvatar({
 
   return (
     <span
-      className={`inline-flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full border border-swift-600/20 bg-gradient-to-br from-swift-600 to-lavender-500 text-xs font-black text-white shadow-sm`}
+      className={`profile-avatar inline-flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-black`}
     >
       {avatarUrl && !imageFailed ? (
         <img
@@ -193,8 +193,11 @@ export function ProfileMenu({
 
     return identity.email ?? identity.name ?? "Google account connected";
   }, [activeLogin, identity.email, identity.name]);
-  const buttonLabel = isBusinessAccount && accountRecord?.username
-    ? `@${accountRecord.username}`
+  const buttonLabel = isBusinessAccount
+    ? businessProfile?.business_name ||
+      (accountRecord?.username ? `@${accountRecord.username}` : "Business")
+    : profile?.display_name
+    ? profile.display_name
     : profile?.username
     ? `@${profile.username}`
     : isCurrentExternalWallet && activeAddress
@@ -213,8 +216,8 @@ export function ProfileMenu({
       : "Google";
   const profilePrimaryLabel = isBusinessAccount
     ? businessProfile?.business_name || accountRecord?.username || "Business"
-    : profile?.username
-    ? `@${profile.username}`
+    : profile?.display_name || profile?.username
+    ? profile?.display_name || `@${profile?.username}`
     : activeLogin
       ? googleLabel
       : externalAddress
@@ -227,7 +230,9 @@ export function ProfileMenu({
       ? `@${accountRecord.username}`
       : t("profile.businessAccount")
     : profile?.username
-    ? activeLogin
+    ? profile.display_name
+      ? `@${profile.username}`
+      : activeLogin
       ? (identity.email ?? identity.name ?? "")
       : externalAddress
         ? shortenCircleAddress(externalAddress)
@@ -498,12 +503,32 @@ export function ProfileMenu({
     }
   }
 
+  // The copy button sits on whichever line shows the @username: the second
+  // line when a display name sits above it, otherwise the first.
+  const usernameOnSecondLine = Boolean(
+    !isBusinessAccount && profile?.username && profile.display_name,
+  );
+  const copyUsernameButton = profile?.username ? (
+    <button
+      aria-label={t("profile.copyUsername")}
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:border-primary/30 hover:text-primary"
+      onClick={() => void copyUsername(profile.username)}
+      type="button"
+    >
+      {copiedUsername ? (
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+      ) : (
+        <Copy className="h-3.5 w-3.5" />
+      )}
+    </button>
+  ) : null;
+
   return (
     <div className="relative z-[90] shrink-0" ref={menuRef}>
       <button
         aria-expanded={open}
         aria-haspopup="menu"
-        className="font-ui inline-flex h-11 max-w-[13rem] items-center justify-center gap-2 rounded-lg bg-swift-600 px-3 text-sm font-bold text-white shadow-[0_14px_32px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-swift-600 focus:ring-offset-2 sm:px-4"
+        className="profile-trigger inline-flex h-11 max-w-[13rem] items-center justify-center gap-2 px-3 text-sm sm:px-4"
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
@@ -519,8 +544,10 @@ export function ProfileMenu({
               : profile?.username ?? profilePrimaryLabel
           }
         />
-        <span className="hidden min-w-0 truncate sm:inline">{buttonLabel}</span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/75" />
+        <span className="profile-trigger-name hidden min-w-0 truncate sm:inline">
+          {buttonLabel}
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
       </button>
 
       {open ? (
@@ -551,31 +578,23 @@ export function ProfileMenu({
                   <p className="truncate text-sm font-bold text-foreground">
                     {profilePrimaryLabel}
                   </p>
-                  {profile?.username ? (
-                    <button
-                      aria-label={t("profile.copyUsername")}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:border-primary/30 hover:text-primary"
-                      onClick={() => void copyUsername(profile.username)}
-                      type="button"
-                    >
-                      {copiedUsername ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  ) : null}
+                  {profile?.username && !usernameOnSecondLine ? copyUsernameButton : null}
                 </div>
                 {profileSecondaryLabel ? (
-                  <p className="mt-1 truncate text-xs font-semibold text-muted">
-                    {profileSecondaryLabel}
-                  </p>
+                  <div className="mt-1 flex min-w-0 items-center gap-2">
+                    <p className="truncate text-xs font-semibold text-muted">
+                      {profileSecondaryLabel}
+                    </p>
+                    {usernameOnSecondLine ? copyUsernameButton : null}
+                  </div>
                 ) : null}
               </div>
             </div>
           </div>
 
           <div className="mt-3 grid gap-2 text-sm">
+            {/* One wallet per profile: only the wallet this session runs on. */}
+            {activeLogin ? (
             <div className="rounded-lg border border-border px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-muted-foreground">Circle wallet</span>
@@ -593,6 +612,7 @@ export function ProfileMenu({
                 {resolvedCircleWalletAddress || "Not connected"}
               </p>
             </div>
+            ) : null}
 
             {!activeLogin ? (
               <div className="rounded-lg border border-border px-3 py-3">
@@ -606,7 +626,7 @@ export function ProfileMenu({
                 </div>
                 {shouldShowExternalWalletAction ? (
                   <button
-                    className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-swift-600 px-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
+                    className="sp-bubble mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-swift-600 px-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(66,17,143,0.18)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0"
                     onClick={selectExternalWallet}
                     type="button"
                   >
@@ -643,6 +663,15 @@ export function ProfileMenu({
               >
                 <LogOut className="h-4 w-4" />
                 {t("profile.signOutGoogle")}
+              </button>
+            ) : externalAddress ? (
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 text-sm font-semibold text-rose-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-500/15 active:translate-y-0 dark:text-rose-400"
+                onClick={handleSignOut}
+                type="button"
+              >
+                <LogOut className="h-4 w-4" />
+                Disconnect wallet
               </button>
             ) : (
               <Link

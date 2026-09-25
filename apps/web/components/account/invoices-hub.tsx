@@ -5,12 +5,13 @@ import {
   Eye,
   Link2,
   Loader2,
+  Mail,
   Plus,
   Share2,
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { InvoiceDocument } from "@/components/account/invoice-document";
@@ -18,11 +19,20 @@ import { useT } from "@/components/locale-provider";
 import { useAccountContext } from "@/components/account/account-provider";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { StyledSelect } from "@/components/ui/styled-select";
 import {
   cancelInvoiceClient,
   createInvoiceClient,
+  emailInvoiceClient,
   fetchInvoice,
   fetchInvoices,
   sendInvoiceClient,
@@ -58,6 +68,11 @@ function invoiceLink(invoice: InvoiceRecord) {
   return `${window.location.origin}/invoice/${encodeURIComponent(slug)}`;
 }
 
+type InvoiceIntent = "send" | "remind" | "cancel";
+
+/** Open invoices (still awaiting payment) can be emailed. */
+const emailableInvoiceStatuses: string[] = ["SENT", "VIEWED", "PENDING", "PARTIALLY_PAID", "OVERDUE"];
+
 export function InvoicesHub() {
   const t = useT();
   const {
@@ -71,13 +86,11 @@ export function InvoicesHub() {
   const {
     address,
     circleSocialUuid: walletSocialUuid,
-    isBusinessWorkspace,
   } = usePlatformWallet();
 
   const effectiveSocialUuid = accountSocialUuid || walletSocialUuid;
   const activeWallet = (ownerWallet || address)?.toLowerCase() ?? null;
-  const isBusinessAccount =
-    isBusiness || isBusinessWorkspace || account?.account_type === "BUSINESS";
+  const isBusinessAccount = Boolean(isBusiness || account?.account_type === "BUSINESS");
 
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [loadingInvoices, setLoadingInvoices] = useState(true);
@@ -86,6 +99,8 @@ export function InvoicesHub() {
   const [creating, setCreating] = useState(false);
   const [step, setStep] = useState(0);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  // Numbers are automatic (INV-0001, INV-0002…); a custom one is opt-in.
+  const [customNumber, setCustomNumber] = useState(false);
   const [issueDate, setIssueDate] = useState(todayIso());
   const [dueDate, setDueDate] = useState("");
   const [currency, setCurrency] = useState<BusinessAsset>("USDC");
@@ -97,11 +112,92 @@ export function InvoicesHub() {
   const [customerUsername, setCustomerUsername] = useState("");
   const [items, setItems] = useState<InvoiceItemInput[]>([emptyItem()]);
   const [preview, setPreview] = useState<InvoiceWithItems | null>(null);
+  // Email action: an invoice without a customer email asks for one first.
+  const [emailTarget, setEmailTarget] = useState<InvoiceRecord | null>(null);
+  const [emailAddress, setEmailAddress] = useState("");
+  const [emailingId, setEmailingId] = useState<string | null>(null);
+  // What ALLIE opened the preview to do, confirmed with one button there.
+  const [previewIntent, setPreviewIntent] = useState<InvoiceIntent | null>(null);
+  const deepLinked = useRef(false);
 
   const totals = useMemo(() => previewInvoiceTotals(items), [items]);
 
+  // ALLIE hands off here: ?new=1&customer=…&amount=… opens a filled-in
+  // invoice; ?invoice=<id>&do=remind opens that invoice ready to act on.
+  useEffect(() => {
+    if (deepLinked.current || !activeWallet || !isBusinessAccount) return;
+    deepLinked.current = true;
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get("new") === "1") {
+      const amount = params.get("amount") ?? "";
+      const description = params.get("description") ?? "";
+      setCustomerName(params.get("customer") ?? "");
+      setCustomerEmail(params.get("email") ?? "");
+      setCustomerUsername(params.get("username") ?? "");
+      setDueDate(params.get("due") ?? "");
+      setNotes((params.get("notes") ?? "").slice(0, 280));
+      if (params.get("currency") === "EURC") setCurrency("EURC");
+      if (amount || description) {
+        setItems([{ ...emptyItem(), description, unitPrice: amount }]);
+      }
+      setCreating(true);
+    }
+
+    const invoiceId = params.get("invoice");
+    if (invoiceId) {
+      const intent = params.get("do");
+      void fetchInvoice(activeWallet, invoiceId, effectiveSocialUuid)
+        .then((payload) => {
+          setPreview(payload.invoice);
+          setPreviewIntent(
+            intent === "send" || intent === "remind" || intent === "cancel" ? intent : null,
+          );
+        })
+        .catch((err: unknown) =>
+          setError(err instanceof Error ? err.message : "Could not open that invoice."),
+        );
+    }
+
+    // A refresh shouldn't reopen the form or re-offer the action.
+    if (params.has("new") || invoiceId) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [activeWallet, effectiveSocialUuid, isBusinessAccount]);
+
+  function closePreview() {
+    setPreview(null);
+    setPreviewIntent(null);
+  }
+
+  async function confirmPreviewIntent(invoice: InvoiceWithItems) {
+    if (!activeWallet || !previewIntent) return;
+    try {
+      if (previewIntent === "remind") {
+        if (!invoice.customer_email) {
+          // The email dialog asks for an address, then sends.
+          setEmailAddress("");
+          setEmailTarget(invoice);
+          closePreview();
+          return;
+        }
+        await emailInvoice(invoice);
+      } else if (previewIntent === "send") {
+        await sendInvoiceClient(activeWallet, invoice.id, effectiveSocialUuid);
+        toast.success(`${invoice.invoice_number} sent`);
+      } else {
+        await cancelInvoiceClient(activeWallet, invoice.id, effectiveSocialUuid);
+        toast.success(`${invoice.invoice_number} cancelled`);
+      }
+      closePreview();
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "That didn't go through.");
+    }
+  }
+
   async function load() {
-    if (!activeWallet) {
+    if (!activeWallet || !isBusinessAccount) {
       setLoadingInvoices(false);
       return;
     }
@@ -121,7 +217,7 @@ export function InvoicesHub() {
     if (activeWallet) {
       void load();
     }
-  }, [activeWallet, effectiveSocialUuid]);
+  }, [activeWallet, effectiveSocialUuid, isBusinessAccount]);
 
   if (accountLoading && !account) {
     return (
@@ -136,7 +232,7 @@ export function InvoicesHub() {
       <div className="section-panel p-8">
         <h2 className="font-heading text-2xl">{t("business.invoices")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Only Business accounts can create invoices.
+          Only Business accounts can create invoices. Upgrade your account to Business to start issuing invoices.
         </p>
         <Button asChild className="mt-5">
           <Link href="/settings#account-type">Upgrade to Business</Link>
@@ -148,6 +244,7 @@ export function InvoicesHub() {
   function resetForm() {
     setStep(0);
     setInvoiceNumber("");
+    setCustomNumber(false);
     setIssueDate(todayIso());
     setDueDate("");
     setCurrency("USDC");
@@ -183,11 +280,24 @@ export function InvoicesHub() {
         },
         effectiveSocialUuid,
       );
+      const made = created.invoice;
+      const delivered = [
+        made.customer_username ? `@${made.customer_username}` : null,
+        made.email_delivery === "sent" ? made.customer_email : null,
+      ].filter(Boolean);
       toast.success(
-        created.invoice.customer_username
-          ? `${created.invoice.invoice_number} sent to @${created.invoice.customer_username}`
-          : `${created.invoice.invoice_number} is ready to share`,
+        delivered.length > 0
+          ? `${made.invoice_number} sent to ${delivered.join(" and ")}`
+          : `${made.invoice_number} is ready to share`,
       );
+      // The invoice exists either way; say plainly when the email didn't go.
+      if (made.customer_email && made.email_delivery && made.email_delivery !== "sent") {
+        toast.warning(
+          made.email_delivery === "not_configured"
+            ? "Invoice emails aren't set up yet, so it wasn't emailed. Share the payment link instead."
+            : `The email to ${made.customer_email} didn't go through. Share the payment link instead.`,
+        );
+      }
       setCreating(false);
       resetForm();
       await load();
@@ -217,6 +327,27 @@ export function InvoicesHub() {
     toast.success("Invoice link copied");
   }
 
+  async function emailInvoice(invoice: InvoiceRecord, address?: string) {
+    if (!activeWallet) return;
+    setEmailingId(invoice.id);
+    try {
+      const sent = await emailInvoiceClient(
+        activeWallet,
+        invoice.id,
+        address,
+        effectiveSocialUuid,
+      );
+      toast.success(`${invoice.invoice_number} emailed to ${sent.invoice.customer_email}`);
+      setEmailTarget(null);
+      setEmailAddress("");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "The invoice could not be emailed.");
+    } finally {
+      setEmailingId(null);
+    }
+  }
+
   async function shareInvoice(invoice: InvoiceRecord) {
     const url = invoiceLink(invoice);
     if (navigator.share) {
@@ -236,13 +367,8 @@ export function InvoicesHub() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="font-heading text-3xl">{t("business.invoices")}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Create a professional invoice, share the payment link, and track settlement.
-          </p>
-        </div>
+      {/* The page frame carries the "Invoices" heading. */}
+      <div className="flex justify-end">
         <Button onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" />
           Create invoice
@@ -290,15 +416,34 @@ export function InvoicesHub() {
 
           {step === 0 ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium">
-                Invoice number
-                <Input
-                  className="mt-2 h-11"
-                  onChange={(event) => setInvoiceNumber(event.target.value.toUpperCase())}
-                  placeholder="Auto, e.g. INV-1042"
-                  value={invoiceNumber}
-                />
-              </label>
+              <div className="text-sm font-medium">
+                <span className="flex items-center justify-between gap-2">
+                  Invoice number
+                  <button
+                    className="text-xs font-semibold text-primary hover:underline"
+                    onClick={() => {
+                      setCustomNumber((value) => !value);
+                      setInvoiceNumber("");
+                    }}
+                    type="button"
+                  >
+                    {customNumber ? "Use automatic" : "Use a custom number"}
+                  </button>
+                </span>
+                {customNumber ? (
+                  <Input
+                    aria-label="Custom invoice number"
+                    className="mt-2 h-11"
+                    onChange={(event) => setInvoiceNumber(event.target.value.toUpperCase())}
+                    placeholder="e.g. INV-2026-001"
+                    value={invoiceNumber}
+                  />
+                ) : (
+                  <p className="mt-2 flex h-11 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">
+                    Automatic · assigned in sequence when you create it
+                  </p>
+                )}
+              </div>
               <div className="space-y-2">
                 <span className="text-sm font-medium">Currency</span>
                 <StyledSelect
@@ -375,8 +520,12 @@ export function InvoicesHub() {
                   className="mt-2 h-11"
                   onChange={(event) => setCustomerEmail(event.target.value)}
                   placeholder="billing@example.com"
+                  type="email"
                   value={customerEmail}
                 />
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                  The invoice is emailed here with its payment link when you create it.
+                </span>
               </label>
               <label className="text-sm font-medium">
                 SwiftPay username
@@ -658,16 +807,20 @@ export function InvoicesHub() {
                           <Copy className="h-4 w-4" />
                         </button>
                         <button
-                          className="inline-flex items-center gap-1 text-xs font-semibold"
+                          aria-label="Share"
+                          className="invoice-row-action"
                           onClick={() => void shareInvoice(invoice)}
+                          title="Share"
                           type="button"
                         >
                           <Share2 className="h-3.5 w-3.5" />
-                          Share
+                          <span className="invoice-row-action-label">Share</span>
                         </button>
                         {activeWallet ? (
                           <button
-                            className="inline-flex items-center gap-1 text-xs font-semibold"
+                            aria-label="Preview"
+                            className="invoice-row-action"
+                            title="Preview"
                             onClick={() =>
                               void fetchInvoice(
                                 activeWallet,
@@ -684,7 +837,37 @@ export function InvoicesHub() {
                             type="button"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            Preview
+                            <span className="invoice-row-action-label">Preview</span>
+                          </button>
+                        ) : null}
+                        {emailableInvoiceStatuses.includes(invoice.status) && activeWallet ? (
+                          <button
+                            aria-label={
+                              invoice.customer_email ? `Email to ${invoice.customer_email}` : "Email"
+                            }
+                            className="invoice-row-action"
+                            disabled={emailingId === invoice.id}
+                            onClick={() => {
+                              if (invoice.customer_email) {
+                                void emailInvoice(invoice);
+                              } else {
+                                setEmailAddress("");
+                                setEmailTarget(invoice);
+                              }
+                            }}
+                            title={
+                              invoice.customer_email
+                                ? `Email to ${invoice.customer_email}`
+                                : "Email this invoice"
+                            }
+                            type="button"
+                          >
+                            {emailingId === invoice.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Mail className="h-3.5 w-3.5" />
+                            )}
+                            <span className="invoice-row-action-label">Email</span>
                           </button>
                         ) : null}
                         {invoice.status === "DRAFT" && activeWallet ? (
@@ -741,10 +924,53 @@ export function InvoicesHub() {
         )}
       </section>
 
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) setEmailTarget(null);
+        }}
+        open={Boolean(emailTarget)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email {emailTarget?.invoice_number}</DialogTitle>
+            <DialogDescription>
+              This invoice has no customer email yet. It&rsquo;s saved on the invoice and the
+              invoice is sent there with its payment link.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (emailTarget) void emailInvoice(emailTarget, emailAddress.trim());
+            }}
+          >
+            <Input
+              aria-label="Customer email"
+              autoFocus
+              className="h-11"
+              onChange={(event) => setEmailAddress(event.target.value)}
+              placeholder="billing@example.com"
+              required
+              type="email"
+              value={emailAddress}
+            />
+            <DialogFooter className="mt-4">
+              <Button onClick={() => setEmailTarget(null)} type="button" variant="outline">
+                Cancel
+              </Button>
+              <Button disabled={!emailAddress.trim() || emailingId !== null} type="submit">
+                {emailingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                Send invoice
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {preview ? (
         <div
           className="fixed inset-0 z-[90] flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
-          onClick={() => setPreview(null)}
+          onClick={closePreview}
         >
           <div
             className="max-h-[90vh] w-full max-w-3xl overflow-y-auto"
@@ -775,10 +1001,39 @@ export function InvoicesHub() {
                 total: preview.total,
               }}
             />
-            <div className="mt-3 flex justify-end">
-              <Button onClick={() => setPreview(null)} variant="outline">
+            <div className="mt-3 flex justify-end gap-2">
+              <Button onClick={closePreview} variant="outline">
                 Close
               </Button>
+              {previewIntent === "send" &&
+              (preview.status === "DRAFT" || preview.status === "CANCELLED") ? (
+                <Button onClick={() => void confirmPreviewIntent(preview)}>
+                  <Link2 className="h-4 w-4" />
+                  Send {preview.invoice_number}
+                </Button>
+              ) : null}
+              {previewIntent === "remind" && emailableInvoiceStatuses.includes(preview.status) ? (
+                <Button
+                  disabled={emailingId === preview.id}
+                  onClick={() => void confirmPreviewIntent(preview)}
+                >
+                  {emailingId === preview.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  {preview.customer_email
+                    ? `Email reminder to ${preview.customer_email}`
+                    : "Email a reminder"}
+                </Button>
+              ) : null}
+              {previewIntent === "cancel" &&
+              preview.status !== "PAID" &&
+              preview.status !== "CANCELLED" ? (
+                <Button onClick={() => void confirmPreviewIntent(preview)} variant="destructive">
+                  Cancel {preview.invoice_number}
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>

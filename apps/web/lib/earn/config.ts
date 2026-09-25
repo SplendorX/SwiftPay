@@ -1,3 +1,4 @@
+import { arcExplorerUrl } from "@/lib/chains";
 import type { Address } from "viem";
 
 /**
@@ -56,12 +57,10 @@ export const earnConfig = {
   strategyAddress: strategy,
   aavePoolAddress: aavePool,
   aTokenAddress: aToken,
-  /** Default 10% performance fee display (on-chain is source of truth). */
-  performanceFeeBps: Number(process.env.NEXT_PUBLIC_EARN_PERFORMANCE_FEE_BPS || 1000),
+  /** Default 5% performance fee display (on-chain is source of truth). */
+  performanceFeeBps: Number(process.env.NEXT_PUBLIC_EARN_PERFORMANCE_FEE_BPS || 500),
   protocolName: "Aave USDC Supply",
-  explorerBase:
-    process.env.NEXT_PUBLIC_ARC_EXPLORER_URL?.trim() ||
-    "https://testnet.arcscan.app",
+  explorerBase: arcExplorerUrl,
 } as const;
 
 export function earnModeBanner(mode: EarnMode = earnConfig.mode): {

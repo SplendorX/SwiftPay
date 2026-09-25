@@ -13,11 +13,16 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
     const updated = await updatePayrollItemAdjustment(
-      actorWallet,
+      targetAccountId,
       id,
       Array.isArray(body.adjustments) ? (body.adjustments as any) : [],
     );

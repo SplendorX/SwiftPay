@@ -46,9 +46,9 @@ function notificationHref(
 ) {
   const invitationId = metadata?.invitationId;
   if (kind === "circle_invitation" && typeof invitationId === "string") {
-    return `/swiftCircle?invite=${encodeURIComponent(invitationId)}`;
+    return `/circle?invite=${encodeURIComponent(invitationId)}`;
   }
-  return `/swiftCircle/${circleId}`;
+  return `/circle/${circleId}`;
 }
 
 export async function emitCircleNotification(input: {

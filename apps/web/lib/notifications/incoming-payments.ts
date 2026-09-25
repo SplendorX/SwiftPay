@@ -7,10 +7,30 @@ import {
   type ArcScanTokenTransferResponse,
   type WalletTransfer,
 } from "@/lib/arcscan-history";
+import { findBatchTxHashes } from "@/lib/activity/service";
+import { agentWalletOwners } from "@/lib/agent-wallet/config";
+import { usernamesForWallets } from "@/lib/business/service";
 import {
   copyPaymentReceived,
   createIncomingPaymentNotification,
 } from "@/lib/save/notifications";
+
+/**
+ * Who sent each transfer. A payment ALLIE made comes from the sender's Agent
+ * Wallet, which has no username of its own, so it is traced back to the
+ * owner. Never fatal: without it the sender shows as an address.
+ */
+async function identifySenders(transfers: WalletTransfer[]) {
+  const senders = transfers.map((t) => t.counterparty);
+  const agentOwners = await agentWalletOwners(senders).catch(
+    () => ({}) as Record<string, string>,
+  );
+  const usernames = await usernamesForWallets([
+    ...senders,
+    ...Object.values(agentOwners),
+  ]).catch(() => ({}) as Record<string, string>);
+  return { agentOwners, usernames };
+}
 
 const MAX_INCOMING_TO_SCAN = 25;
 const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
@@ -55,10 +75,14 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
   let scanned = 0;
 
   try {
-    const incoming = await fetchIncomingTransfers(wallet);
+    const incoming = (await fetchIncomingTransfers(wallet)).slice(0, MAX_INCOMING_TO_SCAN);
     const now = Date.now();
+    const [{ agentOwners, usernames }, batchHashes] = await Promise.all([
+      identifySenders(incoming),
+      findBatchTxHashes(incoming.map((t) => t.hash)).catch(() => new Set<string>()),
+    ]);
 
-    for (const transfer of incoming.slice(0, MAX_INCOMING_TO_SCAN)) {
+    for (const transfer of incoming) {
       scanned += 1;
 
       if (transfer.timestamp) {
@@ -76,10 +100,22 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
 
       const [whole, frac = ""] = transfer.amount.split(".");
       const amountDisplay = `${whole}.${(frac + "00").slice(0, 2)}`;
+      // Name the sender: @username when they have a SwiftPay account, the
+      // owner "via ALLIE" when their Agent Wallet paid, and "via BatchPay"
+      // when the sender recorded this transaction as a batch.
+      const agentOwner = agentOwners[transfer.counterparty.toLowerCase()];
+      const senderWallet = agentOwner ?? transfer.counterparty.toLowerCase();
+      const username = usernames[senderWallet];
+      const sender = username ? `@${username}` : shorten(senderWallet);
+      const viaBatch = batchHashes.has(transfer.hash.toLowerCase());
       const copy = copyPaymentReceived(
         amountDisplay,
         transfer.symbol,
-        shorten(transfer.counterparty),
+        agentOwner
+          ? `${sender} via ALLIE`
+          : viaBatch
+            ? `${sender} via BatchPay`
+            : sender,
       );
 
       const row = await createIncomingPaymentNotification({
@@ -91,6 +127,10 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
           amount: amountDisplay,
           symbol: transfer.symbol,
           from: transfer.counterparty.toLowerCase(),
+          fromUsername: username ?? null,
+          viaAllie: Boolean(agentOwner),
+          fromOwner: agentOwner ?? null,
+          viaBatch,
           blockNumber: transfer.blockNumber,
           timestamp: transfer.timestamp,
         },

@@ -1,5 +1,6 @@
 "use client";
 
+import { switchToArc } from "@/lib/arc-network";
 import {
   Archive,
   ArrowDownToLine,
@@ -10,9 +11,10 @@ import {
   Loader2,
   LockKeyhole,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
@@ -38,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { PagedActivityBox } from "@/components/ui/paged-activity-box";
 import { Progress } from "@/components/ui/progress";
 import {
+  currentCircleAuth,
   getCircleLoginIdentity,
   readCircleLogin,
   type CircleLoginResult,
@@ -50,6 +53,7 @@ import {
 import { swiftSaveVaultAbi } from "@/lib/save/abis";
 import {
   archiveSavingsPocket,
+  deleteSavingsPocket,
   confirmDeposit,
   confirmWithdraw,
   fetchSavingsPocket,
@@ -71,7 +75,7 @@ import {
   type SavingsTransactionRecord,
   type SpendSaveConfigRecord,
 } from "@/lib/save/types";
-import { arcTestnetTokens } from "@/lib/tokens";
+import { arcTokens } from "@/lib/tokens";
 import {
   fetchWalletSession,
   signInWalletSession,
@@ -81,7 +85,7 @@ import {
   extractCircleTxHash,
 } from "@/lib/circle-tx";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcChain } from "@/lib/chains";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -124,6 +128,9 @@ export default function SavingsPocketDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const router = useRouter();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editTarget, setEditTarget] = useState("");
@@ -141,14 +148,14 @@ export default function SavingsPocketDetailPage() {
   } | null>(null);
 
   const currency = pocket?.currency ?? "USDC";
-  const token = arcTestnetTokens[currency];
+  const token = arcTokens[currency];
 
   const { data: walletTokenBalance, refetch: refetchBalance } = useReadContract({
     address: token.address,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     query: { enabled: Boolean(address) },
   });
 
@@ -163,7 +170,7 @@ export default function SavingsPocketDetailPage() {
             process.env.NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS as Address,
           ]
         : undefined,
-    chainId: arcTestnet.id,
+    chainId: arcChain.id,
     query: {
       enabled: Boolean(address && isSwiftSaveVaultConfigured()),
     },
@@ -345,9 +352,9 @@ export default function SavingsPocketDetailPage() {
   ]);
 
   async function ensureArcNetwork() {
-    if (chainId === arcTestnet.id) return true;
+    if (chainId === arcChain.id) return true;
     try {
-      await switchChainAsync({ chainId: arcTestnet.id });
+      await switchToArc(switchChainAsync);
       return true;
     } catch (err) {
       setError(getErrorMessage(err));
@@ -380,7 +387,7 @@ export default function SavingsPocketDetailPage() {
       abi: erc20Abi,
       functionName: "approve",
       args: [vault, maxUint256],
-      chainId: arcTestnet.id,
+      chainId: arcChain.id,
     });
     await new Promise((r) => setTimeout(r, 4000));
     await refetchAllowance();
@@ -417,10 +424,7 @@ export default function SavingsPocketDetailPage() {
           login,
           walletId: circleWallet.id,
           executeChallenge: async (challengeId: string) => {
-            sdk.setAuthentication({
-              encryptionKey: login.encryptionKey,
-              userToken: login.userToken,
-            });
+            sdk.setAuthentication(currentCircleAuth(login));
             return new Promise<{ transactionId?: string; txHash?: string }>(
               (resolve, reject) => {
                 sdk.execute(challengeId, (error, result) => {
@@ -480,7 +484,7 @@ export default function SavingsPocketDetailPage() {
               prepared.tokenAddress as Address,
               amountUnits,
             ],
-            chainId: arcTestnet.id,
+            chainId: arcChain.id,
           });
           setPendingTxHash(hash);
           setPendingConfirm({
@@ -528,7 +532,7 @@ export default function SavingsPocketDetailPage() {
               prepared.tokenAddress as Address,
               amountUnits,
             ],
-            chainId: arcTestnet.id,
+            chainId: arcChain.id,
           });
           setPendingTxHash(hash);
           setPendingConfirm({
@@ -608,6 +612,34 @@ export default function SavingsPocketDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    if (!address || !pocket) return;
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+
+    setConfirmingDelete(false);
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await deleteSavingsPocket(pocket.id, {
+        ownerWallet: address,
+        circleSocialUuid,
+      });
+      // The pocket is gone, so there is nothing left on this route to show.
+      router.replace("/save");
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setIsDeleting(false);
+    }
+  }
+
+  // Deletable only while it holds nothing. The server re-checks, and also
+  // refuses a pocket that has any transaction or Spend&Save history.
+  const isPocketEmpty = Boolean(
+    pocket && pocket.status === "active" && Number(pocket.current_balance) === 0,
+  );
   const progress = pocket ? pocketProgress(pocket) : null;
   const lockState = pocket ? getPocketLockState(pocket) : null;
   const remaining =
@@ -658,6 +690,7 @@ export default function SavingsPocketDetailPage() {
                 </div>
               ) : null}
 
+              <div className="pocket-detail-grid">
               <div className="rounded-2xl border border-border/80 bg-card p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex items-start gap-4">
@@ -806,6 +839,29 @@ export default function SavingsPocketDetailPage() {
                       <Archive className="mr-2 h-4 w-4" />
                       Archive
                     </Button>
+                    {/* Only an empty pocket can go; anything with history is
+                        archived instead, so the ledger survives. */}
+                    {isPocketEmpty ? (
+                      <Button
+                        className={
+                          confirmingDelete
+                            ? "text-destructive hover:text-destructive"
+                            : undefined
+                        }
+                        disabled={!isWalletAuthenticated || isDeleting}
+                        onBlur={() => setConfirmingDelete(false)}
+                        onClick={() => void handleDelete()}
+                        type="button"
+                        variant="ghost"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="mr-2 h-4 w-4" />
+                        )}
+                        {confirmingDelete ? "Tap to confirm" : "Delete"}
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -947,6 +1003,7 @@ export default function SavingsPocketDetailPage() {
                   </div>
                 )}
               />
+              </div>
 
               {amountMode ? (
                 <AmountConfirmDialog

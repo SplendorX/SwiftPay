@@ -1,14 +1,9 @@
-import { SlidersHorizontal } from "lucide-react";
-
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
-import {
-  SettingsPageIntro,
-  SettingsSections,
-} from "@/components/settings/settings-sections";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { SettingsHub } from "@/components/settings/settings-hub";
 
+/** The page frame carries the heading ("Settings · Account preferences"). */
 export default function SettingsPage() {
   return (
     <PlatformAccessGate>
@@ -17,19 +12,7 @@ export default function SettingsPage() {
         subtitle="Account preferences"
         title="Settings"
       >
-        <section className="section-panel">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <SettingsPageIntro />
-            <div className="flex flex-wrap items-center gap-2">
-              <ThemeToggle />
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-background text-primary shadow-sm">
-                <SlidersHorizontal className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-
-          <SettingsSections />
-        </section>
+        <SettingsHub />
       </PlatformChrome>
     </PlatformAccessGate>
   );

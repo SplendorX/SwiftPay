@@ -8,14 +8,18 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
-    const { actorWallet, circleSocialUuid } = await readActor(request);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
 
     const statusParam = request.nextUrl.searchParams.get("status") as TeamMemberStatus | null;
     const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "true";
     const groupId = request.nextUrl.searchParams.get("groupId") || undefined;
 
-    const members = await listTeamMembers(actorWallet, {
+    const members = await listTeamMembers(auth.businessWallet || actorWallet, {
       status: statusParam || undefined,
       includeArchived,
       groupId,
@@ -31,11 +35,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
-    const { actorWallet, circleSocialUuid } = await readActor(request, body);
-    await requireBusinessAccount({ ownerWallet: actorWallet, circleSocialUuid });
+    const { actorWallet, circleSocialUuid, workspaceId } = await readActor(request, body);
+    const auth = await requireBusinessAccount({
+      circleSocialUuid,
+      ownerWallet: actorWallet,
+      workspaceId,
+    });
+    const targetAccountId = auth.businessWallet || actorWallet;
 
     const member = await createTeamMember({
-      accountId: actorWallet,
+      accountId: targetAccountId,
       memberType: body.memberType === "CONTRACTOR" ? "CONTRACTOR" : "EMPLOYEE",
       fullName: String(body.fullName || ""),
       email: typeof body.email === "string" ? body.email : null,

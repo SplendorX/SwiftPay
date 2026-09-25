@@ -1,5 +1,6 @@
 "use client";
 
+import { arcExplorerUrl } from "@/lib/chains";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
+import { useWorkspace } from "@/components/business/workspace-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
@@ -38,6 +40,7 @@ export default function TeamMemberDetailPage({
 }) {
   const { id } = use(params);
   const { ownerWallet, circleSocialUuid } = useAccountContext();
+  const { workspace } = useWorkspace();
   const [member, setMember] = useState<TeamMemberRecord | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +51,7 @@ export default function TeamMemberDetailPage({
     if (!ownerWallet) return;
     setLoading(true);
     try {
-      const data = await fetchTeamMember(ownerWallet, id, circleSocialUuid ?? undefined);
+      const data = await fetchTeamMember(ownerWallet, id, circleSocialUuid ?? undefined, workspace?.id);
       setMember(data.member);
       setHistory(data.history);
       setError(null);
@@ -61,16 +64,16 @@ export default function TeamMemberDetailPage({
 
   useEffect(() => {
     void loadData();
-  }, [ownerWallet, id, circleSocialUuid]);
+  }, [ownerWallet, id, circleSocialUuid, workspace?.id]);
 
   async function handleTogglePause() {
     if (!ownerWallet || !member) return;
     setActionLoading(true);
     try {
       if (member.status === "ACTIVE") {
-        await pauseTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined);
+        await pauseTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined, workspace?.id);
       } else if (member.status === "PAUSED") {
-        await reactivateTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined);
+        await reactivateTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined, workspace?.id);
       }
       await loadData();
     } catch (err: unknown) {
@@ -85,7 +88,7 @@ export default function TeamMemberDetailPage({
     if (!confirm("Are you sure you want to archive this member?")) return;
     setActionLoading(true);
     try {
-      await archiveTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined);
+      await archiveTeamMemberClient(ownerWallet, member.id, circleSocialUuid ?? undefined, workspace?.id);
       await loadData();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to archive member.");
@@ -280,7 +283,7 @@ export default function TeamMemberDetailPage({
                           </p>
                           {record.blockchain_tx_hash ? (
                             <a
-                              href={`https://testnet.arcscan.io/tx/${record.blockchain_tx_hash}`}
+                              href={`${arcExplorerUrl}/tx/${record.blockchain_tx_hash}`}
                               target="_blank"
                               rel="noreferrer"
                               className="inline-flex items-center text-xs text-primary hover:underline"

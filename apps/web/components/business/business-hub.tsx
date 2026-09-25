@@ -7,7 +7,6 @@ import {
   Check,
   Loader2,
   Send,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -20,10 +19,7 @@ import {
   createBusinessRequest,
   decideBusinessPayment,
   fetchBusinessRequests,
-  fetchTeam,
   fetchWorkspaceDetail,
-  inviteTeamMember,
-  removeTeamMember,
   submitBusinessPayment,
   updateBusinessProfileClient,
   updateBusinessSettingsClient,
@@ -36,7 +32,6 @@ import type {
   BusinessPaymentRequestRecord,
   BusinessPermission,
   BusinessProfileRecord,
-  WorkspaceMemberRecord,
   WorkspaceSettingsRecord,
 } from "@/lib/business/types";
 import { cn } from "@/lib/utils";
@@ -46,7 +41,6 @@ type Tab =
   | "payments"
   | "send"
   | "request"
-  | "team"
   | "profile"
   | "settings"
   | "approvals";
@@ -57,7 +51,6 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "send", label: "Send" },
   { id: "request", label: "Request" },
   { id: "approvals", label: "Approvals" },
-  { id: "team", label: "Team" },
   { id: "profile", label: "Profile" },
   { id: "settings", label: "Settings" },
 ];
@@ -171,7 +164,7 @@ export function BusinessHub() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <Link href="/dashboard#send">Send</Link>
+            <Link href="/send">Send</Link>
           </Button>
           <Button onClick={() => setTab("request")} variant="outline">
             Request
@@ -253,16 +246,6 @@ export function BusinessHub() {
           circleSocialUuid={circleSocialUuid}
           ownerWallet={ownerWallet}
           username={workspace.username}
-          workspaceId={workspace.id}
-        />
-      ) : null}
-
-      {tab === "team" ? (
-        <TeamPanel
-          canInvite={can("team.invite")}
-          canRemove={can("team.remove")}
-          circleSocialUuid={circleSocialUuid}
-          ownerWallet={ownerWallet}
           workspaceId={workspace.id}
         />
       ) : null}
@@ -378,7 +361,7 @@ function OverviewPanel({
         </div>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button asChild variant="outline">
-            <Link href="/dashboard#send">
+            <Link href="/send">
               <Send className="h-4 w-4" /> Send money
             </Link>
           </Button>
@@ -387,9 +370,6 @@ function OverviewPanel({
           </Button>
           <Button onClick={() => onTab("payments")} variant="outline">
             View transactions
-          </Button>
-          <Button onClick={() => onTab("team")} variant="outline">
-            <Users className="h-4 w-4" /> Manage team
           </Button>
         </div>
       </section>
@@ -564,11 +544,11 @@ function PaymentsPanel({
                 {item.transaction_status === "AUTHORIZATION_REQUIRED" && ownerWallet ? (
                   <Button asChild size="sm" variant="outline">
                     <Link
-                      href={`/dashboard?to=${encodeURIComponent(
+                      href={`/send?to=${encodeURIComponent(
                         item.counterparty_username
                           ? `@${item.counterparty_username}`
                           : item.counterparty_wallet ?? "",
-                      )}&amount=${encodeURIComponent(item.amount_display)}&token=${item.asset}&businessPayment=${item.id}&workspace=${workspaceId}#send`}
+                      )}&amount=${encodeURIComponent(item.amount_display)}&token=${item.asset}&businessPayment=${item.id}&workspace=${workspaceId}`}
                     >
                       Send from business
                     </Link>
@@ -640,7 +620,7 @@ function SendPanel({
         business identity.
       </p>
       <Button asChild className="mt-4">
-        <Link href="/dashboard#send">Send with the business wallet</Link>
+        <Link href="/send">Send with the business wallet</Link>
       </Button>
       <label className="mt-6 block text-sm font-medium">
         Recipient
@@ -697,7 +677,7 @@ function SendPanel({
           payment.approval_status === "NOT_REQUIRED" ? (
             <Button asChild className="mt-3">
               <Link
-                href={`/dashboard?to=${encodeURIComponent(recipient)}&amount=${encodeURIComponent(amount)}&token=${asset}&businessPayment=${payment.id}&workspace=${workspaceId}#send`}
+                href={`/send?to=${encodeURIComponent(recipient)}&amount=${encodeURIComponent(amount)}&token=${asset}&businessPayment=${payment.id}&workspace=${workspaceId}`}
               >
                 Continue on Send
               </Link>
@@ -831,184 +811,6 @@ function RequestPanel({
         ))}
       </ul>
     </section>
-  );
-}
-
-function TeamPanel({
-  canInvite,
-  canRemove,
-  circleSocialUuid,
-  ownerWallet,
-  workspaceId,
-}: {
-  canInvite: boolean;
-  canRemove: boolean;
-  circleSocialUuid?: string;
-  ownerWallet: string | null;
-  workspaceId: string;
-}) {
-  const [members, setMembers] = useState<
-    Array<
-      WorkspaceMemberRecord & {
-        avatarUrl: string | null;
-        displayName: string | null;
-        username: string | null;
-      }
-    >
-  >([]);
-  const [invitations, setInvitations] = useState<
-    Awaited<ReturnType<typeof fetchTeam>>["invitations"]
-  >([]);
-  const [username, setUsername] = useState("");
-  const [role, setRole] = useState("member");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!ownerWallet) return;
-    const payload = await fetchTeam(ownerWallet, workspaceId, circleSocialUuid);
-    setMembers(payload.members);
-    setInvitations(payload.invitations);
-  }, [circleSocialUuid, ownerWallet, workspaceId]);
-
-  useEffect(() => {
-    void load().catch((err) => setError(errorMessage(err)));
-  }, [load]);
-
-  const counts = useMemo(() => {
-    return {
-      admin: members.filter((item) => item.role === "admin").length,
-      member: members.filter((item) => item.role === "member" || item.role === "finance" || item.role === "viewer").length,
-      owner: members.filter((item) => item.role === "owner").length,
-      total: members.length,
-    };
-  }, [members]);
-
-  async function invite() {
-    if (!ownerWallet) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await inviteTeamMember(
-        ownerWallet,
-        workspaceId,
-        { role, username },
-        circleSocialUuid,
-      );
-      setUsername("");
-      await load();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section className="section-panel p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-heading text-lg">Team</h3>
-          <p className="text-sm text-muted-foreground">{counts.total} members</p>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <Stat label="Owners" value={counts.owner} />
-        <Stat label="Admins" value={counts.admin} />
-        <Stat label="Members" value={counts.member} />
-      </div>
-      {canInvite ? (
-        <div className="mt-6 flex flex-wrap gap-2">
-          <Input
-            className="max-w-xs"
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="@username"
-            value={username}
-          />
-          <select
-            className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
-            onChange={(event) => setRole(event.target.value)}
-            value={role}
-          >
-            <option value="admin">Admin</option>
-            <option value="finance">Finance</option>
-            <option value="member">Member</option>
-            <option value="viewer">Viewer</option>
-          </select>
-          <Button disabled={busy || !username} onClick={() => void invite()}>
-            Invite member
-          </Button>
-        </div>
-      ) : null}
-      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
-      {invitations.length > 0 ? (
-        <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-          {invitations.map((item) => (
-            <li key={item.id}>
-              Pending invite · @{item.invited_username || "member"} · {item.role}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="text-xs text-muted-foreground">
-            <tr>
-              <th className="py-2 font-medium">Name</th>
-              <th className="py-2 font-medium">Role</th>
-              <th className="py-2 font-medium">Status</th>
-              <th className="py-2 font-medium">Access</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => (
-              <tr className="border-t border-border" key={member.id}>
-                <td className="py-3">
-                  {member.displayName || member.username || member.user_wallet.slice(0, 8)}
-                  {member.username ? (
-                    <span className="block text-xs text-muted-foreground">
-                      @{member.username}
-                    </span>
-                  ) : null}
-                </td>
-                <td className="capitalize">{member.role}</td>
-                <td className="capitalize">{member.status}</td>
-                <td>
-                  {canRemove && member.role !== "owner" ? (
-                    <Button
-                      onClick={() =>
-                        ownerWallet &&
-                        void removeTeamMember(
-                          ownerWallet,
-                          workspaceId,
-                          member.user_wallet,
-                          circleSocialUuid,
-                        ).then(() => load())
-                      }
-                      size="sm"
-                      variant="ghost"
-                    >
-                      Remove
-                    </Button>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-border px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-medium">{value}</p>
-    </div>
   );
 }
 
