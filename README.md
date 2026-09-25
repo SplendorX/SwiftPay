@@ -162,6 +162,32 @@ pnpm --filter @swiftpay/contracts test:save
 
 Copy `.env.example` to `.env` at the repository root for contracts and scripts. The web app also loads the root `.env` through `apps/web/next.config.mjs`, so existing root-level environment files continue to work.
 
+## Account activity
+
+The dashboard's Activity board shows every confirmed transaction on the
+account, labelled with the feature that performed it — Send, Request Payment,
+Payroll, Circle, Swap, Invoices, Save, Earn, BatchPay, RecurePay and ALLIE.
+
+`GET /api/activity` reads each feature's own records (savings transactions,
+Earn deposits, payroll runs, invoice payments, recurring executions, agent
+payment intents, circle ledger entries) and merges them with the
+`account_activity` ledger, which the browser-side flows write through
+`POST /api/activity`. The dashboard then matches the wallet's on-chain
+transfers to those records by transaction hash, so a transfer no feature
+claims still lists as wallet activity.
+
+Apply SQL:
+
+```sh
+packages/database/supabase/account-activity.sql
+```
+
+Configure (optional, defaults to `account_activity`):
+
+```sh
+SUPABASE_ACCOUNT_ACTIVITY_TABLE=account_activity
+```
+
 ## Traction analytics
 
 SwiftPay includes real traction instrumentation for investor and operator reporting. It records product events into Supabase and aggregates actual MAU-style active wallets, stablecoin volume, transaction count, payment success rate, savings AUM, indexed Earn AUM, registered wallets, and recurring schedules.
