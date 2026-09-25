@@ -336,9 +336,6 @@ create index if not exists circle_save_contributions_pocket_idx
   on public.circle_save_contributions (pocket_id, created_at desc)
   where pocket_id is not null;
 
-alter table public.circle_withdrawal_proposals
-  add column if not exists pocket_id uuid references public.circle_save_pockets(id) on delete restrict;
-
 -- ─── Circle Earn (legacy tables kept; SwiftCircle no longer exposes Earn) ───
 create table if not exists public.circle_earn_accounts (
   id uuid primary key default gen_random_uuid(),
@@ -464,6 +461,9 @@ create unique index if not exists circle_withdrawal_proposals_idem_uidx
 
 create index if not exists circle_withdrawal_proposals_circle_status_idx
   on public.circle_withdrawal_proposals (circle_id, status);
+
+alter table public.circle_withdrawal_proposals
+  add column if not exists pocket_id uuid references public.circle_save_pockets(id) on delete restrict;
 
 create table if not exists public.circle_withdrawal_approvals (
   id uuid primary key default gen_random_uuid(),
