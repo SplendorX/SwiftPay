@@ -15,7 +15,8 @@
  * never printed.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const apply = process.argv.includes("--apply");
 const FILES = {
@@ -34,13 +35,36 @@ function parse(path) {
   return vars;
 }
 
-function vercel(args, input) {
-  const result = spawnSync("vercel", args, {
+/**
+ * Run the Vercel CLI straight through Node, without a command shell, so
+ * values reach it exactly as written (cmd.exe would reinterpret & ^ % etc.).
+ */
+function vercelEntry() {
+  const globalRoot = spawnSync("npm", ["root", "-g"], {
     encoding: "utf8",
-    input,
     shell: process.platform === "win32",
+  }).stdout?.trim();
+  const entry = globalRoot && join(globalRoot, "vercel", "dist", "vc.js");
+  if (!entry || !existsSync(entry)) {
+    throw new Error("Vercel CLI not found. Install it with: npm i -g vercel");
+  }
+  return entry;
+}
+const VERCEL = vercelEntry();
+
+function vercel(args) {
+  const result = spawnSync(process.execPath, [VERCEL, ...args, "--non-interactive"], {
+    encoding: "utf8",
   });
   return { ok: result.status === 0, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+}
+
+/** Stop at the first failure, showing Vercel's own message. */
+function mustSucceed(result, what) {
+  if (result.ok) return;
+  console.error(`\nFAILED: ${what}\n${result.output.trim()}`);
+  console.error("\nStopped here so nothing else changes. Share the message above.");
+  process.exit(1);
 }
 
 /** Names only; `vercel env ls` never shows values. */
@@ -99,25 +123,27 @@ if (!apply) {
   process.exit(0);
 }
 
-let failed = 0;
 // Clear both first, so a variable shared by both environments cannot keep
 // one environment's value in the other.
 for (const env of ["production", "preview"]) {
-  for (const name of existing[env]) vercel(["env", "rm", name, env, "--yes"]);
+  for (const name of existing[env]) {
+    mustSucceed(vercel(["env", "rm", name, env, "--yes"]), `remove ${name} from ${env}`);
+  }
 }
 for (const env of ["production", "preview"]) {
   for (const [name, value] of wanted[env]) {
-    const added = vercel(["env", "add", name, env, "--force"], value);
-    if (!added.ok) {
-      failed += 1;
-      console.error(`FAIL ${env} ${name}\n${added.output.split("\n").slice(-3).join("\n")}`);
-    }
+    mustSucceed(
+      vercel(["env", "add", name, env, "--value", value, "--sensitive", "--force", "--yes"]),
+      `add ${name} to ${env}`,
+    );
   }
   const now = listNames(env);
   const missing = [...wanted[env].keys()].filter((name) => !now.has(name));
-  console.log(`${env}: ${now.size} set${missing.length ? `, MISSING ${missing.join(" ")}` : ""}`);
-  failed += missing.length;
+  if (missing.length > 0) {
+    console.error(`${env} is missing: ${missing.join(" ")}`);
+    process.exit(1);
+  }
+  console.log(`${env}: all ${wanted[env].size} variables set`);
 }
 
-console.log(failed ? `\n${failed} problem(s) — see above.` : "\nBoth environments match their files.");
-process.exit(failed ? 1 : 0);
+console.log("\nBoth environments match their files.");
