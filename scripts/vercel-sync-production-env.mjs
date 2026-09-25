@@ -133,7 +133,19 @@ for (const env of ["production", "preview"]) {
 for (const env of ["production", "preview"]) {
   for (const [name, value] of wanted[env]) {
     mustSucceed(
-      vercel(["env", "add", name, env, "--value", value, "--sensitive", "--force", "--yes"]),
+      vercel([
+        "env",
+        "add",
+        name,
+        env,
+        "--value",
+        value,
+        // NEXT_PUBLIC_ values ship to every browser, so Vercel refuses to
+        // store them as secrets; everything else (keys, passwords) is one.
+        ...(name.startsWith("NEXT_PUBLIC_") ? ["--type", "config"] : ["--sensitive"]),
+        "--force",
+        "--yes",
+      ]),
       `add ${name} to ${env}`,
     );
   }
