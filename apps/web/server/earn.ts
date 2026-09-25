@@ -2,6 +2,7 @@ import { AppKit } from "@circle-fin/app-kit";
 import { NextResponse } from "next/server";
 
 import { toJsonSafe } from "@/lib/earn/serialize";
+import { isArcMainnet } from "@/lib/network";
 import { earnAppKitChain, onchainFacts } from "@/lib/onchain-facts";
 import { UsdcAmountError } from "@/lib/onchain-money";
 
@@ -72,6 +73,33 @@ async function readShareDecimals(vaultAddress: string): Promise<number | null> {
 }
 
 /**
+ * The Arc mainnet vaults SwiftPay offers. App Kit's discovery also returns test
+ * vaults and look-alikes that reuse a curator's name at another address (four
+ * vaults are called "Steakhouse Prime USDC"), so on mainnet only these are
+ * listed. Testnet lists whatever App Kit returns.
+ */
+const MAINNET_VAULTS = new Set(
+  [
+    // USDC
+    "0x7610094b846657dcf166d59e42973db52c7015f9", // Bitwise Premium RWA USDC
+    "0x8e357432cc12ff425c36432f312968aeb16112af", // Galaxy USDC
+    "0x5befab92a5a3d60f578cb51eeb4e4fd50a1e3123", // Keyrock Prime USDC
+    "0x10af7238c6355aa8ddb5ed60e2e9b55a72827b51", // Gauntlet USDC Balanced
+    "0xbeef0016cb2fd5c352ea7ca08a9f54739dfa7298", // Steakhouse Prime USDC
+    "0xdeccd53be5453215821184824b519e04c7e00bc7", // Gauntlet USDC Prime
+    // EURC
+    "0x389abdf4355e0cf4f19298179991705a98f21c18", // Galaxy EURC
+    "0xbeef00be37bde921bae06fad223125bab16c41d1", // Steakhouse Prime EURC
+    "0x05863f54b05e96092069ef30c9ca6060336e50b9", // Gauntlet EURC Prime
+  ],
+);
+
+function isOfferedVault(address: unknown) {
+  if (!isArcMainnet()) return true;
+  return typeof address === "string" && MAINNET_VAULTS.has(address.toLowerCase());
+}
+
+/**
  * Vault discovery is the only Earn call that needs no signer, so it stays on
  * the server. Everything that moves funds is signed in the browser by the
  * wallet that owns them — see `lib/earn/browser.ts`.
@@ -88,9 +116,9 @@ export async function listEarnVaults() {
     sortBy: "apy",
   });
 
-  const vaults = (toJsonSafe(result.vaults) ?? []) as Array<
+  const vaults = ((toJsonSafe(result.vaults) ?? []) as Array<
     Record<string, unknown>
-  >;
+  >).filter((vault) => isOfferedVault(vault.vaultAddress));
 
   const checked = await Promise.all(
     vaults.map(async (vault) => {
@@ -107,4 +135,15 @@ export async function listEarnVaults() {
   return {
     vaults: checked.filter((entry) => entry.keep).map((entry) => entry.vault),
   };
+}
+
+/** Whether a vault is one Earn currently lists, so a rule can target it. */
+export async function isListedEarnVault(vaultAddress: string) {
+  const { vaults } = await listEarnVaults();
+  const wanted = vaultAddress.trim().toLowerCase();
+  return vaults.some(
+    (vault) =>
+      typeof vault.vaultAddress === "string" &&
+      vault.vaultAddress.toLowerCase() === wanted,
+  );
 }

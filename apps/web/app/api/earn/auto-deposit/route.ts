@@ -10,6 +10,7 @@ import {
   upsertAutoDepositRule,
 } from "@/lib/earn/auto-deposit";
 import { earnAutoSaveExecutorAddress } from "@/lib/earn/auto-save";
+import { isListedEarnVault } from "@/server/earn";
 import { ReferralAuthError, requireReferralActorWallet } from "@/lib/referral/auth";
 import {
   getEntitlement,
@@ -123,6 +124,9 @@ export async function POST(request: NextRequest) {
 
     if (typeof body.vaultAddress !== "string" || !body.vaultAddress.trim()) {
       return jsonError("Choose a vault.", 400);
+    }
+    if (!(await isListedEarnVault(body.vaultAddress))) {
+      return jsonError("That vault is not offered on Earn.", 400);
     }
 
     // Unattended mode is inert without the executor: accepting the rule would
