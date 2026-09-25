@@ -56,3 +56,9 @@ docs/
 
 # Local generated artifacts
 output/
+
+# Local agent tooling and debug scripts
+apps/web/.agents/
+apps/web/.claude/
+apps/web/scratch/
+apps/web/skills-lock.json
