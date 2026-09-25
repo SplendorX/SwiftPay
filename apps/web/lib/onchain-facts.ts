@@ -31,19 +31,11 @@ export const onchainFacts = {
   chain: arcChain,
 } as const;
 
-export type EarnAppKitChain = "Arc_Testnet";
+export type EarnAppKitChain = "Arc" | "Arc_Testnet";
 
-/**
- * App Kit Earn is implemented on Arc Testnet first.
- * Do not silently retarget the rest of SwiftPay to another network.
- */
+/** App Kit Earn runs on whichever Arc network the app is configured for. */
 export function earnAppKitChain(): EarnAppKitChain {
-  if (isArcMainnet()) {
-    throw new Error(
-      "Earn on Arc mainnet is not available yet. SwiftPay is configured for mainnet, so Earn stays disabled rather than switching the app to testnet.",
-    );
-  }
-  return "Arc_Testnet";
+  return isArcMainnet() ? "Arc" : "Arc_Testnet";
 }
 
 export function explorerTxUrl(txHash: string): string {
