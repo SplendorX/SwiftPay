@@ -14,7 +14,8 @@ function almostEqual(actual, expected, tolerance = 2n) {
 }
 
 async function deployFixture() {
-  const [owner, alice, bob, feeRecipient] = await ethers.getSigners();
+  const [owner, alice, bob, feeRecipient, guardian, stranger] =
+    await ethers.getSigners();
 
   const MockUSDC = await ethers.getContractFactory("MockUSDC");
   const usdc = await MockUSDC.deploy();
@@ -24,6 +25,7 @@ async function deployFixture() {
   const vault = await Vault.deploy(
     await usdc.getAddress(),
     owner.address,
+    guardian.address,
     feeRecipient.address,
     "SwiftPay Earn USDC",
     "spUSDC",
@@ -53,7 +55,18 @@ async function deployFixture() {
   await usdc.mint(bob.address, USDC(10_000));
   await usdc.mint(owner.address, USDC(10_000));
 
-  return { owner, alice, bob, feeRecipient, usdc, vault, pool, strategy };
+  return {
+    owner,
+    alice,
+    bob,
+    feeRecipient,
+    guardian,
+    stranger,
+    usdc,
+    vault,
+    pool,
+    strategy,
+  };
 }
 
 describe("SwiftPayVault + AaveUsdcYieldStrategy", () => {
@@ -100,7 +113,7 @@ describe("SwiftPayVault + AaveUsdcYieldStrategy", () => {
     assert.equal(await vault.assetsHighWaterMark(), amount);
   });
 
-  it("charges 10% performance fee only on simulated yield", async () => {
+  it("charges the 5% default performance fee only on simulated yield", async () => {
     const { alice, feeRecipient, usdc, vault, pool, strategy } =
       await deployFixture();
     const amount = USDC(1_000);
@@ -125,14 +138,14 @@ describe("SwiftPayVault + AaveUsdcYieldStrategy", () => {
     assert.ok(feeShares > 0n, "fee shares should be minted");
 
     const feeAssets = await vault.convertToAssets(feeShares);
-    // ~10 USDC (10% of 100); allow larger tolerance for virtual-share rounding
-    almostEqual(feeAssets, USDC(10), USDC(1));
+    // 5 USDC (5% of 100). Fee shares are priced so they're worth the full fee.
+    almostEqual(feeAssets, USDC(5), 10n);
 
     const aliceAssets = await vault.convertToAssets(
       await vault.balanceOf(alice.address),
     );
-    // Alice keeps principal + ~90 net yield
-    almostEqual(aliceAssets, USDC(1_090), USDC(1));
+    // Alice keeps principal + 95 net yield
+    almostEqual(aliceAssets, USDC(1_095), 10n);
   });
 
   it("protects against first-depositor inflation attack", async () => {
@@ -212,5 +225,87 @@ describe("SwiftPayVault + AaveUsdcYieldStrategy", () => {
       await strategy.strategyName(),
       "Aave USDC Supply (Simulation)",
     );
+  });
+
+  it("does not charge the fee again when yield only recovers a loss", async () => {
+    const { alice, feeRecipient, usdc, vault, pool, strategy } =
+      await deployFixture();
+    const asset = await usdc.getAddress();
+    const strategyAddress = await strategy.getAddress();
+
+    await usdc.connect(alice).approve(await vault.getAddress(), USDC(1_000));
+    await vault.connect(alice).deposit(USDC(1_000), alice.address);
+
+    // +100 yield, harvested: 5 fee, mark at 1,100.
+    await usdc.mint(await pool.getAddress(), USDC(300));
+    await pool.simulateYield(asset, strategyAddress, USDC(100));
+    await vault.harvest();
+    const feeSharesAfterFirst = await vault.balanceOf(feeRecipient.address);
+    assert.equal(await vault.assetsHighWaterMark(), USDC(1_100));
+
+    // -100 loss: no fee, and the mark stays at 1,100.
+    await pool.simulateLoss(asset, strategyAddress, USDC(100));
+    await vault.harvest();
+    assert.equal(await vault.assetsHighWaterMark(), USDC(1_100));
+
+    // +100 recovery back to 1,100: still no new fee.
+    await pool.simulateYield(asset, strategyAddress, USDC(100));
+    await vault.harvest();
+    assert.equal(await vault.balanceOf(feeRecipient.address), feeSharesAfterFirst);
+
+    // +100 of genuinely new yield is charged again.
+    await pool.simulateYield(asset, strategyAddress, USDC(100));
+    await vault.harvest();
+    assert.ok((await vault.balanceOf(feeRecipient.address)) > feeSharesAfterFirst);
+    assert.equal(await vault.assetsHighWaterMark(), USDC(1_200));
+  });
+
+  it("keeps withdrawals open while paused", async () => {
+    const { alice, guardian, usdc, vault } = await deployFixture();
+    await usdc.connect(alice).approve(await vault.getAddress(), USDC(100));
+    await vault.connect(alice).deposit(USDC(100), alice.address);
+
+    await vault.connect(guardian).pause();
+
+    const before = await usdc.balanceOf(alice.address);
+    await vault.connect(alice).redeem(
+      await vault.balanceOf(alice.address),
+      alice.address,
+      alice.address,
+    );
+    almostEqual((await usdc.balanceOf(alice.address)) - before, USDC(100), 1n);
+  });
+
+  it("lets the guardian pause and pull funds home, but nothing more", async () => {
+    const { guardian, stranger, alice, usdc, vault, strategy } =
+      await deployFixture();
+    await usdc.connect(alice).approve(await vault.getAddress(), USDC(100));
+    await vault.connect(alice).deposit(USDC(100), alice.address);
+
+    await vault.connect(guardian).emergencyWithdrawFromStrategy();
+    assert.equal(await strategy.totalAssets(), 0n);
+    assert.equal(await usdc.balanceOf(await vault.getAddress()), USDC(100));
+
+    await vault.connect(guardian).pause();
+    await assert.rejects(vault.connect(guardian).unpause());
+    await assert.rejects(vault.connect(guardian).setFeeRecipient(guardian.address));
+    await assert.rejects(vault.connect(guardian).setStrategy(await strategy.getAddress()));
+    await assert.rejects(vault.connect(stranger).pause());
+  });
+
+  it("never lets the strategy's vault be changed", async () => {
+    const { owner, strategy } = await deployFixture();
+    await assert.rejects(
+      strategy.connect(owner).setVault(owner.address),
+      /VaultAlreadySet/,
+    );
+  });
+
+  it("uses two-step ownership", async () => {
+    const { owner, stranger, vault } = await deployFixture();
+    await vault.connect(owner).transferOwnership(stranger.address);
+    assert.equal(await vault.owner(), owner.address);
+    await vault.connect(stranger).acceptOwnership();
+    assert.equal(await vault.owner(), stranger.address);
   });
 });

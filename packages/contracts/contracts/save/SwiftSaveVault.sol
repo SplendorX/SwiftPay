@@ -4,9 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {GuardedOwnable} from "../access/GuardedOwnable.sol";
 
 /// @title SwiftSaveVault
 /// @notice Non-interest-bearing savings custody for Swift+Save pockets.
@@ -16,7 +14,7 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 ///      Funds are segregated from spendable wallet balances. There is no yield,
 ///      APY, lending, borrowing, or DeFi return. Users may only withdraw their own
 ///      pocket balances. On-chain balances are the source of truth.
-contract SwiftSaveVault is Ownable2Step, Pausable, ReentrancyGuard {
+contract SwiftSaveVault is GuardedOwnable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice Allowed stablecoins (USDC / EURC, etc.)
@@ -49,7 +47,11 @@ contract SwiftSaveVault is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 amount
     );
 
-    constructor(address initialOwner, address[] memory initialTokens) Ownable(initialOwner) {
+    constructor(
+        address initialOwner,
+        address initialGuardian,
+        address[] memory initialTokens
+    ) GuardedOwnable(initialOwner, initialGuardian) {
         if (initialOwner == address(0)) revert ZeroAddress();
         for (uint256 i = 0; i < initialTokens.length; i++) {
             address token = initialTokens[i];
@@ -63,14 +65,6 @@ contract SwiftSaveVault is Ownable2Step, Pausable, ReentrancyGuard {
         if (token == address(0)) revert ZeroAddress();
         allowedTokens[token] = allowed;
         emit TokenAllowlistUpdated(token, allowed);
-    }
-
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
     }
 
     /// @notice Deposit tokens into a savings pocket. Caller must approve this vault first.
@@ -119,11 +113,12 @@ contract SwiftSaveVault is Ownable2Step, Pausable, ReentrancyGuard {
         bytes32 pocketId,
         address token,
         uint256 amount
-    ) external nonReentrant whenNotPaused {
+    ) external nonReentrant {
+        // Deliberately open while paused or after a token is delisted: savings
+        // custody must never be able to hold a user's money hostage.
         if (pocketId == bytes32(0)) revert ZeroPocket();
         if (token == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
-        if (!allowedTokens[token]) revert TokenNotAllowed();
 
         uint256 available = balances[msg.sender][pocketId][token];
         if (available < amount) revert InsufficientPocketBalance();

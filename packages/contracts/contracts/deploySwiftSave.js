@@ -19,6 +19,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import hre from "hardhat";
 
+import { logGovernance, resolveGovernance } from "./governance.js";
+
 dotenvConfig({
   path: fileURLToPath(new URL("../../../.env", import.meta.url)),
   quiet: true,
@@ -54,16 +56,15 @@ async function main() {
   }
 
   const [deployer] = signers;
-  const owner =
-    process.env.SWIFT_SAVE_OWNER?.trim() ||
-    process.env.EARN_VAULT_OWNER?.trim() ||
-    deployer.address;
-
   const mainnet =
     networkName === "arcMainnet" ||
     process.env.ARC_NETWORK?.trim().toLowerCase() === "arcmainnet" ||
     process.env.ARC_NETWORK?.trim().toLowerCase() === "mainnet" ||
     process.env.EARN_NETWORK?.trim() === "arcMainnet";
+
+  const governance = resolveGovernance(deployer.address, { mainnet });
+  logGovernance(governance, deployer.address);
+  const owner = governance.owner;
 
   const usdc =
     process.env.NEXT_PUBLIC_USDC_ADDRESS?.trim() ||
@@ -108,7 +109,7 @@ async function main() {
   }
 
   const Vault = await ethers.getContractFactory("SwiftSaveVault");
-  const vault = await Vault.deploy(owner, [usdc, eurc]);
+  const vault = await Vault.deploy(owner, governance.guardian, [usdc, eurc]);
   await vault.waitForDeployment();
   const address = await vault.getAddress();
 

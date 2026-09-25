@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isMainnetTarget, logGovernance, resolveGovernance } from "./governance.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -11,20 +12,6 @@ dotenv.config({
   path: fileURLToPath(new URL("../../../.env", import.meta.url)),
   quiet: true,
 });
-
-function isMainnetTarget() {
-  if (process.argv.includes("--mainnet")) {
-    return true;
-  }
-  const key = (
-    process.env.ARC_NETWORK ||
-    process.env.EARN_NETWORK ||
-    ""
-  )
-    .trim()
-    .toLowerCase();
-  return key === "arcmainnet" || key === "mainnet";
-}
 
 async function main() {
   const mainnet = isMainnetTarget();
@@ -60,6 +47,8 @@ async function main() {
   const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const wallet = new ethers.Wallet(privateKey, provider);
+  const governance = resolveGovernance(wallet.address, { mainnet });
+  logGovernance(governance, wallet.address);
   const factory = new ethers.ContractFactory(
     artifact.abi,
     artifact.bytecode,
@@ -70,7 +59,7 @@ async function main() {
   console.log("Deploying SwiftPaySend from:", wallet.address);
   console.log("  network:", networkName);
 
-  const contract = await factory.deploy(feeRecipient);
+  const contract = await factory.deploy(governance.owner, feeRecipient);
   await contract.waitForDeployment();
 
   const address = await contract.getAddress();

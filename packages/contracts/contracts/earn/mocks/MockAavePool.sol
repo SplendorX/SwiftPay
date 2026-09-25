@@ -108,4 +108,12 @@ contract MockAavePool {
         MockAToken(aToken).simulateAccrue(onBehalfOf, amount);
         emit YieldSimulated(asset, onBehalfOf, amount);
     }
+
+    /// @notice Burn aTokens from a holder to simulate a loss (test only).
+    function simulateLoss(address asset, address holder, uint256 amount) external {
+        if (amount == 0) revert ZeroAmount();
+        address aToken = aTokens[asset];
+        if (aToken == address(0)) revert AssetNotListed();
+        MockAToken(aToken).burn(holder, amount);
+    }
 }

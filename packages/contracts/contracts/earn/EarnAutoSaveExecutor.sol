@@ -3,16 +3,16 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+
+import {GuardedOwnable} from "../access/GuardedOwnable.sol";
 
 /// @title EarnAutoSaveExecutor
 /// @notice Pulls user-approved USDC and deposits into SwiftPayVault for the user.
 /// @dev Requires explicit USDC allowance from the user to this contract.
 ///      Operator is intended for multisig/automation — never a silent fund drain.
-contract EarnAutoSaveExecutor is Ownable2Step, ReentrancyGuard {
+contract EarnAutoSaveExecutor is GuardedOwnable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable usdc;
@@ -40,7 +40,13 @@ contract EarnAutoSaveExecutor is Ownable2Step, ReentrancyGuard {
         _;
     }
 
-    constructor(address usdc_, address vault_, address operator_, address owner_) Ownable(owner_) {
+    constructor(
+        address usdc_,
+        address vault_,
+        address operator_,
+        address owner_,
+        address guardian_
+    ) GuardedOwnable(owner_, guardian_) {
         if (usdc_ == address(0) || vault_ == address(0) || operator_ == address(0) || owner_ == address(0)) {
             revert ZeroAddress();
         }
@@ -64,7 +70,7 @@ contract EarnAutoSaveExecutor is Ownable2Step, ReentrancyGuard {
         bytes32 executionId,
         address user,
         uint256 amount
-    ) external onlyOperator nonReentrant returns (uint256 shares) {
+    ) external onlyOperator whenNotPaused nonReentrant returns (uint256 shares) {
         if (user == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         if (consumedExecutionIds[executionId]) revert AlreadyExecuted();

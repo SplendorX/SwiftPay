@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+
 interface ISwiftPaySendERC20 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
 }
 
 interface ISwiftSaveVaultDepositFor {
@@ -15,12 +19,11 @@ interface ISwiftSaveVaultDepositFor {
 ///         savings deposit is included in the same transaction.
 /// @dev Deploy a fresh instance on Arc mainnet. Fee recipient and token
 ///      addresses must come from official config — never testnet leftovers.
-contract SwiftPaySend {
+contract SwiftPaySend is Ownable2Step {
     uint256 public constant BASIS_POINTS = 10_000;
     /// @notice 0.1% platform fee (10 / 10_000 basis points).
     uint256 public constant PLATFORM_FEE_BASIS_POINTS = 10;
 
-    address public owner;
     address public feeRecipient;
 
     event PaymentSent(
@@ -34,34 +37,22 @@ contract SwiftPaySend {
         bytes32 pocketId
     );
     event FeeRecipientUpdated(address indexed previousFeeRecipient, address indexed nextFeeRecipient);
-    event OwnershipTransferred(address indexed previousOwner, address indexed nextOwner);
 
     error InvalidAmount();
     error InvalidFeeRecipient();
     error InvalidRecipient();
     error InvalidSave();
     error InvalidToken();
-    error NotOwner();
     error TokenTransferFailed();
 
-    constructor(address initialFeeRecipient) {
+    constructor(address initialOwner, address initialFeeRecipient) Ownable(initialOwner) {
         if (initialFeeRecipient == address(0)) {
             revert InvalidFeeRecipient();
         }
 
-        owner = msg.sender;
         feeRecipient = initialFeeRecipient;
 
-        emit OwnershipTransferred(address(0), msg.sender);
         emit FeeRecipientUpdated(address(0), initialFeeRecipient);
-    }
-
-    modifier onlyOwner() {
-        if (msg.sender != owner) {
-            revert NotOwner();
-        }
-
-        _;
     }
 
     function send(
@@ -102,6 +93,10 @@ contract SwiftPaySend {
                 revert TokenTransferFailed();
             }
             ISwiftSaveVaultDepositFor(vault).depositFor(msg.sender, pocketId, token, saveAmount);
+            // Clear any allowance the vault didn't use, so nothing is left for it to pull later.
+            if (!ISwiftPaySendERC20(token).approve(vault, 0)) {
+                revert TokenTransferFailed();
+            }
         }
 
         emit PaymentSent(
@@ -127,15 +122,17 @@ contract SwiftPaySend {
         emit FeeRecipientUpdated(previousFeeRecipient, nextFeeRecipient);
     }
 
-    function transferOwnership(address nextOwner) external onlyOwner {
-        if (nextOwner == address(0)) {
+
+    /// @notice Recover tokens sent here by mistake. The contract never holds
+    ///         user funds between calls, so anything here is a mis-send.
+    function rescueTokens(address token, address to, uint256 amount) external onlyOwner {
+        if (to == address(0)) {
             revert InvalidRecipient();
         }
 
-        address previousOwner = owner;
-        owner = nextOwner;
-
-        emit OwnershipTransferred(previousOwner, nextOwner);
+        if (!ISwiftPaySendERC20(token).transfer(to, amount)) {
+            revert TokenTransferFailed();
+        }
     }
 
     function _safeTransferFrom(

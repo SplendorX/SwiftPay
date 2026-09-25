@@ -21,6 +21,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import hre from "hardhat";
 
+import { logGovernance, resolveGovernance } from "./governance.js";
+
 import {
   assertMainnetReady,
   getActiveNetwork,
@@ -46,8 +48,10 @@ async function main() {
   assertMainnetReady(network);
 
   const [deployer] = await ethers.getSigners();
-  const owner =
-    process.env.EARN_VAULT_OWNER?.trim() || deployer.address;
+  const governance = resolveGovernance(deployer.address, {
+    mainnet: network.key === "arcMainnet",
+  });
+  const owner = governance.owner;
   const feeRecipient =
     process.env.EARN_FEE_RECIPIENT?.trim() ||
     process.env.PLATFORM_FEE_RECIPIENT?.trim() ||
@@ -56,7 +60,7 @@ async function main() {
   console.log("=== SwiftPay Earn Deploy ===");
   console.log("Network:", network.name, network.chainId);
   console.log("Deployer:", deployer.address);
-  console.log("Owner:", owner);
+  logGovernance(governance, deployer.address);
   console.log("Fee recipient:", feeRecipient);
   console.log("Aave mode:", network.aave.mode);
 
@@ -79,7 +83,10 @@ async function main() {
   const Vault = await ethers.getContractFactory("SwiftPayVault");
   const vault = await Vault.deploy(
     usdcAddress,
-    owner,
+    // The deployer owns the vault only until the strategy is set below, then
+    // hands it to the timelock.
+    deployer.address,
+    governance.guardian,
     feeRecipient,
     "SwiftPay Earn USDC",
     "spUSDC",
@@ -135,6 +142,13 @@ async function main() {
   await setTx.wait();
   console.log("Vault strategy set.");
 
+  if (owner !== deployer.address) {
+    await (await vault.transferOwnership(owner)).wait();
+    console.log(
+      "Vault ownership offered to the timelock. Schedule vault.acceptOwnership() through it to complete the handover.",
+    );
+  }
+
   const operator =
     process.env.SWIFTPAY_EARN_OPERATOR_ADDRESS?.trim() ||
     process.env.SWIFTPAY_RECURRING_OPERATOR_ADDRESS?.trim() ||
@@ -146,6 +160,7 @@ async function main() {
     vaultAddress,
     operator,
     owner,
+    governance.guardian,
   );
   await executor.waitForDeployment();
   const executorAddress = await executor.getAddress();

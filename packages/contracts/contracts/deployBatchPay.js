@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { arcRpcUrl, logGovernance, resolveGovernance } from "./governance.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,7 +14,7 @@ dotenv.config({
 });
 
 async function main() {
-  const rpcUrl = process.env.ARC_TESTNET_RPC_URL;
+  const rpcUrl = arcRpcUrl();
   const privateKey = process.env.PRIVATE_KEY;
   const feeRecipient =
     process.env.PLATFORM_FEE_RECIPIENT ??
@@ -31,31 +32,33 @@ async function main() {
 
   const artifactPath = join(
     __dirname,
-    "../artifacts/contracts/SwiftBatch.sol/SwiftBatch.json",
+    "../artifacts/contracts/BatchPay.sol/BatchPay.json",
   );
   const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const wallet = new ethers.Wallet(privateKey, provider);
+  const governance = resolveGovernance(wallet.address);
+  logGovernance(governance, wallet.address);
   const factory = new ethers.ContractFactory(
     artifact.abi,
     artifact.bytecode,
     wallet,
   );
 
-  console.log("Deploying SwiftBatch from:", wallet.address);
+  console.log("Deploying BatchPay from:", wallet.address);
 
-  const contract = await factory.deploy(feeRecipient);
+  const contract = await factory.deploy(governance.owner, feeRecipient);
   await contract.waitForDeployment();
 
   const address = await contract.getAddress();
 
-  console.log("SwiftBatch deployed to:", address);
+  console.log("BatchPay deployed to:", address);
   console.log("\nUpdate your .env:");
   console.log(`NEXT_PUBLIC_SWIFTBATCH_ADDRESS=${address}`);
   console.log(`NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=${feeRecipient}`);
 }
 
 main().catch((error) => {
-  console.error("SwiftBatch deployment failed:", error);
+  console.error("BatchPay deployment failed:", error);
   process.exit(1);
 });

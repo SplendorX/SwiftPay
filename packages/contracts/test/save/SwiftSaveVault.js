@@ -4,19 +4,21 @@ import hre from "hardhat";
 const { ethers } = await hre.network.connect();
 
 async function deployFixture() {
-  const [owner, user, other] = await ethers.getSigners();
+  const [owner, user, other, guardian] = await ethers.getSigners();
   const Mock = await ethers.getContractFactory("MockUSDC");
   const usdc = await Mock.deploy();
   await usdc.waitForDeployment();
 
   const Vault = await ethers.getContractFactory("SwiftSaveVault");
-  const vault = await Vault.deploy(owner.address, [await usdc.getAddress()]);
+  const vault = await Vault.deploy(owner.address, guardian.address, [
+    await usdc.getAddress(),
+  ]);
   await vault.waitForDeployment();
 
   const mintAmount = ethers.parseUnits("1000", 6);
   await (await usdc.mint(user.address, mintAmount)).wait();
 
-  return { owner, user, other, usdc, vault, mintAmount };
+  return { owner, user, other, guardian, usdc, vault, mintAmount };
 }
 
 describe("SwiftSaveVault", () => {
@@ -113,5 +115,34 @@ describe("SwiftSaveVault", () => {
       failed = true;
     }
     assert.ok(failed, "other user must not withdraw from foreign pocket");
+  });
+
+  it("keeps withdrawals open while paused or after a token is delisted", async () => {
+    const { owner, user, guardian, usdc, vault } = await deployFixture();
+    const pocketId = ethers.id("rent");
+    const amount = ethers.parseUnits("50", 6);
+    const token = await usdc.getAddress();
+
+    await (await usdc.connect(user).approve(await vault.getAddress(), amount)).wait();
+    await (await vault.connect(user).deposit(pocketId, token, amount)).wait();
+
+    await (await vault.connect(guardian).pause()).wait();
+    await (await vault.connect(owner).setTokenAllowed(token, false)).wait();
+
+    // New deposits are stopped...
+    await assert.rejects(vault.connect(user).deposit(pocketId, token, 1n));
+
+    // ...but the saver can still take everything out.
+    await (await vault.connect(user).withdraw(pocketId, token, amount)).wait();
+    assert.equal(await vault.pocketBalance(user.address, pocketId, token), 0n);
+    assert.equal(await usdc.balanceOf(user.address), ethers.parseUnits("1000", 6));
+  });
+
+  it("only lets the owner unpause", async () => {
+    const { owner, guardian, vault } = await deployFixture();
+    await (await vault.connect(guardian).pause()).wait();
+    await assert.rejects(vault.connect(guardian).unpause());
+    await (await vault.connect(owner).unpause()).wait();
+    assert.equal(await vault.paused(), false);
   });
 });

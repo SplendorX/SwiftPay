@@ -49,14 +49,23 @@ export default {
         }
       : {}),
   },
+  // Arc has no Etherscan; ArcScan is Blockscout. Verify there only, so
+  // `hardhat verify` doesn't report Etherscan/Sourcify failures.
+  verify: {
+    blockscout: { enabled: true },
+    etherscan: { enabled: false },
+    sourcify: { enabled: false },
+  },
   chainDescriptors: {
     5042002: {
       name: "Arc Testnet",
       blockExplorers: {
+        // testnet.arcscan.app now 301-redirects here; point at it directly so
+        // verification POSTs are not lost to the redirect.
         blockscout: {
-          name: "Arcscan",
-          url: "https://testnet.arcscan.app",
-          apiUrl: "https://testnet.arcscan.app/api",
+          name: "Arc Testnet Explorer",
+          url: "https://explorer.testnet.arc.io",
+          apiUrl: "https://explorer.testnet.arc.io/api",
         },
       },
     },

@@ -30,6 +30,7 @@ contract AaveUsdcYieldStrategy is IYieldStrategy, Ownable2Step, ReentrancyGuard 
     bool public depositsEnabled = true;
 
     error ZeroAddress();
+    error VaultAlreadySet();
     error OnlyVault();
     error InvalidAsset();
     error InvalidAToken();
@@ -84,8 +85,11 @@ contract AaveUsdcYieldStrategy is IYieldStrategy, Ownable2Step, ReentrancyGuard 
         }
     }
 
+    /// @notice Set the vault once, when it wasn't known at deployment. It can
+    ///         never change afterwards, so the owner can't redirect funds.
     function setVault(address newVault) external onlyOwner {
         if (newVault == address(0)) revert ZeroAddress();
+        if (vault != address(0)) revert VaultAlreadySet();
         emit VaultUpdated(vault, newVault);
         vault = newVault;
     }

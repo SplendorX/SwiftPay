@@ -1,7 +1,13 @@
 /**
- * Deploy RecurePayExecutor (1% platform fee).
- * Hardhat 3: use ethers via network.connect() when available,
- * or standalone ethers like deployBatchPay.js.
+ * Deploy SwiftPayrollExecutor to Arc.
+ *
+ * This is what makes payroll schedules pay unattended: businesses approve the
+ * executor once, and the operator settles each approved run on its due date.
+ *
+ *   ARC_TESTNET_RPC_URL              RPC to deploy through
+ *   PRIVATE_KEY                      deployer (becomes owner)
+ *   SWIFTPAY_PAYROLL_OPERATOR_ADDRESS  address allowed to call executePayroll
+ *   PLATFORM_FEE_RECIPIENT           receives the 1% platform fee
  */
 import dotenv from "dotenv";
 import { ethers } from "ethers";
@@ -21,11 +27,9 @@ dotenv.config({
 async function main() {
   const rpcUrl = arcRpcUrl();
   const privateKey = process.env.PRIVATE_KEY;
-  // The operator must be the address of the key the server signs Autopay
-  // runs with. Falling back to the fee recipient (as this script once did)
-  // deploys an executor the server cannot drive, so require it explicitly.
-  const operator = process.env.SWIFTPAY_RECURRING_OPERATOR_ADDRESS?.trim();
-  const operatorKey = process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim();
+  const operator =
+    process.env.SWIFTPAY_PAYROLL_OPERATOR_ADDRESS?.trim() ||
+    process.env.SWIFTPAY_RECURRING_OPERATOR_ADDRESS?.trim();
   const feeRecipient =
     process.env.PLATFORM_FEE_RECIPIENT?.trim() ||
     process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim();
@@ -35,16 +39,8 @@ async function main() {
   }
   if (!operator || !ethers.isAddress(operator)) {
     throw new Error(
-      "Set SWIFTPAY_RECURRING_OPERATOR_ADDRESS to the address of SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY.",
+      "Set SWIFTPAY_PAYROLL_OPERATOR_ADDRESS to the address that will run the cron.",
     );
-  }
-  if (operatorKey) {
-    const keyAddress = new ethers.Wallet(operatorKey).address;
-    if (keyAddress.toLowerCase() !== operator.toLowerCase()) {
-      throw new Error(
-        `SWIFTPAY_RECURRING_OPERATOR_ADDRESS (${operator}) does not match the operator key's address (${keyAddress}).`,
-      );
-    }
   }
   if (!feeRecipient || !ethers.isAddress(feeRecipient)) {
     throw new Error("PLATFORM_FEE_RECIPIENT must be a valid address.");
@@ -52,7 +48,7 @@ async function main() {
 
   const artifactPath = join(
     __dirname,
-    "../artifacts/contracts/RecurePayExecutor.sol/RecurePayExecutor.json",
+    "../artifacts/contracts/SwiftPayrollExecutor.sol/SwiftPayrollExecutor.json",
   );
   const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
   const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -65,9 +61,9 @@ async function main() {
     wallet,
   );
 
-  console.log("Deploying RecurePayExecutor from:", wallet.address);
-  console.log("Operator:", operator);
-  console.log("Fee recipient (1%):", feeRecipient);
+  console.log("Deploying SwiftPayrollExecutor from:", wallet.address);
+  console.log("  Operator     :", operator);
+  console.log("  Fee recipient:", feeRecipient, "(1%)");
 
   const contract = await factory.deploy(
     governance.owner,
@@ -78,12 +74,18 @@ async function main() {
   await contract.waitForDeployment();
   const address = await contract.getAddress();
 
-  console.log("RecurePayExecutor deployed to:", address);
-  console.log("\nUpdate your .env:");
-  console.log(`NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS=${address}`);
+  console.log("\nSwiftPayrollExecutor deployed to:", address);
+  console.log("\nAdd to your .env:");
+  console.log(`NEXT_PUBLIC_SWIFTPAY_PAYROLL_EXECUTOR_ADDRESS=${address}`);
+  console.log(
+    "SWIFTPAY_PAYROLL_OPERATOR_PRIVATE_KEY=<key for the operator address above>",
+  );
+  console.log(
+    "\nEach business must then approve this address to spend its USDC before its schedule can pay unattended.",
+  );
 }
 
 main().catch((error) => {
-  console.error("RecurePayExecutor deployment failed:", error);
-  process.exit(1);
+  console.error(error);
+  process.exitCode = 1;
 });

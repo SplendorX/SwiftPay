@@ -6,31 +6,34 @@ import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.so
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IYieldStrategy} from "./interfaces/IYieldStrategy.sol";
 import {VaultMath} from "./libraries/VaultMath.sol";
+import {GuardedOwnable} from "../access/GuardedOwnable.sol";
 
 /// @title SwiftPayVault
 /// @notice ERC-4626 USDC vault with pluggable yield strategy and performance fees.
 /// @dev Accounting is on-chain only. Backend must never override balances.
 ///      Performance fee uses high-water-mark assets tracking to avoid fees on deposits.
-contract SwiftPayVault is ERC4626, Ownable2Step, Pausable, ReentrancyGuard {
+///      Owner is meant to be a timelock; the guardian can pause deposits and pull
+///      strategy funds back into the vault, but nothing it does sends funds out.
+///      Withdrawals always stay open.
+contract SwiftPayVault is ERC4626, GuardedOwnable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using VaultMath for uint256;
 
     uint256 public constant MAX_PERFORMANCE_FEE_BPS = 2_000; // 20%
-    uint256 public constant DEFAULT_PERFORMANCE_FEE_BPS = 1_000; // 10%
+    uint256 public constant DEFAULT_PERFORMANCE_FEE_BPS = 500; // 5%
 
     IYieldStrategy public strategy;
     address public feeRecipient;
     uint256 public performanceFeeBps = DEFAULT_PERFORMANCE_FEE_BPS;
 
     /// @notice Asset high-water mark for fee accounting (principal-adjusted).
-    /// @dev Increased on deposit, decreased on withdraw, set to totalAssets after fee harvest.
+    /// @dev Increased on deposit, decreased on withdraw, raised to totalAssets after a
+    ///      fee harvest. Never lowered by a loss, so recovering one isn't charged twice.
     uint256 public assetsHighWaterMark;
 
     bool public strategyDepositsEnabled = true;
@@ -55,10 +58,11 @@ contract SwiftPayVault is ERC4626, Ownable2Step, Pausable, ReentrancyGuard {
     constructor(
         IERC20 asset_,
         address owner_,
+        address guardian_,
         address feeRecipient_,
         string memory name_,
         string memory symbol_
-    ) ERC20(name_, symbol_) ERC4626(asset_) Ownable(owner_) {
+    ) ERC20(name_, symbol_) ERC4626(asset_) GuardedOwnable(owner_, guardian_) {
         if (address(asset_) == address(0) || owner_ == address(0) || feeRecipient_ == address(0)) {
             revert ZeroAddress();
         }
@@ -218,18 +222,27 @@ contract SwiftPayVault is ERC4626, Ownable2Step, Pausable, ReentrancyGuard {
             fee = VaultMath.performanceFee(grossYield, performanceFeeBps);
 
             if (fee > 0) {
-                // Mint fee shares to recipient so fee is taken from yield, not principal.
-                uint256 feeShares = convertToShares(fee);
+                // Mint fee shares to recipient so fee is taken from yield, not
+                // principal. Priced against assets excluding the fee, so that
+                // after minting the new shares are worth `fee`.
+                uint256 feeShares = Math.mulDiv(
+                    fee,
+                    totalSupply() + 10 ** _decimalsOffset(),
+                    assets_ - fee + 1,
+                    Math.Rounding.Floor
+                );
                 if (feeShares > 0) {
                     _mint(feeRecipient, feeShares);
                 }
                 emit PerformanceFeeCollected(grossYield, fee, block.timestamp);
             }
+
+            // Only ever raised: after a loss the mark stays put, so yield that
+            // merely recovers the loss isn't charged again.
+            assetsHighWaterMark = assets_;
         }
 
-        // Reset HWM to current assets after fee share minting (totalAssets unchanged by mint).
-        assetsHighWaterMark = totalAssets();
-        emit Harvest(assetsHighWaterMark, block.timestamp);
+        emit Harvest(assets_, block.timestamp);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -285,16 +298,8 @@ contract SwiftPayVault is ERC4626, Ownable2Step, Pausable, ReentrancyGuard {
         performanceFeeBps = newBps;
     }
 
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
     /// @notice Emergency pull all strategy funds to the vault (does not send to users).
-    function emergencyWithdrawFromStrategy() external onlyOwner nonReentrant returns (uint256 amount) {
+    function emergencyWithdrawFromStrategy() external onlyGuardianOrOwner nonReentrant returns (uint256 amount) {
         if (address(strategy) == address(0)) revert StrategyNotSet();
         amount = strategy.emergencyWithdraw();
         emit EmergencyWithdraw(address(strategy), amount);
