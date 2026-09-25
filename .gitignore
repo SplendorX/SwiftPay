@@ -62,3 +62,6 @@ apps/web/.agents/
 apps/web/.claude/
 apps/web/scratch/
 apps/web/skills-lock.json
+
+# Vercel env backups written by scripts/vercel-sync-production-env.mjs
+.vercel-backup/

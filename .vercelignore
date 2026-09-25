@@ -1,0 +1,30 @@
+# Never upload secrets. Vercel's own environment variables are the only
+# config a deployment gets; local .env files stay on this machine.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+.vercel-backup/
+
+# Local tooling, logs and scratch output
+*.log
+*.err
+tsc-out.txt
+*.tsbuildinfo
+agent-tools/
+mcps/
+terminals/
+output/
+tmp/
+docs/
+.agents/
+apps/web/.agents/
+apps/web/.claude/
+apps/web/scratch/
+.pnpm-store/
+
+# Contract build output (not needed to build the web app)
+packages/contracts/artifacts/
+packages/contracts/cache/

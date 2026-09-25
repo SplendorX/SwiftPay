@@ -8,7 +8,11 @@ const workspaceRoot = resolve(projectRoot, "../..");
 loadEnv({ path: join(workspaceRoot, ".env"), quiet: true });
 loadEnv({ path: join(projectRoot, ".env.local"), quiet: true });
 
-if (!process.env.NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS?.trim()) {
+// Testnet only: a mainnet build must never fall back to a testnet contract.
+if (
+  process.env.NEXT_PUBLIC_ARC_NETWORK?.trim().toLowerCase() !== "mainnet" &&
+  !process.env.NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS?.trim()
+) {
   process.env.NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS =
     "0xcBF3559D59b536cc3aB55C32e502F72Bd111588a";
 }
