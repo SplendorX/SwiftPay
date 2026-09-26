@@ -42,7 +42,12 @@ export function WalletChainSync() {
           // Some wallets don't answer eth_chainId over WalletConnect.
         }
         actual ??= await connector.getChainId().catch(() => undefined);
-        if (actual && Number.isFinite(actual) && actual !== chainId) {
+        // Only ever catch up *to* Arc. Over WalletConnect, eth_chainId can
+        // answer from the session's cached chain, which still holds the network
+        // from before a switch the wallet never reported. Trusting it in every
+        // direction dragged the app off Arc right after the user approved the
+        // switch. Genuine moves away from Arc still arrive as wagmi events.
+        if (actual === arcChain.id && actual !== chainId) {
           // The same event the wallet should have sent: updates every
           // useChainId/useAccount, and releases a switch waiting on it.
           connector.emitter.emit("change", { chainId: actual });
