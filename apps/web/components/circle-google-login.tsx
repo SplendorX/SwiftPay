@@ -228,7 +228,11 @@ function getGoogleLoginErrorMessage(
   const normalized = message.toLowerCase();
 
   if (isDeviceIdTimeout(error) || normalized.includes("device id")) {
-    return getDeviceIdFailureMessage(Boolean(diagnostic?.hasIdToken));
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? ` ${String((error as { code?: unknown }).code)}`
+        : "";
+    return `${getDeviceIdFailureMessage(Boolean(diagnostic?.hasIdToken))} (Circle${code}: ${message})`;
   }
 
   if (
@@ -322,6 +326,13 @@ export function CircleGoogleLogin({
   const enterAppAfterLoginRef = useRef(false);
   const deviceIdRequestRef = useRef<Promise<string> | null>(null);
   const deviceTokenRequestRef = useRef<Promise<DeviceTokenResponse> | null>(
+    null,
+  );
+  // Device credentials minted on this page load and not yet used for a login.
+  // A Google login must never reuse credentials from an earlier attempt:
+  // Circle binds them to the device ID its own frame holds, and rejects the
+  // Google token on return when they no longer match.
+  const unusedDeviceTokensRef = useRef<Promise<DeviceTokenResponse> | null>(
     null,
   );
   const envAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
@@ -607,9 +618,16 @@ export function CircleGoogleLogin({
     let cancelled = false;
 
     async function prepareCircleLogin() {
+      const request = ensureDeviceToken({ forceRefresh: true });
+      unusedDeviceTokensRef.current = request;
+
       try {
-        await ensureDeviceToken();
+        await request;
       } catch (deviceError) {
+        if (unusedDeviceTokensRef.current === request) {
+          unusedDeviceTokensRef.current = null;
+        }
+
         if (!cancelled) {
           console.warn(
             "[prepareCircleLogin] Background device token preparation:",
@@ -892,7 +910,13 @@ export function CircleGoogleLogin({
     }
 
     try {
-      const tokens = await ensureDeviceToken();
+      // Use the credentials prefetched on this page load if there are any,
+      // otherwise mint fresh ones. Either way, never a stored earlier set.
+      const prefetched = unusedDeviceTokensRef.current;
+      unusedDeviceTokensRef.current = null;
+      const tokens = prefetched
+        ? await prefetched.catch(() => ensureDeviceToken({ forceRefresh: true }))
+        : await ensureDeviceToken({ forceRefresh: true });
       updateSdkLoginConfig(tokens);
       setupCompletionStartedRef.current = false;
       writeStorage(storageKeys.setupIntent, "true");
