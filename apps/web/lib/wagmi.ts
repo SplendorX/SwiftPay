@@ -85,18 +85,14 @@ export const config = getDefaultConfig({
   projectId,
   ssr: true,
   storage: createStorage({ storage: cookieStorage }),
+  // Every chain in `networks` needs a transport: WalletConnect reads one per
+  // chain and crashes on a missing entry, so connecting a wallet did nothing.
+  // Built from the list itself so the two cannot drift apart again.
   transports: {
     [arcTestnet.id]: http(arcTestnet.rpcUrls.default.http[0]),
-    ...(arcMainnet
-      ? { [arcMainnet.id]: http(arcMainnet.rpcUrls.default.http[0]) }
-      : {
-          [baseSepolia.id]: http(),
-          [sepolia.id]: http(),
-          [arbitrumSepolia.id]: http(),
-          [optimismSepolia.id]: http(),
-          [avalancheFuji.id]: http(),
-          [polygonAmoy.id]: http(),
-        }),
+    ...Object.fromEntries(
+      networks.map((chain) => [chain.id, http(chain.rpcUrls.default.http[0])]),
+    ),
   },
   wallets: [
     {
