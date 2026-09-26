@@ -62,7 +62,14 @@ const okxWalletMobileLink: typeof okxWallet = (params) => {
     ...wallet,
     mobile: {
       ...wallet.mobile,
-      getUri: (uri: string) => `${OKX_APP_LINK}/wc?uri=${encodeURIComponent(uri)}`,
+      getUri: (uri: string) => {
+        const link = `${OKX_APP_LINK}/wc?uri=${encodeURIComponent(uri)}`;
+        // Seen only by the ?walletdebug=1 diagnostics panel.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("swiftpay:walletdebug", { detail: `OKX link built: ${link.slice(0, 60)}…` }));
+        }
+        return link;
+      },
     },
   };
 };
