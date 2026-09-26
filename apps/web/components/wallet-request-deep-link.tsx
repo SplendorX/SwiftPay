@@ -25,9 +25,9 @@ type WalletConnectProvider = {
   signer?: { client?: { events?: WalletConnectEvents } };
 };
 
-/** Known app links for wallets whose session metadata leaves them out. */
+/** App links confirmed to open the wallet, used before the one it advertises. */
 const fallbackAppLinks: Record<string, string> = {
-  okx: "okex://main",
+  okx: "okxwallet://main",
 };
 
 /**
@@ -73,9 +73,11 @@ export function WalletRequestDeepLink() {
       if (document.visibilityState !== "visible") return;
       void connector.getProvider().then((raw) => {
         const provider = raw as WalletConnectProvider;
+        // A link confirmed to work beats the one the wallet advertises: OKX
+        // still advertises okex://, which current OKX apps ignore.
         const link =
-          appLinkOnly(provider.session?.peer?.metadata?.redirect?.native) ??
-          appLinkOnly(fallbackAppLinks[connector.id]);
+          appLinkOnly(fallbackAppLinks[connector.id]) ??
+          appLinkOnly(provider.session?.peer?.metadata?.redirect?.native);
         if (link) window.location.href = link;
       });
     };
