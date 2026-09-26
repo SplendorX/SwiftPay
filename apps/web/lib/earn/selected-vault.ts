@@ -1,4 +1,8 @@
-export const EARN_SELECTED_VAULT_KEY = "earn_selected_vault";
+import { arcNetworkTarget } from "@/lib/network";
+
+// Kept per network: a vault picked on testnet does not exist on mainnet, and
+// asking App Kit for its position there fails with EARN_VAULT_NOT_FOUND.
+export const EARN_SELECTED_VAULT_KEY = `earn_selected_vault:${arcNetworkTarget()}`;
 export const EARN_SELECTION_EVENT = "earn-selected-vault";
 export const EARN_POSITION_EVENT = "earn-position-updated";
 

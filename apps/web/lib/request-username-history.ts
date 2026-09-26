@@ -1,17 +1,26 @@
-const historyStorageKey = "swiftpay.request.username-history.v1";
+import { arcNetworkTarget } from "@/lib/network";
+
+/**
+ * Recently requested usernames, kept per network and per signed-in wallet:
+ * one account must never see another's history, and testnet names must not
+ * appear on mainnet.
+ */
+function historyStorageKey(owner: string) {
+  return `swiftpay.request.username-history.v2:${arcNetworkTarget()}:${owner.toLowerCase()}`;
+}
 const maxHistory = 8;
 
 function normalizeStoredUsername(value: string) {
   return value.trim().toLowerCase().replace(/^@+/, "").replace(/\s/g, "");
 }
 
-export function readRequestUsernameHistory(): string[] {
-  if (typeof window === "undefined") {
+export function readRequestUsernameHistory(owner: string | null | undefined): string[] {
+  if (typeof window === "undefined" || !owner) {
     return [];
   }
 
   try {
-    const raw = window.localStorage.getItem(historyStorageKey);
+    const raw = window.localStorage.getItem(historyStorageKey(owner));
     if (!raw) {
       return [];
     }
@@ -44,19 +53,22 @@ export function readRequestUsernameHistory(): string[] {
   }
 }
 
-export function rememberRequestedUsername(username: string): string[] {
+export function rememberRequestedUsername(
+  owner: string | null | undefined,
+  username: string,
+): string[] {
   const normalized = normalizeStoredUsername(username);
-  if (!normalized) {
-    return readRequestUsernameHistory();
+  if (!owner || !normalized) {
+    return readRequestUsernameHistory(owner);
   }
 
   const next = [
     normalized,
-    ...readRequestUsernameHistory().filter((item) => item !== normalized),
+    ...readRequestUsernameHistory(owner).filter((item) => item !== normalized),
   ].slice(0, maxHistory);
 
   try {
-    window.localStorage.setItem(historyStorageKey, JSON.stringify(next));
+    window.localStorage.setItem(historyStorageKey(owner), JSON.stringify(next));
   } catch {
     // ignore quota / private mode
   }

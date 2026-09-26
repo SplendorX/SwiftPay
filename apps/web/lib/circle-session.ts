@@ -1,5 +1,6 @@
 "use client";
 
+import { isArcMainnet } from "@/lib/network";
 import { type ArcTokenSymbol } from "@/lib/tokens";
 import {
   clearPlatformProfileConnected,
@@ -72,14 +73,20 @@ export class CircleClientError extends Error {
 
 export const circleSessionEventName = "swiftpay:circle-session";
 
+// Circle's test and live environments issue separate device tokens, logins
+// and wallets, so each network keeps its own. A testnet session saved in the
+// browser must never be replayed against Circle's live environment. Testnet
+// keeps the original key names so existing testnet sessions carry on.
+const circleKeyPrefix = isArcMainnet() ? "swiftpay.circle.mainnet" : "swiftpay.circle";
+
 export const circleStorageKeys = {
-  deviceEncryptionKey: "swiftpay.circle.deviceEncryptionKey",
-  deviceId: "swiftpay.circle.deviceId",
-  deviceToken: "swiftpay.circle.deviceToken",
-  login: "swiftpay.circle.login",
-  setupIntent: "swiftpay.circle.setupIntent",
-  enterApp: "swiftpay.circle.enterApp",
-  wallets: "swiftpay.circle.wallets",
+  deviceEncryptionKey: `${circleKeyPrefix}.deviceEncryptionKey`,
+  deviceId: `${circleKeyPrefix}.deviceId`,
+  deviceToken: `${circleKeyPrefix}.deviceToken`,
+  login: `${circleKeyPrefix}.login`,
+  setupIntent: `${circleKeyPrefix}.setupIntent`,
+  enterApp: `${circleKeyPrefix}.enterApp`,
+  wallets: `${circleKeyPrefix}.wallets`,
 };
 
 const circleOAuthStorageKeys = ["socialLoginProvider", "state", "nonce"];

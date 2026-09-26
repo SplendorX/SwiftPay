@@ -1,5 +1,7 @@
 "use client";
 
+import { arcNetworkTarget } from "@/lib/network";
+
 /**
  * Browser side of SwiftPay Support. Signed-in customers are recognised by
  * their wallet session; a guest's requests are reachable only through the
@@ -26,7 +28,9 @@ export type SupportThreadMessage = {
 
 export type SupportIdentity = { ownerWallet?: string | null; circleSocialUuid?: string | null };
 
-const storageKey = "swiftpay:support-tickets";
+// Per network: guest tickets live in that network's database, so a testnet
+// ticket token means nothing on mainnet.
+const storageKey = `swiftpay:support-tickets:${arcNetworkTarget()}`;
 export const supportChangedEvent = "swiftpay:support-changed";
 
 type StoredTicket = { id: string; token: string; reference: string };

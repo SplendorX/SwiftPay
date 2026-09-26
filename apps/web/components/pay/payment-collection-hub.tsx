@@ -49,10 +49,15 @@ import {
   rememberRequestedUsername,
 } from "@/lib/request-username-history";
 import type { ArcTokenSymbol } from "@/lib/tokens";
+import { arcNetworkTarget } from "@/lib/network";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { arcChain } from "@/lib/chains";
 
-const requestsStorageKey = "swiftpay.payment.requests";
+// Saved requests are kept per network and per signed-in wallet, so one
+// account never sees another's, and testnet requests stay off mainnet.
+function requestsStorageKey(owner: string) {
+  return `swiftpay.payment.requests.v2:${arcNetworkTarget()}:${owner.toLowerCase()}`;
+}
 
 type RequestHistoryStatus = "active" | "expired" | "paid" | "declined";
 
@@ -187,10 +192,10 @@ function dedupeSavedRequests(requests: SavedRequest[]) {
   );
 }
 
-function readSavedRequests(): SavedRequest[] {
-  if (typeof window === "undefined") return [];
+function readSavedRequests(owner: string | null): SavedRequest[] {
+  if (typeof window === "undefined" || !owner) return [];
   try {
-    const raw = window.localStorage.getItem(requestsStorageKey);
+    const raw = window.localStorage.getItem(requestsStorageKey(owner));
     const parsed = raw ? (JSON.parse(raw) as SavedRequest[]) : [];
     return dedupeSavedRequests(parsed.map(normalizeSavedRequest));
   } catch {
@@ -198,9 +203,10 @@ function readSavedRequests(): SavedRequest[] {
   }
 }
 
-function writeSavedRequests(requests: SavedRequest[]) {
+function writeSavedRequests(owner: string | null, requests: SavedRequest[]) {
+  if (!owner) return;
   window.localStorage.setItem(
-    requestsStorageKey,
+    requestsStorageKey(owner),
     JSON.stringify(dedupeSavedRequests(requests)),
   );
 }
@@ -214,6 +220,7 @@ export function PaymentCollectionHub({
 }: PaymentCollectionHubProps) {
   const t = useT();
   const { address: connectedWallet, isConnected, source } = usePlatformWallet();
+  const historyOwner = connectedWallet?.toLowerCase() ?? null;
   const [origin, setOrigin] = useState("");
   const [requesterUsername, setRequesterUsername] = useState<string | null>(
     null,
@@ -303,12 +310,16 @@ export function PaymentCollectionHub({
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    const cleaned = readSavedRequests();
-    writeSavedRequests(cleaned);
-    setSavedRequests(cleaned);
-    setUsernameHistory(readRequestUsernameHistory());
     setRequestId(crypto.randomUUID());
   }, []);
+
+  // Reload the lists whenever the signed-in wallet changes.
+  useEffect(() => {
+    const cleaned = readSavedRequests(historyOwner);
+    writeSavedRequests(historyOwner, cleaned);
+    setSavedRequests(cleaned);
+    setUsernameHistory(readRequestUsernameHistory(historyOwner));
+  }, [historyOwner]);
 
   useEffect(() => {
     if (savedRequests.length === 0) {
@@ -356,7 +367,7 @@ export function PaymentCollectionHub({
         return;
       }
 
-      writeSavedRequests(next);
+      writeSavedRequests(historyOwner, next);
       setSavedRequests(next);
     }
 
@@ -400,7 +411,7 @@ export function PaymentCollectionHub({
     if (!requestLink || !canGenerateLink) return;
 
     const persistedId = requestId || crypto.randomUUID();
-    const current = readSavedRequests();
+    const current = readSavedRequests(historyOwner);
     const existingIndex = current.findIndex(
       (item) => requestHistoryKey(item) === persistedId,
     );
@@ -428,7 +439,7 @@ export function PaymentCollectionHub({
           )
         : [nextRequest, ...current].slice(0, 12);
 
-    writeSavedRequests(next);
+    writeSavedRequests(historyOwner, next);
     setSavedRequests(next);
   }
 
@@ -531,7 +542,7 @@ export function PaymentCollectionHub({
 
       const savedUsername =
         payload?.recipientUsername ?? normalizedShareUsername;
-      setUsernameHistory(rememberRequestedUsername(savedUsername));
+      setUsernameHistory(rememberRequestedUsername(historyOwner, savedUsername));
       persistGeneratedRequest(savedUsername);
       setRequestId(crypto.randomUUID());
       setShareStatus(
