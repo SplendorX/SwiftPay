@@ -1,6 +1,7 @@
 import { SWAP_FEE_BPS } from "@/lib/fees";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { arcTokens } from "@/lib/tokens";
+import { arcAddChainParameter, arcSwitchErrorMessage } from "@/lib/arc-network";
 import { arcChain } from "@/lib/chains";
 import { isArcMainnet } from "@/lib/network";
 import type { Abi, Address, Hash, Hex } from "viem";
@@ -295,6 +296,58 @@ const circleSwapAdapterAbi = [
   },
 ] as const satisfies Abi;
 
+function toChainIdHex(value: unknown) {
+  if (typeof value === "number") return `0x${value.toString(16)}`;
+  if (typeof value === "string") {
+    return value.startsWith("0x") ? value.toLowerCase() : `0x${Number(value).toString(16)}`;
+  }
+  return "";
+}
+
+function errorCode(error: unknown) {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current && typeof current === "object"; depth += 1) {
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === "number") return code;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return undefined;
+}
+
+/**
+ * Makes sure the wallet itself is on Arc: switch (adding Arc first when the
+ * wallet doesn't know it), then wait until the wallet actually reports Arc,
+ * since mobile wallets can take a moment after the user returns.
+ */
+async function ensureWalletOnArc(
+  request: <T = unknown>(args: { method: string; params?: unknown }) => Promise<T>,
+) {
+  const readChain = async () => toChainIdHex(await request({ method: "eth_chainId" }));
+  if ((await readChain()) === ARC_CHAIN_ID_HEX) return;
+
+  try {
+    try {
+      await request({ method: "wallet_switchEthereumChain", params: [{ chainId: ARC_CHAIN_ID_HEX }] });
+    } catch (error) {
+      const code = errorCode(error);
+      const text = error instanceof Error ? error.message : String(error ?? "");
+      if (code !== 4902 && !/unrecognized chain|not been added|unknown chain/i.test(text)) throw error;
+      await request({
+        method: "wallet_addEthereumChain",
+        params: [{ ...arcAddChainParameter, chainId: ARC_CHAIN_ID_HEX }],
+      });
+    }
+  } catch (error) {
+    throw new Error(arcSwitchErrorMessage(error));
+  }
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if ((await readChain()) === ARC_CHAIN_ID_HEX) return;
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+  throw new Error(`Your wallet is still on another network. Switch it to ${ARC_CHAIN_NAME} and try again.`);
+}
+
 async function getBrowserProvider(connector: WalletConnector | undefined) {
   const provider = connector?.getProvider
     ? await connector.getProvider({ chainId: ARC_CHAIN_ID })
@@ -313,6 +366,22 @@ async function getBrowserProvider(connector: WalletConnector | undefined) {
     throw new Error("Connect an EIP-1193 wallet before swapping.");
   }
 
+  const rawRequest = async <TReturn = unknown>(args: {
+    method: string;
+    params?: unknown;
+  }) => (await candidate.request?.call(resolvedProvider, args)) as TReturn;
+
+  // MetaMask mobile reconnects each time the user comes back from the app,
+  // and often reports its default network (Ethereum) afterwards, even though
+  // the user approved Arc a moment before. So before every transaction, check
+  // the wallet's real network and bring it back to Arc, instead of letting
+  // the transaction fail and the swap hang.
+  let ensuring: Promise<void> | null = null;
+  const ensureArc = () =>
+    (ensuring ??= ensureWalletOnArc(rawRequest).finally(() => {
+      ensuring = null;
+    }));
+
   const browserProvider = {
     on:
       typeof candidate.on === "function"
@@ -321,21 +390,20 @@ async function getBrowserProvider(connector: WalletConnector | undefined) {
     request: async <TReturn = unknown>(args: {
       method: string;
       params?: unknown;
-    }) =>
-      (await candidate.request?.call(resolvedProvider, args)) as TReturn,
+    }) => {
+      // viem reads the chain right before it sends a transaction.
+      if (args.method === "eth_chainId" || args.method === "eth_sendTransaction") {
+        await ensureArc();
+      }
+      return rawRequest<TReturn>(args);
+    },
     removeListener:
       typeof candidate.removeListener === "function"
         ? candidate.removeListener.bind(resolvedProvider)
         : () => undefined,
   } satisfies Eip1193Provider;
 
-  const providerChainId = await browserProvider.request<string>({
-    method: "eth_chainId",
-  });
-
-  if (providerChainId.toLowerCase() !== ARC_CHAIN_ID_HEX) {
-    throw new Error(`Switch your wallet to ${ARC_CHAIN_NAME} before swapping.`);
-  }
+  await ensureArc();
 
   return browserProvider;
 }
