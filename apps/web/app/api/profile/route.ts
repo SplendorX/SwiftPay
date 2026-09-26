@@ -470,6 +470,24 @@ export async function POST(request: NextRequest) {
       .select(profileSelect)
       .single();
 
+    // Several parts of the app ensure the profile on a first sign-in, so two
+    // creates for the same wallet can race. The loser hits the wallet's unique
+    // key; the profile it wanted now exists, so return it instead of an error.
+    if (
+      mutation.error?.code === "23505" &&
+      !(mutation.error.message ?? "").toLowerCase().includes("username")
+    ) {
+      const created = await supabase
+        .from(profilesTable)
+        .select(profileSelect)
+        .eq("wallet_address", walletAddress)
+        .maybeSingle();
+
+      if (created.data) {
+        return NextResponse.json({ profile: publicProfile(created.data) });
+      }
+    }
+
     if (mutation.error) {
       return jsonError(readSupabaseError(mutation.error), 500);
     }
