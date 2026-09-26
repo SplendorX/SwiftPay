@@ -1,7 +1,8 @@
 import { SWAP_FEE_BPS } from "@/lib/fees";
 import type { ArcTokenSymbol } from "@/lib/tokens";
-import { arcTestnetTokens } from "@/lib/tokens";
-import { arcTestnet } from "@/lib/wagmi";
+import { arcTokens } from "@/lib/tokens";
+import { arcChain } from "@/lib/chains";
+import { isArcMainnet } from "@/lib/network";
 import type { Abi, Address, Hash, Hex } from "viem";
 
 type Eip1193Provider = {
@@ -70,8 +71,12 @@ export type CircleSwapExecution = {
   txHash: string;
 };
 
-const ARC_TESTNET_CHAIN_ID = 5_042_002;
-const ARC_TESTNET_CHAIN_ID_HEX = `0x${ARC_TESTNET_CHAIN_ID.toString(16)}`;
+// The Arc network the app is configured for (mainnet or testnet), and the
+// matching App Kit chain name.
+const ARC_CHAIN_ID = arcChain.id;
+const ARC_CHAIN_ID_HEX = `0x${ARC_CHAIN_ID.toString(16)}`;
+const ARC_CHAIN_NAME = arcChain.name;
+const APP_KIT_ARC_CHAIN = isArcMainnet() ? "Arc" : "Arc_Testnet";
 const CIRCLE_API_ORIGIN = "https://api.circle.com";
 const CIRCLE_STABLECOIN_KIT_PROXY_PATHS = new Set([
   "/v1/stablecoinKits/quote",
@@ -292,7 +297,7 @@ const circleSwapAdapterAbi = [
 
 async function getBrowserProvider(connector: WalletConnector | undefined) {
   const provider = connector?.getProvider
-    ? await connector.getProvider({ chainId: ARC_TESTNET_CHAIN_ID })
+    ? await connector.getProvider({ chainId: ARC_CHAIN_ID })
     : undefined;
 
   const fallbackProvider =
@@ -328,8 +333,8 @@ async function getBrowserProvider(connector: WalletConnector | undefined) {
     method: "eth_chainId",
   });
 
-  if (providerChainId.toLowerCase() !== ARC_TESTNET_CHAIN_ID_HEX) {
-    throw new Error("Switch your wallet to Arc Testnet before swapping.");
+  if (providerChainId.toLowerCase() !== ARC_CHAIN_ID_HEX) {
+    throw new Error(`Switch your wallet to ${ARC_CHAIN_NAME} before swapping.`);
   }
 
   return browserProvider;
@@ -690,7 +695,7 @@ function getContextChain(context: unknown) {
     return context.chain as AnyRecord;
   }
 
-  throw new Error("Arc Testnet context is required for Circle wallet swaps.");
+  throw new Error(`${ARC_CHAIN_NAME} context is required for Circle wallet swaps.`);
 }
 
 function getContextAddress(context: unknown, fallback: Address) {
@@ -709,7 +714,7 @@ function getContextAddress(context: unknown, fallback: Address) {
 function getContextUsdcAddress(context: unknown) {
   const chain = getContextChain(context);
 
-  return getOptionalAddress(chain.usdcAddress) ?? arcTestnetTokens.USDC.address;
+  return getOptionalAddress(chain.usdcAddress) ?? arcTokens.USDC.address;
 }
 
 function getContextAdapterAddress(context: unknown) {
@@ -747,7 +752,7 @@ function isReadOnlyFunction(abi: Abi, functionName: string) {
   );
 }
 
-function isArcTestnetChain(chain: unknown) {
+function isActiveArcChain(chain: unknown) {
   return (
     typeof chain === "object" &&
     chain !== null &&
@@ -755,8 +760,8 @@ function isArcTestnetChain(chain: unknown) {
     "chainId" in chain &&
     "chain" in chain &&
     chain.type === "evm" &&
-    chain.chainId === ARC_TESTNET_CHAIN_ID &&
-    chain.chain === "Arc_Testnet"
+    chain.chainId === ARC_CHAIN_ID &&
+    chain.chain === APP_KIT_ARC_CHAIN
   );
 }
 
@@ -806,8 +811,8 @@ export async function createCircleUserWalletAdapter(
   const { createPublicClient, encodeFunctionData, formatUnits, http } =
     await import("viem");
   const publicClient = createPublicClient({
-    chain: arcTestnet,
-    transport: http(arcTestnet.rpcUrls.default.http[0]),
+    chain: arcChain,
+    transport: http(arcChain.rpcUrls.default.http[0]),
   });
   const transactionWaitContexts = new Map<string, CircleTransactionWaitContext>();
 
@@ -1145,7 +1150,7 @@ export async function createCircleUserWalletAdapter(
           {
             amount:
               params.value !== undefined && params.value > zeroBigInt
-                ? formatUnits(params.value, arcTestnet.nativeCurrency.decimals)
+                ? formatUnits(params.value, arcChain.nativeCurrency.decimals)
                 : undefined,
             callData: data,
             contractAddress: params.address,
@@ -1213,8 +1218,8 @@ export async function createCircleUserWalletAdapter(
     chainType: "evm",
     capabilities: { addressContext: "user-controlled" },
     ensureChain: async (targetChain: unknown) => {
-      if (!isArcTestnetChain(targetChain)) {
-        throw new Error("Circle wallet swaps only support Arc Testnet.");
+      if (!isActiveArcChain(targetChain)) {
+        throw new Error(`Circle wallet swaps only support ${ARC_CHAIN_NAME}.`);
       }
     },
     getAddress: async () => request.walletAddress,
@@ -1222,15 +1227,15 @@ export async function createCircleUserWalletAdapter(
       const normalizedTokenAddress = tokenAddress.toLowerCase();
 
       if (
-        normalizedTokenAddress === arcTestnetTokens.USDC.address.toLowerCase()
+        normalizedTokenAddress === arcTokens.USDC.address.toLowerCase()
       ) {
-        return arcTestnetTokens.USDC.decimals;
+        return arcTokens.USDC.decimals;
       }
 
       if (
-        normalizedTokenAddress === arcTestnetTokens.EURC.address.toLowerCase()
+        normalizedTokenAddress === arcTokens.EURC.address.toLowerCase()
       ) {
-        return arcTestnetTokens.EURC.decimals;
+        return arcTokens.EURC.decimals;
       }
 
       const decimals = await publicClient.readContract({
@@ -1415,8 +1420,8 @@ export async function createCircleUserWalletAdapter(
     resetState: () => undefined,
     switchToChain: async () => undefined,
     validateChainSupport: (targetChain: unknown) => {
-      if (!isArcTestnetChain(targetChain)) {
-        throw new Error("Circle wallet swaps only support Arc Testnet.");
+      if (!isActiveArcChain(targetChain)) {
+        throw new Error(`Circle wallet swaps only support ${ARC_CHAIN_NAME}.`);
       }
     },
     waitForTransaction: async (txHash: string, config?: AnyRecord) => {
@@ -1514,8 +1519,8 @@ async function buildSwapParams(request: SwapRequest) {
     capabilities: { addressContext: "user-controlled" },
     getPublicClient: () =>
       createPublicClient({
-        chain: arcTestnet,
-        transport: http(arcTestnet.rpcUrls.default.http[0]),
+        chain: arcChain,
+        transport: http(arcChain.rpcUrls.default.http[0]),
       }),
     provider: await getBrowserProvider(request.connector),
   });
@@ -1526,7 +1531,10 @@ async function buildSwapParams(request: SwapRequest) {
     params: {
       amountIn: request.amountIn,
       config: buildSwapConfig(request.slippageBps, request.stopLimit),
-      from: { adapter, chain: SwapChain.Arc_Testnet },
+      from: {
+        adapter,
+        chain: APP_KIT_ARC_CHAIN === "Arc" ? SwapChain.Arc : SwapChain.Arc_Testnet,
+      },
       tokenIn: request.tokenIn,
       tokenOut: request.tokenOut,
     },
@@ -1558,7 +1566,10 @@ async function buildCircleUserWalletSwapParams(
     params: {
       amountIn: request.amountIn,
       config: buildSwapConfig(request.slippageBps, request.stopLimit, "approve"),
-      from: { adapter, chain: SwapChain.Arc_Testnet },
+      from: {
+        adapter,
+        chain: APP_KIT_ARC_CHAIN === "Arc" ? SwapChain.Arc : SwapChain.Arc_Testnet,
+      },
       tokenIn: request.tokenIn,
       tokenOut: request.tokenOut,
     },
