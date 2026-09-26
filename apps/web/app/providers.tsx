@@ -2,6 +2,7 @@
 
 import { ServiceWorkerRegistrar } from "@/components/pwa/install-app";
 import { WalletChainSync } from "@/components/wallet-chain-sync";
+import { WalletRequestDeepLink } from "@/components/wallet-request-deep-link";
 import "@rainbow-me/rainbowkit/styles.css";
 
 import { lightTheme, RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -56,6 +57,7 @@ export function Providers({
                   <AllieLauncher />
                   <ServiceWorkerRegistrar />
                   <WalletChainSync />
+                  <WalletRequestDeepLink />
                   <SuccessPopupHost />
                 </AccountProvider>
               </WorkspaceProvider>

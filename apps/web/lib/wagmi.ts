@@ -46,6 +46,25 @@ export const projectId =
     ? configuredProjectId
     : "b56e18d47c72ab683b10814fe9495694";
 
+/**
+ * OKX Wallet on phones. RainbowKit deep-links OKX on iOS but hands Android the
+ * bare `wc:` link, which Android gives to whichever wallet claims it (often
+ * MetaMask), so tapping OKX never opened OKX. Use OKX's registered app link
+ * (`okex://main`, from the WalletConnect registry) on both platforms, so OKX
+ * opens, asks the user to approve, and returns to the browser.
+ */
+const okxWalletMobileLink: typeof okxWallet = (params) => {
+  const wallet = okxWallet(params);
+  if (!wallet.mobile?.getUri) return wallet;
+  return {
+    ...wallet,
+    mobile: {
+      ...wallet.mobile,
+      getUri: (uri: string) => `okex://main/wc?uri=${encodeURIComponent(uri)}`,
+    },
+  };
+};
+
 const appUrl =
   process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
 
@@ -106,7 +125,7 @@ export const config = getDefaultConfig({
     },
     {
       groupName: "More",
-      wallets: [rainbowWallet, trustWallet, okxWallet, injectedWallet],
+      wallets: [rainbowWallet, trustWallet, okxWalletMobileLink, injectedWallet],
     },
   ],
 }) as Config;
