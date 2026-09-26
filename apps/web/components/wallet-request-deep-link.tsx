@@ -30,6 +30,24 @@ const fallbackAppLinks: Record<string, string> = {
   okx: "okex://main",
 };
 
+/**
+ * Wallets that already bring themselves forward on their own. MetaMask did
+ * before this component existed; opening it again on top of that interfered
+ * with its own hand-off.
+ */
+const handlesItsOwnRequests = new Set(["metaMask", "metaMaskSDK", "io.metamask"]);
+
+/**
+ * Only real app links (okex://, trust://…). An https "universal" link opened
+ * from script usually loads in this tab instead of opening the app, replacing
+ * SwiftPay mid-request, so those are never used.
+ */
+function appLinkOnly(link: string | undefined) {
+  if (!link) return undefined;
+  const scheme = link.split(":")[0]?.toLowerCase();
+  return scheme && scheme !== "http" && scheme !== "https" ? link : undefined;
+}
+
 function isMobile() {
   return typeof navigator !== "undefined" && /android|iphone|ipad|ipod/i.test(navigator.userAgent);
 }
@@ -38,7 +56,13 @@ export function WalletRequestDeepLink() {
   const { connector, status } = useAccount();
 
   useEffect(() => {
-    if (status !== "connected" || !connector || connector.type !== "walletConnect" || !isMobile()) {
+    if (
+      status !== "connected" ||
+      !connector ||
+      connector.type !== "walletConnect" ||
+      handlesItsOwnRequests.has(connector.id) ||
+      !isMobile()
+    ) {
       return;
     }
 
@@ -50,9 +74,8 @@ export function WalletRequestDeepLink() {
       void connector.getProvider().then((raw) => {
         const provider = raw as WalletConnectProvider;
         const link =
-          provider.session?.peer?.metadata?.redirect?.native ||
-          fallbackAppLinks[connector.id] ||
-          provider.session?.peer?.metadata?.redirect?.universal;
+          appLinkOnly(provider.session?.peer?.metadata?.redirect?.native) ??
+          appLinkOnly(fallbackAppLinks[connector.id]);
         if (link) window.location.href = link;
       });
     };
