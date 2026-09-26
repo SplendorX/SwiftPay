@@ -47,12 +47,17 @@ export const projectId =
     : "b56e18d47c72ab683b10814fe9495694";
 
 /**
- * OKX Wallet on phones. RainbowKit deep-links OKX on iOS but hands Android the
- * bare `wc:` link, which Android gives to whichever wallet claims it (often
- * MetaMask), so tapping OKX never opened OKX. Use OKX's registered app link
- * (`okex://main`, from the WalletConnect registry) on both platforms, so OKX
- * opens, asks the user to approve, and returns to the browser.
+ * OKX Wallet on phones. RainbowKit waits for the WalletConnect pairing before
+ * opening the wallet, and by then Android Chrome no longer treats it as the
+ * user's tap, so it silently blocks custom `okex://` links: tapping OKX did
+ * nothing. An https link is opened differently (like MetaMask's
+ * metamask.app.link), and Android hands OKX's own link straight to the app.
+ * The link is OKX's universal link from the WalletConnect registry, formatted
+ * the way Reown's AppKit formats universal links.
  */
+const OKX_UNIVERSAL_LINK =
+  "https://www.okx.com/download?appendQuery=true&deeplink=okx://web3/wallet/walletConnect";
+
 const okxWalletMobileLink: typeof okxWallet = (params) => {
   const wallet = okxWallet(params);
   if (!wallet.mobile?.getUri) return wallet;
@@ -60,7 +65,7 @@ const okxWalletMobileLink: typeof okxWallet = (params) => {
     ...wallet,
     mobile: {
       ...wallet.mobile,
-      getUri: (uri: string) => `okex://main/wc?uri=${encodeURIComponent(uri)}`,
+      getUri: (uri: string) => `${OKX_UNIVERSAL_LINK}/wc?uri=${encodeURIComponent(uri)}`,
     },
   };
 };
