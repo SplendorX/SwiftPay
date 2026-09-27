@@ -361,6 +361,9 @@ export function CircleGoogleLogin({
   const [oauthDiagnostic, setOauthDiagnostic] =
     useState<GoogleOAuthDiagnostic | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  // True while the SDK verifies the Google token it just read from the URL.
+  // Nothing may touch device credentials or the SDK iframe until it finishes.
+  const [googleReturnPending, setGoogleReturnPending] = useState(false);
   const appId = resolvedAppId || envAppId;
   const primaryWallet = personalCircleWallet(wallets);
   const isConfigured = Boolean(appId && googleClientId);
@@ -464,6 +467,8 @@ export function CircleGoogleLogin({
             return;
           }
 
+          setGoogleReturnPending(false);
+
           if (loginError) {
             const diagnostic = readGoogleOAuthDiagnostic();
             const message = getGoogleLoginErrorMessage(
@@ -496,6 +501,9 @@ export function CircleGoogleLogin({
           setError(null);
           setStatus("Google login connected. Completing wallet setup");
         };
+        // The SDK reads the Google token from the hash and clears it as soon
+        // as it is constructed, so check for it first.
+        const isGoogleReturn = window.location.hash.includes("id_token");
         const sdk = new CircleW3SSdk(sdkConfigs, onLoginComplete);
 
         sdk.updateConfigs(sdkConfigs, onLoginComplete);
@@ -506,6 +514,9 @@ export function CircleGoogleLogin({
           setDeviceToken(storedDeviceToken);
           setDeviceEncryptionKey(storedDeviceEncryptionKey);
           setLoginResult(storedLogin);
+          if (isGoogleReturn) {
+            setGoogleReturnPending(true);
+          }
           setSdkReady(true);
 
           if (!isConfigured) {
@@ -602,16 +613,12 @@ export function CircleGoogleLogin({
   }, []);
 
   useEffect(() => {
-    if (!sdkReady || !sdkRef.current || loginResult?.userToken) {
-      return;
-    }
-
-    const hasRedirectHash = Boolean(
-      typeof window !== "undefined" &&
-        window.location.hash &&
-        window.location.hash.includes("id_token"),
-    );
-    if (hasRedirectHash) {
+    if (
+      !sdkReady ||
+      !sdkRef.current ||
+      loginResult?.userToken ||
+      googleReturnPending
+    ) {
       return;
     }
 
@@ -642,7 +649,25 @@ export function CircleGoogleLogin({
     return () => {
       cancelled = true;
     };
-  }, [loginResult?.userToken, sdkReady]);
+  }, [googleReturnPending, loginResult?.userToken, sdkReady]);
+
+  // The SDK gives up on verification after 10s without reporting it through
+  // onLoginComplete; stop waiting so the button is usable again.
+  useEffect(() => {
+    if (!googleReturnPending) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setGoogleReturnPending(false);
+      setError("Google sign-in could not be confirmed. Please try again.");
+      removeStorage(storageKeys.setupIntent);
+    }, 20000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [googleReturnPending]);
 
   async function loadBalances(userToken: string, walletId: string) {
     const payload = await callCircleWalletApi<{
@@ -1173,18 +1198,20 @@ export function CircleGoogleLogin({
   const primaryAction = !loginResult ? (
     <button
       className="sp-bubble inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-      disabled={!appConfigChecked || !sdkReady || isBusy}
+      disabled={
+        !appConfigChecked || !sdkReady || isBusy || googleReturnPending
+      }
       onClick={() => void handleGoogleLogin()}
       type="button"
     >
-      {isBusy ? (
+      {isBusy || googleReturnPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-background">
           <GoogleLogo className="h-4 w-4" />
         </span>
       )}
-      Continue with Google
+      {googleReturnPending ? "Signing in with Google" : "Continue with Google"}
     </button>
   ) : primaryWallet ? (
     <Link
