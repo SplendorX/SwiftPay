@@ -1,15 +1,18 @@
 /**
- * Detect incoming stablecoin transfers via ArcScan and create in-app notifications.
+ * Detect incoming stablecoin transfers on the Arc RPC and create in-app
+ * notifications.
  */
-import {
-  getArcScanHistoryUrls,
-  normalizeArcScanTokenTransfers,
-  type ArcScanTokenTransferResponse,
-  type WalletTransfer,
-} from "@/lib/arcscan-history";
 import { findBatchTxHashes } from "@/lib/activity/service";
 import { agentWalletOwners } from "@/lib/agent-wallet/config";
+import {
+  createArcRpcClient,
+  fetchIncomingTransfersFromRpc,
+  withBlockTimestamps,
+} from "@/lib/arc-transfers";
+import type { WalletTransfer } from "@/lib/arcscan-history";
 import { usernamesForWallets } from "@/lib/business/service";
+import { arcChain } from "@/lib/chains";
+import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   copyPaymentReceived,
   createIncomingPaymentNotification,
@@ -33,36 +36,94 @@ async function identifySenders(transfers: WalletTransfer[]) {
 }
 
 const MAX_INCOMING_TO_SCAN = 25;
-const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+// Arc makes a block about every half second.
+/** How far back a wallet's first scan looks: about 1 hour. */
+const FIRST_SCAN_BLOCKS = 7_200n;
+/** How far back a scan catches up after a long gap: about 6 hours. */
+const MAX_CATCH_UP_BLOCKS = 43_200n;
+/** Skip a wallet scanned this recently, e.g. by another open tab. */
+const MIN_SCAN_INTERVAL_MS = 15_000;
+const cursorTable = "incoming_transfer_cursors";
 
 function shorten(address: string) {
   if (!address || address.length < 10) return address;
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-async function fetchIncomingTransfers(ownerWallet: string) {
-  const responses = await Promise.all(
-    getArcScanHistoryUrls(ownerWallet).map((url) =>
-      fetch(url, {
-        cache: "no-store",
-        headers: { accept: "application/json" },
-      }),
-    ),
-  );
+async function readCursor(
+  wallet: string,
+): Promise<{ lastBlock: bigint; updatedAt: number } | null> {
+  try {
+    const { data } = await createSupabaseAdminClient()
+      .from(cursorTable)
+      .select("last_block, updated_at")
+      .eq("chain_id", arcChain.id)
+      .eq("wallet_address", wallet)
+      .maybeSingle();
+    return data?.last_block != null
+      ? {
+          lastBlock: BigInt(data.last_block),
+          updatedAt: Date.parse(data.updated_at),
+        }
+      : null;
+  } catch {
+    // Table not created yet: every scan reads the first-scan window.
+    return null;
+  }
+}
 
-  if (responses.some((response) => !response.ok)) {
-    return [] as WalletTransfer[];
+async function writeCursor(wallet: string, block: bigint) {
+  try {
+    await createSupabaseAdminClient()
+      .from(cursorTable)
+      .upsert(
+        {
+          chain_id: arcChain.id,
+          wallet_address: wallet,
+          last_block: block.toString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "chain_id,wallet_address" },
+      );
+  } catch {
+    // Non-fatal: the next scan re-reads the window; inserts are idempotent.
+  }
+}
+
+/**
+ * Transfers received since the wallet's last scan, newest first. `head` is
+ * null when the scan was skipped because it ran moments ago.
+ */
+async function fetchIncomingTransfers(wallet: string) {
+  const cursor = await readCursor(wallet);
+  if (cursor && Date.now() - cursor.updatedAt < MIN_SCAN_INTERVAL_MS) {
+    return { head: null, transfers: [] as WalletTransfer[] };
   }
 
-  const payload = (await Promise.all(
-    responses.map((response) => response.json()),
-  )) as ArcScanTokenTransferResponse[];
+  const client = createArcRpcClient();
+  const head = await client.getBlockNumber();
+  const earliest = head > MAX_CATCH_UP_BLOCKS ? head - MAX_CATCH_UP_BLOCKS : 0n;
+  let fromBlock =
+    cursor != null
+      ? cursor.lastBlock + 1n
+      : head > FIRST_SCAN_BLOCKS
+        ? head - FIRST_SCAN_BLOCKS
+        : 0n;
+  if (fromBlock < earliest) fromBlock = earliest;
+  if (fromBlock > head) return { head, transfers: [] as WalletTransfer[] };
 
-  // Incoming only — platform fee outflows are already excluded for history,
-  // and fee-recipient inflows are real receives for that wallet.
-  return normalizeArcScanTokenTransfers(ownerWallet, payload).filter(
-    (transfer) => transfer.direction === "in",
+  const transfers = await fetchIncomingTransfersFromRpc(
+    wallet,
+    { fromBlock, toBlock: head },
+    client,
   );
+  return {
+    head,
+    transfers: await withBlockTimestamps(
+      transfers.slice(0, MAX_INCOMING_TO_SCAN),
+      client,
+    ),
+  };
 }
 
 /**
@@ -75,8 +136,7 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
   let scanned = 0;
 
   try {
-    const incoming = (await fetchIncomingTransfers(wallet)).slice(0, MAX_INCOMING_TO_SCAN);
-    const now = Date.now();
+    const { head, transfers: incoming } = await fetchIncomingTransfers(wallet);
     const [{ agentOwners, usernames }, batchHashes] = await Promise.all([
       identifySenders(incoming),
       findBatchTxHashes(incoming.map((t) => t.hash)).catch(() => new Set<string>()),
@@ -84,13 +144,6 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
 
     for (const transfer of incoming) {
       scanned += 1;
-
-      if (transfer.timestamp) {
-        const ts = Date.parse(transfer.timestamp);
-        if (Number.isFinite(ts) && now - ts > MAX_AGE_MS) {
-          continue;
-        }
-      }
 
       // Skip dust / zero
       const amountNum = Number(transfer.amount);
@@ -139,6 +192,11 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
       if (row) {
         created += 1;
       }
+    }
+
+    // Only once every transfer is recorded, so a failure retries the blocks.
+    if (head != null) {
+      await writeCursor(wallet, head);
     }
   } catch (error) {
     console.warn(

@@ -51,6 +51,7 @@ const ORDER = [
   "account-activity",
   "support-chat",
   "rate-limits",
+  "incoming-transfer-cursors",
   "traction-events",
 ];
 
