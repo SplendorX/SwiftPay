@@ -5,10 +5,13 @@ import { useMemo, useState } from "react";
 type TractionSummary = {
   actuals: {
     activeWallets30d: number;
+    businessAccounts: number;
     earnAum: number;
+    invoices: number;
     monthlyStablecoinVolume: number;
     monthlyTransactions: number;
     paymentSubmissionSuccessRate: number | null;
+    payrollRuns: number;
     recurringSchedules: number;
     registeredWallets: number;
     savingsAum: number;
@@ -215,6 +218,10 @@ export default function TractionAdminPage() {
                   "Recurring schedules",
                   formatNumber(summary.actuals.recurringSchedules),
                 ],
+                ["Business accounts", formatNumber(summary.actuals.businessAccounts)],
+                ["Invoices", formatNumber(summary.actuals.invoices)],
+                ["Payroll runs", formatNumber(summary.actuals.payrollRuns)],
+                ["Tracked events", formatNumber(summary.actuals.totalTrackedEvents30d)],
               ].map(([label, value]) => (
                 <article
                   className="rounded-lg border border-border bg-card p-4"

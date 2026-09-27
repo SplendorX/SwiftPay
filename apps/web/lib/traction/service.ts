@@ -21,10 +21,13 @@ export type TractionEventRecord = {
 export type TractionSummary = {
   actuals: {
     activeWallets30d: number;
+    businessAccounts: number;
     earnAum: number;
+    invoices: number;
     monthlyStablecoinVolume: number;
     monthlyTransactions: number;
     paymentSubmissionSuccessRate: number | null;
+    payrollRuns: number;
     recurringSchedules: number;
     registeredWallets: number;
     savingsAum: number;
@@ -69,6 +72,9 @@ const earnWithdrawalsTable =
 const recurringSchedulesTable =
   process.env.SUPABASE_RECURRING_SCHEDULES_TABLE ?? "recurring_schedules";
 const profilesTable = process.env.SUPABASE_PROFILES_TABLE ?? "profiles";
+const businessAccountsTable = "business_account_profiles";
+const invoicesTable = "business_invoices";
+const payrollRunsTable = "payroll_runs";
 
 let cachedSupabase: SupabaseClient | null = null;
 
@@ -311,29 +317,44 @@ async function selectRows(
   table: string,
   options: { limit?: number; since?: string } = {},
 ) {
+  // Supabase returns at most 1,000 rows per request, so read in pages —
+  // a single request silently capped every metric at the newest 1,000 rows.
+  const pageSize = 1_000;
+  const limit = options.limit ?? 100_000;
+  const rows: AnyRecord[] = [];
+
   try {
-    let query: any = getSupabase()
-      .from(table)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(options.limit ?? 10_000);
+    while (rows.length < limit) {
+      let query: any = getSupabase()
+        .from(table)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(rows.length, Math.min(rows.length + pageSize, limit) - 1);
 
-    if (options.since) {
-      query = query.gte("created_at", options.since);
-    }
+      if (options.since) {
+        query = query.gte("created_at", options.since);
+      }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      return {
-        error: error.message,
-        rows: [] as AnyRecord[],
-      };
+      if (error) {
+        return {
+          error: error.message,
+          rows: [] as AnyRecord[],
+        };
+      }
+
+      const page = (data ?? []) as AnyRecord[];
+      rows.push(...page);
+
+      if (page.length < pageSize) {
+        break;
+      }
     }
 
     return {
       error: null,
-      rows: (data ?? []) as AnyRecord[],
+      rows,
     };
   } catch (error) {
     return {
@@ -377,6 +398,12 @@ function actorId(row: AnyRecord) {
   );
 }
 
+/** Events from the pre-mainnet simulated Earn vault moved no real money. */
+function isSimulatedEvent(row: AnyRecord) {
+  const metadata = row.metadata;
+  return metadataIsRecord(metadata) && metadata.mode === "simulation";
+}
+
 function isCompletedSavingsRow(row: AnyRecord) {
   const status = normalizeString(row.status, 40)?.toUpperCase();
   return !status || ["COMPLETED", "CONFIRMED", "SUCCESS", "SETTLED"].includes(status);
@@ -415,10 +442,13 @@ export async function getTractionSummary(rangeDays = 30): Promise<TractionSummar
     return {
       actuals: {
         activeWallets30d: 0,
+        businessAccounts: 0,
         earnAum: 0,
+        invoices: 0,
         monthlyStablecoinVolume: 0,
         monthlyTransactions: 0,
         paymentSubmissionSuccessRate: null,
+        payrollRuns: 0,
         recurringSchedules: 0,
         registeredWallets: 0,
         savingsAum: 0,
@@ -444,6 +474,9 @@ export async function getTractionSummary(rangeDays = 30): Promise<TractionSummar
     earnDeposits,
     earnWithdrawals,
     recurringCount,
+    businessCount,
+    invoiceCount,
+    payrollCount,
   ] = await Promise.all([
     selectRows(tractionTable, { since }),
     selectRows(profilesTable),
@@ -451,6 +484,9 @@ export async function getTractionSummary(rangeDays = 30): Promise<TractionSummar
     selectRows(earnDepositsTable),
     selectRows(earnWithdrawalsTable),
     countRows(recurringSchedulesTable),
+    countRows(businessAccountsTable),
+    countRows(invoicesTable),
+    countRows(payrollRunsTable),
   ]);
 
   for (const [table, result] of [
@@ -466,10 +502,19 @@ export async function getTractionSummary(rangeDays = 30): Promise<TractionSummar
     }
   }
 
-  if (recurringCount.error) {
-    missingTables.push(recurringSchedulesTable);
-    notes.push(`${recurringSchedulesTable}: ${recurringCount.error}`);
+  for (const [table, result] of [
+    [recurringSchedulesTable, recurringCount],
+    [businessAccountsTable, businessCount],
+    [invoicesTable, invoiceCount],
+    [payrollRunsTable, payrollCount],
+  ] as const) {
+    if (result.error) {
+      missingTables.push(table);
+      notes.push(`${table}: ${result.error}`);
+    }
   }
+
+  let simulatedEarnEvents = 0;
 
   for (const row of profiles.rows) {
     const wallet = pickWallet(row);
@@ -505,6 +550,8 @@ export async function getTractionSummary(rangeDays = 30): Promise<TractionSummar
     } else if (eventType.includes("swap_submitted")) {
       transactionKeys.add(eventKey);
       addCurrencyMetric(byCurrency, currency, "swapVolume", amount);
+    } else if (eventType.includes("earn_") && isSimulatedEvent(row)) {
+      simulatedEarnEvents += 1;
     } else if (eventType.includes("earn_deposit")) {
       addCurrencyMetric(byCurrency, currency, "earnAum", amount);
     } else if (eventType.includes("earn_withdraw")) {
@@ -562,6 +609,12 @@ export async function getTractionSummary(rangeDays = 30): Promise<TractionSummar
     );
   }
 
+  if (simulatedEarnEvents > 0) {
+    notes.push(
+      `${simulatedEarnEvents} simulated Earn events excluded from Earn AUM (no real funds).`,
+    );
+  }
+
   const totals = Object.values(byCurrency).reduce(
     (total, entry) => ({
       earnAum: total.earnAum + Math.max(0, entry.earnAum),
@@ -583,12 +636,15 @@ export async function getTractionSummary(rangeDays = 30): Promise<TractionSummar
   return {
     actuals: {
       activeWallets30d: activeActors.size,
+      businessAccounts: businessCount.count,
       earnAum: Number(totals.earnAum.toFixed(2)),
+      invoices: invoiceCount.count,
       monthlyStablecoinVolume: Number(
         (totals.paymentVolume + totals.swapVolume).toFixed(2),
       ),
       monthlyTransactions: transactionKeys.size,
       paymentSubmissionSuccessRate,
+      payrollRuns: payrollCount.count,
       recurringSchedules: recurringCount.count,
       registeredWallets: registeredWallets.size,
       savingsAum: Number(totals.savingsAum.toFixed(2)),
