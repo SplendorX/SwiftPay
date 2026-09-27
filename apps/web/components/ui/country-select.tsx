@@ -100,7 +100,14 @@ export function CountrySelect({
               value={query}
             />
           </div>
-          <div className="max-h-60 overflow-y-auto" role="listbox">
+          {/* Keep focus in the search box while an option is pressed. Safari
+              doesn't focus a tapped button, so the search box would blur to
+              nothing, close the menu, and the tap would never select. */}
+          <div
+            className="max-h-60 overflow-y-auto"
+            onMouseDown={(event) => event.preventDefault()}
+            role="listbox"
+          >
             {matches.length === 0 ? (
               <p className="px-3.5 py-3 text-sm text-muted-foreground">No country matches.</p>
             ) : (
