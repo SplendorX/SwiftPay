@@ -23,7 +23,6 @@ const ORDER = [
   "notification-dismissals",
   "payment-received-notifications",
   "payment-request-declined",
-  "privswiftpay-claim-notifications",
   "recurring-schedules",
   "recurring-autopay-mandates",
   "payment-policies",
