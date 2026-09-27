@@ -39,6 +39,15 @@ function allowedDevOrigins() {
   return [...origins];
 }
 
+const onrampFrameOrigins = [
+  "https://onramp.arc.io",
+  "https://*.transak.com",
+  "https://*.socure.com",
+  "https://*.socure.io",
+]
+  .map((origin) => `"${origin}"`)
+  .join(" ");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: publicEnv,
@@ -95,8 +104,17 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
+            // Circle's Onramp can render inline (installed app, in-app
+            // browsers) and needs the camera and microphone for its identity
+            // check and payment for checkout. Its frame origins come from
+            // onramp.arc.io's own frame-src: Transak pays, Socure verifies.
             key: "Permissions-Policy",
-            value: "camera=(self), microphone=(), geolocation=(), payment=()",
+            value: [
+              `camera=(self ${onrampFrameOrigins})`,
+              `microphone=(${onrampFrameOrigins})`,
+              "geolocation=()",
+              `payment=(${onrampFrameOrigins})`,
+            ].join(", "),
           },
         ],
       },

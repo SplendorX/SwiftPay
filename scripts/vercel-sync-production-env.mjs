@@ -100,6 +100,10 @@ if (!/^LIVE_API_KEY:/.test(wanted.production.get("CIRCLE_API_KEY") ?? "")) {
 if (/^LIVE_API_KEY:/.test(wanted.preview.get("CIRCLE_API_KEY") ?? "")) {
   throw new Error("Preview CIRCLE_API_KEY must be a TEST_API_KEY, not a live one.");
 }
+// The Onramp key is a mainnet key: on testnet it would sell real USDC.
+if (/^LIVE_API_KEY:/.test(wanted.preview.get("ONRAMP_API_KEY") ?? "")) {
+  throw new Error("Preview must not use a live ONRAMP_API_KEY.");
+}
 for (const name of [
   "NEXT_PUBLIC_SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",

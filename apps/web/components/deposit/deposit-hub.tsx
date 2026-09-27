@@ -4,6 +4,7 @@ import { Banknote, CreditCard, HandCoins, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { DepositPanel } from "@/components/deposit/DepositPanel";
+import { OnrampPanel } from "@/components/deposit/onramp-panel";
 import { ReceiveShareCard } from "@/components/dashboard/receive-share-card";
 import { fetchProfile, profileUpdatedEventName } from "@/lib/profile";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
@@ -37,7 +38,7 @@ const methods: Array<{
     soon: true,
   },
   {
-    blurb: "Fund from a linked bank account",
+    blurb: "Buy USDC from your bank (US & Europe)",
     icon: Banknote,
     id: "bank",
     label: "Bank transfer",
@@ -49,6 +50,21 @@ export function DepositHub() {
   const { address, isConnected } = usePlatformWallet();
   const [method, setMethod] = useState<DepositMethod>("receive");
   const [username, setUsername] = useState<string | null>(null);
+  // Bank transfer goes live once the server has an Onramp key.
+  const [onrampEnabled, setOnrampEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/onramp/sessions", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { enabled?: boolean } | null) => {
+        if (!cancelled) setOnrampEnabled(payload?.enabled === true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!address) {
@@ -85,12 +101,15 @@ export function DepositHub() {
     };
   }, [address]);
 
-  const active = methods.find((item) => item.id === method) ?? methods[0];
+  const available = methods.map((item) =>
+    item.id === "bank" && onrampEnabled ? { ...item, soon: false } : item,
+  );
+  const active = available.find((item) => item.id === method) ?? available[0];
 
   return (
     <div className="deposit-hub">
       <nav aria-label="Deposit methods" className="deposit-method-list">
-        {methods.map((item) => {
+        {available.map((item) => {
           const Icon = item.icon;
           const isActive = !item.soon && item.id === method;
 
@@ -127,6 +146,8 @@ export function DepositHub() {
             username={username}
             walletAddress={address ?? ""}
           />
+        ) : active.id === "bank" ? (
+          <OnrampPanel />
         ) : (
           <DepositPanel />
         )}
