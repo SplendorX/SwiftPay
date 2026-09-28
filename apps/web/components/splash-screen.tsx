@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /** Long enough to read as a splash rather than a flicker on fast loads. */
-const MIN_VISIBLE_MS = 1800;
+const MIN_VISIBLE_MS = 3000;
 /** Matches the fade in .swiftpay-splash. */
 const FADE_MS = 500;
 
