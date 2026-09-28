@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 
 /** Long enough to read as a splash rather than a flicker on fast loads. */
-const MIN_VISIBLE_MS = 700;
+const MIN_VISIBLE_MS = 1800;
 /** Matches the fade in .swiftpay-splash. */
-const FADE_MS = 320;
+const FADE_MS = 500;
 
 /**
  * The SwiftPay logo while the app opens. It is in the server HTML, so it
