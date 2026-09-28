@@ -18,6 +18,8 @@ import {
   walletSessionCookieName,
 } from "@/lib/wallet-session";
 import { platformAccessCookieName } from "@/lib/platform-access";
+import { appUnlockCookieName } from "@/lib/app-lock/cookie";
+import { appLockForSession, setUnlockCookie } from "@/lib/app-lock/server";
 
 export const runtime = "nodejs";
 
@@ -178,14 +180,20 @@ export async function POST(request: NextRequest) {
     return jsonError("Wallet signature could not be verified.", 401);
   }
 
+  const previous = readWalletToken(
+    cookieStore.get(walletSessionCookieName)?.value,
+    "session",
+  );
+  const appLock = await appLockForSession([
+    challenge.ownerWallet,
+    ...(previous ? sessionWallets(previous) : []),
+  ]);
   const session = createWalletSession(
     challenge.ownerWallet,
     { connectorName: challenge.connectorName },
     {
-      previous: readWalletToken(
-        cookieStore.get(walletSessionCookieName)?.value,
-        "session",
-      ),
+      ...(appLock.known ? { appLock: Boolean(appLock.lock) } : {}),
+      previous,
     },
   );
   const response = NextResponse.json({
@@ -215,6 +223,9 @@ export async function POST(request: NextRequest) {
     secure: await secureCookieFor(),
   });
   response.cookies.delete(walletChallengeCookieName);
+  if (appLock.lock) {
+    await setUnlockCookie(response, appLock.lock.owner_wallet, appLock.lock.timeout_minutes);
+  }
 
   return response;
 }
@@ -232,6 +243,7 @@ export async function DELETE() {
   response.cookies.delete(walletChallengeCookieName);
   response.cookies.delete(walletSessionCookieName);
   response.cookies.delete(platformAccessCookieName);
+  response.cookies.delete(appUnlockCookieName);
 
   return response;
 }

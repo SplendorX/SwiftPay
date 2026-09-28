@@ -7,6 +7,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/app/providers";
+import { AppLockGate } from "@/components/app-lock/app-lock-gate";
 import { SplashScreen } from "@/components/splash-screen";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -125,7 +126,9 @@ export default async function RootLayout({
         />
         <SplashScreen />
         <TooltipProvider>
-          <Providers cookies={cookies}>{children}</Providers>
+          <Providers cookies={cookies}>
+            <AppLockGate>{children}</AppLockGate>
+          </Providers>
           <Toaster position="top-right" richColors />
         </TooltipProvider>
       </body>

@@ -1,8 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { appUnlockCookieName, isSessionLocked } from "@/lib/app-lock/cookie";
 import { platformAccessCookieName } from "@/lib/platform-access";
-import { walletSessionCookieName } from "@/lib/wallet-session";
+import { readWalletToken, walletSessionCookieName } from "@/lib/wallet-session";
 
 const protectedRouteMatchers = [
   "/activity",
@@ -72,6 +73,31 @@ function isForgedCrossSiteRequest(request: NextRequest) {
   return !allowedOrigins(request).has(origin);
 }
 
+/** Reachable while the app is locked: unlocking, and signing in or out. */
+const lockExemptApiPrefixes = ["/api/app-lock", "/api/auth/"];
+
+/**
+ * A signed-in account with an app lock gets no API data until it is
+ * unlocked with the PIN or Face ID / fingerprint (see lib/app-lock).
+ */
+function isLockedApiRequest(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (lockExemptApiPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+    return false;
+  }
+  const sessionCookie = request.cookies.get(walletSessionCookieName)?.value;
+  if (!sessionCookie) return false;
+  try {
+    return isSessionLocked(
+      readWalletToken(sessionCookie, "session"),
+      request.cookies.get(appUnlockCookieName)?.value,
+    );
+  } catch {
+    // No session secret configured: routes can't verify sessions either.
+    return false;
+  }
+}
+
 function isProtectedRoute(pathname: string) {
   return protectedRouteMatchers.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
@@ -86,6 +112,12 @@ export function proxy(request: NextRequest) {
       return NextResponse.json(
         { message: "Cross-site requests are not allowed." },
         { status: 403 },
+      );
+    }
+    if (isLockedApiRequest(request)) {
+      return NextResponse.json(
+        { locked: true, message: "SwiftPay is locked. Unlock it to continue." },
+        { headers: { "Cache-Control": "no-store" }, status: 423 },
       );
     }
     return NextResponse.next();

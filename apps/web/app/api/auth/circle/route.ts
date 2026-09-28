@@ -4,6 +4,7 @@ import {
   createCircleWalletSession,
   setWalletSessionCookies,
 } from "@/lib/circle-wallet-session";
+import { setUnlockCookie } from "@/lib/app-lock/server";
 import { readJsonRecord } from "@/lib/http";
 import { sessionWallets } from "@/lib/wallet-session";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -67,6 +68,9 @@ export async function POST(request: NextRequest) {
       { headers: noStore },
     );
     await setWalletSessionCookies(response, issued.token);
+    if (issued.lock && issued.freshSignIn) {
+      await setUnlockCookie(response, issued.lock.owner_wallet, issued.lock.timeout_minutes);
+    }
     return response;
   } catch (error) {
     return jsonError(

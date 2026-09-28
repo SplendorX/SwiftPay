@@ -10,6 +10,7 @@ import {
   Building2,
   Headset,
   Languages,
+  Lock,
   MonitorSmartphone,
   Palette,
   Smartphone,
@@ -23,6 +24,7 @@ import { useT } from "@/components/locale-provider";
 import { AccountProfileSettings } from "@/components/settings/account-profile-settings";
 import { AccountTypeSettings } from "@/components/settings/account-type-settings";
 import { AlertsSettings } from "@/components/settings/alerts-settings";
+import { AppLockSettings } from "@/components/settings/app-lock-settings";
 import { CurrencySettings } from "@/components/settings/currency-settings";
 import { LanguageSettings } from "@/components/settings/language-settings";
 import { LightSurfacePicker } from "@/components/settings/light-surface-picker";
@@ -108,6 +110,14 @@ export function SettingsHub() {
         title: "Install the app",
         blurb: "Add SwiftPay to your home screen or desktop and open it like any other app.",
         render: () => <InstallAppSettingsCard />,
+      },
+      {
+        id: "app-lock",
+        group: "Security & ALLIE",
+        icon: Lock,
+        title: "App lock",
+        blurb: "Ask for a PIN, Face ID or fingerprint whenever you come back to SwiftPay.",
+        render: () => <AppLockSettings />,
       },
       {
         id: "sessions-devices",

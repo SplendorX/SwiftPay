@@ -12144,3 +12144,19 @@ html.dark .public-profile-verified,
     animation: none;
   }
 }
+
+/* App lock: a wrong PIN shakes the dots (components/app-lock/pin-pad.tsx). */
+@keyframes app-lock-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
+}

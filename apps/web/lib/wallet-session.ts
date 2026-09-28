@@ -11,6 +11,12 @@ export const walletSessionCookieName = "swiftpay_wallet_session";
 type WalletTokenType = "challenge" | "session";
 
 export type WalletTokenPayload = {
+  /**
+   * The account has an app lock (PIN / Face ID): API calls need a valid
+   * unlock cookie too. Carried across renewals, so clearing it means signing
+   * out. See lib/app-lock.
+   */
+  appLock?: boolean;
   connectorName?: string;
   expiresAt: string;
   issuedAt: string;
@@ -82,6 +88,7 @@ function isWalletTokenPayload(value: unknown): value is WalletTokenPayload {
     typeof payload.ownerWallet === "string" &&
     (payload.connectorName === undefined ||
       typeof payload.connectorName === "string") &&
+    (payload.appLock === undefined || typeof payload.appLock === "boolean") &&
     (payload.wallets === undefined ||
       (typeof payload.wallets === "object" &&
         payload.wallets !== null &&
@@ -180,6 +187,8 @@ export function createWalletSession(
   metadata: WalletSessionMetadata = {},
   options: {
     additionalWallets?: string[];
+    /** Set the app-lock flag; otherwise it is carried from `previous`. */
+    appLock?: boolean;
     /** Background renewals keep the wallet the user explicitly signed in with. */
     keepPreviousOwner?: boolean;
     previous?: WalletTokenPayload | null;
@@ -214,8 +223,11 @@ export function createWalletSession(
       ? previous.ownerWallet
       : ownerWallet;
 
+  const appLock = options.appLock ?? previous?.appLock ?? false;
+
   return {
     ...metadata,
+    ...(appLock ? { appLock: true } : {}),
     expiresAt: Object.values(trimmed).sort().at(-1) ?? expiresAt,
     issuedAt: new Date(now).toISOString(),
     nonce: crypto.randomBytes(16).toString("hex"),

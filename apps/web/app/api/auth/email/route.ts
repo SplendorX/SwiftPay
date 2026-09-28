@@ -23,8 +23,10 @@ import {
   createWalletSession,
   createWalletToken,
   readWalletToken,
+  sessionWallets,
   walletSessionCookieName,
 } from "@/lib/wallet-session";
+import { appLockForSession, setUnlockCookie } from "@/lib/app-lock/server";
 
 export const runtime = "nodejs";
 
@@ -123,14 +125,20 @@ export async function POST(request: NextRequest) {
       return jsonError(errorMessage(error, "Your wallet could not be verified."), 502);
     }
 
+    const previous = readWalletToken(
+      cookieStore.get(walletSessionCookieName)?.value,
+      "session",
+    );
+    const appLock = await appLockForSession([
+      ownerWallet,
+      ...(previous ? sessionWallets(previous) : []),
+    ]);
     const walletSession = createWalletSession(
       ownerWallet,
       { connectorName: "Email" },
       {
-        previous: readWalletToken(
-          cookieStore.get(walletSessionCookieName)?.value,
-          "session",
-        ),
+        ...(appLock.known ? { appLock: Boolean(appLock.lock) } : {}),
+        previous,
       },
     );
     const response = NextResponse.json(
@@ -152,6 +160,9 @@ export async function POST(request: NextRequest) {
       secure: await secureCookieFor(),
     });
     response.cookies.delete(emailSessionCookieName);
+    if (appLock.lock) {
+      await setUnlockCookie(response, appLock.lock.owner_wallet, appLock.lock.timeout_minutes);
+    }
     return response;
   }
 

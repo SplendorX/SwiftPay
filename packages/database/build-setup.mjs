@@ -52,6 +52,7 @@ const ORDER = [
   "support-chat",
   "rate-limits",
   "incoming-transfer-cursors",
+  "app-lock",
   "traction-events",
 ];
 
