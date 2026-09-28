@@ -1,8 +1,8 @@
 "use client";
 
-import { Briefcase, Check, Coins, UserRound } from "lucide-react";
+import { Briefcase, Check, Coins, ShieldCheck, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { useBusinessActor } from "@/components/business/use-business-actor";
@@ -10,6 +10,7 @@ import { useOptionalAccount } from "@/components/account/account-provider";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AppLockSettings } from "@/components/settings/app-lock-settings";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useLocale, useT } from "@/components/locale-provider";
 import { completeAccountOnboardingClient, fetchAccountState } from "@/lib/account/client";
@@ -21,7 +22,7 @@ import { ensureProfile, notifyProfileUpdated, validateUsername } from "@/lib/pro
 import { walletSessionChangedEventName } from "@/lib/wallet-auth-client";
 import { cn } from "@/lib/utils";
 
-type Step = "language" | "account" | "personal" | "business";
+type Step = "language" | "account" | "personal" | "business" | "security";
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -47,12 +48,20 @@ export function OnboardingFlow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  // Where the new account goes once the optional app-lock step is done.
+  const [destination, setDestination] = useState("/dashboard");
+  const [appLockOn, setAppLockOn] = useState(false);
+  const onAppLockChange = useCallback((enabled: boolean) => setAppLockOn(enabled), []);
+  // Set once this visit completes onboarding, so the account refresh that
+  // follows doesn't send the user on before the app-lock step.
+  const finishedRef = useRef(false);
 
   useEffect(() => {
     if (!ownerWallet) return;
     let cancelled = false;
 
     async function boot() {
+      if (finishedRef.current) return;
       try {
         await ensureProfile({
           authProvider: circleSocialUuid ? "google" : "external",
@@ -60,7 +69,7 @@ export function OnboardingFlow() {
           walletAddress: ownerWallet!,
         });
         const state = await fetchAccountState(ownerWallet!, circleSocialUuid);
-        if (cancelled) return;
+        if (cancelled || finishedRef.current) return;
         if (state.account.account_type_selected) {
           notifyProfileUpdated({
             avatar_url: state.account.avatar_url,
@@ -130,6 +139,7 @@ export function OnboardingFlow() {
         circleSocialUuid,
       );
 
+      finishedRef.current = true;
       notifyProfileUpdated({
         avatar_url: result.account.avatar_url,
         bio: result.account.bio,
@@ -151,9 +161,11 @@ export function OnboardingFlow() {
         workspaceContext?.refresh?.(),
       ]);
 
-      const destination =
-        result.account.account_type === "BUSINESS" ? "/business" : "/dashboard";
-      router.replace(destination);
+      setDestination(
+        result.account.account_type === "BUSINESS" ? "/business" : "/dashboard",
+      );
+      // Last, optional: offer the app lock before entering the app.
+      setStep("security");
     } catch (err) {
       setError(errorMessage(err, t("common.somethingWentWrong")));
     } finally {
@@ -439,6 +451,27 @@ export function OnboardingFlow() {
               onClick={() => void finish("business")}
             >
               {t("onboarding.createBusinessCta")}
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      {step === "security" ? (
+        <section className="max-w-lg">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ShieldCheck className="h-5 w-5" />
+          </span>
+          <h1 className="mt-4 font-heading text-3xl">Protect your account</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Set a PIN, and Face ID or fingerprint where your device has it, so SwiftPay asks for
+            it whenever you come back. You can set this up later in Settings → App lock.
+          </p>
+          <div className="mt-8">
+            <AppLockSettings compact onEnabledChange={onAppLockChange} />
+          </div>
+          <div className="mt-8 flex gap-3">
+            <Button onClick={() => router.replace(destination)} variant={appLockOn ? "default" : "outline"}>
+              {appLockOn ? t("onboarding.continue") : "Later"}
             </Button>
           </div>
         </section>

@@ -39,8 +39,17 @@ function messageFrom(cause: unknown) {
 /**
  * Settings → App lock: a 6-digit PIN asked for whenever SwiftPay is opened
  * again, with Face ID / fingerprint as a shortcut where the device has it.
+ *
+ * `compact` is the onboarding version: turning it on and adding Face ID /
+ * fingerprint only. Changing or turning it off stays in Settings.
  */
-export function AppLockSettings() {
+export function AppLockSettings({
+  compact = false,
+  onEnabledChange,
+}: {
+  compact?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
+} = {}) {
   const [status, setStatus] = useState<AppLockStatus | null>(null);
   const [flow, setFlow] = useState<Flow>({ kind: "idle" });
   const [pin, setPin] = useState("");
@@ -51,11 +60,13 @@ export function AppLockSettings() {
 
   const load = useCallback(async () => {
     try {
-      setStatus(await fetchAppLockStatus());
+      const next = await fetchAppLockStatus();
+      setStatus(next);
+      onEnabledChange?.(next.enabled);
     } catch {
       setError("The app lock couldn't be loaded.");
     }
-  }, []);
+  }, [onEnabledChange]);
 
   useEffect(() => {
     void load();
@@ -191,10 +202,12 @@ export function AppLockSettings() {
 
   return (
     <div className="grid gap-5">
-      <p className="text-sm text-muted-foreground">
-        Ask for a PIN{biometricsAvailable ? ` or ${biometricLabel()}` : ""} whenever you come back
-        to SwiftPay. If you forget your PIN, sign out and sign in again to get back in.
-      </p>
+      {compact ? null : (
+        <p className="text-sm text-muted-foreground">
+          Ask for a PIN{biometricsAvailable ? ` or ${biometricLabel()}` : ""} whenever you come
+          back to SwiftPay. If you forget your PIN, sign out and sign in again to get back in.
+        </p>
+      )}
 
       {flow.kind !== "idle" ? (
         <div className="grid justify-items-center gap-5 rounded-2xl border border-border p-6">
@@ -225,6 +238,12 @@ export function AppLockSettings() {
         </Button>
       ) : (
         <div className="grid gap-4">
+          {compact ? (
+            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Lock className="h-4 w-4 text-primary" />
+              App lock is on. SwiftPay locks after 1 minute away.
+            </p>
+          ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Lock after I leave for</p>
@@ -251,6 +270,7 @@ export function AppLockSettings() {
               ))}
             </select>
           </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -283,6 +303,11 @@ export function AppLockSettings() {
             </div>
           </div>
 
+          {compact ? (
+            <p className="text-xs text-muted-foreground">
+              Change the timing, your PIN or turn it off any time in Settings → App lock.
+            </p>
+          ) : (
           <div className="flex flex-wrap gap-2 border-t border-border pt-4">
             <Button
               disabled={busy}
@@ -301,6 +326,7 @@ export function AppLockSettings() {
               Turn off app lock
             </Button>
           </div>
+          )}
         </div>
       )}
 
