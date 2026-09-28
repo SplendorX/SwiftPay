@@ -20,6 +20,7 @@ import {
 import { platformAccessCookieName } from "@/lib/platform-access";
 import { appUnlockCookieName } from "@/lib/app-lock/cookie";
 import { appLockForSession, setUnlockCookie } from "@/lib/app-lock/server";
+import { mfaPendingForSignIn } from "@/lib/two-factor/server";
 
 export const runtime = "nodejs";
 
@@ -193,6 +194,7 @@ export async function POST(request: NextRequest) {
     { connectorName: challenge.connectorName },
     {
       ...(appLock.known ? { appLock: Boolean(appLock.lock) } : {}),
+      mfaPending: await mfaPendingForSignIn(previous, [challenge.ownerWallet]),
       previous,
     },
   );

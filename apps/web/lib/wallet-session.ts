@@ -18,6 +18,12 @@ export type WalletTokenPayload = {
    */
   appLock?: boolean;
   connectorName?: string;
+  /**
+   * Signed in, but two-factor authentication still needs a code: the API
+   * refuses everything but /api/two-factor and /api/auth until it's entered.
+   * See lib/two-factor.
+   */
+  mfaPending?: boolean;
   expiresAt: string;
   issuedAt: string;
   nonce: string;
@@ -89,6 +95,7 @@ function isWalletTokenPayload(value: unknown): value is WalletTokenPayload {
     (payload.connectorName === undefined ||
       typeof payload.connectorName === "string") &&
     (payload.appLock === undefined || typeof payload.appLock === "boolean") &&
+    (payload.mfaPending === undefined || typeof payload.mfaPending === "boolean") &&
     (payload.wallets === undefined ||
       (typeof payload.wallets === "object" &&
         payload.wallets !== null &&
@@ -189,6 +196,8 @@ export function createWalletSession(
     additionalWallets?: string[];
     /** Set the app-lock flag; otherwise it is carried from `previous`. */
     appLock?: boolean;
+    /** Set the two-factor flag; otherwise it is carried from `previous`. */
+    mfaPending?: boolean;
     /** Background renewals keep the wallet the user explicitly signed in with. */
     keepPreviousOwner?: boolean;
     previous?: WalletTokenPayload | null;
@@ -224,10 +233,12 @@ export function createWalletSession(
       : ownerWallet;
 
   const appLock = options.appLock ?? previous?.appLock ?? false;
+  const mfaPending = options.mfaPending ?? previous?.mfaPending ?? false;
 
   return {
     ...metadata,
     ...(appLock ? { appLock: true } : {}),
+    ...(mfaPending ? { mfaPending: true } : {}),
     expiresAt: Object.values(trimmed).sort().at(-1) ?? expiresAt,
     issuedAt: new Date(now).toISOString(),
     nonce: crypto.randomBytes(16).toString("hex"),

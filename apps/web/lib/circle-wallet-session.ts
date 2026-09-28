@@ -4,6 +4,7 @@ import type { NextResponse } from "next/server";
 
 import { appLockForSession } from "@/lib/app-lock/server";
 import { listWalletAddressesForUserToken } from "@/lib/circle-user-server";
+import { mfaPendingForSignIn } from "@/lib/two-factor/server";
 import { platformAccessCookieName } from "@/lib/platform-access";
 import { walletAuthSessionTtlMs } from "@/lib/wallet-auth";
 import {
@@ -51,6 +52,7 @@ export async function createCircleWalletSession(userToken: string) {
       additionalWallets: wallets.slice(1),
       ...(appLock.known ? { appLock: Boolean(appLock.lock) } : {}),
       keepPreviousOwner: true,
+      mfaPending: await mfaPendingForSignIn(previous, wallets),
       previous,
     },
   );

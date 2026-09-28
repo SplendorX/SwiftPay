@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { LockScreen } from "@/components/app-lock/lock-screen";
+import { TwoFactorScreen } from "@/components/two-factor/two-factor-screen";
 import {
   appLockChangedEvent,
   fetchAppLockStatus,
@@ -10,12 +11,13 @@ import {
   postAppLock,
   type AppLockStatus,
 } from "@/lib/app-lock/client";
+import { fetchTwoFactorStatus } from "@/lib/two-factor/client";
 import { notifyWalletSessionChanged } from "@/lib/wallet-auth-client";
 
 /** How often the open, on-screen app renews its unlock pass. */
 const TOUCH_INTERVAL_MS = 20_000;
 
-type GateState = "checking" | "open" | "locked";
+type GateState = "checking" | "open" | "locked" | "two-factor";
 
 /**
  * Keeps a locked account's pages covered until the PIN or Face ID /
@@ -26,6 +28,9 @@ type GateState = "checking" | "open" | "locked";
  * - While on screen: the unlock pass is renewed, so using the app never locks.
  * - Away longer than the auto-lock time: the pass lapses and the lock returns.
  * - Any API call answering 423 shows the lock at once.
+ *
+ * It also holds a fresh sign-in on the two-factor code screen until the
+ * authenticator (or a backup) code is in; that comes before the lock.
  */
 export function AppLockGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GateState>("checking");
@@ -40,6 +45,11 @@ export function AppLockGate({ children }: { children: ReactNode }) {
       return;
     }
     try {
+      const twoFactor = await fetchTwoFactorStatus().catch(() => null);
+      if (twoFactor?.pending) {
+        setState("two-factor");
+        return;
+      }
       const next = await fetchAppLockStatus();
       setStatus(next);
       setState(next.enabled && next.locked ? "locked" : "open");
@@ -69,7 +79,14 @@ export function AppLockGate({ children }: { children: ReactNode }) {
       if (response.status === 423) {
         const url = args[0] instanceof Request ? args[0].url : String(args[0]);
         if (url.startsWith("/api/") || url.startsWith(`${window.location.origin}/api/`)) {
-          setState("locked");
+          void response
+            .clone()
+            .json()
+            .then(
+              (body: { reason?: string }) =>
+                setState(body?.reason === "two-factor" ? "two-factor" : "locked"),
+              () => setState("locked"),
+            );
         }
       }
       return response;
@@ -121,6 +138,7 @@ export function AppLockGate({ children }: { children: ReactNode }) {
   return (
     <>
       {mounted || state === "open" ? children : null}
+      {state === "two-factor" ? <TwoFactorScreen onVerified={onUnlocked} /> : null}
       {state === "locked" ? (
         <LockScreen
           hasPasskey={(status?.passkeys ?? 0) > 0}

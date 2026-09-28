@@ -53,6 +53,7 @@ const ORDER = [
   "rate-limits",
   "incoming-transfer-cursors",
   "app-lock",
+  "two-factor",
   "traction-events",
 ];
 

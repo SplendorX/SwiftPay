@@ -75,6 +75,26 @@ function isForgedCrossSiteRequest(request: NextRequest) {
 
 /** Reachable while the app is locked: unlocking, and signing in or out. */
 const lockExemptApiPrefixes = ["/api/app-lock", "/api/auth/"];
+/** Reachable before the 2FA code is in: entering it, and signing in or out. */
+const twoFactorExemptApiPrefixes = ["/api/two-factor", "/api/auth/"];
+
+/**
+ * A sign-in to an account with two-factor authentication gets no API data
+ * until the authenticator (or backup) code is entered (see lib/two-factor).
+ */
+function isTwoFactorPendingRequest(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (twoFactorExemptApiPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+    return false;
+  }
+  const sessionCookie = request.cookies.get(walletSessionCookieName)?.value;
+  if (!sessionCookie) return false;
+  try {
+    return Boolean(readWalletToken(sessionCookie, "session")?.mfaPending);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * A signed-in account with an app lock gets no API data until it is
@@ -112,6 +132,16 @@ export function proxy(request: NextRequest) {
       return NextResponse.json(
         { message: "Cross-site requests are not allowed." },
         { status: 403 },
+      );
+    }
+    if (isTwoFactorPendingRequest(request)) {
+      return NextResponse.json(
+        {
+          locked: true,
+          message: "Enter your two-factor code to continue.",
+          reason: "two-factor",
+        },
+        { headers: { "Cache-Control": "no-store" }, status: 423 },
       );
     }
     if (isLockedApiRequest(request)) {

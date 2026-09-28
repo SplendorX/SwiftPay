@@ -27,6 +27,7 @@ import {
   walletSessionCookieName,
 } from "@/lib/wallet-session";
 import { appLockForSession, setUnlockCookie } from "@/lib/app-lock/server";
+import { mfaPendingForSignIn } from "@/lib/two-factor/server";
 
 export const runtime = "nodejs";
 
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
       { connectorName: "Email" },
       {
         ...(appLock.known ? { appLock: Boolean(appLock.lock) } : {}),
+        mfaPending: await mfaPendingForSignIn(previous, [ownerWallet]),
         previous,
       },
     );

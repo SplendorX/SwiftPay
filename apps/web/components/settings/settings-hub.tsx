@@ -13,6 +13,7 @@ import {
   Lock,
   MonitorSmartphone,
   Palette,
+  ShieldCheck,
   Smartphone,
   Wallet,
   type LucideIcon,
@@ -25,6 +26,7 @@ import { AccountProfileSettings } from "@/components/settings/account-profile-se
 import { AccountTypeSettings } from "@/components/settings/account-type-settings";
 import { AlertsSettings } from "@/components/settings/alerts-settings";
 import { AppLockSettings } from "@/components/settings/app-lock-settings";
+import { TwoFactorSettings } from "@/components/settings/two-factor-settings";
 import { CurrencySettings } from "@/components/settings/currency-settings";
 import { LanguageSettings } from "@/components/settings/language-settings";
 import { LightSurfacePicker } from "@/components/settings/light-surface-picker";
@@ -118,6 +120,14 @@ export function SettingsHub() {
         title: "App lock",
         blurb: "Ask for a PIN, Face ID or fingerprint whenever you come back to SwiftPay.",
         render: () => <AppLockSettings />,
+      },
+      {
+        id: "two-factor",
+        group: "Security & ALLIE",
+        icon: ShieldCheck,
+        title: "Two-factor authentication",
+        blurb: "Ask for a code from an authenticator app whenever you sign in on a new device.",
+        render: () => <TwoFactorSettings />,
       },
       {
         id: "sessions-devices",
