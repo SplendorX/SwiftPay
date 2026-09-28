@@ -12061,3 +12061,86 @@ html.dark .public-profile-verified,
     transform: none;
   }
 }
+
+/* App-open splash (components/splash-screen.tsx). */
+.swiftpay-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.75rem;
+  background: var(--background);
+  transition: opacity 320ms ease, visibility 320ms ease;
+  /* Safety net: never cover the app if JavaScript fails to run. */
+  animation: swiftpay-splash-timeout 0s linear 8s forwards;
+}
+
+.swiftpay-splash-leaving {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.swiftpay-splash-mark {
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  box-shadow: 0 18px 48px -18px rgba(91, 33, 182, 0.55);
+  animation: swiftpay-splash-pulse 1.4s ease-in-out infinite;
+}
+
+.swiftpay-splash-bar {
+  position: relative;
+  width: 72px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.swiftpay-splash-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--primary);
+  animation: swiftpay-splash-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes swiftpay-splash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.94);
+  }
+}
+
+@keyframes swiftpay-splash-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes swiftpay-splash-timeout {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swiftpay-splash-mark,
+  .swiftpay-splash-bar::after {
+    animation: none;
+  }
+}

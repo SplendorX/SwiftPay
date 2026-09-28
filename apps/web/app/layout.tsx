@@ -7,6 +7,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/app/providers";
+import { SplashScreen } from "@/components/splash-screen";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -122,6 +123,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
           id="swiftpay-theme-init"
         />
+        <SplashScreen />
         <TooltipProvider>
           <Providers cookies={cookies}>{children}</Providers>
           <Toaster position="top-right" richColors />
