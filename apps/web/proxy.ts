@@ -80,6 +80,13 @@ function isForgedCrossSiteRequest(request: NextRequest) {
 const lockExemptApiPrefixes = ["/api/app-lock", "/api/auth/", "/api/checkout/"];
 /** Reachable before the 2FA code is in: entering it, signing in or out, public Checkout. */
 const twoFactorExemptApiPrefixes = ["/api/two-factor", "/api/auth/", "/api/checkout/"];
+/**
+ * Exact paths reachable from the lock and 2FA screens' "Contact us": the
+ * service status, and opening a support request. Both work for guests and
+ * read nothing of the account (a ticket only names a wallet the request
+ * itself proves), so a locked device learns nothing it shouldn't.
+ */
+const lockedScreenApiPaths = new Set(["/api/support/status", "/api/support/tickets"]);
 
 /**
  * A sign-in to an account with two-factor authentication gets no API data
@@ -87,7 +94,10 @@ const twoFactorExemptApiPrefixes = ["/api/two-factor", "/api/auth/", "/api/check
  */
 function isTwoFactorPendingRequest(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (twoFactorExemptApiPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+  if (
+    lockedScreenApiPaths.has(pathname) ||
+    twoFactorExemptApiPrefixes.some((prefix) => pathname.startsWith(prefix))
+  ) {
     return false;
   }
   const sessionCookie = request.cookies.get(walletSessionCookieName)?.value;
@@ -105,7 +115,10 @@ function isTwoFactorPendingRequest(request: NextRequest) {
  */
 function isLockedApiRequest(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (lockExemptApiPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+  if (
+    lockedScreenApiPaths.has(pathname) ||
+    lockExemptApiPrefixes.some((prefix) => pathname.startsWith(prefix))
+  ) {
     return false;
   }
   const sessionCookie = request.cookies.get(walletSessionCookieName)?.value;

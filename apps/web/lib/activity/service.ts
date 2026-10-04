@@ -382,12 +382,19 @@ async function loadAllie(db: Supabase, wallet: string) {
     )
     .ilike("initiator_id", wallet)
     .eq("initiator_type", "agent")
-    .eq("status", "completed")
+    // The execute route leaves a paid intent at "submitted" (its settlement
+    // carries the hash); nothing moves it on to "completed". Count every
+    // stage past submission, as ALLIE's own spend context does.
+    .in("status", ["submitted", "confirming", "completed"])
     .order("updated_at", { ascending: false })
     .limit(sourceLimit);
   if (error) throw error;
 
-  return (data ?? []).map((row: Row): AccountActivityEntry => {
+  const settled = (data ?? []).filter((row: Row) =>
+    ((row.payment_settlements as Row[] | null) ?? []).some((s) => str(s.tx_hash)),
+  );
+
+  return settled.map((row: Row): AccountActivityEntry => {
     const settlements = (row.payment_settlements as Row[] | null) ?? [];
     const metadata = (row.metadata as Row | null) ?? {};
     const to = str(metadata.recipientLabel) ?? str(row.recipient);

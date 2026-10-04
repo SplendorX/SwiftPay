@@ -1,33 +1,58 @@
 "use client";
 
-import { Fingerprint, Loader2 } from "lucide-react";
+import { Fingerprint, KeyRound, Loader2, ScanFace } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDisconnect } from "wagmi";
 
 import { PIN_LENGTH, PinPad } from "@/components/app-lock/pin-pad";
+import { SupportCenter } from "@/components/support/support-center";
+import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
 import {
   AppLockError,
   biometricLabel,
   postAppLock,
   signOutForAppLock,
+  type AppLockStatus,
 } from "@/lib/app-lock/client";
+import { bottomSheetClassName, useSheetSide } from "@/lib/use-media-query";
+import { cn } from "@/lib/utils";
+
+type LockProfile = NonNullable<AppLockStatus["profile"]>;
 
 function pausedMessage(until: string) {
   const minutes = Math.max(1, Math.ceil((Date.parse(until) - Date.now()) / 60_000));
   return `Too many wrong PINs. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 }
 
-/** Full-screen lock: PIN keypad, Face ID / fingerprint, or sign out. */
+function initials(profile: LockProfile | null | undefined) {
+  const name = profile?.displayName?.trim() || profile?.username?.trim() || "";
+  const parts = name.split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2)).toUpperCase() || "S";
+}
+
+/** Face ID on Apple devices, a fingerprint elsewhere. */
+function BiometricIcon({ className }: { className?: string }) {
+  const apple = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+  return apple ? <ScanFace className={className} /> : <Fingerprint className={className} />;
+}
+
+/**
+ * Full-screen lock: "Welcome back" with the person's name, unlock with Face ID /
+ * fingerprint (when set up) or the PIN, sign out, or contact support.
+ */
 export function LockScreen({
   hasPasskey,
   onUnlocked,
   pausedUntil,
+  profile,
 }: {
   hasPasskey: boolean;
   onUnlocked: () => void;
   pausedUntil?: string | null;
+  profile?: LockProfile | null;
 }) {
   const { disconnect } = useDisconnect();
+  const sheetSide = useSheetSide();
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(
@@ -35,13 +60,27 @@ export function LockScreen({
   );
   const [shake, setShake] = useState(false);
   const [biometricsReady, setBiometricsReady] = useState(false);
+  // With Face ID / fingerprint set up, the PIN pad waits behind "Use PIN".
+  const [usePin, setUsePin] = useState(!hasPasskey);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   useEffect(() => {
     if (!hasPasskey) return;
     void import("@simplewebauthn/browser").then(({ platformAuthenticatorIsAvailable }) =>
-      platformAuthenticatorIsAvailable().then(setBiometricsReady, () => undefined),
+      platformAuthenticatorIsAvailable().then(
+        (available) => {
+          setBiometricsReady(available);
+          if (!available) setUsePin(true);
+        },
+        () => setUsePin(true),
+      ),
     );
   }, [hasPasskey]);
+
+  const canUseBiometrics = hasPasskey && biometricsReady;
+  const showPinPad = usePin || !canUseBiometrics;
+  const name = profile?.displayName?.trim() || (profile?.username ? `@${profile.username}` : null);
 
   function fail(cause: unknown) {
     setPin("");
@@ -106,59 +145,133 @@ export function LockScreen({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-[2147482000] flex flex-col items-center justify-center gap-8 overflow-y-auto bg-background px-4 py-10"
+      className="app-lock-screen fixed inset-0 z-[2147482000] flex flex-col overflow-y-auto bg-background px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(3.5rem,env(safe-area-inset-top))]"
       role="dialog"
     >
-      <div className="grid justify-items-center gap-3 text-center">
-        <img
-          alt=""
-          className="h-16 w-16 rounded-2xl"
-          height={192}
-          src="/icons/icon-192.png"
-          width={192}
-        />
-        <h1 className="text-xl font-semibold text-foreground">SwiftPay is locked</h1>
-        <p className="max-w-xs text-sm text-muted-foreground">
-          Enter your PIN{hasPasskey && biometricsReady ? ` or use ${biometricLabel()}` : ""} to
-          continue.
-        </p>
-      </div>
+      <div className="mx-auto flex w-full max-w-sm flex-1 flex-col">
+        <div className="grid justify-items-center gap-3 text-center">
+          <span className="grid h-28 w-28 place-items-center overflow-hidden rounded-full bg-[#e4dcff] ring-4 ring-primary/15 dark:bg-[#d9ccff]">
+            {profile?.avatarUrl && !avatarFailed ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt=""
+                className="h-full w-full object-cover"
+                onError={() => setAvatarFailed(true)}
+                src={profile.avatarUrl}
+              />
+            ) : (
+              <span className="font-heading text-4xl font-bold text-[#5b21b6]">{initials(profile)}</span>
+            )}
+          </span>
+          <h1 className="mt-3 font-heading text-[1.9rem] font-bold tracking-tight text-foreground">Welcome back</h1>
+          {name ? <p className="text-base text-muted-foreground">{name}</p> : null}
+        </div>
 
-      <PinPad
-        disabled={busy}
-        error={shake}
-        onChange={(value) => {
-          setPin(value);
-          if (value) setError(null);
-        }}
-        onComplete={(value) => void unlockWithPin(value)}
-        value={pin}
-      />
+        <div className="flex flex-1 flex-col items-center justify-center py-8">
+          {showPinPad ? (
+            <div className="grid justify-items-center gap-5">
+              <p className="text-sm text-muted-foreground">Enter your 6-digit PIN</p>
+              <PinPad
+                disabled={busy}
+                error={shake}
+                onChange={(value) => {
+                  setPin(value);
+                  if (value) setError(null);
+                }}
+                onComplete={(value) => void unlockWithPin(value)}
+                value={pin}
+              />
+            </div>
+          ) : null}
+          <div className="mt-5 grid min-h-6 justify-items-center text-center">
+            {busy ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : null}
+            {error ? <p className="max-w-xs text-sm text-destructive">{error}</p> : null}
+          </div>
+        </div>
 
-      <div className="grid min-h-6 justify-items-center gap-4 text-center">
-        {busy ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : null}
-        {error ? <p className="max-w-xs text-sm text-destructive">{error}</p> : null}
+        <div className="grid gap-3">
+          {canUseBiometrics && !usePin ? (
+            <button
+              className="inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-xl bg-[#40196d] text-base font-bold text-white shadow-sm transition hover:bg-[#4c1d95] disabled:opacity-60"
+              disabled={busy}
+              onClick={() => void unlockWithBiometrics()}
+              type="button"
+            >
+              <BiometricIcon className="h-5 w-5" />
+              Unlock with {biometricLabel()}
+            </button>
+          ) : null}
 
-        {hasPasskey && biometricsReady ? (
+          {canUseBiometrics ? (
+            <button
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-foreground transition hover:bg-muted"
+              disabled={busy}
+              onClick={() => {
+                setUsePin((current) => !current);
+                setPin("");
+                setError(null);
+              }}
+              type="button"
+            >
+              {usePin ? (
+                <>
+                  <BiometricIcon className="h-4 w-4" />
+                  Use {biometricLabel()} instead
+                </>
+              ) : (
+                <>
+                  <KeyRound className="h-4 w-4" />
+                  Use PIN instead
+                </>
+              )}
+            </button>
+          ) : null}
+
           <button
-            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-50"
-            disabled={busy}
-            onClick={() => void unlockWithBiometrics()}
+            className={cn(
+              "h-14 w-full rounded-xl bg-muted text-base font-bold text-[#ef5b4c] transition hover:bg-muted/70",
+              "dark:bg-[#1c1c1f] dark:hover:bg-[#232327]",
+            )}
+            onClick={() => void signOutForAppLock(disconnect)}
             type="button"
           >
-            <Fingerprint className="h-4 w-4" />
-            Use {biometricLabel()}
+            Sign out
           </button>
-        ) : null}
 
-        <button
-          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-          onClick={() => void signOutForAppLock(disconnect)}
-          type="button"
-        >
-          Forgot PIN? Sign out
-        </button>
+          <p className="pt-3 text-center text-[0.95rem] text-foreground/85">
+            Having trouble signing in?{" "}
+            <button
+              className="font-bold text-emerald-600 hover:underline dark:text-emerald-400"
+              onClick={() => setSupportOpen(true)}
+              type="button"
+            >
+              Contact us
+            </button>
+          </p>
+          {showPinPad ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Forgot your PIN? Sign out, then sign back in to set a new one.
+            </p>
+          ) : null}
+        </div>
       </div>
+
+      {/* Support as a guest: the account stays locked while you get help. */}
+      <Sheet onOpenChange={setSupportOpen} open={supportOpen}>
+        <SheetContent
+          className={cn(
+            "z-[2147483000] w-full gap-0 overflow-hidden p-0 sm:max-w-md",
+            sheetSide === "bottom" && `${bottomSheetClassName} sm:max-w-none`,
+          )}
+          showCloseButton={false}
+          side={sheetSide}
+        >
+          {sheetSide === "bottom" ? <SheetGrabber className="bg-white/40" /> : null}
+          <SheetTitle className="sr-only">SwiftPay Support</SheetTitle>
+          <SheetDescription className="sr-only">Get help without unlocking SwiftPay.</SheetDescription>
+          <SupportCenter guest onClose={() => setSupportOpen(false)} />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -1177,14 +1177,47 @@ html[data-theme="dark"] .portfolio-hero-stats dd.is-negative {
     box-shadow 180ms ease;
 }
 
-/* Support: a soft brand wash behind the header, like the coin sheet. */
-.support-hero {
+/*
+ * Support panel: a deep brand-purple greeting that fades into a soft page,
+ * with white cards floating over the fade.
+ */
+.support-shell {
+  --support-purple: #3f1a78;
+  --support-purple-2: #5b21b6;
+  background: color-mix(in oklch, var(--muted) 55%, var(--background));
+}
+
+.support-home-hero {
   background: linear-gradient(
     180deg,
-    color-mix(in oklch, var(--primary) 12%, transparent) 0%,
-    color-mix(in oklch, var(--primary) 3%, transparent) 75%,
+    var(--support-purple) 0%,
+    var(--support-purple) 62%,
+    color-mix(in oklch, var(--support-purple) 45%, transparent) 84%,
     transparent 100%
   );
+}
+
+.support-bar {
+  background: linear-gradient(90deg, var(--support-purple), var(--support-purple-2));
+}
+
+.support-card {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgb(23 17 28 / 0.06),
+    0 6px 20px -12px rgb(23 17 28 / 0.18);
+}
+
+.dark .support-shell {
+  --support-purple: #2a1150;
+  background: var(--background);
+}
+
+.dark .support-card {
+  border: 1px solid var(--border);
+  box-shadow: none;
 }
 
 /* Coin detail sheet: the header washes in the coin's own colour. */

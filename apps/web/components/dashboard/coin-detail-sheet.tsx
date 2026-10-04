@@ -7,9 +7,10 @@ import { formatUnits } from "viem";
 
 import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { arcTokenSymbols, arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { bottomSheetClassName, useSheetSide } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
 type Range = "1d" | "1w" | "1m";
@@ -194,6 +195,7 @@ export function CoinDetailSheet({
   onOpenChange: (open: boolean) => void;
   symbol: ArcTokenSymbol | null;
 }) {
+  const side = useSheetSide();
   const [range, setRange] = useState<Range>("1d");
   const [data, setData] = useState<MarketData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -246,10 +248,12 @@ export function CoinDetailSheet({
       <SheetContent
         className={cn(
           "w-full gap-0 overflow-hidden p-0 sm:max-w-md",
+          side === "bottom" && `${bottomSheetClassName} sm:max-w-none`,
           symbol && `token-board-${symbol.toLowerCase()}`,
         )}
-        side="right"
+        side={side}
       >
+        {side === "bottom" ? <SheetGrabber /> : null}
         {symbol && token ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto">

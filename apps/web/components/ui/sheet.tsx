@@ -86,6 +86,19 @@ function SheetContent({
   )
 }
 
+/** The little handle at the top of a bottom sheet. */
+function SheetGrabber({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute left-1/2 top-2 z-10 h-1.5 w-10 -translate-x-1/2 rounded-full bg-foreground/20",
+        className
+      )}
+    />
+  )
+}
+
 function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -144,4 +157,5 @@ export {
   SheetFooter,
   SheetTitle,
   SheetDescription,
+  SheetGrabber,
 }
