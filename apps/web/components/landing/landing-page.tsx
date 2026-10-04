@@ -1,6 +1,7 @@
 "use client";
 
 import { arcChain, arcExplorerUrl } from "@/lib/chains";
+import { rememberNextPath } from "@/lib/sign-in-destination";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -195,6 +196,10 @@ export function LandingPage() {
   ];
 
   useEffect(() => {
+    // A protected page sent the visitor here with ?next=; keep it through
+    // the sign-in (and the Google round trip, which drops the query).
+    rememberNextPath();
+
     function openSignIn() {
       setSignInOpen(true);
     }

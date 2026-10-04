@@ -39,6 +39,7 @@ import { useOptionalAccount } from "@/components/account/account-provider";
 import { personalCircleWallet } from "@/lib/business/provision-wallet";
 import { fetchAccountState } from "@/lib/account/client";
 import { ensureProfile } from "@/lib/profile";
+import { consumeNextPath, resolveSignInDestination } from "@/lib/sign-in-destination";
 import { ensureCircleWalletSession } from "@/lib/wallet-auth-client";
 import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import { writePreferredWalletMode } from "@/lib/wallet-mode";
@@ -740,14 +741,11 @@ export function CircleGoogleLogin({
                 walletAddress,
                 identity.socialUserUUID,
               );
-              if (state.account.account_type_selected) {
-                destination =
-                  state.account.account_type === "BUSINESS"
-                    ? "/business"
-                    : "/dashboard";
-              } else {
-                destination = "/onboarding";
-              }
+              destination = resolveSignInDestination({
+                accountTypeSelected: Boolean(state.account.account_type_selected),
+                isBusiness: state.account.account_type === "BUSINESS",
+                next: consumeNextPath(),
+              });
             }
           } catch {
             destination = "/onboarding";

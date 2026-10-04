@@ -17,6 +17,7 @@ export const activitySources = [
   "recurepay",
   "agent",
   "points",
+  "checkout",
 ] as const;
 
 export type ActivitySource = (typeof activitySources)[number];
@@ -88,5 +89,7 @@ export const activityFeatureMeta: Record<
   // ALLIE lives in the Pay with ALLIE bubble, opened from Activity directly.
   agent: { label: "ALLIE", href: null },
   points: { label: "SwiftPoints", href: "/referral" },
+  // In-person payments to a business through SwiftPay Checkout.
+  checkout: { label: "Checkout", href: null },
   wallet: { label: "Wallet", href: null },
 };

@@ -16,6 +16,7 @@ import {
   PiggyBank,
   ReceiptText,
   Send,
+  Store,
   TrendingUp,
   Users,
   UsersRound,
@@ -70,6 +71,7 @@ const featureIcons: Record<ActivityFeed, LucideIcon | typeof AllieIcon> = {
   recurepay: CalendarClock,
   agent: AllieIcon,
   points: Coins,
+  checkout: Store,
   wallet: Wallet,
 };
 

@@ -161,6 +161,7 @@ import {
 import { getSwapErrorMessage } from "@/lib/swap-errors";
 import { trackTractionEvent } from "@/lib/traction/client";
 import { fetchPublicInvoice, payPublicInvoice } from "@/lib/account/client";
+import { fetchPublicCharge, payPublicCharge } from "@/lib/checkout/client";
 import { cn } from "@/lib/utils";
 import { CoinDetailSheet } from "@/components/dashboard/coin-detail-sheet";
 import { switchToArc } from "@/lib/arc-network";
@@ -666,7 +667,7 @@ export function DashboardContent({
 
   // The payment form lives on /send. Payment request links, and older links
   // that pointed here, carry their details in the query: pass them on.
-  const hasPaymentPrefill = ["requestId", "to", "recipient", "username", "amount", "businessPayment", "invoice"]
+  const hasPaymentPrefill = ["requestId", "to", "recipient", "username", "amount", "businessPayment", "invoice", "charge"]
     .some((key) => searchParams.has(key));
   // Paying a business invoice from a SwiftPay account: the invoice page sends
   // its public id so the payment is recorded against the invoice.
@@ -681,6 +682,19 @@ export function DashboardContent({
     "idle" | "recording" | "recorded" | "failed"
   >("idle");
   const recordedInvoiceHashes = useRef<Set<string>>(new Set());
+  // Paying a Checkout charge (/c/<code> → "Pay with SwiftPay"): the code rides
+  // along so the send is recorded against the charge.
+  const chargeCode =
+    new URLSearchParams(dashboardPrefillQuery).get("charge")?.trim().toUpperCase() || "";
+  const [linkedCharge, setLinkedCharge] = useState<{
+    business: string;
+    code: string;
+    status: string;
+  } | null>(null);
+  const [chargeRecording, setChargeRecording] = useState<
+    "idle" | "recording" | "recorded" | "failed"
+  >("idle");
+  const recordedChargeHashes = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (view === "dashboard" && !preview && hasPaymentPrefill) {
       router.replace(`/send?${dashboardPrefillQuery}`);
@@ -1469,6 +1483,59 @@ export function DashboardContent({
       cancelled = true;
     };
   }, [invoicePublicId]);
+
+  useEffect(() => {
+    if (!chargeCode) return;
+    let cancelled = false;
+    void fetchPublicCharge(chargeCode)
+      .then((payload) => {
+        if (cancelled) return;
+        setLinkedCharge({
+          business: payload.business.name,
+          code: payload.charge.code,
+          status: payload.charge.status,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [chargeCode]);
+
+  /**
+   * Record a confirmed send against the Checkout charge it pays. Like an
+   * invoice, the server reads the amount off the chain, so this retries while
+   * the block propagates.
+   */
+  async function settleChargePayment(txHash?: string | null) {
+    if (!chargeCode || !txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) return;
+    const key = txHash.toLowerCase();
+    if (recordedChargeHashes.current.has(key)) return;
+    recordedChargeHashes.current.add(key);
+    setChargeRecording("recording");
+
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        const result = await payPublicCharge(chargeCode, {
+          payerWallet: address || circleAddress || undefined,
+          txHash,
+        });
+        setLinkedCharge((current) =>
+          current ? { ...current, status: result.charge.status } : current,
+        );
+        setChargeRecording("recorded");
+        return;
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+      }
+    }
+    setChargeRecording("failed");
+    setPaymentError(
+      `Your payment was sent, but it couldn't be matched to charge ${chargeCode}: ${getErrorMessage(lastError)} Show the transaction to ${linkedCharge?.business ?? "the business"} so they can confirm it.`,
+    );
+  }
 
   /**
    * Record a confirmed send against the invoice it pays. The server reads the
@@ -2350,6 +2417,7 @@ export function DashboardContent({
     // Runs for every send once its hash is known — including a Circle hash
     // recovered later — so the invoice is recorded whichever wallet paid.
     void settleInvoicePayment(txHash);
+    void settleChargePayment(txHash);
     const actorAddress = address || circleAddress;
     if (!actorAddress || !paymentAmount.trim()) return;
     const numeric = parseFloat(paymentAmount.trim());
@@ -2374,10 +2442,12 @@ export function DashboardContent({
         counterparty: recipientLabel,
         counterpartyWallet: incomingRequestId ? resolvedRecipientAddress : null,
         direction: "out",
-        source: incomingRequestId ? "request" : "send",
+        source: incomingRequestId ? "request" : chargeCode ? "checkout" : "send",
         title: incomingRequestId
           ? `Paid request from ${recipientLabel}`
-          : `Sent to ${recipientLabel}`,
+          : chargeCode
+            ? `Paid ${linkedCharge?.business ?? recipientLabel}`
+            : `Sent to ${recipientLabel}`,
         token: selectedToken,
         txHash,
         walletAddress: actorAddress,
@@ -3214,6 +3284,44 @@ export function DashboardContent({
                 Paying invoice <span className="font-semibold">{linkedInvoice.number}</span> from{" "}
                 {linkedInvoice.business}. Keep the recipient and token as filled in so the payment
                 is matched to the invoice.
+              </p>
+            )}
+          </div>
+        ) : null}
+        {chargeCode && linkedCharge ? (
+          <div
+            className={cn(
+              "mb-4 rounded-xl border px-3 py-2.5 text-sm",
+              chargeRecording === "recorded"
+                ? "border-emerald-500/40 bg-emerald-500/10"
+                : chargeRecording === "failed"
+                  ? "border-destructive/40 bg-destructive/10"
+                  : "border-primary/30 bg-primary/5",
+            )}
+          >
+            {chargeRecording === "recorded" ? (
+              <p>
+                {linkedCharge.business}{" "}
+                {linkedCharge.status === "PAID" ? "has your payment" : "received part of the payment"} ·{" "}
+                <a
+                  className="font-medium text-primary hover:underline"
+                  href={`/c/${encodeURIComponent(chargeCode)}`}
+                >
+                  View receipt
+                </a>
+              </p>
+            ) : chargeRecording === "recording" ? (
+              <p>Recording your payment to {linkedCharge.business}…</p>
+            ) : linkedCharge.status !== "OPEN" ? (
+              <p>
+                This charge from {linkedCharge.business} is{" "}
+                {linkedCharge.status.toLowerCase()} — there&rsquo;s nothing to pay.
+              </p>
+            ) : (
+              <p>
+                Paying <span className="font-semibold">{linkedCharge.business}</span> (charge{" "}
+                {linkedCharge.code}). Keep the recipient and token as filled in so the payment is
+                matched to the charge.
               </p>
             )}
           </div>

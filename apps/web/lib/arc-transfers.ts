@@ -23,9 +23,9 @@ import type { WalletTransfer } from "@/lib/arcscan-history";
 import { arcChain } from "@/lib/chains";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
-const NATIVE_USDC_EVENT_ADDRESS =
+export const NATIVE_USDC_EVENT_ADDRESS =
   "0xfffffffffffffffffffffffffffffffffffffffe" as Address;
-const NATIVE_USDC_DECIMALS = 18;
+export const NATIVE_USDC_DECIMALS = 18;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const transferEvent = parseAbiItem(

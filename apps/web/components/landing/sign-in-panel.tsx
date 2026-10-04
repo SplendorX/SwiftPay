@@ -29,6 +29,11 @@ import {
 } from "@/lib/circle-session";
 import { writeActivatedExternalProfile } from "@/lib/platform-access";
 import { ensureProfile } from "@/lib/profile";
+import {
+  consumeNextPath,
+  peekNextPath,
+  resolveSignInDestination,
+} from "@/lib/sign-in-destination";
 import { writePreferredWalletMode } from "@/lib/wallet-mode";
 import {
   fetchWalletSessionForAddress,
@@ -44,11 +49,15 @@ export function SignInPanel() {
   const accountContext = useOptionalAccount();
   const isBusinessAccount = accountContext?.isBusiness ?? false;
   const hasSelectedAccountType = accountContext?.account?.account_type_selected;
-  const destinationHref = !hasSelectedAccountType
-    ? "/onboarding"
-    : isBusinessAccount
-      ? "/business"
-      : "/dashboard";
+  const [nextPath, setNextPath] = useState<string | null>(null);
+  useEffect(() => {
+    setNextPath(peekNextPath());
+  }, []);
+  const destinationHref = resolveSignInDestination({
+    accountTypeSelected: Boolean(hasSelectedAccountType),
+    isBusiness: isBusinessAccount,
+    next: nextPath,
+  });
   const { address, isConnected, connector } = useAccount();
   const { signMessageAsync, isPending: isSigning } = useSignMessage();
   const [externalConnectStarted, setExternalConnectStarted] = useState(false);
@@ -134,14 +143,11 @@ export function SignInPanel() {
       let destination = "/onboarding";
       try {
         const state = await fetchAccountState(address);
-        if (state.account.account_type_selected) {
-          destination =
-            state.account.account_type === "BUSINESS"
-              ? "/business"
-              : "/dashboard";
-        } else {
-          destination = "/onboarding";
-        }
+        destination = resolveSignInDestination({
+          accountTypeSelected: Boolean(state.account.account_type_selected),
+          isBusiness: state.account.account_type === "BUSINESS",
+          next: consumeNextPath(),
+        });
       } catch {
         destination = "/onboarding";
       }

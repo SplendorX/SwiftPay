@@ -1,0 +1,154 @@
+import type {
+  ChargeIntentMethod,
+  ChargeStatus,
+  ChargeSummary,
+  ChargeWithPayments,
+  PublicChargePayload,
+  PublicStorefrontPayload,
+} from "@/lib/checkout/types";
+
+async function parseJson<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let payload: T & { message?: string };
+  try {
+    payload = JSON.parse(text) as T & { message?: string };
+  } catch {
+    throw new Error(`Invalid JSON (${response.status}).`);
+  }
+  if (!response.ok) {
+    throw new Error(payload.message ?? `Request failed (${response.status}).`);
+  }
+  return payload;
+}
+
+async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  try {
+    return await parseJson<T>(await fetch(input, init));
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Could not reach SwiftPay. Refresh and try again.");
+    }
+    throw error;
+  }
+}
+
+function postJson<T>(path: string, body: unknown, headers?: Record<string, string>) {
+  return requestJson<T>(path, {
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...headers },
+    method: "POST",
+  });
+}
+
+function withWallet(path: string, ownerWallet: string, extra?: Record<string, string | undefined>) {
+  const url = new URL(path, "http://local");
+  url.searchParams.set("ownerWallet", ownerWallet);
+  if (extra) {
+    for (const [key, value] of Object.entries(extra)) {
+      if (value) url.searchParams.set(key, value);
+    }
+  }
+  return `${url.pathname}?${url.searchParams.toString()}`;
+}
+
+function chargePath(code: string, action?: string) {
+  return `/api/checkout/charges/${encodeURIComponent(code)}${action ? `/${action}` : ""}`;
+}
+
+// ── Merchant ────────────────────────────────────────────────────────────────
+
+export type MerchantAuth = { ownerWallet: string; circleSocialUuid?: string };
+
+export function createChargeClient(
+  auth: MerchantAuth,
+  body: { amount: string; currency?: string; note?: string },
+  idempotencyKey: string,
+) {
+  return postJson<{ charge: ChargeWithPayments }>(
+    "/api/business/checkout/charges",
+    { ...auth, ...body },
+    { "Idempotency-Key": idempotencyKey },
+  );
+}
+
+export function fetchCharges(auth: MerchantAuth, options?: { status?: ChargeStatus; page?: number }) {
+  return requestJson<{ charges: ChargeWithPayments[]; page: number; summary: ChargeSummary }>(
+    withWallet("/api/business/checkout/charges", auth.ownerWallet, {
+      circleSocialUuid: auth.circleSocialUuid,
+      page: options?.page ? String(options.page) : undefined,
+      status: options?.status,
+    }),
+    { cache: "no-store" },
+  );
+}
+
+export function fetchCharge(auth: MerchantAuth, chargeId: string) {
+  return requestJson<{ charge: ChargeWithPayments }>(
+    withWallet(`/api/business/checkout/charges/${chargeId}`, auth.ownerWallet, {
+      circleSocialUuid: auth.circleSocialUuid,
+    }),
+    { cache: "no-store" },
+  );
+}
+
+export function cancelChargeClient(auth: MerchantAuth, chargeId: string) {
+  return postJson<{ charge: ChargeWithPayments }>(
+    `/api/business/checkout/charges/${chargeId}/cancel`,
+    auth,
+  );
+}
+
+// ── Public payer ────────────────────────────────────────────────────────────
+
+export function fetchPublicCharge(code: string) {
+  return requestJson<PublicChargePayload>(chargePath(code), { cache: "no-store" });
+}
+
+export function updateChargeTip(code: string, tip: string) {
+  return postJson<PublicChargePayload>(chargePath(code, "tip"), { tip });
+}
+
+export function registerChargeIntentClient(
+  code: string,
+  body: { method: ChargeIntentMethod; payerWallet?: string; reference?: string },
+) {
+  return postJson<PublicChargePayload>(chargePath(code, "intent"), body);
+}
+
+export function payPublicCharge(code: string, body: { txHash: string; payerWallet?: string }) {
+  return postJson<PublicChargePayload>(chargePath(code, "pay"), body);
+}
+
+export function fetchPublicStorefront(username: string) {
+  return requestJson<PublicStorefrontPayload>(
+    `/api/checkout/storefront/${encodeURIComponent(username)}`,
+    { cache: "no-store" },
+  );
+}
+
+export function createStorefrontChargeClient(
+  username: string,
+  body: { amount: string; tip?: string; currency?: string },
+) {
+  return postJson<{ code: string }>(
+    `/api/checkout/storefront/${encodeURIComponent(username)}/charges`,
+    body,
+  );
+}
+
+/** The SwiftPay /send link that pays a charge (signed-out visitors sign in first). */
+export function swiftPaySendHref(input: {
+  code: string;
+  destinationWallet: string;
+  total: string;
+  currency: string;
+}) {
+  const params = new URLSearchParams({
+    amount: input.total,
+    charge: input.code,
+    memo: input.code,
+    to: input.destinationWallet,
+    token: input.currency,
+  });
+  return `/send?${params.toString()}`;
+}

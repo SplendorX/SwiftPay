@@ -73,10 +73,13 @@ function isForgedCrossSiteRequest(request: NextRequest) {
   return !allowedOrigins(request).has(origin);
 }
 
-/** Reachable while the app is locked: unlocking, and signing in or out. */
-const lockExemptApiPrefixes = ["/api/app-lock", "/api/auth/"];
-/** Reachable before the 2FA code is in: entering it, and signing in or out. */
-const twoFactorExemptApiPrefixes = ["/api/two-factor", "/api/auth/"];
+/**
+ * Reachable while the app is locked: unlocking, and signing in or out. The
+ * public Checkout pay pages too: they show nothing of the signed-in account.
+ */
+const lockExemptApiPrefixes = ["/api/app-lock", "/api/auth/", "/api/checkout/"];
+/** Reachable before the 2FA code is in: entering it, signing in or out, public Checkout. */
+const twoFactorExemptApiPrefixes = ["/api/two-factor", "/api/auth/", "/api/checkout/"];
 
 /**
  * A sign-in to an account with two-factor authentication gets no API data
@@ -164,9 +167,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Keep the query string (a prefilled /send?…&charge=…) so signing in lands
+  // exactly where the visitor was going; #sign-in opens the sign-in modal.
   const url = request.nextUrl.clone();
   url.pathname = "/";
-  url.searchParams.set("next", pathname);
+  url.search = "";
+  url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+  url.hash = "sign-in";
 
   return NextResponse.redirect(url);
 }
