@@ -56,6 +56,7 @@ const ORDER = [
   "two-factor",
   "traction-events",
   "business-checkout",
+  "wallet-transfer-history",
 ];
 
 /** Not part of a new database: one-off fixes to existing data, or unused. */

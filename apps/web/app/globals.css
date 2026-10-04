@@ -8222,28 +8222,28 @@ html[data-light-surface="glass"]:not(.dark):not([data-theme="dark"]) .styled-sel
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Sampled from the supplied bubble artwork. */
-  --allie-bubble: #e1d2e5;
-  --allie-bubble-ink: #1a141f;
-  /* The launcher wears the SwiftPay wordmark gradient in light mode, so it
-     reads as part of the product. `--allie-pill` stays a solid colour because
-     color-mix() and the board glow both consume it as one. */
-  --allie-pill: #6366f1;
-  --allie-pill-paint: var(--swift-pay-gradient);
+  /* ALLIE's identity: the cobalt of her bandana and jacket, fading to the
+     violet at the edge of her portrait. */
+  --allie-blue: #2638e8;
+  --allie-violet: #6d28d9;
+  --allie-bubble: #dfe5ff;
+  --allie-bubble-ink: #0f1440;
+  /* `--allie-pill` stays a solid colour because color-mix() and the board
+     glow both consume it as one; the pill itself wears the gradient. */
+  --allie-pill: var(--allie-blue);
+  --allie-pill-paint: linear-gradient(135deg, var(--allie-violet) 0%, var(--allie-blue) 58%, #1d4ed8 100%);
   --allie-pill-ink: #ffffff;
 }
 
 html.dark,
 .dark,
 html[data-theme="dark"] {
-  /* Same hue, carried down far enough to hold white text. */
-  --allie-bubble: #3a2f45;
-  --allie-bubble-ink: #f2ecf5;
-  /* The warm cream pulled toward the brand, a shade deeper than the greeting
-     so it sits back on a near-black page. Still pale enough for dark ink. */
-  --allie-pill: color-mix(in oklch, var(--foreground) 66%, var(--primary));
-  --allie-pill-paint: var(--allie-pill);
-  --allie-pill-ink: #17111c;
+  /* The same cobalt, deep enough to hold light text on a near-black page. */
+  --allie-bubble: #1d2a6b;
+  --allie-bubble-ink: #eef1ff;
+  --allie-pill: #3347f0;
+  --allie-pill-paint: linear-gradient(135deg, #7c3aed 0%, #3347f0 58%, #2563eb 100%);
+  --allie-pill-ink: #ffffff;
 }
 
 /* The name is a wordmark, not body copy. Manrope semibold read as generic UI
@@ -8275,8 +8275,8 @@ html[data-theme="dark"] {
 }
 
 .allie-dock {
-  --allie-accent: #6d28d9;
-  --allie-accent-soft: #8b5cf6;
+  --allie-accent: var(--allie-blue);
+  --allie-accent-soft: #5b7cff;
   position: fixed;
 }
 
@@ -8290,13 +8290,21 @@ html[data-theme="dark"] {
   --allie-accent-soft: #e11d48;
 }
 
+/* ALLIE's surfaces wear her cobalt in place of the SwiftPay purple: every
+ * `--primary` inside them (buttons, focus rings, chips, glows) follows. */
+.allie-panel,
+.allie-dock,
+.allie-stage,
+.allie-landing-lockup {
+  --primary: var(--allie-blue);
+  --primary-foreground: #ffffff;
+  --ring: var(--allie-blue);
+}
+
 /* ── The mark ─────────────────────────────────────────────────────────────── */
-/* The artwork is masked, not an <img>: the shapes stay exactly as supplied
- * while the colour is set here. It is split into its two shapes (one mask
- * each) so they can be coloured apart: the tall shape a flat blue, the small
- * one a deep-to-bright blue gradient. One mask with one gradient would smear
- * the dark end across the tall shape's edge. The same blues read on both
- * themes. */
+/* ALLIE's avatar: the round character portrait, drawn as a background so the
+ * call sites that size it in CSS (the landing lockup scales with type) keep
+ * working. 256px covers every size used at 3x pixel density. */
 .allie-mark {
   position: relative;
   display: inline-block;
@@ -8305,46 +8313,14 @@ html[data-theme="dark"] {
   /* Fallback for call sites that let CSS size the mark. */
   width: 2.5rem;
   height: 2.5rem;
+  border-radius: 9999px;
+  background: #2638e8 url("/brand/allie-avatar-256.webp") center / cover no-repeat;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--allie-blue) 35%, transparent);
 }
 
-.allie-mark::before,
-.allie-mark::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.allie-mark::before {
-  background: #2684ff;
-  -webkit-mask: url("/brand/allie-mark-tall.png") center / contain no-repeat;
-  mask: url("/brand/allie-mark-tall.png") center / contain no-repeat;
-}
-
-/* The gradient is sized to the small shape's own box (6.1% 45.1%, 37.9% x
-   48% of the artwork), darkest at its upper right. */
-.allie-mark::after {
-  background:
-    linear-gradient(to bottom left, #0052cc 12%, #2684ff 88%) 9.8% 86.7% / 37.9% 48% no-repeat,
-    #2684ff;
-  -webkit-mask: url("/brand/allie-mark-small.png") center / contain no-repeat;
-  mask: url("/brand/allie-mark-small.png") center / contain no-repeat;
-}
-
-/* The launcher pill keeps its single-ink mark in the pill's text colour, on
-   both themes: the "Pay with ALLIE" colours do not change. */
-.allie-trigger-mark .allie-mark,
-html.dark .allie-trigger-mark .allie-mark,
-.dark .allie-trigger-mark .allie-mark,
-html[data-theme="dark"] .allie-trigger-mark .allie-mark {
-  color: var(--allie-pill-ink);
-  background-color: currentColor;
-  -webkit-mask: url("/brand/allie-mark.png") center / contain no-repeat;
-  mask: url("/brand/allie-mark.png") center / contain no-repeat;
-}
-
-.allie-trigger-mark .allie-mark::before,
-.allie-trigger-mark .allie-mark::after {
-  content: none;
+/* In the launcher pill the avatar sits on the gradient with a white ring. */
+.allie-trigger-mark .allie-mark {
+  box-shadow: 0 0 0 2px #ffffff;
 }
 
 /* ── Launcher pill ───────────────────────────────────────────────────────── */

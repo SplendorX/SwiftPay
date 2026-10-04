@@ -2,17 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-import {
-  getArcScanHistoryUrls,
-  normalizeArcScanTokenTransfers,
-  type ArcScanTokenTransferResponse,
-  type WalletTransfer,
-} from "@/lib/arcscan-history";
+import type { WalletTransfer } from "@/lib/arcscan-history";
 
 /**
- * A wallet's on-chain transfer history: ArcScan directly, falling back to the
- * app's own /api/arcscan/history proxy. Change `refreshKey` to refetch (e.g.
- * when a payment settles).
+ * A wallet's on-chain transfer history, with its ALLIE Agent Wallet's merged
+ * in, from the app's /api/arcscan/history (the explorer on testnet, the Arc
+ * RPC on mainnet, where the explorer blocks servers and browsers alike).
+ * Change `refreshKey` to refetch (e.g. when a payment settles).
  */
 export function useWalletTransfers(address?: string | null, refreshKey = "") {
   const [walletTransfers, setWalletTransfers] = useState<WalletTransfer[]>([]);
@@ -27,27 +23,6 @@ export function useWalletTransfers(address?: string | null, refreshKey = "") {
 
     const controller = new AbortController();
     const connectedAddress = address;
-
-    async function loadDirectArcScanHistory() {
-      const responses = await Promise.all(
-        getArcScanHistoryUrls(connectedAddress).map((url) =>
-          fetch(url, {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-        ),
-      );
-
-      if (responses.some((response) => !response.ok)) {
-        throw new Error("ArcScan history is unavailable.");
-      }
-
-      const payload = (await Promise.all(
-        responses.map((response) => response.json()),
-      )) as ArcScanTokenTransferResponse[];
-
-      return normalizeArcScanTokenTransfers(connectedAddress, payload);
-    }
 
     async function loadLocalArcScanHistory() {
       const response = await fetch(
@@ -74,19 +49,7 @@ export function useWalletTransfers(address?: string | null, refreshKey = "") {
       setTransfersError(null);
 
       try {
-        try {
-          setWalletTransfers(await loadDirectArcScanHistory());
-        } catch (directError) {
-          if (controller.signal.aborted) {
-            return;
-          }
-
-          try {
-            setWalletTransfers(await loadLocalArcScanHistory());
-          } catch {
-            throw directError;
-          }
-        }
+        setWalletTransfers(await loadLocalArcScanHistory());
       } catch (error) {
         if (controller.signal.aborted) {
           return;
