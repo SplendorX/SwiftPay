@@ -1,10 +1,11 @@
 "use client";
 
-import { CreditCard, Loader2, Lock, Store, Wallet } from "lucide-react";
+import { CreditCard, Link2, Loader2, Lock, Store, Wallet } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { ChargeReceiptCard } from "@/components/checkout/charge-receipt-card";
+import { PayWithBridge } from "@/components/checkout/pay-with-bridge";
 import { PayWithOnramp } from "@/components/checkout/pay-with-onramp";
 import { PayWithSwiftPay } from "@/components/checkout/pay-with-swiftpay";
 import { PayWithWallet } from "@/components/checkout/pay-with-wallet";
@@ -15,7 +16,7 @@ import type { PublicChargePayload } from "@/lib/checkout/types";
 import { trackTractionEvent } from "@/lib/traction/client";
 import { cn } from "@/lib/utils";
 
-type Method = "card" | "swiftpay" | "wallet";
+type Method = "card" | "chain" | "swiftpay" | "wallet";
 
 const POLL_MS = 2_500;
 
@@ -130,6 +131,10 @@ export function PayChargePage({ code }: { code: string }) {
     { icon: Store, id: "swiftpay", label: "SwiftPay" },
     ...(onrampEnabled && charge.currency === "USDC"
       ? [{ icon: CreditCard, id: "card" as const, label: "Card or bank" }]
+      : []),
+    // Circle's cross-chain transfer moves USDC only.
+    ...(charge.currency === "USDC"
+      ? [{ icon: Link2, id: "chain" as const, label: "Other chain" }]
       : []),
   ];
   const slowPaymentPending =
@@ -251,6 +256,8 @@ export function PayChargePage({ code }: { code: string }) {
                 <PayWithWallet onSettled={onSettled} payload={payload} total={total} />
               ) : method === "card" ? (
                 <PayWithOnramp onUpdate={applyPayload} payload={payload} total={total} />
+              ) : method === "chain" ? (
+                <PayWithBridge onUpdate={applyPayload} payload={payload} total={total} />
               ) : (
                 <PayWithSwiftPay payload={payload} total={total} />
               )}

@@ -123,7 +123,10 @@ export function registerChargeIntentClient(
   return postJson<PublicChargePayload>(chargePath(code, "intent"), body);
 }
 
-export function payPublicCharge(code: string, body: { txHash: string; payerWallet?: string }) {
+export function payPublicCharge(
+  code: string,
+  body: { txHash: string; payerWallet?: string; via?: "BRIDGE" },
+) {
   return postJson<PublicChargePayload>(chargePath(code, "pay"), body);
 }
 

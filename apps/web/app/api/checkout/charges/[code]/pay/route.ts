@@ -15,13 +15,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
     await requireRateLimit(`checkout-pay:${clientIp(request)}:${code}`, 20, 60);
-    // Signed-in payers paid through SwiftPay, everyone else from a wallet.
-    // Either way the amount comes from the receipt alone.
+    // A bridge mint, a signed-in SwiftPay payer, or any other wallet. Only a
+    // label: either way the amount comes from the receipt alone.
     const sessionWallet = await getSessionOwnerWallet();
     const payload = await confirmChargePayment({
       code,
       payerWallet: body.payerWallet,
-      source: sessionWallet ? "SWIFTPAY" : "WALLET",
+      source: body.via === "BRIDGE" ? "BRIDGE" : sessionWallet ? "SWIFTPAY" : "WALLET",
       txHash: body.txHash,
     });
     return noStore(jsonOk(payload));
