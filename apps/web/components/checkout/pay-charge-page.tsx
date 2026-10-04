@@ -1,20 +1,21 @@
 "use client";
 
-import { Loader2, Lock, Store, Wallet } from "lucide-react";
+import { CreditCard, Loader2, Lock, Store, Wallet } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
 import { ChargeReceiptCard } from "@/components/checkout/charge-receipt-card";
+import { PayWithOnramp } from "@/components/checkout/pay-with-onramp";
 import { PayWithSwiftPay } from "@/components/checkout/pay-with-swiftpay";
 import { PayWithWallet } from "@/components/checkout/pay-with-wallet";
 import { TipPicker } from "@/components/checkout/tip-picker";
 import { formatMoney, moneyNumber, roundMoney } from "@/lib/account/money";
-import { fetchPublicCharge, updateChargeTip } from "@/lib/checkout/client";
+import { fetchOnrampEnabled, fetchPublicCharge, updateChargeTip } from "@/lib/checkout/client";
 import type { PublicChargePayload } from "@/lib/checkout/types";
 import { trackTractionEvent } from "@/lib/traction/client";
 import { cn } from "@/lib/utils";
 
-type Method = "swiftpay" | "wallet";
+type Method = "card" | "swiftpay" | "wallet";
 
 const POLL_MS = 2_500;
 
@@ -24,6 +25,7 @@ export function PayChargePage({ code }: { code: string }) {
   const [tip, setTip] = useState("0");
   const [tipError, setTipError] = useState<string | null>(null);
   const [method, setMethod] = useState<Method>("wallet");
+  const [onrampEnabled, setOnrampEnabled] = useState(false);
   const tipTouched = useRef(false);
   const tracked = useRef(false);
 
@@ -49,6 +51,10 @@ export function PayChargePage({ code }: { code: string }) {
   }, [applyPayload, code]);
 
   const status = payload?.charge.status;
+
+  useEffect(() => {
+    void fetchOnrampEnabled().then(setOnrampEnabled);
+  }, []);
 
   // Live status while the charge is open: a SwiftPay payment made in another
   // tab, or by someone else at the counter, flips this page too.
@@ -118,6 +124,16 @@ export function PayChargePage({ code }: { code: string }) {
   const remainingBase = Math.max(0, moneyNumber(charge.amount) - received);
   // A partly-paid charge asks only for the rest; the tip rides on top.
   const total = roundMoney(remainingBase + moneyNumber(tip || "0"));
+  // Circle Onramp delivers USDC only.
+  const methods: Array<{ icon: typeof Wallet; id: Method; label: string }> = [
+    { icon: Wallet, id: "wallet", label: "Any wallet" },
+    { icon: Store, id: "swiftpay", label: "SwiftPay" },
+    ...(onrampEnabled && charge.currency === "USDC"
+      ? [{ icon: CreditCard, id: "card" as const, label: "Card or bank" }]
+      : []),
+  ];
+  const slowPaymentPending =
+    charge.pendingMethod === "ONRAMP" || charge.pendingMethod === "BRIDGE";
 
   return (
     <main className="min-h-screen bg-background">
@@ -199,13 +215,21 @@ export function PayChargePage({ code }: { code: string }) {
               />
               {tipError ? <p className="text-sm text-destructive">{tipError}</p> : null}
 
-              <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/60 p-1 text-sm font-medium">
-                {(
-                  [
-                    { icon: Wallet, id: "wallet", label: "Any wallet" },
-                    { icon: Store, id: "swiftpay", label: "SwiftPay account" },
-                  ] as const
-                ).map((option) => (
+              {slowPaymentPending && method !== "card" ? (
+                <p className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                  A {charge.pendingMethod === "ONRAMP" ? "card or bank" : "cross-chain"} payment for
+                  this charge may be on its way. If you already paid, wait for this page to update
+                  instead of paying again.
+                </p>
+              ) : null}
+
+              <div
+                className={cn(
+                  "grid gap-1 rounded-xl bg-muted/60 p-1 text-sm font-medium",
+                  methods.length === 3 ? "grid-cols-3" : "grid-cols-2",
+                )}
+              >
+                {methods.map((option) => (
                   <button
                     className={cn(
                       "inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 transition-colors",
@@ -225,6 +249,8 @@ export function PayChargePage({ code }: { code: string }) {
 
               {method === "wallet" ? (
                 <PayWithWallet onSettled={onSettled} payload={payload} total={total} />
+              ) : method === "card" ? (
+                <PayWithOnramp onUpdate={applyPayload} payload={payload} total={total} />
               ) : (
                 <PayWithSwiftPay payload={payload} total={total} />
               )}

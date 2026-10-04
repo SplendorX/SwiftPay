@@ -98,6 +98,14 @@ export function cancelChargeClient(auth: MerchantAuth, chargeId: string) {
   );
 }
 
+/** Attach a transfer the matcher missed to this charge. */
+export function reconcileChargeClient(auth: MerchantAuth, chargeId: string, txHash: string) {
+  return postJson<{ charge: ChargeWithPayments }>(
+    `/api/business/checkout/charges/${chargeId}/reconcile`,
+    { ...auth, txHash },
+  );
+}
+
 // ── Public payer ────────────────────────────────────────────────────────────
 
 export function fetchPublicCharge(code: string) {
@@ -117,6 +125,31 @@ export function registerChargeIntentClient(
 
 export function payPublicCharge(code: string, body: { txHash: string; payerWallet?: string }) {
   return postJson<PublicChargePayload>(chargePath(code, "pay"), body);
+}
+
+/** The card/bank widget says the money is on its way. */
+export function reportChargeSettled(
+  code: string,
+  body: { amount?: string; tokenSymbol?: string; reference?: string },
+) {
+  return postJson<PublicChargePayload>(chargePath(code, "settled"), body);
+}
+
+/** A Circle Onramp session paying this charge (raw; parse with the kit). */
+export function createChargeOnrampSession(code: string) {
+  return postJson<{ session: unknown }>(chargePath(code, "onramp-session"), {});
+}
+
+/** Whether card/bank payments are configured on this deployment. */
+export async function fetchOnrampEnabled() {
+  try {
+    const result = await requestJson<{ enabled?: boolean }>("/api/onramp/sessions", {
+      cache: "no-store",
+    });
+    return Boolean(result.enabled);
+  } catch {
+    return false;
+  }
 }
 
 export function fetchPublicStorefront(username: string) {

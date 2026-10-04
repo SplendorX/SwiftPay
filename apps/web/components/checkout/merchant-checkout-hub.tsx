@@ -27,6 +27,7 @@ import {
   createChargeClient,
   fetchCharge,
   fetchCharges,
+  reconcileChargeClient,
   type MerchantAuth,
 } from "@/lib/checkout/client";
 import { CHARGE_MAX_AMOUNT, CHARGE_MIN_AMOUNT } from "@/lib/checkout/money-rules";
@@ -110,6 +111,9 @@ export function MerchantCheckoutHub() {
   const [charges, setCharges] = useState<ChargeWithPayments[]>([]);
   const [summary, setSummary] = useState<ChargeSummary | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reconcileOpen, setReconcileOpen] = useState(false);
+  const [reconcileHash, setReconcileHash] = useState("");
+  const [reconciling, setReconciling] = useState(false);
   const [origin, setOrigin] = useState("");
   const idempotencyKey = useRef(newIdempotencyKey());
   const celebrated = useRef<Set<string>>(new Set());
@@ -210,7 +214,31 @@ export function MerchantCheckoutHub() {
     }
   }
 
+  async function reconcile(charge: ChargeWithPayments) {
+    if (!auth) return;
+    const hash = reconcileHash.trim();
+    if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) {
+      toast.error("Paste the full transaction hash (0x followed by 64 characters).");
+      return;
+    }
+    setReconciling(true);
+    try {
+      const { charge: next } = await reconcileChargeClient(auth, charge.id, hash);
+      setActive(next);
+      setReconcileHash("");
+      setReconcileOpen(false);
+      toast.success(next.status === "PAID" ? "Payment attached. Charge paid." : "Payment attached.");
+      void loadCharges();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not attach that payment.");
+    } finally {
+      setReconciling(false);
+    }
+  }
+
   function resetCharge() {
+    setReconcileOpen(false);
+    setReconcileHash("");
     setActive(null);
     setAmount("");
     setNote("");
@@ -337,6 +365,45 @@ export function MerchantCheckoutHub() {
                 This charge was {active.status.toLowerCase()}.
               </p>
             )}
+            {active.status === "OPEN" || active.status === "EXPIRED" ? (
+              reconcileOpen ? (
+                <div className="space-y-2 rounded-xl border border-border p-3 text-left">
+                  <p className="text-sm">
+                    Paste the transaction hash of a payment the customer made to your wallet. It
+                    will be credited to this charge.
+                  </p>
+                  <Input
+                    className="font-mono text-xs"
+                    disabled={reconciling}
+                    onChange={(event) => setReconcileHash(event.target.value)}
+                    placeholder="0x…"
+                    value={reconcileHash}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      disabled={reconciling}
+                      onClick={() => setReconcileOpen(false)}
+                      variant="ghost"
+                    >
+                      Close
+                    </Button>
+                    <Button className="flex-1" disabled={reconciling} onClick={() => void reconcile(active)}>
+                      {reconciling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Attach payment
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  onClick={() => setReconcileOpen(true)}
+                  type="button"
+                >
+                  Customer paid but it isn&rsquo;t showing?
+                </button>
+              )
+            ) : null}
             <div className="flex gap-2">
               {active.status === "OPEN" && active.payments.length === 0 ? (
                 <Button

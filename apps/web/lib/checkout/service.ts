@@ -17,6 +17,7 @@ import {
   validateChargeAmount,
   validateTip,
 } from "@/lib/checkout/money-rules";
+import { syncChargeMatchesFor } from "@/lib/checkout/scan";
 import { claimTransferForCharge } from "@/lib/checkout/settlement";
 import type {
   ChargeCurrency,
@@ -281,11 +282,17 @@ export async function listCharges(input: MerchantInput & { status?: unknown; pag
   };
 }
 
-export async function getChargeForOwner(input: MerchantInput & { chargeId: string }) {
+export async function getChargeForOwner(
+  input: MerchantInput & { chargeId: string; scan?: boolean },
+) {
   const wallet = await merchantWallet(input);
-  const charge = await loadChargeById(input.chargeId);
+  let charge = await loadChargeById(input.chargeId);
   if (!charge) throw checkoutErrors.chargeNotFound();
   if (charge.wallet_address !== wallet) throw checkoutErrors.chargeNotOwned();
+  // Polling drives matching for card/bank and bridge payments.
+  if (input.scan && (await syncChargeMatchesFor(charge))) {
+    charge = (await loadChargeById(charge.id)) ?? charge;
+  }
   return withPayments(await expireIfStale(charge));
 }
 
@@ -353,8 +360,12 @@ async function publicPayload(charge: ChargeRecord): Promise<PublicChargePayload>
   };
 }
 
-export async function getPublicCharge(code: string) {
-  return publicPayload(await loadChargeByCode(code));
+export async function getPublicCharge(code: string, options?: { scan?: boolean }) {
+  const charge = await loadChargeByCode(code);
+  if (options?.scan && (await syncChargeMatchesFor(charge))) {
+    return publicPayload(await loadChargeByCode(code));
+  }
+  return publicPayload(charge);
 }
 
 function requireOpen(charge: ChargeRecord) {
@@ -478,6 +489,87 @@ export async function confirmChargePayment(input: {
     txHash,
   });
   return publicPayload(result.charge);
+}
+
+/**
+ * The card/bank widget (or a bridge) says the money is on its way. The amount
+ * it reports narrows the match; the scan then runs right away.
+ */
+export async function reportChargeSettled(input: {
+  code: string;
+  amount?: unknown;
+  tokenSymbol?: unknown;
+  reference?: unknown;
+}) {
+  const charge = await loadChargeByCode(input.code);
+  if (charge.pending_method !== "ONRAMP" && charge.pending_method !== "BRIDGE") {
+    throw checkoutErrors.chargeNotOpen("This charge isn't waiting on a card, bank or bridge payment.");
+  }
+  if (charge.status === "CANCELLED") throw checkoutErrors.chargeNotOpen("This charge was cancelled.");
+  if (charge.status === "PAID") return publicPayload(charge);
+
+  const symbol = typeof input.tokenSymbol === "string" ? input.tokenSymbol.trim().toUpperCase() : null;
+  const raw = typeof input.amount === "number" ? String(input.amount) : input.amount;
+  const reported =
+    typeof raw === "string" && /^\d+(\.\d{1,18})?$/.test(raw.trim()) && moneyNumber(raw) > 0
+      ? roundMoney(moneyNumber(raw))
+      : null;
+  const reference =
+    typeof input.reference === "string" && input.reference.trim()
+      ? input.reference.trim().slice(0, 200)
+      : null;
+  const update = {
+    updated_at: nowIso(),
+    ...(reported && (!symbol || symbol === charge.currency) ? { reported_amount: reported } : {}),
+    ...(reference ? { pending_ref: reference } : {}),
+  };
+  const { error } = await accountDb()
+    .from(accountTables.charges)
+    .update(update)
+    .eq("id", charge.id)
+    .in("status", ["OPEN", "EXPIRED"]);
+  if (error) throw new Error(readAccountDbError(error, "Could not save the payment details."));
+  return getPublicCharge(input.code, { scan: true });
+}
+
+/**
+ * The merchant's fallback when a real payment wasn't matched: any confirmed
+ * transfer into their wallet, credited to this charge.
+ */
+export async function reconcileCharge(input: MerchantInput & { chargeId: string; txHash: unknown }) {
+  const txHash = readTxHash(input.txHash);
+  const charge = await getChargeForOwner(input);
+  if (charge.status === "CANCELLED") throw checkoutErrors.chargeNotOpen("This charge was cancelled.");
+  const transfer = await verifyChargeTransfer({
+    currency: charge.currency,
+    destination: charge.wallet_address,
+    txHash: txHash as `0x${string}`,
+  });
+  if (!transfer) {
+    throw checkoutErrors.invalidPayment(
+      `That transaction didn't send ${charge.currency} to your wallet, or isn't confirmed yet.`,
+    );
+  }
+  await claimTransferForCharge({
+    amount: transfer.amount,
+    blockNumber: transfer.blockNumber,
+    charge,
+    from: transfer.from,
+    matchedBy: "RECEIPT",
+    source: "RECONCILE",
+    txHash,
+  });
+  return getChargeForOwner(input);
+}
+
+/** Marks the charge as paid by card/bank; the onramp route mints the session. */
+export async function startChargeOnramp(code: string) {
+  const charge = await loadChargeByCode(code);
+  if (charge.currency !== "USDC") {
+    throw checkoutErrors.invalidCharge("Card and bank payments are only available for USDC charges.");
+  }
+  const payload = await registerChargeIntent({ allowedMethods: ["ONRAMP"], code, method: "ONRAMP" });
+  return { destinationWallet: charge.wallet_address, payload };
 }
 
 // ── Storefront ──────────────────────────────────────────────────────────────

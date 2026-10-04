@@ -17,6 +17,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       chargeId: id,
       circleSocialUuid,
       ownerWallet: actorWallet,
+      scan: true,
       workspaceId,
     });
     return jsonOk({ charge });

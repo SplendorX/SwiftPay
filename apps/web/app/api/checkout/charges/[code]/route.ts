@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { code } = await context.params;
     await requireRateLimit(`checkout-view:${clientIp(request)}:${code}`, 120, 60);
-    return noStore(jsonOk(await getPublicCharge(code)));
+    return noStore(jsonOk(await getPublicCharge(code, { scan: true })));
   } catch (error) {
     return noStore(jsonBusinessError(error));
   }

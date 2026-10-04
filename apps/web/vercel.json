@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/operator-health",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/checkout",
+      "schedule": "0 10 * * *"
     }
   ]
 }

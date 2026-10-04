@@ -1,10 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  createOnrampServerKit,
-  KitError,
-} from "@circle-fin/onramp-kit/server";
+import { KitError } from "@circle-fin/onramp-kit/server";
 
-import { isArcMainnet } from "@/lib/network";
+import { onrampServer, onrampSessionInput } from "@/lib/onramp-server";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { normalizeOwnerWallet, sessionControlsWallet } from "@/lib/recurring-auth";
 
@@ -14,27 +11,6 @@ const noStore = { "Cache-Control": "no-store" };
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ message }, { headers: noStore, status });
-}
-
-/**
- * The page that embeds the widget, as a bare hostname. Only used when the
- * widget falls back to an iframe (installed app, in-app browsers); from
- * trusted config, never from the request.
- */
-function referrerDomain() {
-  const configured = process.env.ONRAMP_REFERRER_DOMAIN?.trim();
-  if (configured) return configured;
-  try {
-    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").hostname || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function onrampServer() {
-  const apiKey = process.env.ONRAMP_API_KEY?.trim();
-  if (!apiKey) return null;
-  return createOnrampServerKit({ apiKey, referrerDomain: referrerDomain() });
 }
 
 /** Whether buying USDC is available, so the deposit page can offer it. */
@@ -75,14 +51,10 @@ export async function POST(request: NextRequest) {
     return jsonError("Too many attempts. Try again in a little while.", 429);
   }
 
-  const mainnet = isArcMainnet();
   try {
-    const session = await server.createSession({
-      appUserId: wallet,
-      destinationAddress: wallet,
-      destinationChain: mainnet ? "Arc" : "Arc_Testnet",
-      ...(mainnet ? { assets: { pairs: [{ token: "USDC", chain: "arc" }] } } : {}),
-    });
+    const session = await server.createSession(
+      onrampSessionInput({ appUserId: wallet, destinationAddress: wallet }),
+    );
     return NextResponse.json(session, { headers: noStore });
   } catch (error) {
     console.warn(
