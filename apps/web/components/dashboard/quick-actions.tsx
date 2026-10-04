@@ -10,6 +10,7 @@ import {
   PiggyBank,
   QrCode,
   Send,
+  Store,
   TrendingUp,
   Users,
   UsersRound,
@@ -19,6 +20,7 @@ import Link from "next/link";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
+import { checkoutEnabled } from "@/lib/checkout/flag";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,6 +44,9 @@ const actions: Array<{
     label: "Invoices",
     businessOnly: true,
   },
+  ...(checkoutEnabled
+    ? [{ businessOnly: true, href: "/business/checkout", icon: Store, label: "Checkout" }]
+    : []),
   { href: "/circle", icon: UsersRound, label: "Circle" },
   { href: "/save", icon: PiggyBank, label: "Save" },
   { href: "/earn", icon: TrendingUp, label: "Earn" },
@@ -65,6 +70,7 @@ export function QuickActions({
     "/send": t("dashboard.sendPayment"),
     "/business": t("nav.overview"),
     "/business/invoices": t("nav.invoices"),
+    "/business/checkout": t("nav.checkout"),
     "/circle": t("nav.circle"),
     "/save": t("nav.save"),
     "/earn": t("nav.earn"),

@@ -1,5 +1,31 @@
 export const swiftPayMarkSrc = "/brand/swiftpay-mark.png?v=pay-bg";
 
+/** A rounded-rectangle path (drawn with arcTo, so older canvases work too). */
+export function roundRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.arcTo(x + width, y, x + width, y + height, radius);
+  context.arcTo(x + width, y + height, x, y + height, radius);
+  context.arcTo(x, y + height, x, y, radius);
+  context.arcTo(x, y, x + width, y, radius);
+  context.closePath();
+}
+
+/** Saves a canvas as a PNG download. */
+export function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
 export async function loadBrandImage(src: string) {
   try {
     const response = await fetch(src, { cache: "force-cache" });

@@ -33,7 +33,9 @@ import { BusinessMetricsGrid } from "@/components/business/overview/business-met
 import { CashFlowCard } from "@/components/business/overview/cash-flow-card";
 import { BusinessActivityCard } from "@/components/business/overview/business-activity-card";
 import { BusinessInsightsCard } from "@/components/business/overview/business-insights-card";
+import { CheckoutOverviewCard } from "@/components/business/overview/checkout-overview-card";
 import { InvoiceOverviewCard } from "@/components/business/overview/invoice-overview-card";
+import type { ChargeSummary } from "@/lib/checkout/types";
 import { TeamPaymentsCard } from "@/components/business/overview/team-payments-card";
 import { BusinessHealthCard } from "@/components/business/overview/business-health-card";
 import { BusinessOverviewSkeleton } from "@/components/business/overview/business-overview-skeleton";
@@ -57,6 +59,7 @@ export function BusinessOverview() {
   const activeWallet = (ownerWallet || address)?.toLowerCase() ?? null;
 
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
+  const [checkoutSummary, setCheckoutSummary] = useState<ChargeSummary | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [payrollSummary, setPayrollSummary] = useState<PayrollDashboardSummary | null>(null);
   const [transfers, setTransfers] = useState<WalletTransfer[]>([]);
@@ -86,6 +89,7 @@ export function BusinessOverview() {
 
         if (overviewResult.status === "fulfilled") {
           setSummary(overviewResult.value.summary);
+          setCheckoutSummary(overviewResult.value.checkout ?? null);
           setInvoices(overviewResult.value.invoices);
         } else {
           console.error("Overview fetch failed:", overviewResult.reason);
@@ -332,6 +336,7 @@ export function BusinessOverview() {
 
       {/* 3. Primary Action Bar (Send Payment in Imperial Purple #5B21B6, Create Invoice, Request, Pay Team, BatchPay) */}
       <BusinessQuickActions />
+      {checkoutSummary ? <CheckoutOverviewCard summary={checkoutSummary} /> : null}
 
       {/* 4. Business Metrics Grid (Revenue Received, Payments Sent, Outstanding Invoices, Scheduled Payments) */}
       <BusinessMetricsGrid metrics={metrics} />

@@ -4,46 +4,18 @@ import { AtSign, CheckCircle2, Copy, QrCode, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useOptionalAccount } from "@/components/account/account-provider";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
+import { svgToPngBlob } from "@/lib/qr-image";
 import { formatUsernameLabel } from "@/lib/profile";
 import { buildPaymentRequestUrl } from "@/lib/payment-request-url";
 import { arcChain } from "@/lib/chains";
+import { checkoutEnabled } from "@/lib/checkout/flag";
 
 type CopiedField = "address" | "username" | "qr";
 
 async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
-}
-
-async function svgToPngBlob(svg: SVGElement) {
-  const xml = new XMLSerializer().serializeToString(svg);
-  const href = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
-
-  return new Promise<Blob>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 512;
-      canvas.height = 512;
-      const context = canvas.getContext("2d");
-      if (!context) {
-        reject(new Error("Could not draw QR code."));
-        return;
-      }
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob);
-          return;
-        }
-        reject(new Error("Could not export QR code."));
-      }, "image/png");
-    };
-    image.onerror = () => reject(new Error("Could not load QR code."));
-    image.src = href;
-  });
 }
 
 export function ReceiveShareCard({
@@ -58,6 +30,8 @@ export function ReceiveShareCard({
   const qrRef = useRef<HTMLDivElement>(null);
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<CopiedField | null>(null);
+  // Storefront pages exist for Business accounts only.
+  const isBusiness = Boolean(useOptionalAccount()?.isBusiness);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -68,6 +42,12 @@ export function ReceiveShareCard({
       return "";
     }
 
+    // With Checkout on, a scan opens a pay page for the payer (any wallet
+    // or SwiftPay) rather than the signed-in Request screen.
+    if (checkoutEnabled && isBusiness && username) {
+      return `${origin}/p/${encodeURIComponent(username)}`;
+    }
+
     return buildPaymentRequestUrl({
       chainId: arcChain.id,
       origin,
@@ -75,7 +55,7 @@ export function ReceiveShareCard({
       username: username || undefined,
       walletAddress: username ? undefined : walletAddress,
     });
-  }, [isConnected, origin, username, walletAddress]);
+  }, [isBusiness, isConnected, origin, username, walletAddress]);
 
   const qrValue =
     receiveUrl ||

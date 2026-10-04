@@ -1,6 +1,6 @@
 import { formatMoney, moneyNumber } from "@/lib/account/money";
 import type { BusinessAsset, InvoiceItemRecord } from "@/lib/account/types";
-import { drawSwiftPayBrand, loadBrandImage } from "@/lib/brand-canvas";
+import { drawSwiftPayBrand, loadBrandImage, roundRect } from "@/lib/brand-canvas";
 
 type ReceiptInput = {
   amountReceived: string;
@@ -14,23 +14,6 @@ type ReceiptInput = {
   paidAt?: string | null;
   total: string;
 };
-
-function roundRect(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  context.beginPath();
-  context.moveTo(x + radius, y);
-  context.arcTo(x + width, y, x + width, y + height, radius);
-  context.arcTo(x + width, y + height, x, y + height, radius);
-  context.arcTo(x, y + height, x, y, radius);
-  context.arcTo(x, y, x + width, y, radius);
-  context.closePath();
-}
 
 export async function downloadInvoiceReceipt(input: ReceiptInput) {
   const width = 1080;

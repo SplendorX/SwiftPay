@@ -20,6 +20,8 @@ import type {
   InvoiceSummary,
   InvoiceWithItems,
 } from "@/lib/account/types";
+import { checkoutEnabled } from "@/lib/checkout/flag";
+import { chargeSummary } from "@/lib/checkout/summary";
 import { sendInvoiceEmail } from "@/lib/email/invoice-email";
 import { createSavingsNotificationResult } from "@/lib/save/notifications";
 import { normalizeUsername, validateUsername } from "@/lib/profile-utils";
@@ -672,13 +674,16 @@ export async function getBusinessOverview(input: {
 }) {
   const { account, actorWallet, businessWallet } = await requireBusinessAccount(input);
   const targetWallet = businessWallet || actorWallet;
-  const [profile, invoices, summary] = await Promise.all([
+  const [profile, invoices, summary, checkout] = await Promise.all([
     loadBusinessProfile(targetWallet),
     listInvoices({ ...input, page: 1 }),
     invoiceSummary(targetWallet),
+    // Never fails the overview: the Checkout tables may not exist yet.
+    checkoutEnabled ? chargeSummary(targetWallet).catch(() => null) : Promise.resolve(null),
   ]);
   return {
     account,
+    checkout,
     invoices: invoices.invoices.slice(0, 8),
     profile,
     summary,

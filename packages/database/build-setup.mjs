@@ -55,6 +55,7 @@ const ORDER = [
   "app-lock",
   "two-factor",
   "traction-events",
+  "business-checkout",
 ];
 
 /** Not part of a new database: one-off fixes to existing data, or unused. */

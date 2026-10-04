@@ -19,6 +19,7 @@ import {
   type CircleWallet,
 } from "@/lib/circle-session";
 import { ensureProfile } from "@/lib/profile";
+import { consumeNextPath, resolveSignInDestination } from "@/lib/sign-in-destination";
 import { notifyWalletSessionChanged } from "@/lib/wallet-auth-client";
 import { writePreferredWalletMode } from "@/lib/wallet-mode";
 
@@ -220,9 +221,11 @@ export function EmailSignIn({
       let destination = "/onboarding";
       try {
         const state = await fetchAccountState(wallet.address, verified.circleUserId);
-        if (state.account.account_type_selected) {
-          destination = state.account.account_type === "BUSINESS" ? "/business" : "/dashboard";
-        }
+        destination = resolveSignInDestination({
+          accountTypeSelected: Boolean(state.account.account_type_selected),
+          isBusiness: state.account.account_type === "BUSINESS",
+          next: consumeNextPath(),
+        });
       } catch {
         destination = "/onboarding";
       }
