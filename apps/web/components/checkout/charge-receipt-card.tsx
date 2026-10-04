@@ -1,8 +1,11 @@
 "use client";
 
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight, Check, Download } from "lucide-react";
+import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
 import { formatMoney, moneyNumber } from "@/lib/account/money";
+import { downloadChargeReceipt } from "@/lib/checkout/receipt";
 import type { PublicChargePayload } from "@/lib/checkout/types";
 import { explorerTxUrl } from "@/lib/onchain-facts";
 
@@ -54,6 +57,15 @@ export function ChargeReceiptCard({ payload }: { payload: PublicChargePayload })
           </div>
         ))}
       </dl>
+      <Button
+        className="h-11 w-full"
+        onClick={() =>
+          void downloadChargeReceipt(payload).catch(() => toast.error("Could not create the receipt."))
+        }
+      >
+        <Download className="h-4 w-4" />
+        Download receipt
+      </Button>
       {charge.txHashes.map((hash) => (
         <a
           className="inline-flex w-full items-center justify-center gap-1 text-sm font-medium text-primary hover:underline"

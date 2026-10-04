@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { checkoutEnabled } from "@/lib/checkout/flag";
+
 /**
  * Makes SwiftPay installable: "Add to Home Screen" on iPhone and Android,
  * "Install app" in Chrome and Edge on desktop. It opens in its own window,
@@ -28,6 +30,9 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: "Request a payment", short_name: "Request", url: "/pay", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
       { name: "Swap", short_name: "Swap", url: "/swap", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
       { name: "Activity", short_name: "Activity", url: "/activity", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
+      ...(checkoutEnabled
+        ? [{ name: "Get paid", short_name: "Get paid", url: "/business/checkout", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] }]
+        : []),
     ],
     start_url: "/dashboard?source=app",
     theme_color: "#080609",

@@ -6,6 +6,7 @@ import type {
   InvoiceSummary,
   InvoiceWithItems,
 } from "@/lib/account/types";
+import type { ChargeSummary } from "@/lib/checkout/types";
 
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -126,6 +127,7 @@ export async function fetchBusinessOverview(
 ) {
   return parseJson<{
     account: AccountRecord;
+    checkout?: ChargeSummary | null;
     invoices: InvoiceRecord[];
     profile: BusinessAccountProfile | null;
     summary: InvoiceSummary;

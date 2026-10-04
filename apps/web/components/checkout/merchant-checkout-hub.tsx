@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  Download,
   Loader2,
   Plus,
   QrCode,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/checkout/client";
 import { CHARGE_MAX_AMOUNT, CHARGE_MIN_AMOUNT } from "@/lib/checkout/money-rules";
 import type { ChargeStatus, ChargeSummary, ChargeWithPayments } from "@/lib/checkout/types";
+import { downloadStorefrontPoster } from "@/lib/checkout/poster";
 import { explorerTxUrl } from "@/lib/onchain-facts";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { cn } from "@/lib/utils";
@@ -117,6 +119,8 @@ export function MerchantCheckoutHub() {
   const [origin, setOrigin] = useState("");
   const idempotencyKey = useRef(newIdempotencyKey());
   const celebrated = useRef<Set<string>>(new Set());
+  const storefrontQrRef = useRef<HTMLDivElement>(null);
+  const [posterBusy, setPosterBusy] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -290,8 +294,8 @@ export function MerchantCheckoutHub() {
               <p className="text-sm text-muted-foreground">
                 Put this QR on your counter or window. Customers scan it, type the amount, and pay.
               </p>
-              <div className="mx-auto w-fit rounded-2xl bg-white p-4">
-                <LazyQRCodeSVG size={220} value={storefrontUrl} />
+              <div className="mx-auto w-fit rounded-2xl bg-white p-4" ref={storefrontQrRef}>
+                <LazyQRCodeSVG level="M" size={220} value={storefrontUrl} />
               </div>
               <p className="break-all text-sm font-medium">{storefrontUrl}</p>
               <div className="grid grid-cols-2 gap-2">
@@ -304,6 +308,26 @@ export function MerchantCheckoutHub() {
                   Share
                 </Button>
               </div>
+              <Button
+                className="w-full"
+                disabled={posterBusy}
+                onClick={() => {
+                  const svg = storefrontQrRef.current?.querySelector("svg");
+                  if (!svg) return;
+                  setPosterBusy(true);
+                  void downloadStorefrontPoster({
+                    businessName: profile?.business_name ?? account?.display_name ?? account?.username ?? "SwiftPay",
+                    logoUrl: profile?.logo_url,
+                    qrSvg: svg,
+                    url: storefrontUrl,
+                  })
+                    .catch(() => toast.error("Could not create the poster."))
+                    .finally(() => setPosterBusy(false));
+                }}
+              >
+                {posterBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Download printable poster
+              </Button>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

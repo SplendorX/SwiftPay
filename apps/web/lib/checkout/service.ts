@@ -18,6 +18,9 @@ import {
   validateTip,
 } from "@/lib/checkout/money-rules";
 import { syncChargeMatchesFor } from "@/lib/checkout/scan";
+import { chargeSummary } from "@/lib/checkout/summary";
+
+export { chargeSummary };
 import { claimTransferForCharge } from "@/lib/checkout/settlement";
 import type {
   ChargeCurrency,
@@ -27,7 +30,6 @@ import type {
   ChargePaymentSource,
   ChargeRecord,
   ChargeStatus,
-  ChargeSummary,
   ChargeWithPayments,
   CheckoutBusiness,
   PublicCharge,
@@ -314,36 +316,6 @@ export async function cancelCharge(input: MerchantInput & { chargeId: string }) 
     throw checkoutErrors.chargeNotOpen("A payment arrived first; this charge can't be cancelled.");
   }
   return getChargeForOwner(input);
-}
-
-/** Today's (UTC) paid charges, volume and tips, plus how many are still open. */
-export async function chargeSummary(wallet: string): Promise<ChargeSummary> {
-  const supabase = accountDb();
-  const startOfDay = new Date();
-  startOfDay.setUTCHours(0, 0, 0, 0);
-  const [paid, open] = await Promise.all([
-    supabase
-      .from(accountTables.charges)
-      .select("amount_received,tip_amount")
-      .eq("wallet_address", wallet.toLowerCase())
-      .eq("status", "PAID")
-      .gte("paid_at", startOfDay.toISOString()),
-    supabase
-      .from(accountTables.charges)
-      .select("id", { count: "exact", head: true })
-      .eq("wallet_address", wallet.toLowerCase())
-      .eq("status", "OPEN")
-      .gt("expires_at", nowIso()),
-  ]);
-  if (paid.error) throw new Error(readAccountDbError(paid.error, "Could not load charge totals."));
-  if (open.error) throw new Error(readAccountDbError(open.error, "Could not load charge totals."));
-  const rows = (paid.data ?? []) as Array<{ amount_received: string; tip_amount: string }>;
-  return {
-    openCount: open.count ?? 0,
-    todayCount: rows.length,
-    todayTips: roundMoney(rows.reduce((sum, row) => sum + moneyNumber(row.tip_amount), 0)),
-    todayVolume: roundMoney(rows.reduce((sum, row) => sum + moneyNumber(row.amount_received), 0)),
-  };
 }
 
 // ── Public payer ────────────────────────────────────────────────────────────

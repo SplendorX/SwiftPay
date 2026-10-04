@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Send, FileText, ArrowDownLeft, Users, Layers } from "lucide-react";
+import { Send, FileText, ArrowDownLeft, Users, Layers, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { checkoutEnabled } from "@/lib/checkout/flag";
 
 export function BusinessQuickActions() {
   return (
@@ -19,6 +20,19 @@ export function BusinessQuickActions() {
       </Button>
 
       {/* Secondary Actions with rounded-full edges matching the rest of the platform */}
+      {checkoutEnabled ? (
+        <Button
+          asChild
+          variant="outline"
+          className="h-11 rounded-full border-border bg-card px-4.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          <Link href="/business/checkout" className="flex items-center gap-2">
+            <Store className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span>Charge a customer</span>
+          </Link>
+        </Button>
+      ) : null}
+
       <Button
         asChild
         variant="outline"
