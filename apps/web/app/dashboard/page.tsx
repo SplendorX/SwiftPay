@@ -127,6 +127,7 @@ import {
 import {
   circleDeviceIdHelp,
   currentCircleAuth,
+  markCircleSessionStale,
   callCircleWalletApi,
   isCircleDeviceIdError,
   findCircleTokenBalance,
@@ -3017,7 +3018,11 @@ export function DashboardContent({
         headers: { "content-type": "application/json" },
         method: "POST",
       }).catch(() => undefined);
-      throw new Error(isCircleDeviceIdError(error) ? circleDeviceIdHelp : getErrorMessage(error));
+      if (isCircleDeviceIdError(error)) {
+        markCircleSessionStale();
+        throw new Error(circleDeviceIdHelp);
+      }
+      throw new Error(getErrorMessage(error));
     }
 
     const targetWalletId = options?.walletId || circleWallet?.id;

@@ -1,6 +1,7 @@
 "use client";
 
 import { ServiceWorkerRegistrar } from "@/components/pwa/install-app";
+import { StaleCircleSessionGuard } from "@/components/stale-circle-session-guard";
 import { WalletChainSync } from "@/components/wallet-chain-sync";
 import { WalletRequestDeepLink } from "@/components/wallet-request-deep-link";
 import { WalletDebugPanel } from "@/components/wallet-debug-panel";
@@ -52,6 +53,7 @@ export function Providers({
               <WorkspaceProvider>
                 <AccountProvider>
                   <SingleWalletGuard />
+                  <StaleCircleSessionGuard />
                   <WalletSessionBootstrap />
                   <WalletDisconnectRedirect />
                   {children}

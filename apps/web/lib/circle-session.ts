@@ -330,7 +330,10 @@ function looksTechnical(message: string) {
 export function userFacingErrorMessage(error: unknown, fallback: string) {
   const friendly = friendlyCircleSdkMessage(error);
   if (friendly) return friendly;
-  if (isCircleDeviceIdError(error)) return circleDeviceIdHelp;
+  if (isCircleDeviceIdError(error)) {
+    markCircleSessionStale();
+    return circleDeviceIdHelp;
+  }
   // Already worded for the person (e.g. how to add Arc to a wallet).
   if (error instanceof Error && error.name === "ArcNetworkError") return error.message;
 
@@ -405,7 +408,39 @@ export function isCircleDeviceIdError(error: unknown) {
 }
 
 export const circleDeviceIdHelp =
-  "Circle couldn't recognise this device. Sign out, sign back in on this device, and try again. Nothing was sent.";
+  "Circle needs to verify this device again. Nothing was sent. You'll be signed out the next time you open SwiftPay; sign back in and try again.";
+
+const staleSessionKey = "swiftpay.circleSessionStale";
+/** Set just before the automatic sign-out, so sign-in can say why. */
+export const circleSignedOutNoticeKey = "swiftpay.signedOutNotice";
+
+/**
+ * Circle can no longer use this sign-in on this device (its device record is
+ * gone, or the session couldn't be renewed). Signing in again is the only
+ * fix, so the next time the app opens it signs out (see StaleCircleSessionGuard).
+ */
+export function markCircleSessionStale() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(staleSessionKey, String(Date.now()));
+  } catch {}
+}
+
+export function isCircleSessionStale() {
+  if (typeof window === "undefined") return false;
+  try {
+    return Boolean(window.localStorage.getItem(staleSessionKey));
+  } catch {
+    return false;
+  }
+}
+
+export function clearCircleSessionStale() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(staleSessionKey);
+  } catch {}
+}
 
 export function currentCircleAuth(fallback: { encryptionKey: string; userToken: string }) {
   const stored = readCircleLogin();
@@ -456,9 +491,17 @@ const supersededUserTokens = new Set<string>();
  * token only to a browser whose signed session covers that user's wallet.
  * Concurrent callers share one refresh. Resolves null if it cannot renew.
  */
+/**
+ * Why the last renewal failed: Circle (or our server) refused it, or there is
+ * nothing to renew with, versus a network blip. Only a refusal means the
+ * person must sign in again.
+ */
+let lastRefreshRefused = false;
+
 export function refreshCircleLogin(): Promise<CircleLoginResult | null> {
   if (refreshInFlight) return refreshInFlight;
 
+  lastRefreshRefused = false;
   refreshInFlight = (async () => {
     const login = readCircleLogin();
     if (!login) return null;
@@ -472,7 +515,10 @@ export function refreshCircleLogin(): Promise<CircleLoginResult | null> {
           headers: { "content-type": "application/json" },
           method: "POST",
         });
-        if (!response.ok) return null;
+        if (!response.ok) {
+          lastRefreshRefused = response.status >= 400 && response.status < 500;
+          return null;
+        }
         const next = (await response.json()) as { encryptionKey?: string; userToken?: string };
         if (!next.userToken || !next.encryptionKey) return null;
         const renewed = { ...login, encryptionKey: next.encryptionKey, userToken: next.userToken };
@@ -482,7 +528,10 @@ export function refreshCircleLogin(): Promise<CircleLoginResult | null> {
       }
 
       const deviceId = readCircleSessionStorage(circleStorageKeys.deviceId);
-      if (!login.refreshToken || !deviceId) return null;
+      if (!login.refreshToken || !deviceId) {
+        lastRefreshRefused = true;
+        return null;
+      }
       const next = await callCircleWalletApiOnce<{
         encryptionKey?: string;
         refreshToken?: string;
@@ -502,7 +551,9 @@ export function refreshCircleLogin(): Promise<CircleLoginResult | null> {
       supersededUserTokens.add(login.userToken);
       writeCircleLogin(renewed);
       return renewed;
-    } catch {
+    } catch (error) {
+      // A network error (TypeError) is a blip; anything else is Circle's no.
+      lastRefreshRefused = !(error instanceof TypeError);
       return null;
     }
   })().finally(() => {
@@ -541,6 +592,8 @@ export async function callCircleWalletApi<T>(
     }
     const renewed = await refreshCircleLogin();
     if (!renewed) {
+      // Circle refused to renew it: sign in again on the next open.
+      if (lastRefreshRefused) markCircleSessionStale();
       throw new CircleClientError(
         { code: circleUserTokenExpiredCode, message: "Your Circle session expired. Sign in again to continue." },
         "Your Circle session expired.",
