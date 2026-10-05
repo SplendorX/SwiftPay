@@ -2,18 +2,9 @@
 
 import { switchToArc } from "@/lib/arc-network";
 import {
-  Archive,
-  ArrowDownToLine,
-  ArrowLeft,
-  ArrowUpFromLine,
-  ExternalLink,
   KeyRound,
   Loader2,
-  LockKeyhole,
-  Pencil,
-  Trash2,
 } from "lucide-react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
@@ -29,16 +20,21 @@ import {
 import { formatUnits, maxUint256, type Address, type Hash } from "viem";
 
 import { AmountConfirmDialog } from "@/components/save/amount-confirm-dialog";
-import { formatMoney, formatMoneyShort, pocketProgress } from "@/components/save/format";
-import { PocketLockPanel } from "@/components/save/pocket-lock-panel";
+import { formatMoneyShort, pocketProgress } from "@/components/save/format";
+import {
+  PocketActivity,
+  PocketBar,
+  PocketEditSheet,
+  PocketFigures,
+  PocketHero,
+  PocketLockCard,
+  PocketOptionsSheet,
+  PocketSpendSave,
+} from "@/components/save/pocket-detail-views";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { PagedActivityBox } from "@/components/ui/paged-activity-box";
-import { Progress } from "@/components/ui/progress";
 import {
   currentCircleAuth,
   getCircleLoginIdentity,
@@ -57,12 +53,12 @@ import {
   confirmDeposit,
   confirmWithdraw,
   fetchSavingsPocket,
+  fetchSpendSaveHistory,
   initiateDeposit,
   initiateWithdraw,
   updateSavingsPocket,
 } from "@/lib/save/client";
 import {
-  explorerTxUrl,
   isSwiftSaveVaultConfigured,
 } from "@/lib/save/config";
 import {
@@ -70,11 +66,13 @@ import {
   getPocketLockState,
 } from "@/lib/save/lock";
 import {
-  getPocketEmoji,
   type SavingsPocketRecord,
   type SavingsTransactionRecord,
   type SpendSaveConfigRecord,
+  type SpendSaveEventRecord,
 } from "@/lib/save/types";
+import { buildPocketActivity, type PocketActivityItem } from "@/lib/save/activity";
+import { executeSavingsReversal } from "@/lib/save/spend-save-browser";
 import { arcTokens } from "@/lib/tokens";
 import {
   fetchWalletSession,
@@ -125,11 +123,32 @@ export default function SavingsPocketDetailPage() {
   const [transactions, setTransactions] = useState<SavingsTransactionRecord[]>(
     [],
   );
+  const [spendEvents, setSpendEvents] = useState<SpendSaveEventRecord[]>([]);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  // Shares the dashboard's and Save's "hide balances" choice.
+  const [hideBalance, setHideBalance] = useState(false);
+  useEffect(() => {
+    try {
+      setHideBalance(window.localStorage.getItem("swiftpay.hide-balance") === "1");
+    } catch {
+      setHideBalance(false);
+    }
+  }, []);
+  const toggleHideBalance = useCallback(() => {
+    setHideBalance((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("swiftpay.hide-balance", next ? "1" : "0");
+      } catch {
+        // Private mode: the choice lasts this visit.
+      }
+      return next;
+    });
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -202,7 +221,11 @@ export default function SavingsPocketDetailPage() {
       const social =
         getCircleLoginIdentity(readCircleLogin())?.socialUserUUID ?? undefined;
       setCircleSocialUuid(social);
-      const data = await fetchSavingsPocket(pocketId, owner, social);
+      const [data, history] = await Promise.all([
+        fetchSavingsPocket(pocketId, owner, social),
+        fetchSpendSaveHistory(owner, social).catch(() => ({ events: [] as SpendSaveEventRecord[] })),
+      ]);
+      setSpendEvents(history.events.filter((event) => event.pocket_id === pocketId));
       setPocket(data.pocket);
       setStats(data.stats);
       setSpendSave(data.spendSave);
@@ -393,6 +416,77 @@ export default function SavingsPocketDetailPage() {
     await refetchAllowance();
   }
 
+  function buildCircleExecutor() {
+    const circleWallet = platformCircleWallet;
+    if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
+      throw new Error("Circle wallet is not ready.");
+    }
+    const login = circleLogin;
+    const sdk = circleSdkRef.current;
+    return {
+      login,
+      walletId: circleWallet.id,
+      executeChallenge: async (challengeId: string) => {
+        sdk.setAuthentication(currentCircleAuth(login));
+        return new Promise<{ transactionId?: string; txHash?: string }>(
+          (resolve, reject) => {
+            sdk.execute(challengeId, (error, result) => {
+              if (error) {
+                reject(new Error(getErrorMessage(error)));
+                return;
+              }
+              resolve({
+                transactionId: extractCircleTransactionId(result),
+                txHash: extractCircleTxHash(result),
+              });
+            });
+          },
+        );
+      },
+    };
+  }
+
+  /**
+   * A payment that triggered a Spend&Save was refunded: move that save back
+   * to spendable money (the pocket's own reverse-refund action).
+   */
+  async function handleReverseSpendSave(item: PocketActivityItem) {
+    const tx = item.transaction;
+    if (!address || !tx || tx.type !== "SPEND_SAVE" || tx.status !== "COMPLETED") return;
+    setError(null);
+    try {
+      setIsActing(true);
+      setSuccess("Reversing the save for the refunded payment…");
+      await executeSavingsReversal({
+        ownerWallet: address,
+        originalTransactionId: tx.id,
+        circleSocialUuid,
+        mode: isCircleMode ? "circle" : "external",
+        chainId: arcChain.id,
+        writeContractAsync: isCircleMode
+          ? undefined
+          : async (args) =>
+              writeContractAsync({
+                address: args.address,
+                abi: args.abi,
+                functionName: args.functionName as "withdraw",
+                args: args.args as never,
+                chainId: args.chainId,
+              }),
+        circleExecutor: isCircleMode ? buildCircleExecutor() : undefined,
+        reason: "payment_refund",
+      });
+      setSuccess("Reversed. The saved amount is back in your spendable balance.");
+      await load();
+      void refetchBalance();
+    } catch (err) {
+      setSuccess(null);
+      setError(getErrorMessage(err));
+    } finally {
+      setIsActing(false);
+    }
+  }
+
   async function handleAmountConfirm(amount: string) {
     if (!address || !pocket || !amountMode) return;
     setActionError(null);
@@ -413,36 +507,6 @@ export default function SavingsPocketDetailPage() {
 
     try {
       setIsActing(true);
-      const circleWallet = platformCircleWallet;
-      const buildCircleExecutor = () => {
-        if (!circleLogin || !circleWallet?.id || !circleSdkRef.current) {
-          throw new Error("Circle wallet is not ready.");
-        }
-        const login = circleLogin;
-        const sdk = circleSdkRef.current;
-        return {
-          login,
-          walletId: circleWallet.id,
-          executeChallenge: async (challengeId: string) => {
-            sdk.setAuthentication(currentCircleAuth(login));
-            return new Promise<{ transactionId?: string; txHash?: string }>(
-              (resolve, reject) => {
-                sdk.execute(challengeId, (error, result) => {
-                  if (error) {
-                    reject(new Error(getErrorMessage(error)));
-                    return;
-                  }
-                  resolve({
-                    transactionId: extractCircleTransactionId(result),
-                    txHash: extractCircleTxHash(result),
-                  });
-                });
-              },
-            );
-          },
-        };
-      };
-
       if (amountMode === "deposit") {
         const prepared = await initiateDeposit(pocket.id, {
           ownerWallet: address,
@@ -605,21 +669,15 @@ export default function SavingsPocketDetailPage() {
         ownerWallet: address,
         circleSocialUuid,
       });
-      setSuccess("Pocket archived.");
-      await load();
+      setOptionsOpen(false);
+      router.replace("/save");
     } catch (err) {
       setError(getErrorMessage(err));
     }
   }
 
-  async function handleDelete() {
+  async function handleDeleteConfirmed() {
     if (!address || !pocket) return;
-    if (!confirmingDelete) {
-      setConfirmingDelete(true);
-      return;
-    }
-
-    setConfirmingDelete(false);
     setIsDeleting(true);
     setError(null);
     try {
@@ -627,11 +685,11 @@ export default function SavingsPocketDetailPage() {
         ownerWallet: address,
         circleSocialUuid,
       });
-      // The pocket is gone, so there is nothing left on this route to show.
       router.replace("/save");
     } catch (err) {
       setError(getErrorMessage(err));
       setIsDeleting(false);
+      setOptionsOpen(false);
     }
   }
 
@@ -642,379 +700,135 @@ export default function SavingsPocketDetailPage() {
   );
   const progress = pocket ? pocketProgress(pocket) : null;
   const lockState = pocket ? getPocketLockState(pocket) : null;
-  const remaining =
-    pocket?.target_amount_units && pocket
-      ? Math.max(
-          0,
-          Number(pocket.target_amount) - Number(pocket.current_balance),
-        )
-      : null;
+
+  const activity = pocket ? buildPocketActivity(pocket.id, transactions, spendEvents) : [];
+  const canAct = isWalletAuthenticated && pocket?.status === "active";
 
   return (
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The page draws its own bar and hero.
+        hideHeader
         subtitle="Pocket detail"
         title="Save"
       >
-        <div className="space-y-6">
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/save">
-              <ArrowLeft className="mr-1.5 h-4 w-4" />
-              Back to Save
-            </Link>
-          </Button>
-
+        <div className="pocket-page">
           {!isConnected || !address ? (
-            <p className="text-sm text-muted-foreground">
-              Connect a wallet to view this pocket.
-            </p>
-          ) : isLoading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
+            <>
+              <PocketBar name="Pocket" />
+              <p className="text-sm text-muted-foreground">Connect a wallet to view this pocket.</p>
+            </>
+          ) : isLoading && !pocket ? (
+            <>
+              <PocketBar name="Pocket" />
+              <div className="pocket-hero pocket-hero-skeleton" />
+            </>
           ) : !pocket ? (
-            <p className="text-sm text-rose-600">
-              {error ?? "Pocket not found."}
-            </p>
+            <>
+              <PocketBar name="Pocket" />
+              <p className="text-sm text-destructive">{error ?? "Pocket not found."}</p>
+            </>
           ) : (
             <>
-              {error ? (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm">
-                  {error}
+              <PocketBar name={pocket.name} onMore={pocket.status === "active" ? () => setOptionsOpen(true) : undefined} />
+
+              {!isWalletAuthenticated ? (
+                <div className="pocket-card pocket-notice">
+                  <KeyRound className="h-5 w-5 shrink-0 text-primary" />
+                  <p className="min-w-0 flex-1 text-sm">Authorize this wallet to move money in or out of this pocket.</p>
+                  <Button disabled={isSigningIn} onClick={() => void handleWalletSignIn()} size="sm">
+                    {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                    Authorize
+                  </Button>
                 </div>
               ) : null}
-              {success ? (
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm">
-                  {success}
-                </div>
-              ) : null}
 
-              <div className="pocket-detail-grid">
-              <div className="rounded-2xl border border-border/80 bg-card p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-4xl">
-                      {getPocketEmoji(pocket.icon)}
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h1 className="text-2xl font-semibold">{pocket.name}</h1>
-                        <Badge
-                          variant={
-                            pocket.status === "active" ? "default" : "secondary"
-                          }
-                        >
-                          {pocket.status}
-                        </Badge>
-                        {lockState?.kind === "fixed" && lockState.locked ? (
-                          <Badge className="bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200">
-                            Fixed · locked
-                          </Badge>
-                        ) : lockState?.kind === "fixed" ? (
-                          <Badge variant="secondary">Fixed · unlocked</Badge>
-                        ) : (
-                          <Badge variant="secondary">Flexible</Badge>
-                        )}
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {pocket.description || "No goal note"}
-                      </p>
-                      <p className="mt-3 text-3xl font-semibold tracking-tight">
-                        {formatMoney(pocket.current_balance, pocket.currency)}
-                      </p>
-                      {pocket.target_amount &&
-                      progress != null &&
-                      progress >= 100 ? (
-                        <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
-                          <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-                            Goal reached!
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Your {pocket.name} is fully funded.
-                          </p>
-                        </div>
-                      ) : null}
-                      {pocket.target_amount ? (
-                        <div className="mt-3 max-w-sm">
-                          <p className="text-xs text-muted-foreground">
-                            {formatMoneyShort(pocket.current_balance)} /{" "}
-                            {formatMoneyShort(pocket.target_amount)} ·{" "}
-                            {progress ?? 0}% complete
-                            {remaining != null && remaining > 0
-                              ? ` · ${formatMoneyShort(remaining.toFixed(2))} remaining`
-                              : null}
-                          </p>
-                          <Progress className="mt-2" value={progress ?? 0} />
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {pocket.stop_at_target
-                              ? "Stops auto-save when target is reached"
-                              : "Continues saving beyond target"}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {formatMoneyShort(pocket.current_balance)} saved · no
-                          target set
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {!isWalletAuthenticated ? (
-                      <Button
-                        disabled={isSigningIn}
-                        onClick={() => void handleWalletSignIn()}
-                        type="button"
-                        variant="outline"
-                      >
-                        <KeyRound className="mr-2 h-4 w-4" />
-                        Authorize
-                      </Button>
-                    ) : null}
-                    <Button
-                      disabled={
-                        !isWalletAuthenticated || pocket.status !== "active"
-                      }
-                      onClick={() => {
-                        setAmountMode("deposit");
-                        setActionError(null);
-                      }}
-                      type="button"
-                    >
-                      <ArrowDownToLine className="mr-2 h-4 w-4" />
-                      Add money
-                    </Button>
-                    <Button
-                      disabled={
-                        !isWalletAuthenticated ||
-                        pocket.status !== "active" ||
-                        Boolean(lockState?.locked)
-                      }
-                      onClick={() => {
-                        if (lockState?.locked) {
-                          setError(
-                            `This pocket is locked until ${formatUnlockDate(lockState.until)}.`,
-                          );
-                          return;
-                        }
-                        setAmountMode("withdraw");
-                        setActionError(null);
-                      }}
-                      title={
-                        lockState?.locked
-                          ? `Locked until ${formatUnlockDate(lockState.until)}`
-                          : "Withdraw"
-                      }
-                      type="button"
-                      variant="outline"
-                    >
-                      {lockState?.locked ? (
-                        <LockKeyhole className="mr-2 h-4 w-4" />
-                      ) : (
-                        <ArrowUpFromLine className="mr-2 h-4 w-4" />
-                      )}
-                      {lockState?.locked ? "Locked" : "Withdraw"}
-                    </Button>
-                    <Button
-                      disabled={
-                        !isWalletAuthenticated || pocket.status !== "active"
-                      }
-                      onClick={() => setEditing((v) => !v)}
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      disabled={
-                        !isWalletAuthenticated || pocket.status !== "active"
-                      }
-                      onClick={() => void handleArchive()}
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Archive className="mr-2 h-4 w-4" />
-                      Archive
-                    </Button>
-                    {/* Only an empty pocket can go; anything with history is
-                        archived instead, so the ledger survives. */}
-                    {isPocketEmpty ? (
-                      <Button
-                        className={
-                          confirmingDelete
-                            ? "text-destructive hover:text-destructive"
-                            : undefined
-                        }
-                        disabled={!isWalletAuthenticated || isDeleting}
-                        onBlur={() => setConfirmingDelete(false)}
-                        onClick={() => void handleDelete()}
-                        type="button"
-                        variant="ghost"
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="mr-2 h-4 w-4" />
-                        )}
-                        {confirmingDelete ? "Tap to confirm" : "Delete"}
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <PocketLockPanel
-                    disabled={!isWalletAuthenticated || pocket.status !== "active"}
-                    isSaving={isActing}
-                    onLock={(input) => void handleLock(input)}
-                    pocket={pocket}
-                  />
-                </div>
-
-                {spendSave?.enabled ? (
-                  <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
-                    <span className="font-medium">Spend&Save active</span>
-                    {". "}
-                    {Number(spendSave.percentage)}% of eligible spending goes
-                    here.
-                  </div>
-                ) : null}
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-xl border border-border/70 p-3">
-                    <p className="text-xs text-muted-foreground">Created</p>
-                    <p className="mt-1 text-sm font-medium">
-                      {new Date(pocket.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 p-3">
-                    <p className="text-xs text-muted-foreground">Last deposit</p>
-                    <p className="mt-1 text-sm font-medium">
-                      {stats?.lastDepositAt
-                        ? new Date(stats.lastDepositAt).toLocaleString()
-                        : "n/a"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Total deposits
-                    </p>
-                    <p className="mt-1 text-sm font-medium">
-                      {formatMoney(stats?.totalDeposits ?? "0", currency)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/70 p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Total withdrawals
-                    </p>
-                    <p className="mt-1 text-sm font-medium">
-                      {formatMoney(stats?.totalWithdrawals ?? "0", currency)}
-                    </p>
-                  </div>
-                </div>
-
-                {editing ? (
-                  <div className="mt-6 space-y-3 rounded-xl border border-border p-4">
-                    <Input
-                      onChange={(e) => setEditName(e.target.value)}
-                      value={editName}
-                    />
-                    <Input
-                      onChange={(e) => setEditTarget(e.target.value)}
-                      placeholder="Target amount (optional)"
-                      value={editTarget}
-                    />
-                    <Input
-                      onChange={(e) => setEditDescription(e.target.value)}
-                      placeholder="Description"
-                      value={editDescription}
-                    />
-                    {editTarget.trim() ? (
-                      <label className="flex cursor-pointer items-start gap-2 text-sm">
-                        <input
-                          checked={editStopAtTarget}
-                          className="mt-1"
-                          onChange={(e) =>
-                            setEditStopAtTarget(e.target.checked)
-                          }
-                          type="checkbox"
-                        />
-                        <span>
-                          <span className="font-medium">
-                            Stop saving when target is reached
-                          </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">
-                            Uncheck to continue saving beyond your target.
-                          </span>
-                        </span>
-                      </label>
-                    ) : null}
-                    <div className="flex gap-2">
-                      <Button
-                        disabled={isActing}
-                        onClick={() => void handleSaveEdit()}
-                        type="button"
-                      >
-                        Save changes
-                      </Button>
-                      <Button
-                        onClick={() => setEditing(false)}
-                        type="button"
-                        variant="outline"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <PagedActivityBox
-                empty="No transactions yet."
-                items={transactions}
-                title="Pocket activity"
-                renderItem={(tx) => (
-                  <div
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
-                    key={tx.id}
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {tx.type} · {formatMoney(tx.amount, tx.currency)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {tx.status} · {new Date(tx.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    {tx.tx_hash ? (
-                      <a
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        href={explorerTxUrl(tx.tx_hash)}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        Tx
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : null}
-                  </div>
-                )}
+              <PocketHero
+                canAct={Boolean(canAct)}
+                hidden={hideBalance}
+                lock={lockState!}
+                onAdd={() => {
+                  setAmountMode("deposit");
+                  setActionError(null);
+                }}
+                onToggleHidden={toggleHideBalance}
+                onWithdraw={() => {
+                  if (lockState?.locked) {
+                    setError(`This pocket is locked until ${formatUnlockDate(lockState.until)}.`);
+                    return;
+                  }
+                  setAmountMode("withdraw");
+                  setActionError(null);
+                }}
+                pocket={pocket}
+                progress={progress}
               />
-              </div>
+
+              {error ? <p className="pocket-message is-error">{error}</p> : null}
+              {success ? <p className="pocket-message is-success">{success}</p> : null}
+
+              {pocket.status === "active" ? (
+                <PocketLockCard
+                  busy={isActing}
+                  canAct={Boolean(canAct)}
+                  lock={lockState!}
+                  onLock={(input) => void handleLock(input)}
+                />
+              ) : null}
+
+              {spendSave && spendSave.pocket_id === pocket.id ? <PocketSpendSave spendSave={spendSave} /> : null}
+
+              <PocketFigures
+                created={pocket.created_at}
+                hidden={hideBalance}
+                lastDepositAt={stats?.lastDepositAt ?? null}
+                totalIn={stats?.totalDeposits ?? "0"}
+                totalOut={stats?.totalWithdrawals ?? "0"}
+              />
+
+              <PocketActivity
+                acting={isActing}
+                canReverse={isWalletAuthenticated}
+                hidden={hideBalance}
+                items={activity}
+                onReverse={(item) => void handleReverseSpendSave(item)}
+              />
+
+              <PocketOptionsSheet
+                canAct={Boolean(canAct)}
+                canDelete={isPocketEmpty}
+                deleting={isDeleting}
+                onArchive={() => void handleArchive()}
+                onClose={() => setOptionsOpen(false)}
+                onDelete={() => void handleDeleteConfirmed()}
+                onEdit={() => {
+                  setOptionsOpen(false);
+                  setEditing(true);
+                }}
+                open={optionsOpen}
+              />
+
+              <PocketEditSheet
+                busy={isActing}
+                description={editDescription}
+                name={editName}
+                onClose={() => setEditing(false)}
+                onDescription={setEditDescription}
+                onName={setEditName}
+                onSave={() => void handleSaveEdit()}
+                onStopAtTarget={setEditStopAtTarget}
+                onTarget={setEditTarget}
+                open={editing}
+                stopAtTarget={editStopAtTarget}
+                target={editTarget}
+              />
 
               {amountMode ? (
                 <AmountConfirmDialog
                   currency={pocket.currency}
                   error={actionError}
-                  isSubmitting={
-                    isActing ||
-                    isWritePending ||
-                    isConfirming ||
-                    Boolean(pendingConfirm)
-                  }
+                  isSubmitting={isActing || isWritePending || isConfirming || Boolean(pendingConfirm)}
                   mode={amountMode}
                   onConfirm={(amount) => void handleAmountConfirm(amount)}
                   onOpenChange={(open) => {

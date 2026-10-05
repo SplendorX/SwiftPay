@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ExternalLink,
   Info,
   KeyRound,
   Loader2,
@@ -26,7 +25,6 @@ import { showSuccess } from "@/components/success-popup";
 import { AmountConfirmDialog } from "@/components/save/amount-confirm-dialog";
 import { CreatePocketDialog } from "@/components/save/create-pocket-dialog";
 import {
-  formatMoney,
   formatMoneyShort,
 } from "@/components/save/format";
 import { SpendSaveSetupDialog } from "@/components/save/spend-save-setup-dialog";
@@ -37,9 +35,7 @@ import {
   SaveWays,
   SpendSaveCard,
 } from "@/components/save/save-views";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PagedActivityBox } from "@/components/ui/paged-activity-box";
 import {
   currentCircleAuth,
   getCircleLoginIdentity,
@@ -61,16 +57,13 @@ import {
   disableSpendSave,
   fetchSavingsPockets,
   fetchSavingsSummary,
-  fetchSavingsTransactions,
   fetchSpendSave,
-  fetchSpendSaveHistory,
   initiateDeposit,
   initiateWithdraw,
   pauseSpendSave,
   resumeSpendSave,
 } from "@/lib/save/client";
 import {
-  explorerTxUrl,
   isSwiftSaveVaultConfigured,
   SWIFT_SAVE_DISCLAIMER,
   swiftSaveVaultAddress,
@@ -79,15 +72,10 @@ import {
   formatUnlockDate,
   getPocketLockState,
 } from "@/lib/save/lock";
-import { executeSavingsReversal } from "@/lib/save/spend-save-browser";
 import {
   type SavingsPocketRecord,
   type SavingsSummary,
-  type SavingsTransactionRecord,
-  type SavingsTransactionStatus,
-  type SavingsTransactionType,
   type SpendSaveConfigRecord,
-  type SpendSaveEventRecord,
 } from "@/lib/save/types";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import {
@@ -105,112 +93,6 @@ import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Something went wrong.";
-}
-
-type SavingsActivityFilter = "ALL" | "SPEND_SAVE" | "DEPOSIT" | "WITHDRAWAL";
-
-type SavingsActivityItem = {
-  amount: string;
-  createdAt: string;
-  currency: ArcTokenSymbol;
-  group: SavingsActivityFilter;
-  id: string;
-  pocketId: string | null;
-  /** Present only for Spend&Save, where the originating payment is known. */
-  spend?: {
-    paymentAmount: string;
-    paymentTxHash: string | null;
-    savePercentage: number;
-  };
-  status: SavingsTransactionStatus;
-  /** The ledger row, when one exists — carries the reverse-refund action. */
-  transaction?: SavingsTransactionRecord;
-  txHash: string | null;
-  typeLabel: string;
-};
-
-function activityGroup(type: SavingsTransactionType): SavingsActivityFilter {
-  if (type === "SPEND_SAVE") return "SPEND_SAVE";
-  if (type === "DEPOSIT") return "DEPOSIT";
-  if (type === "WITHDRAWAL") return "WITHDRAWAL";
-  return "ALL";
-}
-
-/**
- * One activity feed from the two savings sources.
- *
- * Every Spend&Save has a ledger row *and* an event row describing the payment
- * that triggered it, so listing both duplicated each save. The ledger is the
- * spine — it covers deposits and withdrawals too, and carries the refund
- * action — and each Spend&Save row is enriched with its event. An event whose
- * ledger row has not landed yet is still included, so nothing disappears.
- */
-function buildSavingsActivity(
-  transactions: SavingsTransactionRecord[],
-  spendEvents: SpendSaveEventRecord[],
-): SavingsActivityItem[] {
-  const eventByTransaction = new Map<string, SpendSaveEventRecord>();
-  for (const event of spendEvents) {
-    if (event.savings_transaction_id) {
-      eventByTransaction.set(event.savings_transaction_id, event);
-    }
-  }
-
-  const items: SavingsActivityItem[] = transactions.map((tx) => {
-    const event = eventByTransaction.get(tx.id);
-    return {
-      amount: tx.amount,
-      createdAt: tx.created_at,
-      currency: tx.currency,
-      group: activityGroup(tx.type),
-      id: `tx:${tx.id}`,
-      pocketId: tx.pocket_id,
-      status: tx.status,
-      transaction: tx,
-      txHash: tx.tx_hash,
-      typeLabel: tx.type.replace(/_/g, " "),
-      ...(event
-        ? {
-            spend: {
-              paymentAmount: event.payment_amount,
-              paymentTxHash: event.payment_tx_hash,
-              savePercentage: Number(event.save_percentage),
-            },
-          }
-        : {}),
-    };
-  });
-
-  const linked = new Set(
-    transactions.map((tx) => tx.id).filter((id) => eventByTransaction.has(id)),
-  );
-
-  for (const event of spendEvents) {
-    if (event.savings_transaction_id && linked.has(event.savings_transaction_id)) {
-      continue;
-    }
-    items.push({
-      amount: event.save_amount,
-      createdAt: event.created_at,
-      currency: event.currency,
-      group: "SPEND_SAVE",
-      id: `event:${event.id}`,
-      pocketId: event.pocket_id,
-      spend: {
-        paymentAmount: event.payment_amount,
-        paymentTxHash: event.payment_tx_hash,
-        savePercentage: Number(event.save_percentage),
-      },
-      status: event.status,
-      txHash: null,
-      typeLabel: "SPEND SAVE",
-    });
-  }
-
-  return items.sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
 }
 
 export function SwiftSaveHub() {
@@ -240,37 +122,8 @@ export function SwiftSaveHub() {
   const [currency] = useState<ArcTokenSymbol>("USDC");
   const [summary, setSummary] = useState<SavingsSummary | null>(null);
   const [pockets, setPockets] = useState<SavingsPocketRecord[]>([]);
-  const [transactions, setTransactions] = useState<SavingsTransactionRecord[]>(
-    [],
-  );
   const [spendSave, setSpendSave] = useState<SpendSaveConfigRecord | null>(null);
-  const [spendEvents, setSpendEvents] = useState<SpendSaveEventRecord[]>([]);
-  const [activityFilter, setActivityFilter] = useState<SavingsActivityFilter>(
-    "ALL",
-  );
   const [isLoading, setIsLoading] = useState(true);
-  const savingsActivity = useMemo(
-    () => buildSavingsActivity(transactions, spendEvents),
-    [spendEvents, transactions],
-  );
-  const activityCounts = useMemo(
-    () => ({
-      ALL: savingsActivity.length,
-      DEPOSIT: savingsActivity.filter((item) => item.group === "DEPOSIT").length,
-      SPEND_SAVE: savingsActivity.filter((item) => item.group === "SPEND_SAVE")
-        .length,
-      WITHDRAWAL: savingsActivity.filter((item) => item.group === "WITHDRAWAL")
-        .length,
-    }),
-    [savingsActivity],
-  );
-  const visibleActivity = useMemo(
-    () =>
-      activityFilter === "ALL"
-        ? savingsActivity
-        : savingsActivity.filter((item) => item.group === activityFilter),
-    [activityFilter, savingsActivity],
-  );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -398,9 +251,7 @@ export function SwiftSaveHub() {
     if (!owner) {
       setSummary(null);
       setPockets([]);
-      setTransactions([]);
       setSpendSave(null);
-      setSpendEvents([]);
       setIsLoading(false);
       return;
     }
@@ -412,20 +263,15 @@ export function SwiftSaveHub() {
         getCircleLoginIdentity(readCircleLogin())?.socialUserUUID ?? undefined;
       setCircleSocialUuid(social);
 
-      const [summaryRes, pocketsRes, txRes, spendRes, eventsRes] =
-        await Promise.all([
-          fetchSavingsSummary(owner, currency, social),
-          fetchSavingsPockets(owner, { circleSocialUuid: social }),
-          fetchSavingsTransactions(owner, { circleSocialUuid: social }),
-          fetchSpendSave(owner, social),
-          fetchSpendSaveHistory(owner, social),
-        ]);
+      const [summaryRes, pocketsRes, spendRes] = await Promise.all([
+        fetchSavingsSummary(owner, currency, social),
+        fetchSavingsPockets(owner, { circleSocialUuid: social }),
+        fetchSpendSave(owner, social),
+      ]);
 
       setSummary(summaryRes.summary);
       setPockets(pocketsRes.pockets);
-      setTransactions(txRes.transactions);
       setSpendSave(spendRes.config);
-      setSpendEvents(eventsRes.events);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -834,44 +680,6 @@ export function SwiftSaveHub() {
     }
   }
 
-  async function handleReverseSpendSave(tx: SavingsTransactionRecord) {
-    if (!address) return;
-    if (tx.type !== "SPEND_SAVE" || tx.status !== "COMPLETED") return;
-    setError(null);
-    try {
-      setIsActing(true);
-      setSuccess("Reversing savings for refunded payment…");
-      await executeSavingsReversal({
-        ownerWallet: address,
-        originalTransactionId: tx.id,
-        circleSocialUuid,
-        mode: isCircleMode ? "circle" : "external",
-        chainId: arcChain.id,
-        writeContractAsync: isCircleMode
-          ? undefined
-          : async (args) =>
-              writeContractAsync({
-                address: args.address,
-                abi: args.abi,
-                functionName: args.functionName as "withdraw",
-                args: args.args as never,
-                chainId: args.chainId,
-              }),
-        circleExecutor: isCircleMode ? buildCircleExecutor() : undefined,
-        reason: "payment_refund",
-      });
-      setSuccess(
-        "Refund reversal completed. The savings amount is back in your spendable balance.",
-      );
-      await loadAll();
-      void refetchBalance();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setIsActing(false);
-    }
-  }
-
   async function handleArchive(pocket: SavingsPocketRecord) {
     if (!address) return;
     setError(null);
@@ -1061,108 +869,6 @@ export function SwiftSaveHub() {
         onSpendSave={() => setSetupOpen(true)}
         spendSave={spendSave}
       />
-
-      <div className="save-activity">
-      <PagedActivityBox
-          activeFilter={activityFilter}
-          empty={
-            activityFilter === "ALL"
-              ? "Deposits, withdrawals, and Spend&Save transfers will appear here."
-              : "Nothing matches this filter yet."
-          }
-          filters={[
-            { count: activityCounts.ALL, id: "ALL", label: "All" },
-            {
-              count: activityCounts.SPEND_SAVE,
-              id: "SPEND_SAVE",
-              label: "Spend&Save",
-            },
-            { count: activityCounts.DEPOSIT, id: "DEPOSIT", label: "Deposits" },
-            {
-              count: activityCounts.WITHDRAWAL,
-              id: "WITHDRAWAL",
-              label: "Withdrawals",
-            },
-          ]}
-          items={visibleActivity}
-          onFilterChange={(id) => setActivityFilter(id as SavingsActivityFilter)}
-          title="Savings activity"
-          renderItem={(item) => {
-            const pocket = pockets.find((entry) => entry.id === item.pocketId);
-            const tx = item.transaction;
-            return (
-              <div
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
-                key={item.id}
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {item.spend
-                      ? `${formatMoneyShort(item.spend.paymentAmount)} spent · ${formatMoneyShort(item.amount)} saved`
-                      : `${item.typeLabel} · ${formatMoney(item.amount, item.currency)}`}
-                  </p>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                    <Badge
-                      variant={
-                        item.status === "COMPLETED" ? "default" : "secondary"
-                      }
-                    >
-                      {item.status}
-                    </Badge>
-                    {item.spend ? (
-                      <span>
-                        {item.spend.savePercentage}% → {pocket?.name ?? "Pocket"}
-                      </span>
-                    ) : pocket ? (
-                      <span>{pocket.name}</span>
-                    ) : null}
-                    <span>{new Date(item.createdAt).toLocaleString()}</span>
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {item.spend?.paymentTxHash ? (
-                    <a
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                      href={explorerTxUrl(item.spend.paymentTxHash)}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Payment tx
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : null}
-                  {item.txHash ? (
-                    <a
-                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                      href={explorerTxUrl(item.txHash)}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      View
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : null}
-                  {tx &&
-                  tx.type === "SPEND_SAVE" &&
-                  tx.status === "COMPLETED" &&
-                  isWalletAuthenticated ? (
-                    <Button
-                      disabled={isActing}
-                      onClick={() => void handleReverseSpendSave(tx)}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      Reverse refund
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            );
-          }}
-        />
-
-      </div>
 
       <div className="save-about">
         <button

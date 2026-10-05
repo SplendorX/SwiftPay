@@ -377,7 +377,11 @@ export function PocketCard({
   return (
     <article className={cn("save-pocket", reached && "is-reached")}>
       <div className="save-pocket-top">
-        <Link className="save-pocket-identity" href={`/save/${pocket.id}`}>
+        <Link
+          aria-label={`${pocket.name}: details and activity`}
+          className="save-pocket-identity"
+          href={`/save/${pocket.id}`}
+        >
           <span className="save-pocket-emoji">{getPocketEmoji(pocket.icon)}</span>
           <span className="min-w-0">
             <span className="save-pocket-name">{pocket.name}</span>
@@ -393,6 +397,7 @@ export function PocketCard({
               )}
             </span>
           </span>
+          <ChevronRight aria-hidden className="save-pocket-chevron h-4 w-4" />
         </Link>
         {pocket.target_amount ? <GoalRing percent={progress} reached={reached} /> : null}
       </div>
