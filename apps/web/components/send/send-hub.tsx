@@ -37,7 +37,7 @@ import type { AccountActivityItem } from "@/lib/activity/merge";
 import { transactionHistoryDays } from "@/lib/activity/types";
 import { useAccountTransactions } from "@/lib/activity/use-account-transactions";
 import type { BeneficiaryRecord } from "@/lib/beneficiaries";
-import { searchPeople } from "@/lib/business/client";
+import { fetchDirectoryProfile, searchPeople } from "@/lib/business/client";
 import type { DirectoryHit } from "@/lib/business/types";
 import { fetchProfile } from "@/lib/profile";
 import { formatUsernameLabel } from "@/lib/profile-utils";
@@ -185,19 +185,28 @@ export function SendHub(props: SendHubProps) {
 
   // The recipient's profile photo, when they have a SwiftPay profile.
   const [recipientAvatar, setRecipientAvatar] = useState<string | null>(null);
+  // A username asks the directory, which knows a business's logo as well as
+  // a person's photo; a bare wallet asks its profile.
   useEffect(() => {
     setRecipientAvatar(null);
     if (!isRecipientValid || !trimmedRecipientAddress) return;
     let cancelled = false;
-    void fetchProfile(trimmedRecipientAddress)
-      .then((profile) => {
-        if (!cancelled) setRecipientAvatar(profile?.avatar_url ?? null);
-      })
-      .catch(() => undefined);
+    const lookup = resolvedRecipientUsername
+      ? fetchDirectoryProfile(resolvedRecipientUsername).then((payload) => payload.profile.avatarUrl ?? null)
+      : fetchProfile(trimmedRecipientAddress).then((profile) => profile?.avatar_url ?? null);
+    void lookup
+      .catch(() =>
+        fetchProfile(trimmedRecipientAddress)
+          .then((profile) => profile?.avatar_url ?? null)
+          .catch(() => null),
+      )
+      .then((url) => {
+        if (!cancelled) setRecipientAvatar(url);
+      });
     return () => {
       cancelled = true;
     };
-  }, [isRecipientValid, trimmedRecipientAddress]);
+  }, [isRecipientValid, resolvedRecipientUsername, trimmedRecipientAddress]);
 
   // A link that already names who to pay (?to=…, an invoice, ALLIE) opens the chat.
   useEffect(() => {

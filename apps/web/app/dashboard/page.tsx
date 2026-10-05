@@ -126,7 +126,6 @@ import {
 } from "@/lib/use-conversion-rates";
 import {
   circleDeviceIdHelp,
-  circleSdkLoginConfigs,
   currentCircleAuth,
   callCircleWalletApi,
   isCircleDeviceIdError,
@@ -1311,7 +1310,6 @@ export function DashboardContent({
               encryptionKey: login.encryptionKey,
               userToken: login.userToken,
             },
-            ...circleSdkLoginConfigs(),
           });
         }
 
@@ -2993,29 +2991,33 @@ export function DashboardContent({
 
     let executed: { transactionId?: string; txHash?: string };
     try {
-      executed = await runChallenge(sdk);
+      // Circle's window answers within seconds; if it never shows (blocked or
+      // stuck on a phone), stop rather than spin forever.
+      executed = await Promise.race([
+        runChallenge(sdk),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "Circle's confirmation didn't finish. Check Transactions before trying again; if it keeps happening, sign out and back in on this device.",
+                ),
+              ),
+            120_000,
+          );
+        }),
+      ]);
     } catch (error) {
-      if (!isCircleDeviceIdError(error)) {
-        throw new Error(getErrorMessage(error));
-      }
-      // Circle lost track of this device: start a fresh SDK with the device
-      // credentials from sign-in and ask once more.
-      try {
-        const appId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
-        document.getElementById("sdkIframe")?.remove();
-        const { W3SSdk: CircleW3SSdk } = await import("@circle-fin/w3s-pw-web-sdk");
-        const fresh = new CircleW3SSdk({
-          appSettings: { appId },
-          authentication: currentCircleAuth(circleLogin),
-          ...circleSdkLoginConfigs(),
-        });
-        circleSdkRef.current = fresh;
-        executed = await runChallenge(fresh);
-      } catch (retryError) {
-        throw new Error(
-          isCircleDeviceIdError(retryError) ? circleDeviceIdHelp : getErrorMessage(retryError),
-        );
-      }
+      document.getElementById("sdkIframe")?.remove();
+      void fetch("/api/client-errors", {
+        body: JSON.stringify({
+          message: `circle-execute: ${error instanceof Error ? error.message : JSON.stringify(error)}`.slice(0, 500),
+          path: window.location.pathname,
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }).catch(() => undefined);
+      throw new Error(isCircleDeviceIdError(error) ? circleDeviceIdHelp : getErrorMessage(error));
     }
 
     const targetWalletId = options?.walletId || circleWallet?.id;
