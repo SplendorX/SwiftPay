@@ -9,7 +9,6 @@ import {
   KeyRound,
   Repeat,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   Unlock,
 } from "lucide-react";
@@ -147,7 +146,7 @@ export function EarnHero({
         <HeroArt />
         <div className="earn-hero-body">
           <p className="earn-hero-eyebrow">
-            <Sparkles className="h-4 w-4" /> Earn on idle USDC
+            <TrendingUp className="h-4 w-4" /> Earn on idle USDC
           </p>
           <p className="earn-hero-headline">
             {bestApy !== null ? (

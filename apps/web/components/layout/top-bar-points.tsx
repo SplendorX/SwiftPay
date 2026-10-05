@@ -12,7 +12,6 @@ import {
   ShoppingCart,
   HelpCircle,
   Loader2,
-  Sparkles,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -190,7 +189,7 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
 
           {/* Everyday Cashback Info Tip */}
           <div className="mt-3 rounded-lg border border-border/70 bg-muted/40 p-2.5 text-[11px] leading-relaxed text-muted-foreground flex items-start gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+            <Coins className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
             <span>
               Earn <strong>1 to 50 SwiftPoints</strong> cashback on every platform transaction from 20 USDC/EURC up.
             </span>

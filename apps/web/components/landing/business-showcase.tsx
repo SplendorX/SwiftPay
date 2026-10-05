@@ -16,7 +16,6 @@ import {
   Receipt,
   Send,
   ShieldCheck,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   Users,

@@ -10,7 +10,6 @@ import {
   Gift,
   Loader2,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   Zap,
 } from "lucide-react";

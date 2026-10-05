@@ -12,7 +12,7 @@ import {
   Percent,
   Play,
   Plus,
-  Sparkles,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -107,7 +107,7 @@ export function SaveHero({
         <div className="save-hero-meta">
           {!loading && Number(monthSaved) > 0 ? (
             <span className="save-hero-chip">
-              <Sparkles className="h-3.5 w-3.5" /> {hidden ? MASK : `+${formatSaved(monthSaved)}`} this month
+              <TrendingUp className="h-3.5 w-3.5" /> {hidden ? MASK : `+${formatSaved(monthSaved)}`} this month
             </span>
           ) : null}
           <span className="save-hero-chip is-quiet">

@@ -10,7 +10,7 @@ import {
   PlayCircle,
   Plus,
   ShieldAlert,
-  Sparkles,
+  Crown,
   Wallet,
   X,
 } from "lucide-react";
@@ -705,7 +705,7 @@ export function AgentWalletSettings({ embedded = false }: { embedded?: boolean }
                 </h3>
                 {plan.tier === "pro" ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[0.7rem] font-semibold text-primary">
-                    <Sparkles className="h-3 w-3" />
+                    <Crown className="h-3 w-3" />
                     Active
                   </span>
                 ) : null}
@@ -1128,7 +1128,7 @@ function EmbeddedAgentWallet({
                       : "border-border text-muted-foreground",
                   )}
                 >
-                  {plan.tier === "pro" ? <Sparkles className="h-3 w-3" /> : null}
+                  {plan.tier === "pro" ? <Crown className="h-3 w-3" /> : null}
                   {plan.tier === "pro" ? "Pro" : "Free"}
                 </span>
               ) : null}
