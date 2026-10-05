@@ -5,18 +5,14 @@ import { useEffect, useState } from "react";
 import {
   AlertCircle,
   Archive,
-  ArrowRight,
-  AtSign,
-  Briefcase,
+  ArrowLeft,
   Loader2,
   Pause,
   Play,
   Plus,
   Search,
-  UserCheck,
   UserRound,
   Users,
-  Wallet,
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
@@ -25,21 +21,20 @@ import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { StyledSelect } from "@/components/ui/styled-select";
 import {
   AddTeamMemberModal,
   type TeamMemberPrefill,
 } from "@/components/payroll/add-team-member-modal";
 import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
-import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
 import {
   archiveTeamMemberClient,
   fetchTeamMembers,
   pauseTeamMemberClient,
   reactivateTeamMemberClient,
 } from "@/lib/payroll/client";
-import type { TeamMemberRecord, TeamMemberStatus } from "@/lib/payroll/types";
+import type { TeamMemberRecord } from "@/lib/payroll/types";
+
+import "../payroll.css";
 
 export default function TeamManagementPage() {
   const { ownerWallet, circleSocialUuid } = useAccountContext();
@@ -146,181 +141,176 @@ export default function TeamManagementPage() {
     return true;
   });
 
+  const filtering = Boolean(search.trim()) || statusFilter !== "ALL" || typeFilter !== "ALL";
+  const statusCounts = {
+    ACTIVE: members.filter((m) => m.status === "ACTIVE").length,
+    ARCHIVED: members.filter((m) => m.status === "ARCHIVED").length,
+    PAUSED: members.filter((m) => m.status === "PAUSED").length,
+  };
+
   return (
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The page draws its own bar with a back button.
+        hideHeader
         subtitle="Manage employees, contractors, and payment setups."
         title="Team Members"
       >
-        <PayrollSubnav />
+        <div className="pr-page">
+          <header className="pr-bar">
+            <Link aria-label="Back to payroll" className="pr-round" href="/business/payroll">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="pr-title">Team</h1>
+            <button
+              aria-label="Add team member"
+              className="pr-round is-primary"
+              onClick={() => setIsAddModalOpen(true)}
+              title="Add team member"
+              type="button"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </header>
 
-        {error ? (
-          <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+          {error ? (
+            <div className="pr-alert" role="alert">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span className="min-w-0 flex-1 break-words">{error}</span>
+            </div>
+          ) : null}
 
-        {/* Filter and Search Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <div className="relative flex-1 min-w-[16rem]">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Search by name, role, handle, or wallet…"
-              value={search}
+          <label className="pr-search">
+            <Search className="h-4 w-4 shrink-0" />
+            <input
+              aria-label="Search team members"
               onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, role, handle or wallet"
+              type="search"
+              value={search}
             />
+          </label>
+
+          <div className="pr-chips" role="group" aria-label="Filter by status">
+            {(
+              [
+                ["ALL", "All", members.length],
+                ["ACTIVE", "Active", statusCounts.ACTIVE],
+                ["PAUSED", "Paused", statusCounts.PAUSED],
+                ["ARCHIVED", "Archived", statusCounts.ARCHIVED],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                aria-pressed={statusFilter === value}
+                className="pr-chip"
+                key={value}
+                onClick={() => setStatusFilter(value)}
+                type="button"
+              >
+                {label}
+                <span>{count}</span>
+              </button>
+            ))}
+            <span aria-hidden className="pr-chips-divider" />
+            {(
+              [
+                ["ALL", "Everyone"],
+                ["EMPLOYEE", "Employees"],
+                ["CONTRACTOR", "Contractors"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                aria-pressed={typeFilter === value}
+                className="pr-chip"
+                key={`type-${value}`}
+                onClick={() => setTypeFilter(value)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <StyledSelect
-              ariaLabel="Filter by status"
-              onChange={(val) => setStatusFilter(val)}
-              options={[
-                { label: "All Statuses", value: "ALL" },
-                { label: "Active", value: "ACTIVE" },
-                { label: "Paused", value: "PAUSED" },
-                { label: "Archived", value: "ARCHIVED" },
-              ]}
-              triggerClassName="w-36"
-              value={statusFilter}
-            />
-
-            <StyledSelect
-              ariaLabel="Filter by member type"
-              onChange={(val) => setTypeFilter(val)}
-              options={[
-                { label: "All Types", value: "ALL" },
-                { label: "Employees", value: "EMPLOYEE" },
-                { label: "Contractors", value: "CONTRACTOR" },
-              ]}
-              triggerClassName="w-36"
-              value={typeFilter}
-            />
-
-            <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Team Member
-            </Button>
-          </div>
-        </div>
-
-        {/* Team List Table */}
-        <div className="section-panel overflow-hidden">
-          {loading ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-              Loading team members…
-            </div>
-          ) : filteredMembers.length === 0 ? (
-            <div className="py-12 text-center p-6">
-              <Users className="h-10 w-10 text-muted-foreground/60 mx-auto mb-3" />
-              <p className="text-sm font-semibold">
-                {search || statusFilter !== "ALL" || typeFilter !== "ALL"
-                  ? "No matching team members found"
-                  : "Build your payroll team"}
+          <section className="pr-card">
+            {loading ? (
+              <p className="pr-empty">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading team members…
               </p>
-              <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
-                {search || statusFilter !== "ALL" || typeFilter !== "ALL"
-                  ? "Try adjusting your search query or filters."
-                  : "Add employees or contractors to start managing payments."}
-              </p>
-              <Button size="sm" className="mt-4" onClick={() => setIsAddModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add Team Member
-              </Button>
-            </div>
-          ) : (
-            <div className="max-h-[30rem] overflow-y-auto divide-y divide-border">
-              {filteredMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex flex-wrap items-center justify-between gap-4 p-4 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                      <UserRound className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/business/payroll/team/${member.id}`}
-                          className="font-semibold text-foreground hover:underline truncate"
-                        >
-                          {member.full_name}
-                        </Link>
-                        <PayrollStatusBadge status={member.status} />
-                        <span className="text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
-                          {member.member_type}
+            ) : filteredMembers.length === 0 ? (
+              <div className="pr-empty is-first">
+                <span aria-hidden className="pr-empty-icon">
+                  <Users className="h-7 w-7" />
+                </span>
+                <p className="pr-empty-title">{filtering ? "No matching team members" : "Build your payroll team"}</p>
+                <p>
+                  {filtering
+                    ? "Try a different search or filter."
+                    : "Add employees or contractors to start paying them through payroll."}
+                </p>
+                {filtering ? null : (
+                  <Button className="mt-2 h-11 rounded-xl" onClick={() => setIsAddModalOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add team member
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <ul className="pr-runs">
+                {filteredMembers.map((member) => (
+                  <li className="pr-member" key={member.id}>
+                    <Link className="pr-run" href={`/business/payroll/team/${member.id}`}>
+                      <span className="pr-avatar">
+                        <UserRound className="h-5 w-5" />
+                      </span>
+                      <span className="pr-run-main">
+                        <span className="pr-run-title">{member.full_name}</span>
+                        <span className="pr-run-sub">
+                          {member.role || (member.member_type === "CONTRACTOR" ? "Contractor" : "Employee")} ·{" "}
+                          {member.payment_destination_type === "SWIFTPAY_USER" && member.swiftpay_username
+                            ? `@${member.swiftpay_username}`
+                            : `${member.wallet_address.slice(0, 6)}…${member.wallet_address.slice(-4)}`}
                         </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {member.role || "No role"} ·{" "}
-                        {member.payment_destination_type === "SWIFTPAY_USER" ? (
-                          <span className="inline-flex items-center">
-                            <AtSign className="h-3 w-3 mr-0.5 inline text-primary" />
-                            {member.swiftpay_username}
-                          </span>
-                        ) : (
-                          <span className="font-mono text-[11px]">
-                            {member.wallet_address.slice(0, 6)}…{member.wallet_address.slice(-4)}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="font-semibold text-foreground">
-                        {member.default_payment_amount} {member.preferred_asset}
-                      </p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {member.payment_frequency.toLowerCase()}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
+                      </span>
+                      <span className="pr-run-side">
+                        <span className="pr-run-amount">
+                          {member.default_payment_amount} {member.preferred_asset}
+                        </span>
+                        <span className="pr-run-sub">
+                          {member.payment_frequency.charAt(0)}
+                          {member.payment_frequency.slice(1).toLowerCase()}
+                        </span>
+                      </span>
+                    </Link>
+                    <div className="pr-member-foot">
+                      <PayrollStatusBadge className="pr-run-badge" status={member.status} />
                       {member.status !== "ARCHIVED" ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                        <span className="pr-member-actions">
+                          <button
+                            disabled={actionLoading === member.id}
                             onClick={() => void handleTogglePause(member)}
-                            disabled={actionLoading === member.id}
-                            title={member.status === "ACTIVE" ? "Pause member" : "Reactivate member"}
+                            type="button"
                           >
-                            {member.status === "ACTIVE" ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                            {member.status === "ACTIVE" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                            {member.status === "ACTIVE" ? "Pause" : "Reactivate"}
+                          </button>
+                          <button
+                            disabled={actionLoading === member.id}
                             onClick={() => void handleArchive(member)}
-                            disabled={actionLoading === member.id}
-                            title="Archive member"
+                            type="button"
                           >
-                            <Archive className="h-4 w-4" />
-                          </Button>
-                        </>
+                            <Archive className="h-3.5 w-3.5" />
+                            Archive
+                          </button>
+                        </span>
                       ) : null}
-
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/business/payroll/team/${member.id}`}>
-                          View Details
-                        </Link>
-                      </Button>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
 
         {ownerWallet ? (

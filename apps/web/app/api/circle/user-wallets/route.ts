@@ -28,6 +28,7 @@ type CircleAction =
   | "createWallet"
   | "getEntityConfig"
   | "getChallenge"
+  | "getToken"
   | "getTransaction"
   | "getTokenBalance"
   | "initializeUser"
@@ -46,6 +47,10 @@ type CircleActionBody = {
   destinationAddress?: string;
   deviceId?: string;
   feeLevel?: "HIGH" | "LOW" | "MEDIUM";
+  /** listTransactions: only transactions created at or after this ISO time. */
+  from?: string;
+  /** listTransactions: the next page, older than this transaction id. */
+  pageAfter?: string;
   challengeId?: string;
   pageSize?: number;
   data?: string;
@@ -459,6 +464,21 @@ async function handleCircleAction(request: Request) {
       });
     }
 
+    case "getToken": {
+      if (!body.userToken) {
+        return missingParameter("userToken");
+      }
+
+      if (!body.tokenId || !/^[\w-]{1,64}$/.test(body.tokenId)) {
+        return missingParameter("tokenId");
+      }
+
+      return requestCircle(`/v1/w3s/tokens/${body.tokenId}`, {
+        method: "GET",
+        userToken: body.userToken,
+      });
+    }
+
     case "getTransaction": {
       if (!body.userToken) {
         return missingParameter("userToken");
@@ -518,6 +538,14 @@ async function handleCircleAction(request: Request) {
 
       if (body.txHash) {
         query.set("txHash", body.txHash);
+      }
+
+      if (body.from && !Number.isNaN(Date.parse(body.from))) {
+        query.set("from", new Date(body.from).toISOString());
+      }
+
+      if (body.pageAfter && /^[\w-]{1,64}$/.test(body.pageAfter)) {
+        query.set("pageAfter", body.pageAfter);
       }
 
       return requestCircle(`/v1/w3s/transactions?${query.toString()}`, {

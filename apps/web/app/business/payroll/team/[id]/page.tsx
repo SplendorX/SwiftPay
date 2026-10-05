@@ -24,7 +24,6 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
-import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
 import {
   archiveTeamMemberClient,
   fetchTeamMember,

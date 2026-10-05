@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { fetchCircleWalletTransfers, mergeTransferSources } from "@/lib/activity/circle-history";
 import { accountActivityChangedEventName, fetchAccountActivity } from "@/lib/activity/client";
 import { mergeAccountActivity, shortAddress, type AccountActivityItem } from "@/lib/activity/merge";
+import type { WalletTransfer } from "@/lib/arcscan-history";
 import { activityWindowStart, type AccountActivityEntry } from "@/lib/activity/types";
 import { allieSenderLabel, useWalletUsernames } from "@/lib/activity/usernames";
 import { useWalletTransfers } from "@/lib/use-wallet-transfers";
@@ -19,10 +21,33 @@ import { useWalletTransfers } from "@/lib/use-wallet-transfers";
  */
 export function useAccountTransactions(ownerWallet: string | null | undefined, days: number, refreshKey = "") {
   const {
-    error: transfersError,
+    error: storeError,
     isLoading: transfersLoading,
-    transfers,
+    transfers: storeTransfers,
   } = useWalletTransfers(ownerWallet, refreshKey, days);
+  // A Circle wallet's full list, for history the RPC store hasn't filled yet.
+  const [circleTransfers, setCircleTransfers] = useState<WalletTransfer[]>([]);
+  useEffect(() => {
+    if (!ownerWallet) {
+      setCircleTransfers([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchCircleWalletTransfers(ownerWallet, activityWindowStart(Date.now(), days))
+      .then((next) => {
+        if (!cancelled) setCircleTransfers(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [days, ownerWallet, refreshKey]);
+  const transfers = useMemo(
+    () => mergeTransferSources(storeTransfers, circleTransfers),
+    [circleTransfers, storeTransfers],
+  );
+  // The store failing matters only when Circle had nothing either.
+  const transfersError = circleTransfers.length > 0 ? null : storeError;
   const [entries, setEntries] = useState<AccountActivityEntry[]>([]);
   const [entriesLoading, setEntriesLoading] = useState(false);
   const [labelsLocked, setLabelsLocked] = useState(false);

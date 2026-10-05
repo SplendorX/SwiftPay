@@ -17,8 +17,8 @@ const historyTable = "wallet_transfer_history";
 const cursorTable = "wallet_history_cursors";
 
 // Arc makes a block about every half second.
-/** How far back a wallet's history is filled: about 30 days. */
-const HISTORY_DEPTH_BLOCKS = 5_184_000n;
+/** How far back a wallet's history is filled: about 90 days (Transaction History's window). */
+const HISTORY_DEPTH_BLOCKS = 15_552_000n;
 /** The first read covers about 3 hours, so recent activity shows at once. */
 const FIRST_READ_BLOCKS = 21_600n;
 /** Most new blocks one load reads (~6 hours); a longer gap catches up over loads. */
@@ -144,6 +144,9 @@ export async function syncWalletHistory(walletInput: string) {
     };
   } else {
     next = { ...cursor };
+    // Wallets first read with a shallower depth keep filling to the current one.
+    const floor = head > HISTORY_DEPTH_BLOCKS ? head - HISTORY_DEPTH_BLOCKS : 0n;
+    if (floor < cursor.floorBlock) next.floorBlock = floor;
     // Forward: everything new, up to the per-load cap.
     if (cursor.newestBlock < head) {
       const fromBlock = cursor.newestBlock + 1n;
@@ -152,10 +155,10 @@ export async function syncWalletHistory(walletInput: string) {
       next.newestBlock = toBlock;
     }
     // Backward: one more slice of the past, down to the floor.
-    if (cursor.oldestBlock > cursor.floorBlock) {
+    if (cursor.oldestBlock > next.floorBlock) {
       const toBlock = cursor.oldestBlock - 1n;
       const fromBlock =
-        toBlock - cursor.floorBlock + 1n > BACKFILL_BLOCKS ? toBlock - BACKFILL_BLOCKS + 1n : cursor.floorBlock;
+        toBlock - next.floorBlock + 1n > BACKFILL_BLOCKS ? toBlock - BACKFILL_BLOCKS + 1n : next.floorBlock;
       await storeTransfers(wallet, await readRange(wallet, { fromBlock, toBlock }, client));
       next.oldestBlock = fromBlock;
     }

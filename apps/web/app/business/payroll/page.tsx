@@ -30,7 +30,6 @@ import { Button } from "@/components/ui/button";
 import { AddTeamMemberModal } from "@/components/payroll/add-team-member-modal";
 import { PayrollDashboardSkeleton } from "@/components/payroll/payroll-dashboard-skeleton";
 import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
-import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
 import { fetchPayrollDashboard } from "@/lib/payroll/client";
 import type { PayrollDashboardSummary, PayrollRunStatus } from "@/lib/payroll/types";
 
@@ -170,7 +169,6 @@ export default function PayrollDashboardPage() {
           subtitle="Manage your team and run payments from one place."
           title="Payroll"
         >
-          <PayrollSubnav />
           <PayrollDashboardSkeleton />
         </PlatformChrome>
       </PlatformAccessGate>
@@ -241,7 +239,6 @@ export default function PayrollDashboardPage() {
             </button>
           </header>
 
-          <PayrollSubnav />
 
           {error ? (
             <div className="pr-alert" role="alert">

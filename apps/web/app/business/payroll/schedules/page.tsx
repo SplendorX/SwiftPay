@@ -1,18 +1,18 @@
 "use client";
 
 import { swiftBatchFeeBasisPoints } from "@/lib/contracts";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AlertCircle,
+  ArrowLeft,
   Calendar,
-  CheckCircle2,
   Clock,
   Loader2,
   Pause,
   Play,
   Plus,
   Trash2,
-  X,
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
@@ -21,8 +21,9 @@ import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { StyledSelect } from "@/components/ui/styled-select";
-import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
+import { PayrollFormSheet } from "@/components/payroll/payroll-form-sheet";
 import { PayrollAutopayApproval } from "@/components/payroll/payroll-autopay-approval";
 import {
   createPayrollScheduleClient,
@@ -33,6 +34,8 @@ import {
   resumePayrollScheduleClient,
 } from "@/lib/payroll/client";
 import type { PaymentFrequency, PayrollGroupRecord, PayrollScheduleRecord } from "@/lib/payroll/types";
+
+import "../payroll.css";
 
 export default function PayrollSchedulesPage() {
   const { ownerWallet, circleSocialUuid } = useAccountContext();
@@ -138,216 +141,196 @@ export default function PayrollSchedulesPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The page draws its own bar with a back button.
+        hideHeader
         subtitle="Automated recurring payroll cadence."
         title="Payroll Schedules"
       >
-        <PayrollSubnav />
+        <div className="pr-page">
+          <header className="pr-bar">
+            <Link aria-label="Back to payroll" className="pr-round" href="/business/payroll">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="pr-title">Schedules</h1>
+            <button
+              aria-label="Create schedule"
+              className="pr-round is-primary"
+              onClick={() => setIsModalOpen(true)}
+              title="Create schedule"
+              type="button"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </header>
 
-        <PayrollAutopayApproval
-          circleSocialUuid={circleSocialUuid}
-          ownerWallet={ownerWallet}
-          workspaceId={workspace?.id}
-        />
+          <PayrollAutopayApproval
+            circleSocialUuid={circleSocialUuid}
+            ownerWallet={ownerWallet}
+            workspaceId={workspace?.id}
+          />
 
-        {error ? (
-          <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+          {error ? (
+            <div className="pr-alert" role="alert">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span className="min-w-0 flex-1 break-words">{error}</span>
+            </div>
+          ) : null}
 
-        {/* Schedules Action Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Active Schedules</h2>
-            <p className="text-xs text-muted-foreground">
-              Automated payroll run generation cadence. Each run includes a {swiftBatchFeeBasisPoints / 100}%
-              service fee on the total paid out, shown on the run before you approve it.
-            </p>
-          </div>
-          <Button size="sm" onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Create Schedule
-          </Button>
+          <p className="pr-note">
+            <Clock className="h-4 w-4 shrink-0" />
+            Schedules create each payroll run for you on time. Every run includes a{" "}
+            {swiftBatchFeeBasisPoints / 100}% service fee on the total paid out, shown on the run before you approve it.
+          </p>
+
+          <section className="pr-card">
+            <div className="pr-card-head">
+              <div>
+                <h2>Your schedules</h2>
+                <p>{schedules.filter((s) => s.is_active).length} active</p>
+              </div>
+              <span className="pr-count">{schedules.length}</span>
+            </div>
+
+            {loading ? (
+              <p className="pr-empty">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading schedules…
+              </p>
+            ) : schedules.length === 0 ? (
+              <div className="pr-empty is-first">
+                <span aria-hidden className="pr-empty-icon">
+                  <Calendar className="h-7 w-7" />
+                </span>
+                <p className="pr-empty-title">No schedules yet</p>
+                <p>Set up a monthly, biweekly or weekly schedule and draft payroll runs are created for your team automatically.</p>
+                <Button className="mt-2 h-11 rounded-xl" onClick={() => setIsModalOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Create schedule
+                </Button>
+              </div>
+            ) : (
+              <ul className="pr-runs">
+                {schedules.map((sched) => {
+                  const group = groups.find((g) => g.id === sched.payroll_group_id);
+                  return (
+                    <li className="pr-member" key={sched.id}>
+                      <div className="pr-run">
+                        <span className={sched.is_active ? "pr-avatar" : "pr-avatar is-muted"}>
+                          <Calendar className="h-5 w-5" />
+                        </span>
+                        <span className="pr-run-main">
+                          <span className="pr-run-title">{group ? group.name : "Entire team"}</span>
+                          <span className="pr-run-sub">
+                            {sched.frequency.charAt(0)}
+                            {sched.frequency.slice(1).toLowerCase()} ·{" "}
+                            {sched.frequency === "MONTHLY"
+                              ? `day ${sched.schedule_config?.day_of_month ?? 28} of the month`
+                              : "every Friday"}
+                          </span>
+                        </span>
+                        <span className="pr-run-side">
+                          <span className="pr-run-sub">Next run</span>
+                          <span className="pr-run-amount">
+                            {sched.next_run_at
+                              ? new Date(sched.next_run_at).toLocaleDateString(undefined, {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "Not scheduled"}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="pr-member-foot">
+                        <span className={sched.is_active ? "pr-state is-on" : "pr-state"}>
+                          {sched.is_active ? "Active" : "Paused"}
+                        </span>
+                        <span className="pr-member-actions">
+                          <button onClick={() => void handleToggleSchedule(sched)} type="button">
+                            {sched.is_active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                            {sched.is_active ? "Pause" : "Resume"}
+                          </button>
+                          <button
+                            className={confirmDeleteId === sched.id ? "is-danger is-armed" : "is-danger"}
+                            disabled={deletingId === sched.id}
+                            onBlur={() => setConfirmDeleteId((current) => (current === sched.id ? null : current))}
+                            onClick={() => void handleDeleteSchedule(sched.id)}
+                            type="button"
+                          >
+                            {deletingId === sched.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                            {confirmDeleteId === sched.id ? "Confirm delete" : "Delete"}
+                          </button>
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
         </div>
 
-        {loading ? (
-          <div className="py-16 text-center text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-            Loading schedules…
-          </div>
-        ) : schedules.length === 0 ? (
-          <div className="section-panel p-12 text-center">
-            <Calendar className="h-10 w-10 text-muted-foreground/60 mx-auto mb-3" />
-            <h3 className="font-heading text-lg font-semibold">No Schedules Configured</h3>
-            <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
-              Set up monthly, biweekly, or weekly schedules to automatically generate draft payroll runs for your team.
-            </p>
-            <Button size="sm" className="mt-4" onClick={() => setIsModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Create Schedule
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {schedules.map((sched) => {
-              const group = groups.find((g) => g.id === sched.payroll_group_id);
-
-              return (
-                <div key={sched.id} className="section-panel p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        {sched.frequency}
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                          sched.is_active
-                            ? "bg-emerald-500/10 text-emerald-600"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {sched.is_active ? "Active" : "Paused"}
-                      </span>
-                    </div>
-
-                    <h3 className="mt-2 font-heading font-bold text-lg">
-                      {group ? group.name : "Entire Team"}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Target: {sched.frequency === "MONTHLY" ? `Day ${sched.schedule_config?.day_of_month ?? 28} of month` : "Every Friday"}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-border flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] uppercase text-muted-foreground font-semibold">Next Run</p>
-                      <p className="text-xs font-semibold text-foreground">
-                        {sched.next_run_at
-                          ? new Date(sched.next_run_at).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
-                          : "Not scheduled"}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                    <Button
-                      disabled={deletingId === sched.id}
-                      size="sm"
-                      variant={confirmDeleteId === sched.id ? "destructive" : "outline"}
-                      onClick={() => void handleDeleteSchedule(sched.id)}
-                      onBlur={() => setConfirmDeleteId((current) => (current === sched.id ? null : current))}
-                    >
-                      {deletingId === sched.id ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      )}
-                      {confirmDeleteId === sched.id ? "Confirm delete" : "Delete"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void handleToggleSchedule(sched)}
-                    >
-                      {sched.is_active ? (
-                        <>
-                          <Pause className="h-3.5 w-3.5 mr-1" />
-                          Pause
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-3.5 w-3.5 mr-1" />
-                          Resume
-                        </>
-                      )}
-                    </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Create Schedule Modal */}
-        {isModalOpen ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h3 className="font-heading text-lg font-bold">Create Payroll Schedule</h3>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+        <PayrollFormSheet onClose={() => setIsModalOpen(false)} open={isModalOpen} title="Create payroll schedule">
+          <form className="pr-form" onSubmit={handleCreateSchedule}>
+            <div className="pr-field">
+              <span>Frequency *</span>
+              <div className="pr-segment" role="group" aria-label="Frequency">
+                {(
+                  [
+                    ["MONTHLY", "Monthly"],
+                    ["BIWEEKLY", "Biweekly"],
+                    ["WEEKLY", "Weekly"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button aria-pressed={frequency === value} key={value} onClick={() => setFrequency(value)} type="button">
+                    {label}
+                  </button>
+                ))}
               </div>
-
-              <form onSubmit={handleCreateSchedule} className="mt-4 space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Frequency *</label>
-                  <div className="mt-1">
-                    <StyledSelect
-                      ariaLabel="Frequency"
-                      onChange={(val) => setFrequency(val as PaymentFrequency)}
-                      options={[
-                        { label: "Monthly", value: "MONTHLY" },
-                        { label: "Biweekly", value: "BIWEEKLY" },
-                        { label: "Weekly", value: "WEEKLY" },
-                      ]}
-                      value={frequency}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Apply to Group</label>
-                  <div className="mt-1">
-                    <StyledSelect
-                      ariaLabel="Apply to Group"
-                      onChange={(val) => setGroupId(val)}
-                      options={[
-                        { label: "Entire Team (All Active Members)", value: "" },
-                        ...groups.map((g) => ({
-                          label: g.name,
-                          value: g.id,
-                        })),
-                      ]}
-                      value={groupId}
-                    />
-                  </div>
-                </div>
-
-                {frequency === "MONTHLY" && (
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground">Day of Month (1 - 31)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={31}
-                      className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={dayOfMonth}
-                      onChange={(e) => setDayOfMonth(Number(e.target.value))}
-                    />
-                  </div>
-                )}
-
-                <div className="pt-4 border-t border-border flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Saving…" : "Create Schedule"}
-                  </Button>
-                </div>
-              </form>
             </div>
-          </div>
-        ) : null}
+
+            <div className="pr-field">
+              <span>Apply to</span>
+              <StyledSelect
+                ariaLabel="Apply to group"
+                onChange={(val) => setGroupId(val)}
+                options={[
+                  { label: "Entire team (all active members)", value: "" },
+                  ...groups.map((g) => ({ label: g.name, value: g.id })),
+                ]}
+                value={groupId}
+              />
+            </div>
+
+            {frequency === "MONTHLY" ? (
+              <label className="pr-field">
+                <span>Day of the month (1–31)</span>
+                <Input
+                  inputMode="numeric"
+                  max={31}
+                  min={1}
+                  onChange={(e) => setDayOfMonth(Number(e.target.value))}
+                  type="number"
+                  value={dayOfMonth}
+                />
+              </label>
+            ) : null}
+
+            <div className="pr-form-actions">
+              <Button className="h-12 w-full rounded-xl font-bold" disabled={submitting} type="submit">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {submitting ? "Saving…" : "Create schedule"}
+              </Button>
+              <Button className="h-11 w-full rounded-xl" onClick={() => setIsModalOpen(false)} type="button" variant="ghost">
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </PayrollFormSheet>
       </PlatformChrome>
     </PlatformAccessGate>
   );

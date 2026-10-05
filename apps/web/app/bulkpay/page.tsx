@@ -2,10 +2,7 @@
 
 import { switchToArc } from "@/lib/arc-network";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
-import {
- FileUp,
- Trash2,
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
 import {
@@ -66,12 +63,14 @@ import {
 import { BatchReceiptModal } from "@/components/batch/batch-receipt-modal";
 import {
   BulkpayBar,
-  BulkpayFacts,
-  BulkpayHero,
+  BulkpayComposerTools,
+  BulkpayContinueBar,
+  BulkpayIntro,
   BulkpayLastReceipt,
   BulkpayPeopleCard,
-  BulkpayReviewSheet,
+  BulkpaySteps,
   BulkpaySummary,
+  BulkpayTokenStrip,
   type BulkpayBreakdown,
 } from "@/components/bulkpay/bulkpay-views";
 import {
@@ -87,6 +86,8 @@ import {
 } from "@/lib/business/provision-wallet";
 import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcChain } from "@/lib/chains";
+
+type BulkpayStep = "intro" | "people" | "summary";
 
 type BatchRecipient = {
  address: Address;
@@ -232,7 +233,8 @@ export default function BulkPayPage() {
  const pendingCircleBatchTxIdRef = useRef<string | null>(null);
  const closeSuccess = useCallback(() => setSuccessOpen(false), []);
  const [successOpen, setSuccessOpen] = useState(false);
- const [reviewOpen, setReviewOpen] = useState(false);
+ // intro → people → summary, like RecurePay.
+ const [step, setStep] = useState<BulkpayStep>("intro");
  const [refreshing, setRefreshing] = useState(false);
  const selectedTokenInfo = arcTokens[selectedToken];
  const handleComposerChange = useCallback((next: BatchComposerResult) => {
@@ -811,7 +813,9 @@ export default function BulkPayPage() {
  }
 
  setBatchReceipt(receipt);
- setReviewOpen(false);
+ // Paid: start over from the intro, where the receipt waits.
+ composerRef.current?.clear();
+ setStep("intro");
  setSuccessOpen(true);
 
  setStatus(`${recipients.length} recipient batch submitted`);
@@ -924,6 +928,13 @@ export default function BulkPayPage() {
   name: recipient.username ? `@${recipient.username}` : shortenAddress(recipient.address),
   note: recipient.label,
  }));
+ const insufficient = !hasEnoughBalance && requiredAmountUnits > zeroAmount;
+ // Everything but the wallet's own readiness: the summary says what's missing.
+ const canContinue =
+  recipients.length > 0 &&
+  recipients.length <= swiftBatchMaxRecipients &&
+  composer.errors.length === 0 &&
+  !composer.resolving;
 
  async function handleRefresh() {
   setRefreshing(true);
@@ -933,6 +944,25 @@ export default function BulkPayPage() {
    setRefreshing(false);
   }
  }
+
+ function goTo(next: BulkpayStep) {
+  setError(null);
+  setStep(next);
+  window.scrollTo({ top: 0 });
+ }
+
+ const refreshButton = (
+  <button
+   aria-label="Refresh balances"
+   className="bulkpay-round"
+   disabled={refreshing}
+   onClick={() => void handleRefresh()}
+   title="Refresh balances"
+   type="button"
+  >
+   <RefreshCw className={refreshing ? "h-5 w-5 animate-spin" : "h-5 w-5"} />
+  </button>
+ );
 
  return (
  <PlatformChrome
@@ -952,25 +982,35 @@ export default function BulkPayPage() {
  >
  <PlatformAccessGate>
  <div className="bulkpay-page">
-  <BulkpayBar onRefresh={() => void handleRefresh()} refreshing={refreshing} />
+  {step === "intro" ? (
+   <>
+    <BulkpayBar title="BulkPay" />
+    <BulkpayIntro
+     feePercent={swiftBatchFeeBasisPoints / 100}
+     maxRecipients={swiftBatchMaxRecipients}
+     onStart={() => goTo("people")}
+    />
+    {batchReceipt ? (
+     <BulkpayLastReceipt
+      onDownload={() => void downloadReceiptPng(batchReceipt)}
+      onShare={() => void shareBatchReceipt(batchReceipt)}
+      receipt={batchReceipt}
+     />
+    ) : null}
+   </>
+  ) : null}
 
-  <BulkpayHero
-   available={breakdown.available}
-   body={t("batch.body", {
-    count: swiftBatchMaxRecipients,
-    fee: swiftBatchFeeBasisPoints / 100,
-   })}
-   feePercent={breakdown.feePercent}
-   maxRecipients={swiftBatchMaxRecipients}
-   onTokenChange={setSelectedToken}
-   people={recipients.length}
-   token={selectedToken}
-   total={breakdown.total}
-   walletAddress={walletAddress}
-   walletLabel={walletLabel}
-  />
-
-  <div className="bulkpay-layout">
+  {/* Kept mounted through the summary, so going back keeps everyone added. */}
+  <div className="bulkpay-step" hidden={step !== "people"}>
+   <BulkpayBar action={refreshButton} onBack={() => goTo("intro")} title="Add people" />
+   <BulkpaySteps step={1} />
+   <BulkpayTokenStrip
+    available={breakdown.available}
+    onTokenChange={setSelectedToken}
+    token={selectedToken}
+    walletAddress={walletAddress}
+    walletLabel={walletLabel}
+   />
    <BulkpayPeopleCard errors={composer.errors}>
     <input
      accept=".csv,.txt"
@@ -981,24 +1021,10 @@ export default function BulkPayPage() {
     />
     <BatchPeopleComposer
      actions={
-      <>
-       <button
-        className="bulkpay-chip"
-        onClick={() => fileInputRef.current?.click()}
-        type="button"
-       >
-        <FileUp className="h-4 w-4" />
-        Import CSV
-       </button>
-       <button
-        className="bulkpay-chip is-danger"
-        onClick={() => composerRef.current?.clear()}
-        type="button"
-       >
-        <Trash2 className="h-4 w-4" />
-        Clear
-       </button>
-      </>
+      <BulkpayComposerTools
+       onClear={() => composerRef.current?.clear()}
+       onImport={() => fileInputRef.current?.click()}
+      />
      }
      maxRecipients={swiftBatchMaxRecipients}
      onResolvedChange={handleComposerChange}
@@ -1006,56 +1032,46 @@ export default function BulkPayPage() {
      token={selectedToken}
     />
    </BulkpayPeopleCard>
+   {status !== "Ready" && !error ? <p className="bulkpay-note">{status}</p> : null}
+   <BulkpayContinueBar
+    canContinue={canContinue}
+    insufficient={insufficient}
+    onContinue={() => goTo("summary")}
+    people={recipients.length}
+    resolving={composer.resolving}
+    total={breakdown.total}
+   />
+  </div>
 
-   <aside className="bulkpay-aside">
+  {step === "summary" ? (
+   <>
+    <BulkpayBar action={refreshButton} onBack={() => goTo("people")} title="Summary" />
+    <BulkpaySteps step={2} />
     <BulkpaySummary
      breakdown={breakdown}
-     canReview={canSubmit}
-     contractMissing={!configuredSwiftBatchAddress}
-     error={reviewOpen ? null : error}
-     explorerUrl={explorerUrl}
-     insufficient={!hasEnoughBalance && requiredAmountUnits > zeroAmount}
-     onCopy={() => void copyPreview()}
-     onReview={() => {
-      setError(null);
-      setReviewOpen(true);
-     }}
-     pending={isPending}
-     resolving={composer.resolving}
-     status={status}
-    />
-    <BulkpayLastReceipt
-     onDownload={() => void downloadReceiptPng(batchReceipt)}
-     onShare={() => void shareBatchReceipt(batchReceipt)}
-     receipt={batchReceipt}
-    />
-    <BulkpayFacts
+     canSend={canSubmit}
      contract={
       configuredSwiftBatchAddress
        ? shortenAddress(configuredSwiftBatchAddress)
        : t("common.notSet")
      }
      contractLabel={t("common.contract")}
-     maxRecipients={swiftBatchMaxRecipients}
+     contractMissing={!configuredSwiftBatchAddress}
+     error={error}
+     explorerUrl={explorerUrl}
+     insufficient={insufficient}
+     onCopy={() => void copyPreview()}
+     onSend={() => void submitBatch()}
+     pending={isPending}
+     people={reviewPeople}
+     status={status}
+     token={selectedToken}
      walletAddress={walletAddress}
      walletLabel={walletLabel}
     />
-   </aside>
-  </div>
+   </>
+  ) : null}
  </div>
-
- <BulkpayReviewSheet
-  breakdown={breakdown}
-  canSend={canSubmit}
-  error={error}
-  onClose={() => setReviewOpen(false)}
-  onSend={() => void submitBatch()}
-  open={reviewOpen}
-  pending={isPending}
-  people={reviewPeople}
-  status={status}
-  token={selectedToken}
- />
 
  {successOpen && batchReceipt ? (
  <BatchReceiptModal

@@ -1,4 +1,4 @@
-/* Payroll overview. In its own file (not globals.css), so the build cache can't serve a stale copy. */
+/* Payroll: the overview, Team, Groups and Schedules. In its own file (not globals.css), so the build cache can't serve a stale copy. */
 
 .pr-page {
   display: grid;
@@ -8,10 +8,6 @@
   max-width: 56rem;
   margin: 0 auto;
   padding-bottom: 2rem;
-}
-
-.pr-page > .payroll-subnav {
-  margin-bottom: 0;
 }
 
 .pr-bar {
@@ -468,4 +464,309 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--foreground);
+}
+
+/* ── Team, Groups, Schedules ───────────────────────────────────────────── */
+.pr-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--primary) 7%, var(--card));
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.pr-note svg {
+  margin-top: 0.15rem;
+  color: var(--primary);
+}
+
+.dark .pr-note svg {
+  color: var(--link);
+}
+
+.pr-search {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: 2.9rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+
+.pr-search:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.pr-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.pr-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+  scrollbar-width: none;
+}
+
+.pr-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.pr-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.pr-chip span {
+  min-width: 1.2rem;
+  padding: 0 0.3rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+.pr-chip[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.pr-chip[aria-pressed="true"] span {
+  background: rgb(255 255 255 / 0.22);
+}
+
+.pr-chips-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 1.4rem;
+  background: var(--border);
+}
+
+.pr-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+}
+
+.dark .pr-avatar {
+  color: var(--link);
+}
+
+.pr-avatar.is-sm {
+  width: 2rem;
+  height: 2rem;
+}
+
+.pr-avatar.is-muted {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.pr-member {
+  padding-bottom: 0.75rem;
+}
+
+.pr-member .pr-run {
+  padding-bottom: 0.5rem;
+}
+
+.pr-member-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-left: 3.6rem;
+}
+
+.pr-member-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pr-member-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: background-color 140ms ease;
+}
+
+.pr-member-actions button:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.pr-member-actions button:disabled {
+  opacity: 0.5;
+}
+
+.pr-member-actions button.is-danger {
+  color: var(--destructive);
+}
+
+.pr-member-actions button.is-armed {
+  border-color: transparent;
+  background: var(--destructive);
+  color: #ffffff;
+}
+
+.pr-state {
+  padding: 0.1rem 0.55rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.pr-state.is-on {
+  background: color-mix(in oklch, #16a34a 14%, var(--card));
+  color: #15803d;
+}
+
+.dark .pr-state.is-on {
+  color: #4ade80;
+}
+
+.pr-icon-button {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.pr-icon-button.is-danger:hover {
+  background: color-mix(in oklch, var(--destructive) 10%, transparent);
+  color: var(--destructive);
+}
+
+/* Forms in sheets */
+.pr-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.pr-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.pr-field > span:first-child {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pr-field input {
+  height: 2.9rem;
+}
+
+.pr-segment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.pr-segment button {
+  padding: 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pr-segment button[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+}
+
+.pr-pick {
+  display: grid;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.pr-pick li + li {
+  border-top: 1px solid var(--border);
+}
+
+.pr-pick button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+}
+
+.pr-check {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 1.5px solid var(--border);
+  border-radius: 0.4rem;
+}
+
+.pr-check.is-on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.pr-form-actions {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
 }

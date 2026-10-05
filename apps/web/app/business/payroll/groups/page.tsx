@@ -1,15 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AlertCircle,
-  Calendar,
+  ArrowLeft,
+  Check,
   Layers,
   Loader2,
   Plus,
   Trash2,
+  UserRound,
   Users,
-  X,
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
@@ -19,8 +21,7 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StyledSelect } from "@/components/ui/styled-select";
-import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
+import { PayrollFormSheet } from "@/components/payroll/payroll-form-sheet";
 import {
   createPayrollGroupClient,
   deletePayrollGroupClient,
@@ -28,6 +29,8 @@ import {
   fetchTeamMembers,
 } from "@/lib/payroll/client";
 import type { PayrollGroupRecord, TeamMemberRecord } from "@/lib/payroll/types";
+
+import "../payroll.css";
 
 export default function PayrollGroupsPage() {
   const { ownerWallet, circleSocialUuid } = useAccountContext();
@@ -110,188 +113,199 @@ export default function PayrollGroupsPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The page draws its own bar with a back button.
+        hideHeader
         subtitle="Organize team members into departments or regional teams."
         title="Payroll Groups"
       >
-        <PayrollSubnav />
+        <div className="pr-page">
+          <header className="pr-bar">
+            <Link aria-label="Back to payroll" className="pr-round" href="/business/payroll">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="pr-title">Groups</h1>
+            <button
+              aria-label="Create group"
+              className="pr-round is-primary"
+              onClick={() => setIsModalOpen(true)}
+              title="Create group"
+              type="button"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </header>
 
-        {error ? (
-          <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
-
-        <div className="section-panel p-6 mb-6">
-          <p className="text-sm text-muted-foreground">
-            Payroll Groups are purely organizational. All payouts originate from your Business wallet, enabling group-based payroll runs (e.g. Engineering, Contractors, Operations).
-          </p>
-        </div>
-
-        {/* Groups Action Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Teams & Departments</h2>
-            <p className="text-xs text-muted-foreground">Manage organizational groups for targeted payroll runs.</p>
-          </div>
-          <Button size="sm" onClick={() => setIsModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Create Group
-          </Button>
-        </div>
-
-        {loading ? (
-          <div className="py-16 text-center text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-            Loading groups…
-          </div>
-        ) : groups.length === 0 ? (
-          <div className="section-panel p-12 text-center">
-            <Layers className="h-10 w-10 text-muted-foreground/60 mx-auto mb-3" />
-            <h3 className="font-heading text-lg font-semibold">No Payroll Groups Yet</h3>
-            <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
-              Create groups like "Engineering", "Design", or "Contractors" to organize your payroll runs.
-            </p>
-            <Button size="sm" className="mt-4" onClick={() => setIsModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Create Group
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groups.map((group) => (
-              <div key={group.id} className="section-panel p-5 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-heading font-bold text-lg">{group.name}</h3>
-                    <button
-                      onClick={() => void handleDeleteGroup(group.id)}
-                      className="text-muted-foreground hover:text-destructive p-1 rounded transition"
-                      title="Delete group"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {group.description ? (
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                      {group.description}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                    <Users className="h-4 w-4 text-primary" />
-                    {group.members_count ?? 0} members
-                  </span>
-                  <span className="capitalize">{group.default_schedule?.toLowerCase() || "Monthly"}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Create Group Modal */}
-        {isModalOpen ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h3 className="font-heading text-lg font-bold">Create Payroll Group</h3>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateGroup} className="mt-4 space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Group Name *</label>
-                  <Input
-                    className="mt-1"
-                    placeholder="e.g. Engineering Team"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Description</label>
-                  <Input
-                    className="mt-1"
-                    placeholder="Optional department notes"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Default Schedule</label>
-                  <div className="mt-1">
-                    <StyledSelect
-                      ariaLabel="Default Schedule"
-                      onChange={(val) => setDefaultSchedule(val)}
-                      options={[
-                        { label: "Monthly", value: "MONTHLY" },
-                        { label: "Biweekly", value: "BIWEEKLY" },
-                        { label: "Weekly", value: "WEEKLY" },
-                      ]}
-                      value={defaultSchedule}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground block mb-2">
-                    Assign Members ({selectedMemberIds.length} selected)
-                  </label>
-                  <div className="max-h-40 overflow-y-auto space-y-2 border border-border rounded-lg p-3 bg-muted/20">
-                    {teamMembers.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No active team members available.</p>
-                    ) : (
-                      teamMembers.map((m) => {
-                        const checked = selectedMemberIds.includes(m.id);
-                        return (
-                          <label
-                            key={m.id}
-                            className="flex items-center gap-2 text-xs font-medium cursor-pointer hover:text-foreground"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedMemberIds((prev) => [...prev, m.id]);
-                                } else {
-                                  setSelectedMemberIds((prev) => prev.filter((i) => i !== m.id));
-                                }
-                              }}
-                              className="rounded border-border"
-                            />
-                            <span className="truncate">{m.full_name}</span>
-                            <span className="text-muted-foreground text-[10px]">({m.role || m.member_type})</span>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-border flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Creating…" : "Create Group"}
-                  </Button>
-                </div>
-              </form>
+          {error ? (
+            <div className="pr-alert" role="alert">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span className="min-w-0 flex-1 break-words">{error}</span>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+
+          <p className="pr-note">
+            <Layers className="h-4 w-4 shrink-0" />
+            Groups only organise your team, e.g. Engineering, Contractors or Operations, so you can run payroll for one
+            group at a time. Every payout still comes from your Business wallet.
+          </p>
+
+          <section className="pr-card">
+            <div className="pr-card-head">
+              <div>
+                <h2>Teams &amp; departments</h2>
+                <p>Groups for targeted payroll runs</p>
+              </div>
+              <span className="pr-count">{groups.length}</span>
+            </div>
+
+            {loading ? (
+              <p className="pr-empty">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading groups…
+              </p>
+            ) : groups.length === 0 ? (
+              <div className="pr-empty is-first">
+                <span aria-hidden className="pr-empty-icon">
+                  <Layers className="h-7 w-7" />
+                </span>
+                <p className="pr-empty-title">No payroll groups yet</p>
+                <p>Create groups like &ldquo;Engineering&rdquo;, &ldquo;Design&rdquo; or &ldquo;Contractors&rdquo; to organise your payroll runs.</p>
+                <Button className="mt-2 h-11 rounded-xl" onClick={() => setIsModalOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Create group
+                </Button>
+              </div>
+            ) : (
+              <ul className="pr-runs">
+                {groups.map((group) => (
+                  <li key={group.id}>
+                    <div className="pr-run">
+                      <span className="pr-avatar">
+                        <Layers className="h-5 w-5" />
+                      </span>
+                      <span className="pr-run-main">
+                        <span className="pr-run-title">{group.name}</span>
+                        <span className="pr-run-sub">
+                          {group.description || "No description"}
+                        </span>
+                      </span>
+                      <span className="pr-run-side">
+                        <span className="pr-run-amount">
+                          <Users className="mr-1 inline h-3.5 w-3.5" />
+                          {group.members_count ?? 0}
+                        </span>
+                        <span className="pr-run-sub">
+                          {frequencyLabel(group.default_schedule)}
+                        </span>
+                      </span>
+                      <button
+                        aria-label={`Delete ${group.name}`}
+                        className="pr-icon-button is-danger"
+                        onClick={() => void handleDeleteGroup(group.id)}
+                        title="Delete group"
+                        type="button"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+
+        <PayrollFormSheet onClose={() => setIsModalOpen(false)} open={isModalOpen} title="Create payroll group">
+          <form className="pr-form" onSubmit={handleCreateGroup}>
+            <label className="pr-field">
+              <span>Group name *</span>
+              <Input
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Engineering Team"
+                required
+                value={name}
+              />
+            </label>
+
+            <label className="pr-field">
+              <span>Description</span>
+              <Input
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Optional department notes"
+                value={description}
+              />
+            </label>
+
+            <div className="pr-field">
+              <span>Default schedule</span>
+              <div className="pr-segment" role="group" aria-label="Default schedule">
+                {(
+                  [
+                    ["MONTHLY", "Monthly"],
+                    ["BIWEEKLY", "Biweekly"],
+                    ["WEEKLY", "Weekly"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button aria-pressed={defaultSchedule === value} key={value} onClick={() => setDefaultSchedule(value)} type="button">
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pr-field">
+              <span>Members ({selectedMemberIds.length} selected)</span>
+              {teamMembers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active team members yet.</p>
+              ) : (
+                <ul className="pr-pick">
+                  {teamMembers.map((m) => {
+                    const checked = selectedMemberIds.includes(m.id);
+                    return (
+                      <li key={m.id}>
+                        <button
+                          aria-pressed={checked}
+                          onClick={() =>
+                            setSelectedMemberIds((prev) =>
+                              checked ? prev.filter((i) => i !== m.id) : [...prev, m.id],
+                            )
+                          }
+                          type="button"
+                        >
+                          <span className="pr-avatar is-sm">
+                            <UserRound className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">{m.full_name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{m.role || m.member_type}</span>
+                          </span>
+                          <span className={checked ? "pr-check is-on" : "pr-check"}>
+                            {checked ? <Check className="h-3.5 w-3.5" /> : null}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="pr-form-actions">
+              <Button className="h-12 w-full rounded-xl font-bold" disabled={submitting} type="submit">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {submitting ? "Creating…" : "Create group"}
+              </Button>
+              <Button className="h-11 w-full rounded-xl" onClick={() => setIsModalOpen(false)} type="button" variant="ghost">
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </PayrollFormSheet>
       </PlatformChrome>
     </PlatformAccessGate>
   );
+}
+
+function frequencyLabel(value?: string | null) {
+  const text = (value || "MONTHLY").toLowerCase();
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
