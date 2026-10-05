@@ -10511,6 +10511,1321 @@ html.dark .tx-receipt-status,
   border-radius: var(--swift-bubble-radius) !important;
 }
 
+/* ── Save ───────────────────────────────────────────────────────────────────
+ * A deep-purple balance hero with moving ribbons, an illustrated welcome,
+ * pockets with goal rings, and the ways to save as one tidy list. */
+
+.save-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.1rem;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.save-card {
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  padding: 1rem 1.1rem;
+}
+
+.save-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+}
+
+.save-warning {
+  font-size: 0.875rem;
+  border-color: rgb(217 119 6 / 0.35);
+  background: rgb(217 119 6 / 0.08);
+}
+
+.save-message {
+  padding: 0 0.25rem;
+  font-size: 0.875rem;
+}
+
+.save-message.is-error {
+  color: var(--destructive);
+}
+
+.save-message.is-success {
+  color: #15803d;
+}
+
+.dark .save-message.is-success {
+  color: #4ade80;
+}
+
+/* Hero */
+.save-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.6rem;
+  min-height: 14.5rem;
+  color: #ffffff;
+  background: linear-gradient(150deg, #120a3a 0%, #23125e 45%, #3b1478 100%);
+  box-shadow: 0 24px 60px -32px rgb(35 18 94 / 0.9);
+  isolation: isolate;
+}
+
+.save-hero-waves {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+
+.save-wave {
+  transform-origin: center;
+  animation: save-drift 14s ease-in-out infinite alternate;
+}
+
+.save-wave-2 {
+  animation-duration: 18s;
+  animation-direction: alternate-reverse;
+}
+
+.save-wave-3 {
+  animation-duration: 22s;
+}
+
+@keyframes save-drift {
+  from {
+    transform: translate3d(-8px, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(10px, 6px, 0) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-wave,
+  .save-art-notes,
+  .save-art-piggy {
+    animation: none !important;
+  }
+}
+
+.save-hero-body {
+  position: relative;
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.5rem 1.4rem 1.4rem;
+}
+
+.save-hero-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.72);
+}
+
+.save-hero-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.save-hero-amount {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2.3rem, 9vw, 3.1rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.save-hero-skeleton {
+  display: block;
+  width: 9rem;
+  height: 2.6rem;
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 0.14);
+  animation: insights-pulse 1.2s ease-in-out infinite;
+}
+
+.save-hero-eye {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.12);
+  color: #ffffff;
+  transition: background-color 150ms ease;
+}
+
+.save-hero-eye:hover {
+  background: rgb(255 255 255 / 0.2);
+}
+
+.save-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.save-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: rgb(52 211 153 / 0.2);
+  color: #a7f3d0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.save-hero-chip.is-quiet {
+  background: rgb(255 255 255 / 0.1);
+  color: rgb(255 255 255 / 0.8);
+}
+
+.save-hero-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: fit-content;
+  margin-top: 0.7rem;
+  padding: 0.7rem 1.2rem 0.7rem 0.75rem;
+  border-radius: 0.9rem;
+  background: rgb(15 10 30 / 0.55);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.save-hero-add:hover:not(:disabled) {
+  background: rgb(15 10 30 / 0.75);
+  transform: translateY(-1px);
+}
+
+.save-hero-add:disabled {
+  opacity: 0.55;
+}
+
+.save-hero-add-icon {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #23125e;
+}
+
+/* Empty state */
+.save-intro {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 1.75rem 1rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1.6rem;
+  background:
+    radial-gradient(90% 70% at 50% 100%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 70%),
+    var(--card);
+  text-align: center;
+}
+
+.save-intro-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.save-intro-body {
+  max-width: 26rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+  line-height: 1.55;
+}
+
+.save-pockets-art {
+  width: min(19rem, 80vw);
+  height: auto;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.save-art-notes {
+  transform-origin: 230px 110px;
+  animation: save-fan 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes save-fan {
+  from {
+    transform: rotate(18deg) translateY(16px);
+    opacity: 0;
+  }
+}
+
+.save-art-piggy {
+  transform-origin: 102px 196px;
+  animation: save-bob 3.2s ease-in-out 900ms infinite;
+}
+
+@keyframes save-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.save-cta {
+  width: 100%;
+  max-width: 26rem;
+  height: 3.25rem;
+  border-radius: 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Ways to save */
+.save-section {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.save-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.save-section-title {
+  padding: 0 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.save-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--link);
+}
+
+.save-link:disabled {
+  opacity: 0.5;
+}
+
+.save-ways {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
+.save-way {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  transition: background-color 150ms ease;
+}
+
+.save-way + .save-way {
+  border-top: 1px solid var(--border);
+}
+
+.save-way:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.save-way:disabled {
+  opacity: 0.55;
+}
+
+.save-way-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+}
+
+.save-way-icon.is-mint {
+  background: #c8f1e2;
+  color: #0f5f46;
+}
+
+.save-way-icon.is-lavender {
+  background: #e4dcff;
+  color: #4c1d95;
+}
+
+.save-way-icon.is-amber {
+  background: #fde7b0;
+  color: #7c4a03;
+}
+
+.save-way-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.save-way-body {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.save-pill {
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.save-pill.is-on {
+  background: rgb(22 163 74 / 0.14);
+  color: #15803d;
+}
+
+.dark .save-pill.is-on {
+  color: #4ade80;
+}
+
+/* Spend + Save card */
+.save-spend {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.save-spend.is-active {
+  border-color: color-mix(in oklch, #16a34a 30%, var(--border));
+  background: color-mix(in oklch, #16a34a 5%, var(--card));
+}
+
+.save-spend-dial {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.save-spend-dial svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.save-spend-dial > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.save-ring-track {
+  fill: none;
+  stroke: color-mix(in oklch, var(--primary) 14%, transparent);
+  stroke-width: 5;
+}
+
+.save-ring-fill {
+  fill: none;
+  stroke: var(--primary);
+  stroke-linecap: round;
+  stroke-width: 5;
+  transition: stroke-dasharray 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark .save-ring-fill {
+  stroke: var(--link);
+}
+
+.dark .save-spend.is-active {
+  border-color: rgb(74 222 128 / 0.28);
+  background: color-mix(in oklch, rgb(74 222 128) 5%, var(--card));
+}
+
+.save-spend.is-active .save-ring-fill {
+  stroke: #16a34a;
+}
+
+/* Pockets */
+.save-pockets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: 0.85rem;
+}
+
+.save-pocket {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.save-pocket:hover {
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  box-shadow: 0 14px 30px -24px rgb(59 20 120 / 0.6);
+}
+
+.dark .save-pocket:hover {
+  border-color: color-mix(in oklch, var(--link) 45%, var(--border));
+}
+
+.save-pocket.is-reached {
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgb(22 163 74 / 0.12), transparent 60%),
+    var(--card);
+}
+
+.save-pocket-skeleton {
+  min-height: 12rem;
+  animation: insights-pulse 1.2s ease-in-out infinite;
+}
+
+.save-pocket-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.save-pocket-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.save-pocket-emoji {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--primary) 9%, var(--muted));
+  font-size: 1.5rem;
+}
+
+.save-pocket-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.save-pocket-chevron {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  transition: transform 150ms ease;
+}
+
+.save-pocket-identity:hover .save-pocket-chevron {
+  transform: translateX(2px);
+}
+
+.save-pocket-identity:hover .save-pocket-name {
+  color: var(--link);
+}
+
+.save-pocket-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.save-goal-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.save-goal-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.save-goal-ring > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.save-goal-ring.is-reached .save-ring-fill {
+  stroke: #16a34a;
+}
+
+.save-goal-ring.is-reached > span {
+  color: #16a34a;
+  font-size: 1rem;
+}
+
+.save-pocket-balance {
+  margin-top: 0.5rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.save-pocket-goal {
+  min-height: 1.25rem;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.save-pocket.is-reached .save-pocket-goal {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.dark .save-pocket.is-reached .save-pocket-goal {
+  color: #4ade80;
+}
+
+.save-pocket-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.save-activity {
+  display: grid;
+}
+
+.save-about {
+  padding: 0 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.save-about-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+/* ── Pocket detail ──────────────────────────────────────────────────────────
+ * One pocket, close up: a purple hero with the balance and a big goal ring,
+ * the lock as a countdown, and this pocket's own activity. */
+
+.pocket-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.pocket-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.pocket-bar-title {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.pocket-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.pocket-round:hover {
+  background: var(--muted);
+}
+
+.pocket-card {
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  padding: 1rem 1.1rem;
+}
+
+.pocket-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+}
+
+.pocket-message {
+  padding: 0 0.25rem;
+  font-size: 0.875rem;
+}
+
+.pocket-message.is-error {
+  color: var(--destructive);
+}
+
+.pocket-message.is-success {
+  color: #15803d;
+}
+
+.dark .pocket-message.is-success {
+  color: #4ade80;
+}
+
+/* Hero */
+.pocket-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 1.4rem;
+  border-radius: 1.6rem;
+  color: #ffffff;
+  background: linear-gradient(150deg, #160c45 0%, #2e1572 50%, #4c1d95 100%);
+  box-shadow: 0 24px 60px -32px rgb(35 18 94 / 0.9);
+  isolation: isolate;
+}
+
+.pocket-hero.is-reached {
+  background: linear-gradient(150deg, #0f3d2e 0%, #14532d 45%, #2e1572 100%);
+}
+
+.pocket-hero-skeleton {
+  min-height: 15rem;
+  animation: insights-pulse 1.2s ease-in-out infinite;
+}
+
+.pocket-hero-orb {
+  position: absolute;
+  right: -5rem;
+  bottom: -6rem;
+  z-index: -1;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(139 92 246 / 0.55), transparent 65%);
+}
+
+.pocket-hero-main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.pocket-hero-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.pocket-hero-emoji {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 0.14);
+  font-size: 1.5rem;
+}
+
+.pocket-hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.14);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pocket-hero-label {
+  font-size: 0.85rem;
+  color: rgb(255 255 255 / 0.7);
+}
+
+.pocket-hero-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pocket-hero-amount {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2.1rem, 8vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.pocket-hero-eye {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.65rem;
+  background: rgb(255 255 255 / 0.12);
+}
+
+.pocket-hero-note {
+  font-size: 0.9rem;
+  color: rgb(255 255 255 / 0.82);
+}
+
+.pocket-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.pocket-hero-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 0.85rem;
+  background: rgb(255 255 255 / 0.14);
+  color: #ffffff;
+  font-weight: 700;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.pocket-hero-button.is-primary {
+  background: #ffffff;
+  color: #2e1572;
+}
+
+.pocket-hero-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.pocket-hero-button:disabled {
+  opacity: 0.5;
+}
+
+.pocket-hero-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 8rem;
+  height: 8rem;
+}
+
+.pocket-hero-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.pocket-ring-track {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.14);
+  stroke-width: 10;
+}
+
+.pocket-ring-fill {
+  fill: none;
+  stroke: #c4b5fd;
+  stroke-linecap: round;
+  stroke-width: 10;
+  transition: stroke-dasharray 800ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pocket-hero.is-reached .pocket-ring-fill {
+  stroke: #4ade80;
+}
+
+.pocket-hero-ring > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.pocket-hero-ring strong {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pocket-hero-ring small {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: rgb(255 255 255 / 0.7);
+}
+
+@media (max-width: 40rem) {
+  .pocket-hero-ring {
+    width: 6.25rem;
+    height: 6.25rem;
+  }
+
+  .pocket-hero-ring strong {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 30rem) {
+  .pocket-hero {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .pocket-hero-ring {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    width: 5.5rem;
+    height: 5.5rem;
+  }
+
+  .pocket-hero-ring strong {
+    font-size: 1.15rem;
+  }
+
+  .pocket-hero-ring small {
+    font-size: 0.62rem;
+  }
+}
+
+/* Lock */
+.pocket-lock {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.pocket-lock.is-locked {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-color: rgb(217 119 6 / 0.35);
+  background: color-mix(in oklch, rgb(217 119 6) 7%, var(--card));
+}
+
+.pocket-lock-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.pocket-lock-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.pocket-lock-track {
+  fill: none;
+  stroke: rgb(217 119 6 / 0.18);
+  stroke-width: 6;
+}
+
+.pocket-lock-fill {
+  fill: none;
+  stroke: #d97706;
+  stroke-linecap: round;
+  stroke-width: 6;
+}
+
+.pocket-lock-ring > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  line-height: 1;
+}
+
+.pocket-lock-ring strong {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.pocket-lock-ring small {
+  margin-top: 0.15rem;
+  font-size: 0.65rem;
+  color: var(--muted-foreground);
+}
+
+.pocket-lock-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.pocket-lock-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.85rem;
+  background: #fde7b0;
+  color: #7c4a03;
+}
+
+.pocket-lock-form {
+  display: grid;
+  gap: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.pocket-chip {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pocket-chip[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  color: var(--foreground);
+}
+
+/* Spend + Save and figures */
+.pocket-spend {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.pocket-spend-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.85rem;
+  background: #c8f1e2;
+  color: #0f5f46;
+}
+
+.pocket-spend.is-on {
+  border-color: rgb(22 163 74 / 0.3);
+}
+
+.pocket-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+@media (max-width: 40rem) {
+  .pocket-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pocket-figure {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.pocket-figure-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.pocket-figure-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+/* Activity */
+.pocket-activity {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.pocket-activity-head {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.pocket-section-title {
+  padding: 0 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.pocket-tabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+}
+
+.pocket-tabs button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pocket-tabs button span {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.pocket-tabs button[aria-selected="true"] {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.pocket-activity-empty {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1.5rem 1.1rem;
+  text-align: center;
+}
+
+.pocket-day {
+  padding: 0.85rem 1.1rem 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.pocket-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.7rem 1.1rem;
+}
+
+.pocket-row + .pocket-row {
+  border-top: 1px solid var(--border);
+}
+
+.pocket-row-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.pocket-row-icon.is-deposit {
+  background: rgb(22 163 74 / 0.12);
+  color: #16a34a;
+}
+
+.pocket-row-icon.is-spend_save {
+  background: #c8f1e2;
+  color: #0f5f46;
+}
+
+.pocket-row-icon.is-withdrawal {
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.dark .pocket-row-icon.is-withdrawal {
+  color: var(--link);
+}
+
+.pocket-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.pocket-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.pocket-row-meta a {
+  font-weight: 600;
+  color: var(--link);
+}
+
+.pocket-row-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pocket-row-amount.is-in {
+  color: #15803d;
+}
+
+.dark .pocket-row-amount.is-in {
+  color: #4ade80;
+}
+
+.pocket-status {
+  padding: 0.05rem 0.45rem;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.pocket-status.is-warn {
+  background: rgb(217 119 6 / 0.14);
+  color: #b45309;
+}
+
+.pocket-status.is-bad {
+  background: rgb(220 38 38 / 0.12);
+  color: #b91c1c;
+}
+
+.pocket-reverse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pocket-reverse:hover:not(:disabled) {
+  color: var(--foreground);
+}
+
+.pocket-more {
+  width: 100%;
+  padding: 0.85rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--link);
+}
+
+/* Sheets */
+.pocket-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.pocket-option:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.pocket-option.is-danger {
+  color: var(--destructive);
+}
+
+.pocket-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+}
+
+.pocket-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.6rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+  transition: background-color 160ms ease;
+}
+
+.pocket-switch > span {
+  position: absolute;
+  left: 0.2rem;
+  top: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  transition: transform 160ms ease;
+}
+
+.pocket-switch-row.is-on .pocket-switch {
+  background: var(--primary);
+}
+
+.pocket-switch-row.is-on .pocket-switch > span {
+  transform: translateX(1.15rem);
+}
+
 /* ── RecurePay (scheduled payments) ─────────────────────────────────────────
  * A calm flow: an illustrated welcome, a "next payment" hero in the SwiftPay
  * gradient, a timeline of what's coming, then a Kuda-style form and review. */
