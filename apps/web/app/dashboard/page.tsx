@@ -3589,7 +3589,6 @@ export function DashboardContent({
           walletMode={walletMode}
         />
       }
-      backHref={view === "send" ? "/dashboard" : undefined}
       // Both draw their own top: the dashboard its balance, Send its own bar.
       hideHeader
       subtitle={
