@@ -23,10 +23,13 @@ Customers pay exactly as in the in-person plan: with a SwiftPay account, with an
 by card or bank through Circle Onramp, or with USDC bridged from another chain. The business is
 paid in USDC or EURC straight to its own wallet. SwiftPay never holds the money.
 
-**This plan builds on `CHECKOUT-PLAN.md`** (in-person checkout). It reuses that plan's
-`business_charges` table, the public pay page at `/c/<code>`, the on-chain verifier, the hash-less
-matcher for Onramp and bridge payments, and the expiry sweep. If this plan is built first, lift
-those pieces from Phase 1 and 2 of that document; nothing here replaces them.
+**This plan builds on the in-person checkout from `CHECKOUT-PLAN.md`, which is already built on
+this branch** (`apps/web/lib/checkout/`, `apps/web/components/checkout/`,
+`packages/database/supabase/business-checkout.sql`). It reuses the `business_charges` table, the
+public pay page at `/c/<code>`, the on-chain verifier (`lib/checkout/verify.ts`), settlement
+(`lib/checkout/settlement.ts`, `claimTransferForCharge`), the hash-less matcher for Onramp and bridge
+payments (`match.ts`, `scan.ts`), the expiry sweep (`sweep.ts`), the amount rules
+(`money-rules.ts`), and the feature flag (`lib/checkout/flag.ts`). Nothing here replaces them.
 
 SwiftPay is live on Arc mainnet. Everything below is additive and shipped behind the same
 `NEXT_PUBLIC_CHECKOUT_ENABLED` flag, with a testnet preview before a mainnet smoke test.
