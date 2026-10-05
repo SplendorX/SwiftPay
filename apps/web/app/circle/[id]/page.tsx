@@ -8,6 +8,8 @@ export default function SwiftCircleDetailPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The room draws its own bar with a back button.
+        hideHeader
         subtitle="A private hub for group money. Chat, pay, request, and save together."
         title="Circle"
       >

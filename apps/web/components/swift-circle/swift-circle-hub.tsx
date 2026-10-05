@@ -19,6 +19,7 @@ import {
   Settings2,
   Users,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -61,7 +62,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UsernameField } from "@/components/username-field";
 import { StyledSelect } from "@/components/ui/styled-select";
-import { SectionHub, type HubSection } from "@/components/layout/section-hub";
+import { type HubSection } from "@/components/layout/section-hub";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   currentCircleAuth,
@@ -131,6 +132,8 @@ import {
   signInWalletSession,
 } from "@/lib/wallet-auth-client";
 import { arcChain } from "@/lib/chains";
+
+import "./circle-room.css";
 
 function errorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
@@ -931,66 +934,27 @@ export function SwiftCircleHub() {
   }
 
   return (
-    <div className="sc-room w-full min-w-0">
-      <div className="section-panel min-w-0 sc-room-head">
-        <div className="relative z-[1] grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
-          <Link
-            aria-label="Back to Circles"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] border border-border bg-card text-muted-foreground hover:text-foreground"
-            href="/circle"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex min-w-0 items-center gap-2.5">
-            <CircleAvatar
-              className="shrink-0"
-              label={circle.name}
-              size={40}
-              src={circle.image_url}
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <h2 className="sc-group-name truncate">
-                  {circle.name}
-                </h2>
-                <Badge className="shrink-0" variant="secondary">{role}</Badge>
-                {circle.financial_frozen ? (
-                  <Badge className="shrink-0" variant="destructive">Frozen</Badge>
-                ) : null}
-              </div>
-              <p className="mt-0.5 hidden text-sm text-muted-foreground sm:line-clamp-1 sm:block">
-                {circle.description || "Private group for chat, pay, requests, and shared Save."}
-              </p>
-              <div className="mt-1 flex min-w-0 items-center gap-2">
-                <div className="hidden min-w-0 sm:block">
-                  <CircleAvatarStack
-                    people={activeMembers.map((member) => ({
-                      label: memberLabel(member),
-                      src: member.avatar_url,
-                      key: member.user_wallet,
-                    }))}
-                    size={22}
-                  />
-                </div>
-                <span className="truncate text-xs font-semibold text-muted-foreground">
-                  {activeCount} members
-                </span>
-              </div>
-            </div>
+    <div className="sc-room cr-page w-full min-w-0">
+      <header className="cr-bar">
+        <Link aria-label="Back to Circles" className="cr-round" href="/circle">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <div className="cr-who">
+          <CircleAvatar className="shrink-0" label={circle.name} size={40} src={circle.image_url} />
+          <div className="min-w-0">
+            <p className="cr-name">
+              <span className="truncate">{circle.name}</span>
+              {circle.financial_frozen ? <em className="cr-frozen">Frozen</em> : null}
+            </p>
+            <p className="cr-sub">
+              {activeCount} members · {role}
+            </p>
           </div>
-          <Button
-            aria-label="Refresh"
-            className="shrink-0"
-            disabled={busy}
-            onClick={() => void load()}
-            size="sm"
-            variant="outline"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 sm:mr-1.5 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </Button>
         </div>
-      </div>
+        <button aria-label="Refresh" className="cr-round" disabled={busy} onClick={() => void load()} type="button">
+          <RefreshCw className={`h-5 w-5 ${loading ? "animate-spin" : ""}`} />
+        </button>
+      </header>
 
       {error ? (
         <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -998,30 +962,35 @@ export function SwiftCircleHub() {
         </p>
       ) : null}
 
-      <SectionHub
-        activeId={tab}
-        ariaLabel="Circle sections"
-        backLabel="All sections"
-        className="sc-room-hub"
-        groupOrder={roomGroupOrder}
-        initialMobileView="section"
-        onActiveChange={setTab}
-        sections={roomSections.map((section) =>
-          section.id === "activity" && withdrawalsNeedingMe > 0
-            ? {
-                ...section,
-                badge: (
-                  <span
-                    aria-label={`${withdrawalsNeedingMe} awaiting your approval`}
-                    className="sc-chip-badge"
-                  >
-                    {withdrawalsNeedingMe}
+      <nav aria-label="Circle sections" className="cr-tiles" role="tablist">
+        {roomSections.map((section) => {
+          const Icon = section.icon as LucideIcon;
+          const badge = section.id === "activity" && withdrawalsNeedingMe > 0 ? withdrawalsNeedingMe : 0;
+          return (
+            <button
+              aria-selected={tab === section.id}
+              className="cr-tile"
+              key={section.id}
+              onClick={() => setTab(section.id)}
+              role="tab"
+              title={section.blurb}
+              type="button"
+            >
+              <span className="cr-tile-icon">
+                <Icon className="h-5 w-5" />
+                {badge ? (
+                  <span aria-label={`${badge} awaiting your approval`} className="cr-tile-badge">
+                    {badge}
                   </span>
-                ),
-              }
-            : section,
-        )}
-      >
+                ) : null}
+              </span>
+              {section.title}
+            </button>
+          );
+        })}
+      </nav>
+
+      <section className="cr-panel">
       <Tabs
         className="sc-room-tabs flex w-full min-w-0 flex-col"
         onValueChange={setTab}
@@ -2583,7 +2552,7 @@ export function SwiftCircleHub() {
           )}
         </TabsContent>
       </Tabs>
-      </SectionHub>
+      </section>
     </div>
   );
 }

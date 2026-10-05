@@ -1,0 +1,345 @@
+/* Circle list. Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.cl-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.1rem;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.cl-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.cl-title {
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.cl-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.cl-round:hover {
+  background: var(--muted);
+}
+
+.cl-round.is-primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.cl-error {
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--destructive) 9%, var(--card));
+  font-size: 0.88rem;
+  color: var(--destructive);
+}
+
+.cl-loading {
+  display: flex;
+  min-height: 30vh;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+}
+
+.cl-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  background: var(--card);
+}
+
+.cl-pad {
+  padding: 1rem 1.1rem;
+}
+
+.cl-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.cl-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.cl-count,
+.cl-unread {
+  display: inline-grid;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  padding: 0 0.35rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+/* Intro */
+.cl-intro {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  padding: 1.25rem 0.5rem 0.5rem;
+  text-align: center;
+}
+
+.cl-illustration {
+  width: min(19rem, 78vw);
+  height: auto;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 18px 40px rgb(91 33 182 / 0.18));
+}
+
+.circle-person {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: circle-pop 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes circle-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .circle-person {
+    animation: none;
+  }
+}
+
+.cl-intro-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cl-intro-body {
+  max-width: 27rem;
+  line-height: 1.55;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.cl-intro-points {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.9rem;
+  text-align: left;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.cl-intro-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cl-intro-points svg {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.dark .cl-intro-points svg {
+  color: var(--link);
+}
+
+.cl-cta {
+  width: 100%;
+  max-width: 24rem;
+  height: 3.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Hero */
+.cl-hero {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  overflow: hidden;
+  padding: 1.2rem 1.25rem 1.05rem;
+  border-radius: 1.4rem;
+  color: #ffffff;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+}
+
+.cl-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.cl-hero-label {
+  position: relative;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.88;
+}
+
+.cl-hero-amount {
+  position: relative;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.9rem, 7vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cl-hero-foot {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  font-size: 0.82rem;
+}
+
+.cl-hero-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Rows */
+.cl-list {
+  padding: 0.15rem 1rem;
+}
+
+.cl-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.cl-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 0;
+}
+
+.cl-row-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.2rem;
+}
+
+.cl-row-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.97rem;
+  font-weight: 700;
+}
+
+.cl-role {
+  flex-shrink: 0;
+  padding: 0.05rem 0.45rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: capitalize;
+  color: var(--muted-foreground);
+}
+
+.cl-role.is-frozen {
+  background: color-mix(in oklch, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+}
+
+.cl-row-sub {
+  overflow: hidden;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl-row-side {
+  display: grid;
+  flex-shrink: 0;
+  justify-items: end;
+  gap: 0.25rem;
+}
+
+.cl-row-amount {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+/* Create sheet */
+.cl-sheet {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.9rem;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.cl-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cl-field > span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.cl-field input {
+  height: 2.9rem;
+}
+
+.cl-field em {
+  font-size: 0.75rem;
+  font-style: normal;
+  color: var(--muted-foreground);
+}

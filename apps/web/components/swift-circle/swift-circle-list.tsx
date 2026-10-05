@@ -1,17 +1,17 @@
 "use client";
 
-import { Inbox, Loader2, Plus, UsersRound } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle, PiggyBank, Plus, Split, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 
-import { SectionHub, type HubSection } from "@/components/layout/section-hub";
 import { useT } from "@/components/locale-provider";
 import { CircleInviteInbox } from "@/components/swift-circle/circle-invite-inbox";
+import { CircleIllustration } from "@/components/swift-circle/circle-illustration";
 import { CircleAvatar } from "@/components/swift-circle/circle-visuals";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
 import {
   circleSessionEventName,
   getCircleLoginIdentity,
@@ -28,12 +28,16 @@ import type {
   CircleListItem,
   CirclePlatformLimits,
 } from "@/lib/swift-circle/types";
+import { useSheetSide } from "@/lib/use-media-query";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
+import { cn } from "@/lib/utils";
 import {
   fetchWalletSessionForAddress,
   signInWalletSession,
   walletSessionChangedEventName,
 } from "@/lib/wallet-auth-client";
+
+import "./circle-list.css";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Something went wrong.";
@@ -61,7 +65,7 @@ export function SwiftCircleList() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [limits, setLimits] = useState<CirclePlatformLimits | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState("circles");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const social =
     platformCircleSocialUuid ??
@@ -106,7 +110,6 @@ export function SwiftCircleList() {
     const invite = new URLSearchParams(window.location.search).get("invite");
     if (invite) {
       setHighlightId(invite);
-      setActiveId("invitations");
       window.requestAnimationFrame(() => {
         document.getElementById(`circle-invite-${invite}`)?.scrollIntoView({
           behavior: "smooth",
@@ -186,173 +189,250 @@ export function SwiftCircleList() {
     }
   }
 
+  const bar = (
+    <header className="cl-bar">
+      <Link aria-label="Back to the dashboard" className="cl-round" href="/dashboard">
+        <ArrowLeft className="h-5 w-5" />
+      </Link>
+      <h1 className="cl-title">Circle</h1>
+      {authorized ? (
+        <button
+          aria-label={t("circle.startCircle")}
+          className="cl-round is-primary"
+          onClick={() => setCreateOpen(true)}
+          title={t("circle.startCircle")}
+          type="button"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      ) : (
+        <span />
+      )}
+    </header>
+  );
+
   if (!address) {
     return (
-      <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        Connect a wallet to open Circle.
+      <div className="cl-page">
+        {bar}
+        <div className="cl-card cl-pad text-sm text-muted-foreground">Connect a wallet to open Circle.</div>
       </div>
     );
   }
 
-  const circlesPanel = loading ? (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Loader2 className="h-4 w-4 animate-spin" />
-      Loading Circles…
-    </div>
-  ) : circles.length === 0 ? (
-    <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-      <UsersRound className="mx-auto h-8 w-8 text-muted-foreground" />
-      <p className="mt-3 font-medium">No Circles yet</p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {inbox.length > 0
-          ? "Accept an invitation, or start a Circle to get going."
-          : "Create a private group to pay, save, and coordinate together."}
-      </p>
-      <Button className="mt-4" onClick={() => setActiveId("new")} size="sm">
-        <Plus className="h-4 w-4" />
-        Start a Circle
-      </Button>
-    </div>
-  ) : (
-    <div className="grid gap-2">
-      {circles.map((circle) => (
-        <Link className="sc-list-row" href={`/circle/${circle.id}`} key={circle.id}>
-          <CircleAvatar label={circle.name} size={48} src={circle.image_url} />
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <h3 className="min-w-0 truncate font-heading text-base font-semibold">
-                {circle.name}
-              </h3>
-              <Badge className="shrink-0" variant="secondary">{circle.role}</Badge>
-              {circle.financial_frozen ? (
-                <Badge className="shrink-0" variant="destructive">Frozen</Badge>
-              ) : null}
-            </div>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              {circle.member_count} people
-              {circle.pending_requests ? ` · ${circle.pending_requests} requests` : " · Open chat"}
-            </p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="font-heading text-sm font-semibold">{formatUsd(circle.save_balance)}</p>
-            <p className="text-[11px] text-muted-foreground">Circle Save</p>
-            {circle.unread_count ? (
-              <span className="sc-unread mt-1 inline-flex">{circle.unread_count}</span>
-            ) : null}
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-
-  const sections: HubSection[] = [
-    {
-      id: "circles",
-      group: "Your Circles",
-      icon: UsersRound,
-      title: "All Circles",
-      blurb:
-        circles.length === 0
-          ? "Private groups to pay, save and chat together."
-          : `${circles.length} Circle${circles.length === 1 ? "" : "s"} · open one to chat, pay and save.`,
-      render: () => circlesPanel,
-    },
-    // Each room is a shortcut straight into it.
-    ...circles.map((circle) => ({
-      id: `room-${circle.id}`,
-      group: "Your Circles",
-      icon: <CircleAvatar label={circle.name} size={34} src={circle.image_url} />,
-      title: circle.name,
-      blurb: `${circle.member_count} people · ${formatUsd(circle.save_balance)} saved`,
-      badge: circle.unread_count ? (
-        <span className="sc-unread inline-flex">{circle.unread_count}</span>
-      ) : undefined,
-      href: `/circle/${circle.id}`,
-    })),
-    {
-      id: "invitations",
-      group: "Inbox",
-      icon: Inbox,
-      title: t("circle.invitations"),
-      blurb: t("circle.invitationsBody"),
-      badge: inbox.length > 0 ? <span className="sc-unread inline-flex">{inbox.length}</span> : undefined,
-      render: () => (
-        <CircleInviteInbox
-          busyId={busyId}
-          emptyLabel={t("circle.noPending")}
-          highlightId={highlightId}
-          invitations={inbox}
-          onAccept={(id) => void respond(id, "accept")}
-          onDecline={(id) => void respond(id, "decline")}
-        />
-      ),
-    },
-    {
-      id: "new",
-      group: "Create",
-      icon: Plus,
-      title: t("circle.startCircle"),
-      blurb: t("circle.startCircleBody"),
-      render: () => (
-        <div className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              onChange={(event) => setName(event.target.value)}
-              placeholder={t("circle.circleName")}
-              value={name}
-            />
-            <Input
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Optional description"
-              value={description}
-            />
-            <Input
-              className="sm:col-span-2"
-              onChange={(event) => setInvites(event.target.value)}
-              placeholder="Invite @alice @bob"
-              value={invites}
-            />
-          </div>
-          <Button
-            className="w-fit"
-            disabled={creating || !name.trim() || !authorized}
-            onClick={() => void onCreate()}
-          >
-            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Create Circle
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const totalSaved = circles.reduce((sum, circle) => sum + (Number(circle.save_balance) || 0), 0);
+  const unread = circles.reduce((sum, circle) => sum + (circle.unread_count ?? 0), 0);
 
   return (
-    <div className="grid gap-5">
-      {error ? (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+    <div className="cl-page">
+      {bar}
+
+      {error ? <p className="cl-error">{error}</p> : null}
 
       {!authorized && !loading ? (
-        <div className="rounded-2xl border border-border bg-card p-5">
+        <div className="cl-card cl-pad">
           <p className="text-sm text-muted-foreground">{t("circle.authorizeToLoad")}</p>
-          <Button className="mt-3" disabled={isSigning} onClick={() => void authorize()}>
+          <Button className="mt-3 h-11" disabled={isSigning} onClick={() => void authorize()}>
             {isSigning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {t("common.authorizeWallet")}
           </Button>
         </div>
+      ) : loading ? (
+        <p className="cl-loading">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading Circles…
+        </p>
       ) : (
-        <SectionHub
-          activeId={activeId}
-          ariaLabel="Circle"
-          backLabel="All of Circle"
-          groupOrder={["Your Circles", "Inbox", "Create"]}
-          onActiveChange={setActiveId}
-          sections={sections}
-          syncHash={false}
-        />
+        <>
+          {inbox.length > 0 ? (
+            <section className="cl-section">
+              <h2 className="cl-section-title">
+                {t("circle.invitations")} <span className="cl-count">{inbox.length}</span>
+              </h2>
+              <div className="cl-card cl-pad">
+                <CircleInviteInbox
+                  busyId={busyId}
+                  emptyLabel={t("circle.noPending")}
+                  highlightId={highlightId}
+                  invitations={inbox}
+                  onAccept={(id) => void respond(id, "accept")}
+                  onDecline={(id) => void respond(id, "decline")}
+                />
+              </div>
+            </section>
+          ) : null}
+
+          {circles.length === 0 ? (
+            <div className="cl-intro">
+              <CircleIllustration className="cl-illustration" />
+              <h2 className="cl-intro-title">Money is better together.</h2>
+              <p className="cl-intro-body">
+                A Circle is a private group for the people you share money with: chat, split bills, request and pay
+                each other, and save toward a goal together.
+              </p>
+              <ul className="cl-intro-points">
+                <li>
+                  <MessageCircle className="h-4 w-4" /> Group chat with payments right in the conversation
+                </li>
+                <li>
+                  <Split className="h-4 w-4" /> Split bills and send requests to members
+                </li>
+                <li>
+                  <PiggyBank className="h-4 w-4" /> Circle Save: a shared pot everyone can add to
+                </li>
+              </ul>
+              <Button className="cl-cta" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                {t("circle.startCircle")}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <section className="cl-hero">
+                <span aria-hidden className="cl-hero-glow" />
+                <p className="cl-hero-label">Saved together</p>
+                <p className="cl-hero-amount">{formatUsd(totalSaved)}</p>
+                <div className="cl-hero-foot">
+                  <span>
+                    <UsersRound className="h-3.5 w-3.5" /> {circles.length} Circle{circles.length === 1 ? "" : "s"}
+                  </span>
+                  {unread > 0 ? (
+                    <span>
+                      <MessageCircle className="h-3.5 w-3.5" /> {unread} unread
+                    </span>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="cl-section">
+                <h2 className="cl-section-title">Your Circles</h2>
+                <ul className="cl-card cl-list">
+                  {circles.map((circle) => (
+                    <li key={circle.id}>
+                      <Link className="cl-row" href={`/circle/${circle.id}`}>
+                        <CircleAvatar label={circle.name} size={48} src={circle.image_url} />
+                        <span className="cl-row-main">
+                          <span className="cl-row-title">
+                            <span className="truncate">{circle.name}</span>
+                            <em className="cl-role">{circle.role}</em>
+                            {circle.financial_frozen ? <em className="cl-role is-frozen">Frozen</em> : null}
+                          </span>
+                          <span className="cl-row-sub">
+                            {circle.member_count} people
+                            {circle.pending_requests ? ` · ${circle.pending_requests} requests` : " · Open chat"}
+                          </span>
+                        </span>
+                        <span className="cl-row-side">
+                          <span className="cl-row-amount">{formatUsd(circle.save_balance)}</span>
+                          {circle.unread_count ? (
+                            <span className="cl-unread">{circle.unread_count}</span>
+                          ) : (
+                            <span className="cl-row-sub">saved</span>
+                          )}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
+          )}
+        </>
       )}
+
+      <CreateCircleSheet
+        authorized={authorized}
+        creating={creating}
+        description={description}
+        invites={invites}
+        limits={limits}
+        name={name}
+        onClose={() => setCreateOpen(false)}
+        onCreate={async () => {
+          await onCreate();
+          setCreateOpen(false);
+        }}
+        onDescriptionChange={setDescription}
+        onInvitesChange={setInvites}
+        onNameChange={setName}
+        open={createOpen}
+      />
     </div>
+  );
+}
+
+function CreateCircleSheet({
+  authorized,
+  creating,
+  description,
+  invites,
+  limits,
+  name,
+  onClose,
+  onCreate,
+  onDescriptionChange,
+  onInvitesChange,
+  onNameChange,
+  open,
+}: {
+  authorized: boolean;
+  creating: boolean;
+  description: string;
+  invites: string;
+  limits: CirclePlatformLimits | null;
+  name: string;
+  onClose: () => void;
+  onCreate: () => Promise<void>;
+  onDescriptionChange: (value: string) => void;
+  onInvitesChange: (value: string) => void;
+  onNameChange: (value: string) => void;
+  open: boolean;
+}) {
+  const t = useT();
+  const side = useSheetSide();
+  return (
+    <Sheet onOpenChange={(next) => !next && onClose()} open={open}>
+      <SheetContent
+        className={cn("gap-0 p-0", side === "bottom" ? "max-h-[92dvh] rounded-t-[1.75rem] border-t-0" : "w-full sm:max-w-md")}
+        showCloseButton={false}
+        side={side}
+      >
+        {side === "bottom" ? <SheetGrabber /> : null}
+        <div className="cl-sheet">
+          <SheetTitle className="text-center text-lg font-bold">{t("circle.startCircle")}</SheetTitle>
+          <SheetDescription className="text-center text-sm text-muted-foreground">
+            {t("circle.startCircleBody")}
+          </SheetDescription>
+          <label className="cl-field">
+            <span>{t("circle.circleName")}</span>
+            <Input onChange={(event) => onNameChange(event.target.value)} placeholder="e.g. Flatmates" value={name} />
+          </label>
+          <label className="cl-field">
+            <span>Description</span>
+            <Input
+              onChange={(event) => onDescriptionChange(event.target.value)}
+              placeholder="Optional"
+              value={description}
+            />
+          </label>
+          <label className="cl-field">
+            <span>Invite people</span>
+            <Input onChange={(event) => onInvitesChange(event.target.value)} placeholder="@alice @bob" value={invites} />
+            <em>
+              SwiftPay usernames, separated by spaces or commas.
+              {limits?.max_members ? ` Up to ${limits.max_members} members.` : ""}
+            </em>
+          </label>
+          <Button
+            className="h-12 font-bold"
+            disabled={creating || !name.trim() || !authorized}
+            onClick={() => void onCreate()}
+          >
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Create Circle
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

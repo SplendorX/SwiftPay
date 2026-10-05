@@ -8,6 +8,8 @@ export default function SwiftCirclePage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The list draws its own bar with a back button.
+        hideHeader
         subtitle="Your rooms for money and conversation"
         title="Circle"
       >

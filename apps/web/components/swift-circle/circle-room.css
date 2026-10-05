@@ -1,0 +1,156 @@
+/* A Circle room's frame: bar, section tiles, panel. Its own file (not
+ * globals.css), so the build cache can't serve a stale copy. */
+
+.cr-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.cr-bar {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 0.25rem;
+}
+
+.cr-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.cr-round:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.cr-who {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.cr-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.cr-sub {
+  font-size: 0.78rem;
+  text-transform: capitalize;
+  color: var(--muted-foreground);
+}
+
+.cr-frozen {
+  flex-shrink: 0;
+  padding: 0.05rem 0.45rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--destructive) 12%, var(--card));
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--destructive);
+}
+
+/* Section tiles: one row that scrolls on phones, wraps on wide screens */
+.cr-tiles {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.8rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+  scrollbar-width: none;
+}
+
+.cr-tiles::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .cr-tiles {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    overflow: visible;
+  }
+}
+
+.cr-tile {
+  display: grid;
+  flex: 0 0 4.4rem;
+  justify-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.cr-tile-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+  transition: background-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.dark .cr-tile-icon {
+  color: var(--link);
+}
+
+.cr-tile:hover .cr-tile-icon {
+  transform: translateY(-2px);
+}
+
+.cr-tile[aria-selected="true"] {
+  color: var(--foreground);
+}
+
+.cr-tile[aria-selected="true"] .cr-tile-icon {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.cr-tile-badge {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  display: grid;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  place-items: center;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  background: var(--destructive);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+/* The open section */
+.cr-panel {
+  min-width: 0;
+}
