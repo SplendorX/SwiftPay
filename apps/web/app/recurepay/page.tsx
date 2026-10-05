@@ -8,7 +8,9 @@ export default function SwiftRecurepayPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        subtitle="Automated stablecoin schedules"
+        // The page draws its own header; skip the frame's to avoid a second title.
+        hideHeader
+        subtitle="Scheduled payments"
         title="RecurePay"
       >
         <SwiftRecurepayHub />
