@@ -70,6 +70,7 @@ export const pt: Messages = {
     batchPay: "BatchPay",
     recurePay: "RecurePay",
     activity: "Atividade",
+    insights: "Análises",
     settings: "Definições",
   },
   pages: {

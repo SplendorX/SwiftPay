@@ -70,6 +70,7 @@ export const ar: Messages = {
     batchPay: "BatchPay",
     recurePay: "RecurePay",
     activity: "النشاط",
+    insights: "الرؤى",
     settings: "الإعدادات",
   },
   pages: {

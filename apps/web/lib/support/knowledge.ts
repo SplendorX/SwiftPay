@@ -118,7 +118,7 @@ export const supportArticles: SupportArticle[] = [
       "Open it on the Arc explorer to see its status.",
       "If it failed, your funds stayed in your wallet — you can try again.",
     ],
-    links: [{ label: "Open Activity", href: "/activity" }],
+    links: [{ label: "Open Insights", href: "/insights" }],
   },
   {
     id: "wrong-address",
@@ -127,7 +127,7 @@ export const supportArticles: SupportArticle[] = [
     keywords: ["wrong address", "wrong person", "mistake", "reverse", "refund", "undo", "cancel payment", "sent by mistake"],
     answer:
       "Blockchain payments can't be reversed by SwiftPay. If you know the recipient, ask them to send it back. If you sent to a SwiftPay @username, our team can try to contact them for you.",
-    links: [{ label: "Open Activity", href: "/activity" }],
+    links: [{ label: "Open Insights", href: "/insights" }],
     urgent: true,
   },
   {

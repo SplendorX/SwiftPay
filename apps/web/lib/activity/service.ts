@@ -122,13 +122,13 @@ export async function recordAccountActivity(input: RecordAccountActivityInput) {
 
 // ── Reads: one loader per feature ───────────────────────────────────────
 
-async function loadLedger(db: Supabase, wallet: string) {
+async function loadLedger(db: Supabase, wallet: string, limit = sourceLimit) {
   const { data, error } = await db
     .from(activityTable)
     .select("*")
     .eq("wallet_address", wallet)
     .order("occurred_at", { ascending: false })
-    .limit(sourceLimit * 2);
+    .limit(limit * 2);
   if (error) throw error;
 
   return (data ?? []).map(
@@ -159,7 +159,7 @@ const saveTitles: Record<string, (pocket: string) => string> = {
   ADJUSTMENT: (pocket) => `Adjustment on ${pocket}`,
 };
 
-async function loadSave(db: Supabase, wallet: string) {
+async function loadSave(db: Supabase, wallet: string, limit = sourceLimit) {
   const { data, error } = await db
     .from("savings_transactions")
     .select(
@@ -168,7 +168,7 @@ async function loadSave(db: Supabase, wallet: string) {
     .eq("owner_wallet", wallet)
     .eq("status", "COMPLETED")
     .order("created_at", { ascending: false })
-    .limit(sourceLimit);
+    .limit(limit);
   if (error) throw error;
 
   return (data ?? []).map((row: Row): AccountActivityEntry => {
@@ -191,7 +191,7 @@ async function loadSave(db: Supabase, wallet: string) {
   });
 }
 
-async function loadEarn(db: Supabase, wallet: string) {
+async function loadEarn(db: Supabase, wallet: string, limit = sourceLimit) {
   const [deposits, withdrawals] = await Promise.all(
     ["earn_deposits", "earn_withdrawals"].map((table) =>
       db
@@ -199,7 +199,7 @@ async function loadEarn(db: Supabase, wallet: string) {
         .select("id,assets,tx_hash,timestamp,created_at")
         .ilike("wallet_address", wallet)
         .order("created_at", { ascending: false })
-        .limit(sourceLimit),
+        .limit(limit),
     ),
   );
   if (deposits.error) throw deposits.error;
@@ -225,7 +225,7 @@ async function loadEarn(db: Supabase, wallet: string) {
   ];
 }
 
-async function loadRecurePay(db: Supabase, wallet: string) {
+async function loadRecurePay(db: Supabase, wallet: string, limit = sourceLimit) {
   const { data, error } = await db
     .from("recurring_executions")
     .select(
@@ -236,7 +236,7 @@ async function loadRecurePay(db: Supabase, wallet: string) {
     // background by Autopay. Both are finished payments.
     .in("status", ["confirmed", "COMPLETED"])
     .order("created_at", { ascending: false })
-    .limit(sourceLimit);
+    .limit(limit);
   if (error) throw error;
 
   return (data ?? []).map((row: Row): AccountActivityEntry => {
@@ -260,7 +260,7 @@ async function loadRecurePay(db: Supabase, wallet: string) {
   });
 }
 
-async function loadInvoicesReceived(db: Supabase, wallet: string) {
+async function loadInvoicesReceived(db: Supabase, wallet: string, limit = sourceLimit) {
   const { data, error } = await db
     .from("business_invoices")
     .select(
@@ -268,7 +268,7 @@ async function loadInvoicesReceived(db: Supabase, wallet: string) {
     )
     .eq("wallet_address", wallet)
     .order("created_at", { ascending: false })
-    .limit(sourceLimit);
+    .limit(limit);
   if (error) throw error;
 
   return (data ?? []).flatMap((invoice: Row) => {
@@ -294,7 +294,7 @@ async function loadInvoicesReceived(db: Supabase, wallet: string) {
   });
 }
 
-async function loadPayroll(db: Supabase, wallet: string) {
+async function loadPayroll(db: Supabase, wallet: string, limit = sourceLimit) {
   const [runs, received] = await Promise.all([
     db
       .from("payroll_runs")
@@ -304,7 +304,7 @@ async function loadPayroll(db: Supabase, wallet: string) {
       .eq("account_id", wallet)
       .in("status", ["COMPLETED", "PARTIALLY_COMPLETED"])
       .order("updated_at", { ascending: false })
-      .limit(sourceLimit),
+      .limit(limit),
     db
       .from("payroll_items")
       .select(
@@ -313,7 +313,7 @@ async function loadPayroll(db: Supabase, wallet: string) {
       .ilike("recipient_destination_snapshot", wallet)
       .eq("status", "COMPLETED")
       .order("updated_at", { ascending: false })
-      .limit(sourceLimit),
+      .limit(limit),
   ]);
   if (runs.error) throw runs.error;
   if (received.error) throw received.error;
@@ -374,7 +374,7 @@ async function loadPayroll(db: Supabase, wallet: string) {
   return [...paid, ...earned];
 }
 
-async function loadAllie(db: Supabase, wallet: string) {
+async function loadAllie(db: Supabase, wallet: string, limit = sourceLimit) {
   const { data, error } = await db
     .from("payment_intents")
     .select(
@@ -387,7 +387,7 @@ async function loadAllie(db: Supabase, wallet: string) {
     // stage past submission, as ALLIE's own spend context does.
     .in("status", ["submitted", "confirming", "completed"])
     .order("updated_at", { ascending: false })
-    .limit(sourceLimit);
+    .limit(limit);
   if (error) throw error;
 
   const settled = (data ?? []).filter((row: Row) =>
@@ -424,7 +424,7 @@ const circleTitles: Record<string, string> = {
   yield_adjustment: "Yield in",
 };
 
-async function loadCircle(db: Supabase, wallet: string) {
+async function loadCircle(db: Supabase, wallet: string, limit = sourceLimit) {
   const { data, error } = await db
     .from("circle_ledger_entries")
     .select(
@@ -434,7 +434,7 @@ async function loadCircle(db: Supabase, wallet: string) {
     .eq("status", "confirmed")
     .neq("entry_type", "failed_transaction")
     .order("created_at", { ascending: false })
-    .limit(sourceLimit);
+    .limit(limit);
   if (error) throw error;
 
   return (data ?? []).map((row: Row): AccountActivityEntry => {
@@ -454,14 +454,14 @@ async function loadCircle(db: Supabase, wallet: string) {
   });
 }
 
-async function loadPointsPurchases(db: Supabase, wallet: string) {
+async function loadPointsPurchases(db: Supabase, wallet: string, limit = sourceLimit) {
   const { data, error } = await db
     .from("swiftpoints_purchases")
     .select("id,points,usdc_amount,tx_hash,created_at")
     .eq("wallet_address", wallet)
     .eq("status", "COMPLETED")
     .order("created_at", { ascending: false })
-    .limit(sourceLimit);
+    .limit(limit);
   if (error) throw error;
 
   // The payment is a plain USDC transfer to the points treasury; claiming its
@@ -481,7 +481,7 @@ async function loadPointsPurchases(db: Supabase, wallet: string) {
   );
 }
 
-const loaders: Array<[string, (db: Supabase, wallet: string) => Promise<AccountActivityEntry[]>]> = [
+const loaders: Array<[string, (db: Supabase, wallet: string, limit?: number) => Promise<AccountActivityEntry[]>]> = [
   ["ledger", loadLedger],
   ["save", loadSave],
   ["earn", loadEarn],
@@ -497,11 +497,20 @@ const loaders: Array<[string, (db: Supabase, wallet: string) => Promise<AccountA
  * Every feature's confirmed activity for one wallet. A feature whose table is
  * missing or failing is skipped rather than blanking the whole feed.
  */
-export async function listAccountActivity(walletAddress: string) {
+export async function listAccountActivity(
+  walletAddress: string,
+  options: {
+    /** Rows read per feature, newest first (a statement reads further back). */
+    limit?: number;
+    /** Keep only entries in this window; undated entries are kept. */
+    from?: Date;
+    to?: Date;
+  } = {},
+) {
   const wallet = walletAddress.toLowerCase();
   const db = createSupabaseAdminClient();
   const results = await Promise.allSettled(
-    loaders.map(([, load]) => load(db, wallet)),
+    loaders.map(([, load]) => load(db, wallet, options.limit ?? sourceLimit)),
   );
 
   const entries: AccountActivityEntry[] = [];
@@ -518,7 +527,12 @@ export async function listAccountActivity(walletAddress: string) {
     }
   });
 
-  return dedupeByTxHash(entries);
+  const from = options.from?.getTime() ?? -Infinity;
+  const to = options.to?.getTime() ?? Infinity;
+  return dedupeByTxHash(entries).filter((entry) => {
+    const at = entry.occurredAt ? Date.parse(entry.occurredAt) : Number.NaN;
+    return Number.isNaN(at) || (at >= from && at <= to);
+  });
 }
 
 /**

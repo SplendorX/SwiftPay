@@ -70,6 +70,7 @@ export const zh: Messages = {
     batchPay: "BatchPay",
     recurePay: "RecurePay",
     activity: "活动",
+    insights: "洞察",
     settings: "设置",
   },
   pages: {

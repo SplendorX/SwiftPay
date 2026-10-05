@@ -176,25 +176,43 @@ function platformContracts() {
   );
 }
 
-/** The stored history, newest first, in the explorer's shape. */
-export async function readWalletHistory(walletInput: string): Promise<WalletTransfer[]> {
+/**
+ * The stored history, newest first, in the explorer's shape. By default the
+ * newest 100 with platform fee legs hidden (what Activity shows); a statement
+ * asks for a date range, and referral progress for every outflow.
+ */
+export async function readWalletHistory(
+  walletInput: string,
+  options: {
+    from?: Date;
+    to?: Date;
+    direction?: "in" | "out";
+    includePlatformFees?: boolean;
+    limit?: number;
+  } = {},
+): Promise<WalletTransfer[]> {
   const wallet = walletInput.toLowerCase();
-  const { data, error } = await db()
+  const limit = options.limit ?? HISTORY_LIMIT;
+  let query = db()
     .from(historyTable)
     .select("tx_hash, log_index, direction, counterparty, symbol, amount, block_number, occurred_at")
     .eq("chain_id", arcChain.id)
     .eq("wallet_address", wallet)
     .order("block_number", { ascending: false })
     .order("log_index", { ascending: false })
-    .limit(HISTORY_LIMIT + 20);
+    .limit(limit + 20);
+  if (options.from) query = query.gte("occurred_at", options.from.toISOString());
+  if (options.to) query = query.lte("occurred_at", options.to.toISOString());
+  if (options.direction) query = query.eq("direction", options.direction);
+  const { data, error } = await query;
   if (error) throw error;
 
-  const feeRecipients = new Set(getPlatformFeeRecipientAddresses());
+  const feeRecipients = new Set(options.includePlatformFees ? [] : getPlatformFeeRecipientAddresses());
   const contracts = platformContracts();
   return ((data ?? []) as HistoryRow[])
     // Platform fee legs are hidden from end-user history, as before.
     .filter((row) => !(row.direction === "out" && feeRecipients.has(row.counterparty)))
-    .slice(0, HISTORY_LIMIT)
+    .slice(0, limit)
     .map((row) => ({
       amount: row.amount,
       blockNumber: Number(row.block_number),
@@ -210,14 +228,33 @@ export async function readWalletHistory(walletInput: string): Promise<WalletTran
 }
 
 /**
+ * From when the stored history is complete: the time of the oldest block
+ * read so far. Null before the first read. Statements say so when their range
+ * starts earlier, since only SwiftPay's own records reach back further.
+ */
+export async function walletHistoryCoverage(walletInput: string) {
+  const cursor = await readCursor(walletInput.toLowerCase()).catch(() => null);
+  if (!cursor) return null;
+  try {
+    const block = await createArcRpcClient().getBlock({ blockNumber: cursor.oldestBlock });
+    return new Date(Number(block.timestamp) * 1000).toISOString();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * A wallet's history from the RPC store: brought up to date first, then read.
  * If the sync fails (RPC busy), whatever is stored is still returned.
  */
-export async function walletHistoryFromRpc(wallet: string) {
+export async function walletHistoryFromRpc(
+  wallet: string,
+  options?: Parameters<typeof readWalletHistory>[1],
+) {
   try {
     await syncWalletHistory(wallet);
   } catch (error) {
     console.warn("[wallet-history] sync failed", wallet, error instanceof Error ? error.message : error);
   }
-  return readWalletHistory(wallet);
+  return readWalletHistory(wallet, options);
 }

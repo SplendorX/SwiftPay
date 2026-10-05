@@ -29,7 +29,7 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: "Send", short_name: "Send", url: "/send", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
       { name: "Request a payment", short_name: "Request", url: "/pay", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
       { name: "Swap", short_name: "Swap", url: "/swap", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
-      { name: "Activity", short_name: "Activity", url: "/activity", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
+      { name: "Insights", short_name: "Insights", url: "/insights", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },
       ...(checkoutEnabled
         ? [{ name: "Get paid", short_name: "Get paid", url: "/business/checkout", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] }]
         : []),

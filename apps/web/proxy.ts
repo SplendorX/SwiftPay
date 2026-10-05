@@ -7,6 +7,7 @@ import { readWalletToken, walletSessionCookieName } from "@/lib/wallet-session";
 
 const protectedRouteMatchers = [
   "/activity",
+  "/insights",
   "/dashboard",
   "/deposit",
   "/business",
@@ -195,6 +196,7 @@ export const config = {
   matcher: [
     "/api/:path*",
     "/activity/:path*",
+    "/insights/:path*",
     "/dashboard/:path*",
     "/deposit/:path*",
     "/business/:path*",

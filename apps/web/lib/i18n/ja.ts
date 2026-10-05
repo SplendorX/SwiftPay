@@ -70,6 +70,7 @@ export const ja: Messages = {
     batchPay: "BatchPay",
     recurePay: "RecurePay",
     activity: "アクティビティ",
+    insights: "インサイト",
     settings: "設定",
   },
   pages: {

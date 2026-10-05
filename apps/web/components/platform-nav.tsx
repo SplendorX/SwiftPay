@@ -4,7 +4,7 @@ import {
   Banknote,
   CalendarClock,
   Gift,
-  History,
+  ChartNoAxesColumn,
   LayoutDashboard,
   PiggyBank,
   Settings,
@@ -43,7 +43,7 @@ export const platformNavItems = [
   { href: "/earn", label: "Earn", icon: TrendingUp },
   { href: "/batchpay", label: "BatchPay", icon: Users },
   { href: "/recurepay", label: "RecurePay", icon: CalendarClock },
-  { href: "/activity", label: "Activity", icon: History },
+  { href: "/insights", label: "Insights", icon: ChartNoAxesColumn },
   { href: "/referral", label: "Invite & Earn", icon: Gift },
   { href: "/settings", label: "Settings", icon: Settings },
 ] satisfies Array<{

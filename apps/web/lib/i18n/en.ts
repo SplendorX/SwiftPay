@@ -68,6 +68,7 @@ export const en = {
     batchPay: "BatchPay",
     recurePay: "RecurePay",
     activity: "Activity",
+    insights: "Insights",
     settings: "Settings",
   },
   pages: {

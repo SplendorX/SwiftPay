@@ -4,7 +4,7 @@ import {
   CalendarClock,
   Command,
   Gift,
-  History,
+  ChartNoAxesColumn,
   LayoutDashboard,
   PiggyBank,
   RefreshCw,
@@ -46,7 +46,7 @@ const navIcons: Record<string, typeof Command> = {
   "/circle": UsersRound,
   "/recurepay": CalendarClock,
   "/pay": Send,
-  "/activity": History,
+  "/insights": ChartNoAxesColumn,
   "/settings": Settings,
 };
 
