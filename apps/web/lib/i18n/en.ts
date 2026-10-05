@@ -65,7 +65,7 @@ export const en = {
     circle: "Circle",
     save: "Save",
     earn: "Earn",
-    batchPay: "BatchPay",
+    batchPay: "BulkPay",
     recurePay: "RecurePay",
     activity: "Activity",
     insights: "Insights",
@@ -95,7 +95,7 @@ export const en = {
     saveDetailSubtitle: "Pocket detail",
     earnTitle: "Earn",
     earnSubtitle: "Put your idle USDC to work while keeping your funds accessible.",
-    batchTitle: "BatchPay",
+    batchTitle: "BulkPay",
     batchSubtitle: "Enterprise batch settlement",
     recureTitle: "RecurePay",
     recureSubtitle: "Automated stablecoin schedules",
@@ -236,7 +236,7 @@ export const en = {
     personalBullet1: "Send & receive",
     personalBullet2: "Pay requests",
     personalBullet3: "Save, Earn, Swap",
-    personalBullet4: "BatchPay, RecurePay, Circle",
+    personalBullet4: "BulkPay, RecurePay, Circle",
     continuePersonal: "Continue with Personal",
     businessCardTitle: "Business",
     businessCardDescription:
@@ -368,13 +368,13 @@ export const en = {
       "Use the dashboard for portfolio value, token balances, direct sends, beneficiaries, transaction receipts, and wallet activity. The send panel is organized as a step-by-step payment flow.",
     faq2Q: "Which pages are available?",
     faq2A:
-      "SwiftPay includes Dashboard, Save, Earn, Swap, BatchPay, RecurePay, Payment requests, Circle, Docs, and Settings. The main product workflows are linked directly from the product section.",
+      "SwiftPay includes Dashboard, Save, Earn, Swap, BulkPay, RecurePay, Payment requests, Circle, Docs, and Settings. The main product workflows are linked directly from the product section.",
     faq3Q: "How are Save and Earn different?",
     faq3A:
       "Save creates non-interest savings pockets and Spend&Save rules. Earn is separate and shows vault performance, earnings context, and Auto-Save controls where supported.",
     faq4Q: "Can I request, batch, or schedule payments?",
     faq4A:
-      "Yes. Payment requests create links and QR codes, BatchPay handles CSV payouts up to 500 recipients, RecurePay manages recurring schedules, and Circle groups share chat, splits, and savings.",
+      "Yes. Payment requests create links and QR codes, BulkPay handles CSV payouts up to 500 recipients, RecurePay manages recurring schedules, and Circle groups share chat, splits, and savings.",
     faq5Q: "How do users manage their wallet profile?",
     faq5A:
       "Sign in with a Circle Google wallet or connect an external wallet. Settings lets users edit their wallet profile, username, and profile photo from their local device.",

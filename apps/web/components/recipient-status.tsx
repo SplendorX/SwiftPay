@@ -45,7 +45,7 @@ export function RecipientSpinner({
 /**
  * The line under every recipient field: checking, not found, or exactly who
  * and which wallet will be paid. Used across Send, Request, RecurePay,
- * BatchPay, gifts and payouts so a recipient always reads the same way.
+ * BulkPay, gifts and payouts so a recipient always reads the same way.
  *
  *   Checking recipient…
  *   @name was not found.                       (the lookup's own error)

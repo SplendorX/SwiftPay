@@ -1515,6 +1515,7 @@ export function SwiftRecurepayHub() {
             </button>
           ) : null
         }
+        backHref="/dashboard"
         title="Scheduled payments"
       />
       {walletNotice}

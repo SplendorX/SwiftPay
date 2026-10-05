@@ -124,7 +124,7 @@ export function pageCopyForPath(pathname: string): PageCopy | null {
     },
     "/save": { title: "pages.saveTitle", subtitle: "pages.saveSubtitle" },
     "/earn": { title: "pages.earnTitle", subtitle: "pages.earnSubtitle" },
-    "/batchpay": {
+    "/bulkpay": {
       title: "pages.batchTitle",
       subtitle: "pages.batchSubtitle",
     },
@@ -152,7 +152,7 @@ export const navLabelKeys = {
   "/circle": "nav.circle",
   "/save": "nav.save",
   "/earn": "nav.earn",
-  "/batchpay": "nav.batchPay",
+  "/bulkpay": "nav.batchPay",
   "/recurepay": "nav.recurePay",
   "/insights": "nav.insights",
   "/settings": "nav.settings",

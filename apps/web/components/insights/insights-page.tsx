@@ -36,7 +36,7 @@ type Insights = Awaited<ReturnType<typeof fetchInsights>>;
 type View = "overview" | "analytics";
 type Metric = "out" | "in";
 
-/** Rebuild a BatchPay receipt from the batch details kept with the activity. */
+/** Rebuild a BulkPay receipt from the batch details kept with the activity. */
 function batchReceiptFrom(item: AccountActivityItem, wallet: string): BatchReceiptData | null {
   const batch = item.batch;
   if (!batch?.recipients.length) return null;
@@ -46,7 +46,7 @@ function batchReceiptFrom(item: AccountActivityItem, wallet: string): BatchRecei
     explorerUrl: hash ? `${arcChain.blockExplorers.default.url}/tx/${hash}` : null,
     feeAmount: batch.fee ?? "Not recorded",
     kind: batch.kind ?? "batch",
-    mode: batch.mode ?? "BatchPay",
+    mode: batch.mode ?? "BulkPay",
     payoutTotal: `${item.amount ?? "0"} ${token}`,
     recipientCount: batch.recipients.length,
     recipients: batch.recipients.map((recipient, index) => ({

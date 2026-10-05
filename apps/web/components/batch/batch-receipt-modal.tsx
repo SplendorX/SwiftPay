@@ -86,7 +86,7 @@ export function useNamedBatchReceipt<T extends BatchReceiptData>(receipt: T): T 
 }
 
 /**
- * BatchPay receipt: every recipient with name, address and amount, so a batch
+ * BulkPay receipt: every recipient with name, address and amount, so a batch
  * can be traced back later. Portalled to <body> so it always opens in view.
  */
 export function BatchReceiptModal<T extends BatchReceiptData>({
@@ -133,7 +133,7 @@ export function BatchReceiptModal<T extends BatchReceiptData>({
       {/* Dialog role on the card so the backdrop stays blurred in themes that
           style [role="dialog"] as a solid panel. */}
       <div
-        aria-label={isPayroll ? "Payroll receipt" : "BatchPay receipt"}
+        aria-label={isPayroll ? "Payroll receipt" : "BulkPay receipt"}
         aria-modal="true"
         className="tx-receipt batch-receipt"
         onClick={(event) => event.stopPropagation()}
@@ -161,7 +161,7 @@ export function BatchReceiptModal<T extends BatchReceiptData>({
         <div className="batch-receipt-hero">
           <p className="tx-receipt-kicker">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" />
-            {isPayroll ? "Payroll complete" : "BatchPay complete"}
+            {isPayroll ? "Payroll complete" : "BulkPay complete"}
           </p>
           {isPayroll && receipt.runName ? (
             <p className="batch-receipt-run">{receipt.runName}</p>

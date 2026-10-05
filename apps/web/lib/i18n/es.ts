@@ -67,7 +67,7 @@ export const es: Messages = {
     circle: "Circle",
     save: "Ahorrar",
     earn: "Rendimiento",
-    batchPay: "BatchPay",
+    batchPay: "BulkPay",
     recurePay: "RecurePay",
     activity: "Actividad",
     insights: "Estadísticas",
@@ -97,7 +97,7 @@ export const es: Messages = {
     saveDetailSubtitle: "Detalle del bolsillo",
     earnTitle: "Rendimiento",
     earnSubtitle: "Pon tu USDC inactivo a trabajar y mantén tus fondos accesibles.",
-    batchTitle: "BatchPay",
+    batchTitle: "BulkPay",
     batchSubtitle: "Liquidación por lotes empresarial",
     recureTitle: "RecurePay",
     recureSubtitle: "Pagos programados de stablecoins",
@@ -236,7 +236,7 @@ export const es: Messages = {
     personalBullet1: "Enviar y recibir",
     personalBullet2: "Solicitudes de pago",
     personalBullet3: "Ahorrar, Rendimiento, Swap",
-    personalBullet4: "BatchPay, RecurePay, Circle",
+    personalBullet4: "BulkPay, RecurePay, Circle",
     continuePersonal: "Continuar con Personal",
     businessCardTitle: "Empresa",
     businessCardDescription:
@@ -368,13 +368,13 @@ export const es: Messages = {
       "Usa el panel para el valor de la cartera, saldos de tokens, envíos directos, beneficiarios, recibos y actividad. El envío está organizado como un flujo de pago por pasos.",
     faq2Q: "¿Qué páginas hay disponibles?",
     faq2A:
-      "SwiftPay incluye Panel, Save, Rendimiento, Swap, BatchPay, RecurePay, solicitudes de pago, Circle, Docs y Ajustes. Los flujos principales están enlazados desde la sección de producto.",
+      "SwiftPay incluye Panel, Save, Rendimiento, Swap, BulkPay, RecurePay, solicitudes de pago, Circle, Docs y Ajustes. Los flujos principales están enlazados desde la sección de producto.",
     faq3Q: "¿En qué se diferencian Save y Rendimiento?",
     faq3A:
       "Save crea bolsillos de ahorro sin interés y reglas Spend&Save. Rendimiento es aparte y muestra el vault, las ganancias y Auto-Save cuando está disponible.",
     faq4Q: "¿Puedo solicitar, pagar por lotes o programar pagos?",
     faq4A:
-      "Sí. Las solicitudes crean enlaces y QR, BatchPay gestiona pagos CSV de hasta 500 destinatarios, RecurePay administra programaciones y Circle comparte chat, divisiones y ahorro.",
+      "Sí. Las solicitudes crean enlaces y QR, BulkPay gestiona pagos CSV de hasta 500 destinatarios, RecurePay administra programaciones y Circle comparte chat, divisiones y ahorro.",
     faq5Q: "¿Cómo se gestiona el perfil de la billetera?",
     faq5A:
       "Inicia sesión con una billetera Circle de Google o conecta una billetera externa. En Ajustes se edita el perfil, el usuario y la foto desde el dispositivo.",

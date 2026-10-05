@@ -74,7 +74,7 @@ export const swiftBatchAddress =
 export const swiftBatchFeeRecipient =
   process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim() ?? "";
 
-/** Platform fee for BatchPay and RecurePay: 1% = 100 bps. */
+/** Platform fee for BulkPay and RecurePay: 1% = 100 bps. */
 export const swiftBatchFeeBasisPoints = 100;
 
 /** Same 1% platform fee for recurring (RecurePay) payments. */

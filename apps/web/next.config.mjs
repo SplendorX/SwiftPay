@@ -127,15 +127,17 @@ const nextConfig = {
       },
     ];
   },
-  // BatchPay, RecurePay and Circle used to live under /swiftBatch,
+  // BulkPay (formerly BatchPay, at /batchpay), RecurePay and Circle used to live under /swiftBatch,
   // /swiftRecurepay and /swiftCircle. Old bookmarks, shared links, stored
   // notifications and ALLIE history keep working.
   async redirects() {
     return [
       { source: "/swiftCircle", destination: "/circle", permanent: true },
       { source: "/swiftCircle/:path*", destination: "/circle/:path*", permanent: true },
-      { source: "/swiftBatch", destination: "/batchpay", permanent: true },
-      { source: "/swiftBatch/:path*", destination: "/batchpay/:path*", permanent: true },
+      { source: "/batchpay", destination: "/bulkpay", permanent: true },
+      { source: "/batchpay/:path*", destination: "/bulkpay/:path*", permanent: true },
+      { source: "/swiftBatch", destination: "/bulkpay", permanent: true },
+      { source: "/swiftBatch/:path*", destination: "/bulkpay/:path*", permanent: true },
       { source: "/swiftRecurepay", destination: "/recurepay", permanent: true },
       { source: "/swiftRecurepay/:path*", destination: "/recurepay/:path*", permanent: true },
     ];

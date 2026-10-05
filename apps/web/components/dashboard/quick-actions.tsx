@@ -50,7 +50,7 @@ const actions: Array<{
   { href: "/circle", icon: UsersRound, label: "Circle" },
   { href: "/save", icon: PiggyBank, label: "Save" },
   { href: "/earn", icon: TrendingUp, label: "Earn" },
-  { href: "/batchpay", icon: Users, label: "BatchPay" },
+  { href: "/bulkpay", icon: Users, label: "BulkPay" },
   { href: "/recurepay", icon: CalendarClock, label: "RecurePay" },
 ];
 
@@ -75,7 +75,7 @@ export function QuickActions({
     "/save": t("nav.save"),
     "/earn": t("nav.earn"),
     "/pay": t("dashboard.requestPayment"),
-    "/batchpay": t("nav.batchPay"),
+    "/bulkpay": t("nav.batchPay"),
     "/recurepay": t("nav.recurePay"),
     "/swap": t("nav.swap"),
   };

@@ -104,7 +104,7 @@ const recoveryWindowMs = 5 * 60 * 1_000;
  * only to confirm the same id. Without an id, the list fallback takes the
  * newest OUTBOUND transaction created around now. Never a transfer the wallet
  * received, and never an older payment: guessing from "the latest transaction
- * on the wallet" once labelled someone else's incoming BatchPay as this
+ * on the wallet" once labelled someone else's incoming BulkPay as this
  * wallet's send.
  */
 export async function recoverCircleTxDetails(input: {

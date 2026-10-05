@@ -50,7 +50,7 @@ function SpatialBusinessDeck() {
     },
     {
       amount: "-$38,500.00 USDC",
-      detail: "14 contractors · BatchPay stream",
+      detail: "14 contractors · BulkPay stream",
       id: "2",
       time: "4m ago",
       title: "Engineering Payroll Run",
@@ -296,7 +296,7 @@ function SpatialBusinessDeck() {
                   type="button"
                 >
                   <UsersRound className="h-3.5 w-3.5 text-sky-500" />
-                  <span className="text-[11px] font-medium">BatchPay</span>
+                  <span className="text-[11px] font-medium">BulkPay</span>
                 </button>
               </div>
             </div>
@@ -515,7 +515,7 @@ export function BusinessShowcase() {
     },
     {
       icon: UsersRound,
-      title: "High-Throughput BatchPay",
+      title: "High-Throughput BulkPay",
       description:
         "Upload CSV rosters and execute bulk payouts to up to 500 recipients in a single on-chain transaction with sub-second Arc finality and sub-cent fees.",
       highlight: "Up to 500 Recipients",
@@ -686,9 +686,9 @@ export function BusinessShowcase() {
               </LaunchAppLink>
               <Link
                 className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-accent hover:text-accent-foreground"
-                href="/batchpay"
+                href="/bulkpay"
               >
-                Explore BatchPay
+                Explore BulkPay
               </Link>
             </div>
           </div>

@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 const railLabels: Record<string, string> = {
   "arc-native": "Arc native",
   "agent-direct": "Agent Wallet (Arc)",
-  batch: "BatchPay",
+  batch: "BulkPay",
   recurring: "RecurePay",
   cctp: "CCTP bridge",
   "not-yet-available": "Unavailable",

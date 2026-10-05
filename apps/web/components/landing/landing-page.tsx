@@ -85,7 +85,7 @@ export function LandingPage() {
     },
     {
       body: t("landing.flowBatchBody"),
-      href: "/batchpay",
+      href: "/bulkpay",
       icon: Users,
       title: t("landing.flowBatchTitle"),
     },

@@ -15,7 +15,7 @@ const protectedRouteMatchers = [
   "/send",
   "/settings",
   "/swap",
-  "/batchpay",
+  "/bulkpay",
   "/recurepay",
 ];
 
@@ -204,7 +204,7 @@ export const config = {
     "/send/:path*",
     "/settings/:path*",
     "/swap/:path*",
-    "/batchpay/:path*",
+    "/bulkpay/:path*",
     "/recurepay/:path*",
   ],
 };

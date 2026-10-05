@@ -3,23 +3,9 @@
 import { switchToArc } from "@/lib/arc-network";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
- AlertCircle,
- CheckCircle2,
- Copy,
- Download,
- ExternalLink,
  FileUp,
- Loader2,
- ReceiptText,
- RefreshCw,
- Send,
- Share2,
- ShieldCheck,
  Trash2,
- Users,
- Wallet,
 } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
 import {
@@ -53,8 +39,6 @@ import { useT } from "@/components/locale-provider";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { ProfileMenu } from "@/components/profile-menu";
-import { TokenSelect } from "@/components/design/token-select";
-import { TokenIcon } from "@/components/token-icon";
 import {
   currentCircleAuth,
  callCircleWalletApi,
@@ -81,12 +65,21 @@ import {
 } from "@/lib/contracts";
 import { BatchReceiptModal } from "@/components/batch/batch-receipt-modal";
 import {
+  BulkpayBar,
+  BulkpayFacts,
+  BulkpayHero,
+  BulkpayLastReceipt,
+  BulkpayPeopleCard,
+  BulkpayReviewSheet,
+  BulkpaySummary,
+  type BulkpayBreakdown,
+} from "@/components/bulkpay/bulkpay-views";
+import {
   batchReceiptFileName,
   buildBatchReceiptPng,
   downloadBatchReceiptImage,
   downloadPngBlob,
-  formatBatchReceiptTime,
-} from "@/lib/batch-receipt";
+  } from "@/lib/batch-receipt";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import {
   activeCircleWallet,
@@ -179,7 +172,7 @@ function shortenAddress(value?: string) {
 }
 
 function getErrorMessage(error: unknown) {
- return userFacingErrorMessage(error, "BatchPay transaction failed. Nothing was sent — try again.");
+ return userFacingErrorMessage(error, "BulkPay transaction failed. Nothing was sent — try again.");
 }
 
 function formatTokenAmount(
@@ -206,7 +199,7 @@ function getCircleTransactionHash(value: CircleContractChallenge | CircleChallen
  return value.txHash ?? value.data?.txHash;
 }
 
-export default function SwiftBatchPage() {
+export default function BulkPayPage() {
  const t = useT();
  const circleSdkRef = useRef<W3SSdk | null>(null);
  const composerRef = useRef<BatchPeopleComposerHandle | null>(null);
@@ -239,6 +232,8 @@ export default function SwiftBatchPage() {
  const pendingCircleBatchTxIdRef = useRef<string | null>(null);
  const closeSuccess = useCallback(() => setSuccessOpen(false), []);
  const [successOpen, setSuccessOpen] = useState(false);
+ const [reviewOpen, setReviewOpen] = useState(false);
+ const [refreshing, setRefreshing] = useState(false);
  const selectedTokenInfo = arcTokens[selectedToken];
  const handleComposerChange = useCallback((next: BatchComposerResult) => {
  setComposer(next);
@@ -566,7 +561,7 @@ export default function SwiftBatchPage() {
  function requireSwiftBatchAddress() {
  if (!configuredSwiftBatchAddress) {
  throw new Error(
- "BatchPay is not configured. Deploy BatchPay and set NEXT_PUBLIC_SWIFTBATCH_ADDRESS.",
+ "BulkPay is not configured. Deploy BulkPay and set NEXT_PUBLIC_SWIFTBATCH_ADDRESS.",
  );
  }
 
@@ -595,7 +590,7 @@ export default function SwiftBatchPage() {
  const allowance = await readAllowance(externalAddress, tokenAddress);
 
  if (allowance < requiredAmountUnits) {
- setStatus(`Approve ${selectedToken} for BatchPay`);
+ setStatus(`Approve ${selectedToken} for BulkPay`);
  const approvalHash = await writeContractAsync({
  address: tokenAddress,
  abi: erc20Abi,
@@ -611,7 +606,7 @@ export default function SwiftBatchPage() {
  await waitForAllowance(externalAddress, tokenAddress, requiredAmountUnits);
  }
 
- setStatus("Send BatchPay transaction");
+ setStatus("Send BulkPay transaction");
  const hash = await writeContractAsync({
  address: batchAddress,
  abi: swiftBatchAbi,
@@ -638,7 +633,7 @@ export default function SwiftBatchPage() {
  const allowance = await readAllowance(circleAddress, tokenAddress);
 
  if (allowance < requiredAmountUnits) {
- setStatus(`Approve ${selectedToken} for BatchPay`);
+ setStatus(`Approve ${selectedToken} for BulkPay`);
  await executeCircleContract({
  callData: encodeFunctionData({
  abi: erc20Abi,
@@ -652,7 +647,7 @@ export default function SwiftBatchPage() {
  await waitForAllowance(circleAddress, tokenAddress, requiredAmountUnits);
  }
 
- setStatus("Create BatchPay transaction");
+ setStatus("Create BulkPay transaction");
  const result = await executeCircleContract({
  callData: encodeFunctionData({
  abi: swiftBatchAbi,
@@ -660,7 +655,7 @@ export default function SwiftBatchPage() {
  args: getBatchArgs(),
  }),
  contractAddress: batchAddress,
- label: "Send BatchPay",
+ label: "Send BulkPay",
  refId: `bp-send-${Date.now()}`.slice(0, 36),
  });
 
@@ -731,7 +726,7 @@ export default function SwiftBatchPage() {
  }
 
  if (recipients.length > swiftBatchMaxRecipients) {
- throw new Error(`BatchPay supports up to ${swiftBatchMaxRecipients} recipients.`);
+ throw new Error(`BulkPay supports up to ${swiftBatchMaxRecipients} recipients.`);
  }
 
  if (!walletAddress) {
@@ -743,7 +738,7 @@ export default function SwiftBatchPage() {
  }
 
  setIsPending(true);
- setStatus("Preparing BatchPay");
+ setStatus("Preparing BulkPay");
 
  pendingCircleBatchTxIdRef.current = null;
  const txHash = isEmbeddedWalletMode
@@ -816,13 +811,14 @@ export default function SwiftBatchPage() {
  }
 
  setBatchReceipt(receipt);
+ setReviewOpen(false);
  setSuccessOpen(true);
 
  setStatus(`${recipients.length} recipient batch submitted`);
  await refreshBalances();
  } catch (submitError) {
  setError(getErrorMessage(submitError));
- setStatus("BatchPay failed");
+ setStatus("BulkPay failed");
  } finally {
  setIsPending(false);
  }
@@ -830,7 +826,7 @@ export default function SwiftBatchPage() {
 
  async function copyPreview() {
  const preview = [
- `BatchPay ${selectedToken}`,
+ `BulkPay ${selectedToken}`,
  `Recipients: ${recipients.length}`,
  `Payout total: ${formatTokenAmount(totalAmountUnits, selectedTokenInfo.decimals, selectedToken)}`,
  `Service fee: ${formatTokenAmount(feeAmountUnits, selectedTokenInfo.decimals, selectedToken)}`,
@@ -838,7 +834,7 @@ export default function SwiftBatchPage() {
  ].join("\n");
 
  await navigator.clipboard.writeText(preview);
- setStatus("BatchPay preview copied");
+ setStatus("Summary copied");
  }
 
  async function downloadReceiptPng(receipt: BatchReceipt | null = batchReceipt) {
@@ -868,7 +864,7 @@ export default function SwiftBatchPage() {
  if (navigator.canShare?.({ files: [file] })) {
  await navigator.share({
  files: [file],
- title: "SwiftPay BatchPay receipt",
+ title: "SwiftPay BulkPay receipt",
  });
  setStatus("Batch receipt shared");
  return;
@@ -910,6 +906,34 @@ export default function SwiftBatchPage() {
  setWalletMode("external");
  }
 
+ const walletLabel = isEmbeddedWalletMode ? "Circle wallet" : "External wallet";
+ const formatAmount = (amount: bigint) =>
+  formatTokenAmount(amount, selectedTokenInfo.decimals, selectedToken);
+ const breakdown: BulkpayBreakdown = {
+  available: formatAmount(activeBalance),
+  fee: formatAmount(feeAmountUnits),
+  feePercent: swiftBatchFeeBasisPoints / 100,
+  payout: formatAmount(totalAmountUnits),
+  people: recipients.length,
+  total: formatAmount(requiredAmountUnits),
+ };
+ const reviewPeople = recipients.map((recipient) => ({
+  address: recipient.address,
+  amount: recipient.amount,
+  line: recipient.line,
+  name: recipient.username ? `@${recipient.username}` : shortenAddress(recipient.address),
+  note: recipient.label,
+ }));
+
+ async function handleRefresh() {
+  setRefreshing(true);
+  try {
+   await refreshBalances();
+  } finally {
+   setRefreshing(false);
+  }
+ }
+
  return (
  <PlatformChrome
  actions={
@@ -921,465 +945,117 @@ export default function SwiftBatchPage() {
  walletMode={walletMode}
  />
  }
- subtitle="Enterprise batch settlement"
- title="BatchPay"
+ // The page draws its own bar with a back button.
+ hideHeader
+ subtitle="Pay many people in one transaction"
+ title="BulkPay"
  >
  <PlatformAccessGate>
- <section className="section-panel">
- <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
- <div className="max-w-3xl">
- <span className="soft-pill soft-pill-live">{t("batch.oneCall")}</span>
- <h1 className="section-title mt-4">
- {t("batch.heading")}
- </h1>
- <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-muted-foreground">
- {t("batch.body", {
-   count: swiftBatchMaxRecipients,
-   fee: swiftBatchFeeBasisPoints / 100,
- })}
- </p>
+ <div className="bulkpay-page">
+  <BulkpayBar onRefresh={() => void handleRefresh()} refreshing={refreshing} />
+
+  <BulkpayHero
+   available={breakdown.available}
+   body={t("batch.body", {
+    count: swiftBatchMaxRecipients,
+    fee: swiftBatchFeeBasisPoints / 100,
+   })}
+   feePercent={breakdown.feePercent}
+   maxRecipients={swiftBatchMaxRecipients}
+   onTokenChange={setSelectedToken}
+   people={recipients.length}
+   token={selectedToken}
+   total={breakdown.total}
+   walletAddress={walletAddress}
+   walletLabel={walletLabel}
+  />
+
+  <div className="bulkpay-layout">
+   <BulkpayPeopleCard errors={composer.errors}>
+    <input
+     accept=".csv,.txt"
+     className="hidden"
+     onChange={handleCsvUpload}
+     ref={fileInputRef}
+     type="file"
+    />
+    <BatchPeopleComposer
+     actions={
+      <>
+       <button
+        className="bulkpay-chip"
+        onClick={() => fileInputRef.current?.click()}
+        type="button"
+       >
+        <FileUp className="h-4 w-4" />
+        Import CSV
+       </button>
+       <button
+        className="bulkpay-chip is-danger"
+        onClick={() => composerRef.current?.clear()}
+        type="button"
+       >
+        <Trash2 className="h-4 w-4" />
+        Clear
+       </button>
+      </>
+     }
+     maxRecipients={swiftBatchMaxRecipients}
+     onResolvedChange={handleComposerChange}
+     ref={composerRef}
+     token={selectedToken}
+    />
+   </BulkpayPeopleCard>
+
+   <aside className="bulkpay-aside">
+    <BulkpaySummary
+     breakdown={breakdown}
+     canReview={canSubmit}
+     contractMissing={!configuredSwiftBatchAddress}
+     error={reviewOpen ? null : error}
+     explorerUrl={explorerUrl}
+     insufficient={!hasEnoughBalance && requiredAmountUnits > zeroAmount}
+     onCopy={() => void copyPreview()}
+     onReview={() => {
+      setError(null);
+      setReviewOpen(true);
+     }}
+     pending={isPending}
+     resolving={composer.resolving}
+     status={status}
+    />
+    <BulkpayLastReceipt
+     onDownload={() => void downloadReceiptPng(batchReceipt)}
+     onShare={() => void shareBatchReceipt(batchReceipt)}
+     receipt={batchReceipt}
+    />
+    <BulkpayFacts
+     contract={
+      configuredSwiftBatchAddress
+       ? shortenAddress(configuredSwiftBatchAddress)
+       : t("common.notSet")
+     }
+     contractLabel={t("common.contract")}
+     maxRecipients={swiftBatchMaxRecipients}
+     walletAddress={walletAddress}
+     walletLabel={walletLabel}
+    />
+   </aside>
+  </div>
  </div>
 
- <div className="grid min-w-[min(100%,18rem)] gap-2 rounded-lg border border-border bg-card p-3 text-sm">
- <div className="flex items-center justify-between gap-3">
- <span className="font-bold text-muted-foreground">Wallet</span>
- <span className="font-mono text-xs font-black text-foreground">
- {shortenAddress(walletAddress)}
- </span>
- </div>
- <div className="flex items-center justify-between gap-3">
- <span className="font-bold text-muted-foreground">{t("common.contract")}</span>
- <span className="font-mono text-xs font-black text-foreground">
- {configuredSwiftBatchAddress
- ? shortenAddress(configuredSwiftBatchAddress)
- : t("common.notSet")}
- </span>
- </div>
- </div>
- </div>
- </section>
-
- <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
- <section className="surface-panel p-4 sm:p-5">
- <input
-  accept=".csv,.txt"
-  className="hidden"
-  onChange={handleCsvUpload}
-  ref={fileInputRef}
-  type="file"
- />
-
- <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
- <BatchPeopleComposer
-  actions={
-   <>
-    <button
-     className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
-     onClick={() => fileInputRef.current?.click()}
-     type="button"
-    >
-     <FileUp className="h-4 w-4" />
-     CSV
-    </button>
-    <button
-     className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 text-sm font-bold text-rose-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-100 active:translate-y-0"
-     onClick={() => composerRef.current?.clear()}
-     type="button"
-    >
-     <Trash2 className="h-4 w-4" />
-     Clear
-    </button>
-   </>
-  }
-  maxRecipients={swiftBatchMaxRecipients}
-  onResolvedChange={handleComposerChange}
-  ref={composerRef}
+ <BulkpayReviewSheet
+  breakdown={breakdown}
+  canSend={canSubmit}
+  error={error}
+  onClose={() => setReviewOpen(false)}
+  onSend={() => void submitBatch()}
+  open={reviewOpen}
+  pending={isPending}
+  people={reviewPeople}
+  status={status}
   token={selectedToken}
  />
-
- <div className="grid content-start gap-3">
- <TokenSelect
- label="Token"
- onChange={setSelectedToken}
- value={selectedToken}
- />
-
- <div className="surface-card p-3">
- <div className="flex items-center gap-2">
- <TokenIcon className="h-6 w-6" symbol={selectedToken} />
- <div className="min-w-0">
- <p className="text-sm font-black text-foreground">
- {selectedTokenInfo.name}
- </p>
- <p className="truncate text-xs font-bold text-muted-foreground">
- {shortenAddress(selectedTokenInfo.address)}
- </p>
- </div>
- </div>
- </div>
-
- <div className="surface-card grid gap-2 p-3 text-sm">
- <div className="flex items-center justify-between gap-2">
- <span className="font-bold text-muted-foreground">Ready</span>
- <span className="font-black text-foreground">
- {recipients.length}
- </span>
- </div>
- <div className="flex items-center justify-between gap-2">
- <span className="font-bold text-muted-foreground">Limit</span>
- <span className="font-black text-foreground">
- {swiftBatchMaxRecipients}
- </span>
- </div>
- <div className="flex items-center justify-between gap-2">
- <span className="font-bold text-muted-foreground">Mode</span>
- <span className="font-black text-foreground">
- {isEmbeddedWalletMode ? "Circle" : "External"}
- </span>
- </div>
- </div>
- </div>
- </div>
-
- {composer.errors.length > 0 ? (
- <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-bold text-rose-700">
- <div className="flex items-start gap-2">
- <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
- <div className="min-w-0">
- {composer.errors.slice(0, 4).map((rowError) => (
- <p className="break-words" key={rowError}>
- {rowError}
- </p>
- ))}
- {composer.errors.length > 4 ? (
- <p>{composer.errors.length - 4} more issue(s)</p>
- ) : null}
- </div>
- </div>
- </div>
- ) : null}
-
- {recipients.length > 0 ? (
- <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
- <div className="grid grid-cols-[4rem_minmax(0,1fr)_8rem] gap-3 border-b border-border px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">
- <span>#</span>
- <span>Person</span>
- <span className="text-right">Amount</span>
- </div>
- <div className="max-h-72 overflow-y-auto">
- {recipients.slice(0, 500).map((recipient) => (
- <div
- className="grid grid-cols-[4rem_minmax(0,1fr)_8rem] gap-3 border-b border-border px-3 py-3 text-sm last:border-b-0"
- key={`${recipient.line}-${recipient.address}-${recipient.amount}`}
- >
- <span className="font-bold text-muted-foreground">
- {recipient.line}
- </span>
- <div className="min-w-0">
- <p className="truncate text-sm font-black text-foreground">
- {recipient.username ? `@${recipient.username}` : recipient.address}
- </p>
- <p className="mt-1 truncate font-mono text-[11px] font-bold text-muted-foreground">
- {recipient.username ? recipient.address : recipient.label}
- </p>
- </div>
- <span className="text-right font-black text-foreground">
- {recipient.amount}
- </span>
- </div>
- ))}
- </div>
- </div>
- ) : null}
- </section>
-
- <aside className="grid content-start gap-4">
- <section className="surface-panel p-4 sm:p-5">
- <div className="flex items-center justify-between gap-3">
- <div>
- <p className="eyebrow">Preview</p>
- <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground">
- Transaction
- </h2>
- </div>
- <button
- className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
- onClick={() => void copyPreview()}
- title="Copy preview"
- type="button"
- >
- <Copy className="h-4 w-4" />
- </button>
- </div>
-
- <div className="mt-4 grid gap-3">
- {[
- ["Recipients", recipients.length.toLocaleString()],
- [
- "Payout total",
- formatTokenAmount(
- totalAmountUnits,
- selectedTokenInfo.decimals,
- selectedToken,
- ),
- ],
- [
- "Service fee",
- formatTokenAmount(
- feeAmountUnits,
- selectedTokenInfo.decimals,
- selectedToken,
- ),
- ],
- [
- "Approval required",
- formatTokenAmount(
- requiredAmountUnits,
- selectedTokenInfo.decimals,
- selectedToken,
- ),
- ],
- [
- "Available",
- activeBalance === undefined
- ? "Loading"
- : formatTokenAmount(
- activeBalance,
- selectedTokenInfo.decimals,
- selectedToken,
- ),
- ],
- ].map(([label, value]) => (
- <div
- className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-3 py-3 text-sm"
- key={label}
- >
- <span className="font-bold text-muted-foreground">{label}</span>
- <span className="max-w-[12rem] break-words text-right font-black text-foreground">
- {value}
- </span>
- </div>
- ))}
- </div>
-
- {!configuredSwiftBatchAddress ? (
- <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold text-amber-800">
- Set `NEXT_PUBLIC_SWIFTBATCH_ADDRESS` after deploying the contract.
- </div>
- ) : null}
-
- {!hasEnoughBalance && requiredAmountUnits > zeroAmount ? (
- <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-bold text-rose-700">
- Balance must cover payouts plus the service fee.
- </div>
- ) : null}
-
- <button
- className="sp-bubble mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-swift-600 px-4 text-sm font-black text-white shadow-[0_16px_34px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55"
- disabled={!canSubmit}
- onClick={() => void submitBatch()}
- type="button"
- >
- {isPending ? (
- <Loader2 className="h-4 w-4 animate-spin" />
- ) : (
- <Send className="h-4 w-4" />
- )}
- {isPending ? "Processing" : composer.resolving ? "Resolving people" : "Send BatchPay"}
- </button>
-
- <div className="mt-4 rounded-lg border border-border bg-card px-3 py-3">
- <div className="flex items-start gap-2 text-sm font-bold text-foreground">
- {error ? (
- <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
- ) : isPending ? (
- <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-swift-600" />
- ) : (
- <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
- )}
- <span className="min-w-0 break-words">
- {error ?? status}
- </span>
- </div>
- </div>
-
- {explorerUrl ? (
- <a
- className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
- href={explorerUrl}
- rel="noreferrer"
- target="_blank"
- >
- <ExternalLink className="h-4 w-4" />
- View on ArcScan
- </a>
- ) : null}
- </section>
-
- <section className="surface-panel p-4 sm:p-5">
- <div className="flex items-start justify-between gap-3">
- <div>
- <p className="eyebrow">Receipt</p>
- <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground">
- Batch receipt
- </h2>
- </div>
- <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
- <ReceiptText className="h-5 w-5" />
- </div>
- </div>
-
- {batchReceipt ? (
- <>
- <div className="mt-4 overflow-hidden rounded-xl border border-primary/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.10),rgba(99,102,241,0.08)_45%,transparent)] p-4">
- <div className="flex items-start justify-between gap-3">
- <div className="min-w-0">
- <p className="text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
- Submitted
- </p>
- <p className="mt-2 font-heading text-2xl font-semibold tracking-normal text-foreground">
- {batchReceipt.payoutTotal}
- </p>
- <p className="mt-1 text-sm font-semibold text-muted-foreground">
- {batchReceipt.recipientCount.toLocaleString()} recipients /{" "}
- {batchReceipt.mode}
- </p>
- </div>
- <TokenIcon className="h-9 w-9 rounded-full shadow-sm" symbol={batchReceipt.token} />
- </div>
-
- <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
- <div className="rounded-lg border border-border bg-card/80 px-3 py-2">
- <p className="text-xs font-bold text-muted-foreground">Fee</p>
- <p className="mt-1 font-black text-foreground">
- {batchReceipt.feeAmount}
- </p>
- </div>
- <div className="rounded-lg border border-border bg-card/80 px-3 py-2">
- <p className="text-xs font-bold text-muted-foreground">Submitted</p>
- <p className="mt-1 font-black text-foreground">
- {formatBatchReceiptTime(batchReceipt.submittedAt)}
- </p>
- </div>
- </div>
-
- <div className="mt-4 grid gap-2 border-t border-border pt-3 text-xs font-semibold text-muted-foreground">
- <div className="flex items-center gap-2">
- <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
- <span>Contract: {shortenAddress(batchReceipt.contractAddress)}</span>
- </div>
- <div className="flex items-center gap-2">
- <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
- <span>
- Hash:{" "}
- {batchReceipt.txHash
- ? shortenAddress(batchReceipt.txHash)
- : "Pending from wallet provider"}
- </span>
- </div>
- </div>
- </div>
-
- <div className="mt-3 grid gap-2">
- {batchReceipt.recipients.slice(0, 4).map((recipient) => (
- <div
- className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm"
- key={`${batchReceipt.id}-${recipient.line}-${recipient.address}`}
- >
- <div className="min-w-0">
- <p className="truncate font-semibold text-foreground">
- {recipient.label || `Line ${recipient.line}`}
- </p>
- <p className="truncate font-mono text-xs text-muted-foreground">
- {recipient.address}
- </p>
- </div>
- <span className="shrink-0 font-black text-foreground">
- {recipient.amount} {batchReceipt.token}
- </span>
- </div>
- ))}
- {batchReceipt.recipients.length > 4 ? (
- <div className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-center text-xs font-bold text-muted-foreground">
- +{batchReceipt.recipients.length - 4} more recipients on this receipt
- </div>
- ) : null}
- </div>
-
- <div className="mt-4 grid gap-2 sm:grid-cols-2">
- <button
- className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
- onClick={() => void shareBatchReceipt(batchReceipt)}
- type="button"
- >
- <Share2 className="h-4 w-4" />
- Share
- </button>
- <button
- className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
- onClick={() => void downloadReceiptPng(batchReceipt)}
- type="button"
- >
- <Download className="h-4 w-4" />
- Download PNG
- </button>
- {batchReceipt.explorerUrl ? (
- <a
- className="sp-bubble inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 sm:col-span-2"
- href={batchReceipt.explorerUrl}
- rel="noreferrer"
- target="_blank"
- >
- <ExternalLink className="h-4 w-4" />
- Open ArcScan receipt
- </a>
- ) : null}
- </div>
- </>
- ) : (
- <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-5 text-sm font-semibold leading-6 text-muted-foreground">
- Successful BatchPay sends will generate a receipt here with totals,
- fee, recipient highlights, and ArcScan context.
- </div>
- )}
- </section>
-
- <section className="surface-panel p-4 sm:p-5">
- <div className="flex items-center gap-3">
- <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-card text-swift-700 shadow-sm">
- {isEmbeddedWalletMode ? (
- <Wallet className="h-5 w-5" />
- ) : (
- <Users className="h-5 w-5" />
- )}
- </div>
- <div className="min-w-0">
- <p className="text-sm font-black text-foreground">
- {isEmbeddedWalletMode
- ? "Circle wallet"
- : "External wallet"}
- </p>
- <p className="truncate text-xs font-bold text-muted-foreground">
- {shortenAddress(walletAddress)}
- </p>
- </div>
- </div>
-
- <p className="mt-4 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
- Signed-in profile. Batch transactions use this wallet only.
- </p>
-
- <button
- className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 active:translate-y-0"
- onClick={() => void refreshBalances()}
- type="button"
- >
- <RefreshCw className="h-4 w-4" />
- Refresh balances
- </button>
- </section>
- </aside>
- </div>
 
  {successOpen && batchReceipt ? (
  <BatchReceiptModal

@@ -49,7 +49,7 @@ export type ActivityBatchDetails = {
   recipients: ActivityBatchRecipient[];
   fee: string | null;
   mode: string | null;
-  /** "payroll" for a payroll run; a BatchPay batch otherwise. */
+  /** "payroll" for a payroll run; a BulkPay batch otherwise. */
   kind?: "batch" | "payroll";
   /** The payroll run's name, for its receipt. */
   name?: string | null;
@@ -67,7 +67,7 @@ export type AccountActivityEntry = {
   /** Second leg of a swap, e.g. the EURC received for USDC sent. */
   amountIn?: string | null;
   tokenIn?: string | null;
-  /** BatchPay: everyone the batch paid, so the receipt can name them. */
+  /** BulkPay: everyone the batch paid, so the receipt can name them. */
   batch?: ActivityBatchDetails | null;
   /** Every on-chain transaction this activity produced. */
   txHashes: string[];
@@ -95,7 +95,7 @@ export const activityFeatureMeta: Record<
   invoice: { label: "Invoices", href: "/business/invoices" },
   save: { label: "Save", href: "/save" },
   earn: { label: "Earn", href: "/earn" },
-  batch: { label: "BatchPay", href: "/batchpay" },
+  batch: { label: "BulkPay", href: "/bulkpay" },
   recurepay: { label: "RecurePay", href: "/recurepay" },
   // ALLIE lives in the Pay with ALLIE bubble, opened from Activity directly.
   agent: { label: "ALLIE", href: null },

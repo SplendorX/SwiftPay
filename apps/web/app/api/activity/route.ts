@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   const amount = decimal(body.amount);
   const token = text(body.token, 12)?.toUpperCase() ?? null;
   const metadata: Record<string, unknown> = {};
-  // BatchPay keeps who was paid, so the receipt can be rebuilt later.
+  // BulkPay keeps who was paid, so the receipt can be rebuilt later.
   if (body.source === "batch" && Array.isArray(body.recipients)) {
     const recipients = body.recipients.slice(0, swiftBatchMaxRecipients).flatMap((entry) => {
       const item = entry as Record<string, unknown> | null;

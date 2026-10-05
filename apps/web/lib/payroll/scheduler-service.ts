@@ -11,7 +11,7 @@ import type {
  * Turns payroll schedules into payroll runs when they come due.
  *
  * Deliberately stops short of paying. A payroll run is settled by the business
- * wallet signing a BatchPay transaction in the browser, so paying unattended
+ * wallet signing a BulkPay transaction in the browser, so paying unattended
  * would mean handing a server key standing authority over the payroll float.
  * Instead the schedule does the tedious, error-prone part — assembling the
  * right people and amounts on the right day — and leaves a READY run for an

@@ -154,7 +154,7 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
       const [whole, frac = ""] = transfer.amount.split(".");
       const amountDisplay = `${whole}.${(frac + "00").slice(0, 2)}`;
       // Name the sender: @username when they have a SwiftPay account, the
-      // owner "via ALLIE" when their Agent Wallet paid, and "via BatchPay"
+      // owner "via ALLIE" when their Agent Wallet paid, and "via BulkPay"
       // when the sender recorded this transaction as a batch.
       const agentOwner = agentOwners[transfer.counterparty.toLowerCase()];
       const senderWallet = agentOwner ?? transfer.counterparty.toLowerCase();
@@ -167,7 +167,7 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
         agentOwner
           ? `${sender} via ALLIE`
           : viaBatch
-            ? `${sender} via BatchPay`
+            ? `${sender} via BulkPay`
             : sender,
       );
 

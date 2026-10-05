@@ -21,7 +21,7 @@ export function usePreferredWalletMode(
   // Start from the fallback on the server *and* the first browser render, so
   // the two match; the effect below switches to the real mode right after.
   // Reading storage here made the phone's first render differ from the
-  // server's (React #418), and BatchPay — the one page with an "external"
+  // server's (React #418), and BulkPay — the one page with an "external"
   // fallback — failed to open for Google/email sign-ins.
   const [mode, setMode] = useState<PlatformWalletMode>(fallback);
 

@@ -58,7 +58,7 @@ export function LandingFooter() {
     { href: "/dashboard", label: t("common.send") },
     { href: "/pay", label: t("landing.footerPaymentLinks") },
     { href: "/recurepay", label: t("landing.footerScheduled") },
-    { href: "/batchpay", label: t("landing.footerBatch") },
+    { href: "/bulkpay", label: t("landing.footerBatch") },
   ];
 
   return (

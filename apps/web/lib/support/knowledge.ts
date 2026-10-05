@@ -134,11 +134,11 @@ export const supportArticles: SupportArticle[] = [
     id: "batchpay",
     category: "payments",
     title: "How do I pay many people at once?",
-    keywords: ["batch", "batchpay", "bulk", "multiple recipients", "mass payout", "csv", "pay many"],
+    keywords: ["batch", "batchpay", "bulkpay", "bulk", "multiple recipients", "mass payout", "csv", "pay many"],
     answer:
-      "BatchPay sends one token to up to 500 recipients in a single transaction, with a 1% service fee. You can paste a list or upload a CSV.",
-    links: [{ label: "Open BatchPay", href: "/batchpay" }],
-    paths: ["/batchpay"],
+      "BulkPay sends one token to up to 500 recipients in a single transaction, with a 1% service fee. You can paste a list or upload a CSV.",
+    links: [{ label: "Open BulkPay", href: "/bulkpay" }],
+    paths: ["/bulkpay"],
   },
   {
     id: "swap",
@@ -158,7 +158,7 @@ export const supportArticles: SupportArticle[] = [
     title: "What are SwiftPay's fees?",
     keywords: ["fee", "fees", "cost", "charge", "pricing", "how much", "service fee", "commission", "percentage"],
     answer:
-      "Sending: 0.1%. Swaps: 0.3%. BatchPay, RecurePay and Payroll: 1% of what's paid out. Receiving money, requests and invoices you're paid through are free. Every fee is shown before you confirm.",
+      "Sending: 0.1%. Swaps: 0.3%. BulkPay, RecurePay and Payroll: 1% of what's paid out. Receiving money, requests and invoices you're paid through are free. Every fee is shown before you confirm.",
     links: [{ label: "Open Send", href: "/send" }],
   },
 

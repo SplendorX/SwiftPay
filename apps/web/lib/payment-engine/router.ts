@@ -98,7 +98,7 @@ export function routeIntent(
       rail: "batch",
       executor,
       estimatedFeeUnits,
-      reason: "Batch payout routed through BatchPay.",
+      reason: "Batch payout routed through BulkPay.",
     };
   }
 

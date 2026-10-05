@@ -77,8 +77,8 @@ export type RecordAccountActivityInput = {
 };
 
 /**
- * Which of these transactions a sender recorded as a BatchPay batch. Used to
- * tell a recipient their payment came "via BatchPay".
+ * Which of these transactions a sender recorded as a BulkPay batch. Used to
+ * tell a recipient their payment came "via BulkPay".
  */
 export async function findBatchTxHashes(txHashes: string[]) {
   const hashes = [...new Set(txHashes.map((hash) => hash.toLowerCase()))];

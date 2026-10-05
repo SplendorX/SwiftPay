@@ -42,7 +42,7 @@ const navIcons: Record<string, typeof Command> = {
   "/earn": TrendingUp,
   "/referral": Gift,
   "/swap": RefreshCw,
-  "/batchpay": Users,
+  "/bulkpay": Users,
   "/circle": UsersRound,
   "/recurepay": CalendarClock,
   "/pay": Send,

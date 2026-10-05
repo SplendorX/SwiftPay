@@ -29,7 +29,7 @@ export type RecordAccountActivityClientInput = {
   amountIn?: string | null;
   tokenIn?: string | null;
   txHash?: string | null;
-  /** BatchPay only: everyone paid, plus the fee and how it was paid. */
+  /** BulkPay only: everyone paid, plus the fee and how it was paid. */
   recipients?: Array<{ wallet: string; amount: string; label?: string | null }>;
   fee?: string | null;
   mode?: string | null;

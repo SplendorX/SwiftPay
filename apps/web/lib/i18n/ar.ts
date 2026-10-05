@@ -67,7 +67,7 @@ export const ar: Messages = {
     circle: "Circle",
     save: "ادخار",
     earn: "عائد",
-    batchPay: "BatchPay",
+    batchPay: "BulkPay",
     recurePay: "RecurePay",
     activity: "النشاط",
     insights: "الرؤى",
@@ -97,7 +97,7 @@ export const ar: Messages = {
     saveDetailSubtitle: "تفاصيل الجيب",
     earnTitle: "عائد",
     earnSubtitle: "شغّل الـ USDC غير المستخدم مع إبقاء أموالك متاحة.",
-    batchTitle: "BatchPay",
+    batchTitle: "BulkPay",
     batchSubtitle: "تسوية جماعية للمؤسسات",
     recureTitle: "RecurePay",
     recureSubtitle: "جداول مدفوعات مستقرة آلية",
@@ -235,7 +235,7 @@ export const ar: Messages = {
     personalBullet1: "إرسال واستلام",
     personalBullet2: "طلبات الدفع",
     personalBullet3: "ادخار وعائد وتبديل",
-    personalBullet4: "BatchPay وRecurePay وCircle",
+    personalBullet4: "BulkPay وRecurePay وCircle",
     continuePersonal: "المتابعة كشخصي",
     businessCardTitle: "أعمال",
     businessCardDescription:
@@ -367,13 +367,13 @@ export const ar: Messages = {
       "استخدم اللوحة لقيمة المحفظة وأرصدة الرموز والإرسال المباشر والمستفيدين والإيصالات والنشاط. لوحة الإرسال منظمة كتدفق دفع خطوة بخطوة.",
     faq2Q: "ما الصفحات المتاحة؟",
     faq2A:
-      "يشمل SwiftPay لوحة التحكم وSave والعائد والتبديل وBatchPay وRecurePay وطلبات الدفع وCircle والمستندات والإعدادات. تدفقات المنتج الرئيسية مرتبطة من قسم المنتج.",
+      "يشمل SwiftPay لوحة التحكم وSave والعائد والتبديل وBulkPay وRecurePay وطلبات الدفع وCircle والمستندات والإعدادات. تدفقات المنتج الرئيسية مرتبطة من قسم المنتج.",
     faq3Q: "ما الفرق بين Save والعائد؟",
     faq3A:
       "ينشئ Save جيوب ادخار بلا فائدة وقواعد Spend&Save. العائد منفصل ويعرض أداء الخزينة وسياق الأرباح والحفظ التلقائي عند الدعم.",
     faq4Q: "هل يمكنني الطلب أو الدفع الجماعي أو جدولة المدفوعات؟",
     faq4A:
-      "نعم. الطلبات تنشئ روابط وQR، وBatchPay يعالج دفعات CSV حتى 500 مستلم، وRecurePay يدير الجداول، وCircle يشارك الدردشة والتقسيم والادخار.",
+      "نعم. الطلبات تنشئ روابط وQR، وBulkPay يعالج دفعات CSV حتى 500 مستلم، وRecurePay يدير الجداول، وCircle يشارك الدردشة والتقسيم والادخار.",
     faq5Q: "كيف يدير المستخدمون ملف المحفظة؟",
     faq5A:
       "سجّل الدخول بمحفظة Circle عبر Google أو اربط محفظة خارجية. تتيح الإعدادات تعديل الملف واسم المستخدم والصورة من الجهاز.",

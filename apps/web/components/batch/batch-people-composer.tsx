@@ -284,7 +284,7 @@ export const BatchPeopleComposer = forwardRef<
     });
 
     if (recipients.length > maxRecipients) {
-      errors.push(`BatchPay supports up to ${maxRecipients} people.`);
+      errors.push(`BulkPay supports up to ${maxRecipients} people.`);
     }
 
     return {
@@ -319,17 +319,14 @@ export const BatchPeopleComposer = forwardRef<
 
   return (
     <div className="bp-composer">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">People</p>
-          <h2 className="mt-2 text-xl font-semibold tracking-normal text-foreground">
-            Pay by username or wallet
-          </h2>
+      <div className="bp-head">
+        <div className="min-w-0">
+          <h2 className="bp-title">Who are you paying?</h2>
           <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            Enter a SwiftPay handle or paste a wallet address, set an amount, then add the next person.
+            Enter a SwiftPay username or paste a wallet address, set an amount, then add the next person.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="bp-tools">
           {actions}
           <div className="bp-split">
             <Split className="h-3.5 w-3.5 text-primary" />
@@ -498,7 +495,7 @@ export const BatchPeopleComposer = forwardRef<
                             addRow();
                             window.setTimeout(() => {
                               const last = document.querySelector<HTMLInputElement>(
-                                ".bp-card:last-of-type input[placeholder='username']",
+                                ".bp-card:last-of-type input[autocomplete='off']",
                               );
                               last?.focus();
                             }, 40);

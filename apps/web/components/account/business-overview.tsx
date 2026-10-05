@@ -334,7 +334,7 @@ export function BusinessOverview() {
       {/* 2. Primary Financial Command Center (Total Business Balance, Assets, Liquidity) */}
       <BusinessBalanceCard data={balanceData} />
 
-      {/* 3. Primary Action Bar (Send Payment in Imperial Purple #5B21B6, Create Invoice, Request, Pay Team, BatchPay) */}
+      {/* 3. Primary Action Bar (Send Payment in Imperial Purple #5B21B6, Create Invoice, Request, Pay Team, BulkPay) */}
       <BusinessQuickActions />
       {checkoutSummary ? <CheckoutOverviewCard summary={checkoutSummary} /> : null}
 

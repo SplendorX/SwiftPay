@@ -44,7 +44,7 @@ export function requireConfiguredSwiftBatch() {
   const address = swiftBatchAddress.trim();
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
     throw circleErrors.invalid(
-      "BatchPay is not configured. Multi-recipient Circle Pay cannot run sequential payments.",
+      "BulkPay is not configured. Multi-recipient Circle Pay cannot run sequential payments.",
     );
   }
   return address as Address;
@@ -103,7 +103,7 @@ export function buildCirclePayExecution(input: {
 
   if (recipientCount > swiftBatchMaxRecipients) {
     throw circleErrors.invalid(
-      `BatchPay supports up to ${swiftBatchMaxRecipients} recipients.`,
+      `BulkPay supports up to ${swiftBatchMaxRecipients} recipients.`,
     );
   }
 

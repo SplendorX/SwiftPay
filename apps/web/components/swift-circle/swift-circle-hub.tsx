@@ -1232,7 +1232,7 @@ export function SwiftCircleHub() {
             <p className="section-eyebrow">Circle Pay</p>
             <h3 className="section-title">Send in the room</h3>
             <p className="section-copy">
-              Select people, then pay. One recipient is a single send. Two or more go through BatchPay.
+              Select people, then pay. One recipient is a single send. Two or more go through BulkPay.
             </p>
             <div className="mt-4 flex justify-center">
               <span className="font-heading text-3xl font-bold text-muted-foreground">$</span>
@@ -1409,7 +1409,7 @@ export function SwiftCircleHub() {
                   {String(
                     (review.execution as { method?: string; recipientCount?: number } | undefined)
                       ?.method === "swiftbatch"
-                      ? `BatchPay · ${(review.execution as { recipientCount?: number }).recipientCount} recipients`
+                      ? `BulkPay · ${(review.execution as { recipientCount?: number }).recipientCount} recipients`
                       : "Single payment",
                   )}
                 </p>
@@ -1449,7 +1449,7 @@ export function SwiftCircleHub() {
                           !execution.callData ||
                           !execution.spender
                         ) {
-                          throw new Error("BatchPay payload is missing.");
+                          throw new Error("BulkPay payload is missing.");
                         }
                         if (chainId !== arcChain.id) {
                           await switchChainAsync({ chainId: arcChain.id });

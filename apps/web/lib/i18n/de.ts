@@ -67,7 +67,7 @@ export const de: Messages = {
     circle: "Circle",
     save: "Sparen",
     earn: "Ertrag",
-    batchPay: "BatchPay",
+    batchPay: "BulkPay",
     recurePay: "RecurePay",
     activity: "Aktivität",
     insights: "Einblicke",
@@ -97,7 +97,7 @@ export const de: Messages = {
     saveDetailSubtitle: "Fachdetails",
     earnTitle: "Ertrag",
     earnSubtitle: "Lass dein ungenutztes USDC arbeiten und behalte den Zugriff auf deine Mittel.",
-    batchTitle: "BatchPay",
+    batchTitle: "BulkPay",
     batchSubtitle: "Unternehmens-Sammelzahlung",
     recureTitle: "RecurePay",
     recureSubtitle: "Automatisierte Stablecoin-Zeitpläne",
@@ -235,7 +235,7 @@ export const de: Messages = {
     personalBullet1: "Senden und empfangen",
     personalBullet2: "Zahlungsanfragen",
     personalBullet3: "Sparen, Ertrag, Swap",
-    personalBullet4: "BatchPay, RecurePay, Circle",
+    personalBullet4: "BulkPay, RecurePay, Circle",
     continuePersonal: "Mit Privat fortfahren",
     businessCardTitle: "Unternehmen",
     businessCardDescription:
@@ -367,13 +367,13 @@ export const de: Messages = {
       "Nutze das Dashboard für Portfoliowert, Token-Salden, Direktüberweisungen, Begünstigte, Belege und Aktivität. Das Senden ist als schrittweiser Zahlungsfluss organisiert.",
     faq2Q: "Welche Seiten gibt es?",
     faq2A:
-      "SwiftPay umfasst Dashboard, Save, Ertrag, Swap, BatchPay, RecurePay, Zahlungsanfragen, Circle, Docs und Einstellungen. Die Hauptabläufe sind direkt aus dem Produktbereich verlinkt.",
+      "SwiftPay umfasst Dashboard, Save, Ertrag, Swap, BulkPay, RecurePay, Zahlungsanfragen, Circle, Docs und Einstellungen. Die Hauptabläufe sind direkt aus dem Produktbereich verlinkt.",
     faq3Q: "Worin unterscheiden sich Save und Ertrag?",
     faq3A:
       "Save erstellt zinslose Sparfächer und Spend&Save-Regeln. Ertrag ist getrennt und zeigt Vault-Performance, Ertragskontext und Auto-Save, wo unterstützt.",
     faq4Q: "Kann ich anfordern, in Batches zahlen oder Zahlungen planen?",
     faq4A:
-      "Ja. Anfragen erzeugen Links und QR, BatchPay macht CSV-Auszahlungen bis 500 Empfänger, RecurePay verwaltet Zeitpläne, Circle teilt Chat, Splits und Sparen.",
+      "Ja. Anfragen erzeugen Links und QR, BulkPay macht CSV-Auszahlungen bis 500 Empfänger, RecurePay verwaltet Zeitpläne, Circle teilt Chat, Splits und Sparen.",
     faq5Q: "Wie verwalten Nutzer ihr Wallet-Profil?",
     faq5A:
       "Melde dich mit einer Circle-Google-Wallet an oder verbinde eine externe Wallet. In den Einstellungen lassen sich Profil, Nutzername und Foto auf dem Gerät bearbeiten.",

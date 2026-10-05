@@ -67,7 +67,7 @@ export const fr: Messages = {
     circle: "Circle",
     save: "Épargne",
     earn: "Rendement",
-    batchPay: "BatchPay",
+    batchPay: "BulkPay",
     recurePay: "RecurePay",
     activity: "Activité",
     insights: "Analyses",
@@ -97,7 +97,7 @@ export const fr: Messages = {
     saveDetailSubtitle: "Détail de la poche",
     earnTitle: "Rendement",
     earnSubtitle: "Faites travailler votre USDC inactif tout en gardant vos fonds accessibles.",
-    batchTitle: "BatchPay",
+    batchTitle: "BulkPay",
     batchSubtitle: "Règlement par lots pour les entreprises",
     recureTitle: "RecurePay",
     recureSubtitle: "Paiements stables automatisés",
@@ -235,7 +235,7 @@ export const fr: Messages = {
     personalBullet1: "Envoyer et recevoir",
     personalBullet2: "Demandes de paiement",
     personalBullet3: "Épargne, Rendement, Swap",
-    personalBullet4: "BatchPay, RecurePay, Circle",
+    personalBullet4: "BulkPay, RecurePay, Circle",
     continuePersonal: "Continuer en Personnel",
     businessCardTitle: "Entreprise",
     businessCardDescription:
@@ -367,13 +367,13 @@ export const fr: Messages = {
       "Utilisez le tableau de bord pour la valeur du portefeuille, les soldes, les envois directs, les bénéficiaires, les reçus et l’activité. L’envoi est organisé en flux de paiement par étapes.",
     faq2Q: "Quelles pages sont disponibles ?",
     faq2A:
-      "SwiftPay inclut Tableau de bord, Save, Rendement, Swap, BatchPay, RecurePay, demandes de paiement, Circle, Docs et Réglages. Les flux principaux sont liés depuis la section produit.",
+      "SwiftPay inclut Tableau de bord, Save, Rendement, Swap, BulkPay, RecurePay, demandes de paiement, Circle, Docs et Réglages. Les flux principaux sont liés depuis la section produit.",
     faq3Q: "Quelle différence entre Save et Rendement ?",
     faq3A:
       "Save crée des poches d’épargne sans intérêt et des règles Spend&Save. Rendement est séparé et montre le vault, les gains et Auto-Save lorsqu’il est pris en charge.",
     faq4Q: "Puis-je demander, payer par lots ou planifier des paiements ?",
     faq4A:
-      "Oui. Les demandes créent des liens et QR, BatchPay gère les paiements CSV jusqu’à 500 destinataires, RecurePay gère les plannings, et Circle partage chat, partages et épargne.",
+      "Oui. Les demandes créent des liens et QR, BulkPay gère les paiements CSV jusqu’à 500 destinataires, RecurePay gère les plannings, et Circle partage chat, partages et épargne.",
     faq5Q: "Comment gérer le profil du portefeuille ?",
     faq5A:
       "Connectez-vous avec un portefeuille Circle Google ou un portefeuille externe. Réglages permet de modifier le profil, le nom d’utilisateur et la photo depuis l’appareil.",

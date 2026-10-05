@@ -18,6 +18,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { RecurepayIllustration } from "@/components/swift-recurepay/recurepay-illustration";
@@ -180,10 +181,13 @@ export function PickerSheet<T extends string>({
 /** A page header in the SwiftPay style: round back button, centred title, an action. */
 export function RecurepayBar({
   action,
+  backHref,
   onBack,
   title,
 }: {
   action?: ReactNode;
+  /** Where the back button leads when there is no in-page step to go back to. */
+  backHref?: string;
   onBack?: () => void;
   title: string;
 }) {
@@ -193,6 +197,10 @@ export function RecurepayBar({
         <button aria-label="Back" className="recurepay-round" onClick={onBack} type="button">
           <ArrowLeft className="h-5 w-5" />
         </button>
+      ) : backHref ? (
+        <Link aria-label="Back" className="recurepay-round" href={backHref}>
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
       ) : (
         <span />
       )}

@@ -45,7 +45,7 @@ export type VerifiedOutflow = {
  * - Savings: every Swift Save `Deposited` event owned by the wallet, whatever
  *   the vault's address (Spend&Save routes the leg through the send router).
  * - Fees: the `feeRecipient()` of each contract that took part (send router,
- *   BatchPay, Recurepay, payroll), plus the configured fee wallets for direct
+ *   BulkPay, Recurepay, payroll), plus the configured fee wallets for direct
  *   fee legs and ALLIE fees.
  * Either signal can only lower the wallet's own cashback, so a contract that
  * emits fake events or reports a bogus fee recipient cannot raise a reward. Reading token

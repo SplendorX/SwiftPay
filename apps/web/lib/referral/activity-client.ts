@@ -39,7 +39,7 @@ function circleSocialUuid() {
 /**
  * Universally records platform transaction activity across all modules:
  * - Send Payments (Dashboard)
- * - BatchPay
+ * - BulkPay
  * - RecurePay
  * - Swaps (Swap Hub)
  *

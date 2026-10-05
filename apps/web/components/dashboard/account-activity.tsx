@@ -180,7 +180,7 @@ export function AccountActivity({
   /** For hosts that draw their own page header (the Activity page). */
   hideHeading?: boolean;
   isConnected: boolean;
-  /** BatchPay rows with stored recipients open the full batch receipt. */
+  /** BulkPay rows with stored recipients open the full batch receipt. */
   onOpenBatch?: (item: AccountActivityItem) => void;
   onOpenReceipt: (transfer: WalletTransfer) => void;
   ownerWallet?: string | null;
@@ -264,7 +264,7 @@ export function AccountActivity({
 
   // Show a SwiftPay counterparty by @username rather than their address.
   function displayTitle(item: AccountActivityItem) {
-    // BatchPay: name who was paid, e.g. "Batch payment to @ada, @ben +2".
+    // BulkPay: name who was paid, e.g. "Batch payment to @ada, @ben +2".
     // A payroll run keeps its own title ("Payroll run · September").
     if (item.batch?.recipients.length && item.batch.kind !== "payroll") {
       const names = item.batch.recipients.map((recipient) => {

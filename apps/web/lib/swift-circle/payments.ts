@@ -490,7 +490,7 @@ export async function submitPaymentExecution(input: {
         ? input.transactionId.trim()
         : fromResults.transactionId || (intent.id ? `circle-batch-${intent.id}` : null);
     if (!txHash && !transactionId) {
-      throw circleErrors.invalid("A BatchPay transaction hash or transaction ID is required.");
+      throw circleErrors.invalid("A BulkPay transaction hash or transaction ID is required.");
     }
     await supabase
       .from(circleTables.paymentRecipients)
