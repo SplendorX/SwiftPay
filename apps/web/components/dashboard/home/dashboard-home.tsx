@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { checkoutEnabled } from "@/lib/checkout/flag";
 import type { ArcTokenSymbol } from "@/lib/tokens";
@@ -101,12 +101,19 @@ export function DashboardHome({
   trend: "up" | "down" | "flat";
 }) {
   const shown = services.filter((service) => !service.business || isBusiness);
+  const name = useRememberedName(greetingName);
 
   return (
     <div className="dh">
       <header className="dh-hello">
         <p className="dh-hello-small">{greeting()},</p>
-        <p className="dh-hello-name">{greetingName ?? "Welcome to SwiftPay"}</p>
+        {name ? (
+          <p className="dh-hello-name">{name}</p>
+        ) : isConnected ? (
+          <span aria-hidden className="dh-hello-skeleton" />
+        ) : (
+          <p className="dh-hello-name">Welcome to SwiftPay</p>
+        )}
       </header>
 
       {/* The one card that matters */}
@@ -231,6 +238,29 @@ export function DashboardHome({
 
 /** How far a finger travels to roll one row. */
 const wheelStep = 34;
+
+const rememberedNameKey = "swiftpay.greetingName";
+
+/**
+ * The greeting name, remembered on this device so returning to the
+ * dashboard shows it at once instead of a placeholder while the profile loads.
+ */
+function useRememberedName(name: string | null) {
+  const [remembered, setRemembered] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setRemembered(window.localStorage.getItem(rememberedNameKey));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (!name) return;
+    setRemembered(name);
+    try {
+      window.localStorage.setItem(rememberedNameKey, name);
+    } catch {}
+  }, [name]);
+  return name ?? remembered;
+}
 
 type WheelRow = { amount: string; key: string; label: string; unit: string };
 

@@ -90,6 +90,7 @@ export async function signOutForAppLock(disconnect?: () => void) {
   try {
     window.localStorage.removeItem("swiftpay.activeWorkspaceId");
     window.localStorage.removeItem("swiftpay.preferredWalletMode");
+    window.localStorage.removeItem("swiftpay.greetingName");
   } catch {}
   await endWalletSession().catch(() => undefined);
   try {

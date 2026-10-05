@@ -592,3 +592,21 @@
 .dh-split {
   margin-top: 0.85rem;
 }
+
+/* While the name loads the first time on this device. */
+.dh-hello-skeleton {
+  display: block;
+  width: 9rem;
+  height: 1.6rem;
+  margin-top: 0.15rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg, var(--muted), color-mix(in oklch, var(--muted) 60%, var(--card)), var(--muted));
+  background-size: 200% 100%;
+  animation: dh-shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dh-hello-skeleton {
+    animation: none;
+  }
+}

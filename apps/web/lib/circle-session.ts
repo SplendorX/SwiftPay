@@ -236,6 +236,7 @@ export function clearCircleSession(options: { clearDevice?: boolean } = {}) {
   try {
     window.localStorage.removeItem("swiftpay.activeWorkspaceId");
     window.localStorage.removeItem("swiftpay.preferredWalletMode");
+    window.localStorage.removeItem("swiftpay.greetingName");
   } catch {}
 
   clearPlatformProfileConnected();
