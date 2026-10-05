@@ -11,7 +11,8 @@ export function PayPageShell({ children }: { children: ReactNode }) {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        backHref="/dashboard"
+        // The hub draws its own bar with a back button.
+        hideHeader
         subtitle="Payment collection hub"
         title="Request"
       >

@@ -1,0 +1,15 @@
+/* SwiftPay's purple primary buttons keep the chat-bubble corner (three round
+ * corners, one tucked in) whatever radius a page's own styles or a rounded-*
+ * utility set. Its own file, so the build cache can't serve a stale copy. */
+.sp-bubble[data-variant="default"]:not([data-size^="icon"]),
+.recurepay-cta,
+.bulkpay-cta,
+.bulkpay-intro-cta,
+.bulkpay-dock-cta,
+.swap2-cta,
+.pr-hero-button.is-solid,
+.pr-dock-cta,
+.req-cta,
+.ref-cta {
+  border-radius: var(--swift-bubble-radius) !important;
+}

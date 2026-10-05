@@ -1,9 +1,8 @@
 "use client";
 
-import { StyledSelect } from "@/components/ui/styled-select";
-
 import { motion } from "framer-motion";
 import {
+  ArrowLeft,
   AtSign,
   CheckCircle2,
   Clock3,
@@ -13,6 +12,7 @@ import {
   Lock,
   MessageSquareText,
   QrCode,
+  Send,
   Share2,
   Wallet,
 } from "lucide-react";
@@ -20,20 +20,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
-import { useT } from "@/components/locale-provider";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
-import { TokenSelect } from "@/components/design/token-select";
 import { TokenIcon } from "@/components/token-icon";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
 import {
   fetchPaymentRequestStatus,
 } from "@/lib/payment-request-client";
@@ -48,10 +38,14 @@ import {
   readRequestUsernameHistory,
   rememberRequestedUsername,
 } from "@/lib/request-username-history";
-import type { ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import { arcNetworkTarget } from "@/lib/network";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { arcChain } from "@/lib/chains";
+import { useSheetSide } from "@/lib/use-media-query";
+import { cn } from "@/lib/utils";
+
+import "./request.css";
 
 // Saved requests are kept per network and per signed-in wallet, so one
 // account never sees another's, and testnet requests stay off mainnet.
@@ -218,7 +212,6 @@ export function PaymentCollectionHub({
   initialUsername = "",
   initialWalletAddress,
 }: PaymentCollectionHubProps) {
-  const t = useT();
   const { address: connectedWallet, isConnected, source } = usePlatformWallet();
   const historyOwner = connectedWallet?.toLowerCase() ?? null;
   const [origin, setOrigin] = useState("");
@@ -584,373 +577,301 @@ export function PaymentCollectionHub({
         ? "External wallet"
         : "Not connected";
 
+  const expiryOptions = [
+    { label: "1 hour", value: "1" },
+    { label: "24 hours", value: "24" },
+    { label: "3 days", value: "72" },
+    { label: "7 days", value: "168" },
+  ];
+
   return (
-    <div className="collection-hub">
-      <div className="collection-hub-grid">
-        <section className="section-panel">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="section-eyebrow">{t("pay.createRequest")}</p>
-              <h2 className="section-title">{t("pay.askSomeone")}</h2>
-            </div>
-            {activeCount > 0 ? (
-              <span className="request-live-pill">
-                <span className="request-live-dot" />
-                {activeCount} active
-              </span>
-            ) : null}
+    <div className="req-page">
+      <header className="req-bar">
+        <Link aria-label="Back to the dashboard" className="req-round" href="/dashboard">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="req-title">Request money</h1>
+        <button
+          aria-label="Request history"
+          className="req-round"
+          onClick={() => setHistoryOpen(true)}
+          title="Request history"
+          type="button"
+        >
+          <History className="h-5 w-5" />
+          {openRequests.length > 0 ? <span className="req-round-count">{openRequests.length}</span> : null}
+        </button>
+      </header>
+
+      {/* Amount */}
+      <section className="req-hero">
+        <span aria-hidden className="req-hero-glow" />
+        <div className="req-hero-top">
+          <span className="req-hero-label">You&apos;re requesting</span>
+          <div aria-label="Token" className="req-tokens" role="radiogroup">
+            {arcTokenSymbols.map((symbol) => (
+              <button
+                aria-checked={symbol === token}
+                className="req-token"
+                key={symbol}
+                onClick={() => setToken(symbol)}
+                role="radio"
+                type="button"
+              >
+                <TokenIcon className="h-4 w-4" symbol={symbol} />
+                {symbol}
+              </button>
+            ))}
           </div>
+        </div>
+        <label className="req-amount">
+          <input
+            aria-label="Amount"
+            inputMode="decimal"
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder="0.00"
+            value={amount}
+          />
+          <span>{token}</span>
+        </label>
+        <p className="req-hero-sub">
+          {isConnected ? (
+            <>
+              <Lock className="h-3.5 w-3.5" /> Pays to {recipientSummary} · {walletSourceLabel.toLowerCase()}
+            </>
+          ) : (
+            <>
+              <Wallet className="h-3.5 w-3.5" /> Connect a wallet to receive payments
+            </>
+          )}
+        </p>
+      </section>
 
-          <div className="mt-5 grid gap-4">
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">{t("pay.sendRequestTo")}</span>
-              <div className="field-shell flex h-11 items-center gap-2 px-3">
-                <AtSign className="h-4 w-4 text-primary" />
-                <Input
-                  autoComplete="off"
-                  className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
-                  onChange={(event) => {
-                    setShareUsername(
-                      event.target.value
-                        .toLowerCase()
-                        .replace(/^@+/, "")
-                        .replace(/\s/g, ""),
-                    );
-                    setShareError(null);
-                    setShareStatus(null);
-                  }}
-                  placeholder="username"
-                  spellCheck={false}
-                  value={shareUsername}
-                />
-              </div>
-              {usernameHistory.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {usernameHistory.map((username) => (
-                    <button
-                      className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-                      key={username}
-                      onClick={() => applyHistoryUsername(username)}
-                      type="button"
-                    >
-                      {formatUsernameLabel(username)}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Recent usernames you request from will appear here.
-                </p>
-              )}
-            </label>
+      {/* Who */}
+      <section className="req-card">
+        <h2 className="req-card-title">Who&apos;s paying?</h2>
+        <label className="req-field">
+          <AtSign className="h-4 w-4 text-primary" />
+          <input
+            aria-label="SwiftPay username"
+            autoComplete="off"
+            onChange={(event) => {
+              setShareUsername(event.target.value.toLowerCase().replace(/^@+/, "").replace(/\s/g, ""));
+              setShareError(null);
+              setShareStatus(null);
+            }}
+            placeholder="username"
+            spellCheck={false}
+            value={shareUsername}
+          />
+        </label>
+        {usernameHistory.length > 0 ? (
+          <div className="req-chips">
+            {usernameHistory.map((username) => (
+              <button
+                aria-pressed={normalizedShareUsername === normalizeUsername(username)}
+                className="req-chip"
+                key={username}
+                onClick={() => applyHistoryUsername(username)}
+                type="button"
+              >
+                {formatUsernameLabel(username)}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="req-hint">People you request from will appear here.</p>
+        )}
+      </section>
 
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Receiving wallet</span>
-              <div className="field-shell flex h-11 items-center gap-2 px-3 opacity-90">
-                {isConnected ? (
-                  <Lock className="h-4 w-4 text-primary" />
-                ) : (
-                  <Wallet className="h-4 w-4 text-muted-foreground" />
-                )}
-                <Input
-                  className="border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
-                  readOnly
-                  value={
-                    isConnected
-                      ? requesterUsername
-                        ? `${formatUsernameLabel(requesterUsername)} · ${shortenWallet(trimmedWalletAddress)}`
-                        : trimmedWalletAddress
-                      : "Connect a wallet to lock this request"
-                  }
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Locked to your {walletSourceLabel.toLowerCase()}. Funds always
-                settle to this address.
-              </p>
-            </label>
-
-            <div className="grid gap-3 sm:grid-cols-[1fr_12rem_7rem]">
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold">Amount</span>
-                <div className="field-shell flex h-11 items-center gap-2 px-3">
-                  <TokenIcon className="h-5 w-5 rounded-full" symbol={token} />
-                  <Input
-                    className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-                    inputMode="decimal"
-                    onChange={(event) => setAmount(event.target.value)}
-                    placeholder="0.00"
-                    value={amount}
-                  />
-                </div>
-              </label>
-              <TokenSelect
-                label="Token"
-                onChange={setToken}
-                size="sm"
-                value={token}
-              />
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold">Expires</span>
-                <StyledSelect
-                  ariaLabel="Select payment request expiration"
-                  className="w-full"
-                  onChange={setExpiresInHours}
-                  options={[
-                    { label: "1 hour", value: "1" },
-                    { label: "24 hours", value: "24" },
-                    { label: "3 days", value: "72" },
-                    { label: "7 days", value: "168" },
-                  ]}
-                  value={expiresInHours}
-                />
-              </label>
-            </div>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Note (optional)</span>
-              <div className="field-shell flex min-h-20 items-start gap-2 px-3 py-3">
-                <MessageSquareText className="mt-0.5 h-4 w-4 text-primary" />
-                <textarea
-                  className="min-h-16 min-w-0 flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  maxLength={140}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Invoice, rent, or payment reference"
-                  value={note}
-                />
-              </div>
-            </label>
-
-            <div className="share-pair">
-              <div className="share-card">
-                <p className="share-card-title">Send in-app request</p>
-                <p className="share-card-copy">
-                  The recipient can pay or decline.
-                </p>
-                <Button
-                  className="share-card-send"
-                  disabled={
-                    !requestLink ||
-                    Boolean(shareUsernameError) ||
-                    isSendingNotification ||
-                    !isConnected
-                  }
-                  onClick={() => void sendRequestNotification()}
-                  size="sm"
-                  type="button"
-                >
-                  {isSendingNotification ? (
-                    <Clock3 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Share2 className="h-4 w-4" />
-                  )}
-                  Send
-                </Button>
-                {shareError ? (
-                  <p className="mt-2 text-xs text-destructive">{shareError}</p>
-                ) : null}
-                {shareStatus ? (
-                  <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
-                    {shareStatus}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="share-card">
-                <p className="share-card-title">
-                  <Link2 className="h-4 w-4 text-muted-foreground" />
-                  Generated link
-                </p>
-                {/* Truncated on purpose: the box is small and the link is long. */}
-                <p className="share-card-link" title={requestLink || undefined}>
-                  {requestLink || "Enter an amount to generate a link."}
-                </p>
-                <div className="share-card-actions">
-                  <button
-                    aria-label={copied === "link" ? "Link copied" : "Copy link"}
-                    className="share-icon-button"
-                    disabled={!requestLink}
-                    onClick={() =>
-                      void copyValue(requestLink, "link", { persist: true })
-                    }
-                    type="button"
-                  >
-                    {copied === "link" ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </button>
-                  <button
-                    aria-label="Share link"
-                    className="share-icon-button"
-                    disabled={!requestLink}
-                    onClick={() => void shareRequestLink()}
-                    type="button"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
+      {/* Details */}
+      <section className="req-card">
+        <h2 className="req-card-title">Details</h2>
+        <label className="req-field is-area">
+          <MessageSquareText className="mt-0.5 h-4 w-4 text-primary" />
+          <textarea
+            aria-label="Note"
+            maxLength={140}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="What's it for? Rent, an invoice, a reference (optional)"
+            value={note}
+          />
+        </label>
+        <p className="req-sub-label">
+          <Clock3 className="h-3.5 w-3.5" /> Expires after
+        </p>
+        <div className="req-chips" role="radiogroup" aria-label="Expires after">
+          {expiryOptions.map((option) => (
             <button
-              className="request-history-link"
-              onClick={() => setHistoryOpen(true)}
+              aria-checked={expiresInHours === option.value}
+              className="req-chip"
+              key={option.value}
+              onClick={() => setExpiresInHours(option.value)}
+              role="radio"
               type="button"
             >
-              <History className="h-3.5 w-3.5" />
-              Request history
-              {openRequests.length > 0 ? (
-                <span className="request-history-count">
-                  {openRequests.length}
-                </span>
-              ) : null}
+              {option.label}
             </button>
-          </div>
-        </section>
+          ))}
+        </div>
+      </section>
 
-        <aside className="section-panel">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="section-eyebrow">{t("pay.qrCode")}</p>
-              <h2 className="section-title">{t("pay.scanToPay")}</h2>
-            </div>
-            <QrCode className="h-5 w-5 text-primary" />
-          </div>
+      <Button
+        className="req-cta"
+        disabled={!requestLink || Boolean(shareUsernameError) || isSendingNotification || !isConnected}
+        onClick={() => void sendRequestNotification()}
+        type="button"
+      >
+        {isSendingNotification ? <Clock3 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        {normalizedShareUsername && !shareUsernameError
+          ? `Send request to ${formatUsernameLabel(normalizedShareUsername)}`
+          : "Send request"}
+      </Button>
+      {shareError ? <p className="req-message is-error">{shareError}</p> : null}
+      {shareStatus ? (
+        <p className="req-message is-ok">
+          <CheckCircle2 className="h-4 w-4" />
+          {shareStatus}
+        </p>
+      ) : null}
+      <p className="req-hint is-center">They can pay or decline from their notifications.</p>
 
-          <div className="collection-hub-qr">
-            {requestLink ? (
-              <motion.div
-                animate={{ opacity: 1, scale: 1 }}
-                className="rounded-xl bg-background p-4 shadow-sm"
-                initial={{ opacity: 0, scale: 0.95 }}
-              >
-                <LazyQRCodeSVG
-                  bgColor="transparent"
-                  fgColor="currentColor"
-                  marginSize={1}
-                  size={200}
-                  title="SwiftPay payment request"
-                  value={requestLink}
-                />
-              </motion.div>
-            ) : (
-              <div className="flex h-full min-h-[220px] items-center justify-center text-sm text-muted-foreground">
-                QR preview appears when the request is ready
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Pays to</span>
-              <span className="max-w-[12rem] truncate text-right font-semibold">
-                {recipientSummary}
-              </span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Requesting</span>
-              <span className="max-w-[12rem] truncate text-right font-semibold">
-                {normalizedShareUsername
-                  ? formatUsernameLabel(normalizedShareUsername)
-                  : "Waiting"}
-              </span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Amount</span>
-              <span className="font-semibold">
-                {trimmedAmount || "0.00"} {token}
-              </span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Expires</span>
-              <span className="inline-flex items-center gap-1 font-semibold">
-                <Clock3 className="h-3.5 w-3.5" />
-                {expiresInHours}h
-              </span>
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Chain</span>
-              <span className="font-semibold">{arcChain.name}</span>
-            </div>
-          </div>
-        </aside>
+      {/* Link and QR */}
+      <div className="req-or">
+        <span>or share a link</span>
       </div>
-
-      <Dialog onOpenChange={setHistoryOpen} open={historyOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Request history</DialogTitle>
-            <DialogDescription>
-              Requests still waiting to be paid. Expired and declined ones are
-              not listed.
-            </DialogDescription>
-          </DialogHeader>
-
-          {openRequests.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No open requests.
-            </p>
+      <section className="req-card req-share">
+        <div className="req-qr">
+          {requestLink ? (
+            <motion.div animate={{ opacity: 1, scale: 1 }} className="req-qr-code" initial={{ opacity: 0, scale: 0.95 }}>
+              <LazyQRCodeSVG
+                bgColor="transparent"
+                fgColor="currentColor"
+                marginSize={1}
+                size={168}
+                title="SwiftPay payment request"
+                value={requestLink}
+              />
+            </motion.div>
           ) : (
-            <div className="request-history-list">
-              {openRequests.map((request) => {
-                const status = deriveLocalRequestStatus(request);
-                return (
-                  <article
-                    className="collection-hub-request-card"
-                    key={request.id}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold">
-                          {request.amount} {request.token}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {request.sentToUsername
-                            ? `Requested ${formatUsernameLabel(request.sentToUsername)}`
-                            : request.username
-                              ? `Pays ${formatUsernameLabel(request.username)}`
-                              : `Pays ${shortenWallet(request.wallet)}`}
-                        </p>
-                        {request.note ? (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {request.note}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Badge
-                          variant={
-                            status === "active"
-                              ? "secondary"
-                              : status === "paid"
-                                ? "default"
-                                : "outline"
-                          }
-                        >
-                          {status}
-                        </Badge>
-                        {/* A lapsed request has no link worth sharing. */}
-                        {status === "expired" ? null : (
-                          <button
-                            aria-label="Copy request link"
-                            className="request-copy-button"
-                            onClick={() => void copyValue(request.link, "link")}
-                            type="button"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="req-qr-empty">
+              <QrCode className="h-8 w-8" />
+              Enter an amount to get a link and QR code.
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+        <div className="req-share-side">
+          <p className="req-card-title">
+            <Link2 className="h-4 w-4" /> Payment link
+          </p>
+          <p className="req-link" title={requestLink || undefined}>
+            {requestLink || "Anyone with the link can pay you, on SwiftPay or with any Arc wallet."}
+          </p>
+          <div className="req-share-actions">
+            <Button
+              className="h-11 w-full sm:w-auto sm:flex-1"
+              disabled={!requestLink}
+              onClick={() => void copyValue(requestLink, "link", { persist: true })}
+              type="button"
+              variant="outline"
+            >
+              {copied === "link" ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied === "link" ? "Copied" : "Copy link"}
+            </Button>
+            <Button
+              className="h-11 w-full sm:w-auto sm:flex-1"
+              disabled={!requestLink}
+              onClick={() => void shareRequestLink()}
+              type="button"
+              variant="outline"
+            >
+              <Share2 className="h-4 w-4" />
+              Share
+            </Button>
+          </div>
+          <p className="req-hint">On {arcChain.name}.</p>
+        </div>
+      </section>
+
+      <RequestHistorySheet
+        copied={copied === "link"}
+        onClose={() => setHistoryOpen(false)}
+        onCopy={(link) => void copyValue(link, "link")}
+        open={historyOpen}
+        requests={openRequests}
+      />
     </div>
+  );
+}
+
+/** Requests still in play: active or paid. Expired and declined ones are left out. */
+function RequestHistorySheet({
+  copied,
+  onClose,
+  onCopy,
+  open,
+  requests,
+}: {
+  copied: boolean;
+  onClose: () => void;
+  onCopy: (link: string) => void;
+  open: boolean;
+  requests: SavedRequest[];
+}) {
+  const side = useSheetSide();
+  return (
+    <Sheet onOpenChange={(next) => !next && onClose()} open={open}>
+      <SheetContent
+        className={cn("gap-0 p-0", side === "bottom" ? "max-h-[85dvh] rounded-t-[1.75rem] border-t-0" : "w-full sm:max-w-md")}
+        showCloseButton={false}
+        side={side}
+      >
+        {side === "bottom" ? <SheetGrabber /> : null}
+        <div className="req-sheet">
+          <SheetTitle className="text-center text-lg font-bold">Request history</SheetTitle>
+          <SheetDescription className="text-center text-sm text-muted-foreground">
+            Requests still waiting to be paid, and paid ones.
+          </SheetDescription>
+          {requests.length === 0 ? (
+            <p className="req-hint is-center py-8">No open requests.</p>
+          ) : (
+            <ul className="req-history">
+              {requests.map((request) => {
+                const status = deriveLocalRequestStatus(request);
+                return (
+                  <li key={request.id}>
+                    <span className={status === "paid" ? "req-history-icon is-paid" : "req-history-icon"}>
+                      {status === "paid" ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">
+                        {request.amount} {request.token}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {request.sentToUsername
+                          ? `Requested ${formatUsernameLabel(request.sentToUsername)}`
+                          : request.username
+                            ? `Pays ${formatUsernameLabel(request.username)}`
+                            : `Pays ${shortenWallet(request.wallet)}`}
+                        {request.note ? ` · ${request.note}` : ""}
+                      </span>
+                    </span>
+                    <span className={status === "paid" ? "req-status is-paid" : "req-status"}>{status}</span>
+                    <button
+                      aria-label={copied ? "Link copied" : "Copy request link"}
+                      className="req-copy"
+                      onClick={() => onCopy(request.link)}
+                      type="button"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

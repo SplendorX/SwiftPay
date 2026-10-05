@@ -7,18 +7,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
-  AtSign,
   Banknote,
-  Check,
-  ChevronDown,
-  ChevronUp,
   Loader2,
+  Minus,
   Plus,
   Send,
   Trash2,
   UserRound,
   Users,
-  Wallet,
 } from "lucide-react";
 
 import { useAccountContext } from "@/components/account/account-provider";
@@ -28,7 +24,6 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StyledSelect } from "@/components/ui/styled-select";
 import {
   calculateItemAmounts,
   calculateRunTotals,
@@ -43,6 +38,8 @@ import type {
   PayrollGroupRecord,
   TeamMemberRecord,
 } from "@/lib/payroll/types";
+
+import "../../payroll.css";
 
 type ItemDraft = {
   teamMemberId: string;
@@ -238,245 +235,226 @@ export default function NewPayrollRunPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The page draws its own bar with a back button.
+        hideHeader
         subtitle="Configure recipient payments and adjustments for review."
         title="Create Payroll Run"
       >
-        <div className="mb-4">
-          <Button asChild size="sm" variant="ghost">
-            <Link href="/business/payroll">
-              <ArrowLeft className="h-4 w-4 mr-1.5" />
-              Back to Payroll
+        <div className="pr-page is-narrow">
+          <header className="pr-bar">
+            <Link aria-label="Back to payroll" className="pr-round" href="/business/payroll">
+              <ArrowLeft className="h-5 w-5" />
             </Link>
-          </Button>
-        </div>
+            <h1 className="pr-title">Run payroll</h1>
+            <span />
+          </header>
 
-        {error ? (
-          <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        ) : null}
+          {error ? (
+            <div className="pr-alert" role="alert">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span className="min-w-0 flex-1 break-words">{error}</span>
+            </div>
+          ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-          {/* Main Form */}
-          <div className="space-y-6">
-            <div className="section-panel p-5">
-              <h3 className="font-heading font-bold text-lg mb-4">Run Details</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Payroll Run Name *</label>
-                  <Input
-                    className="mt-1"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. September 2026 Payroll"
-                    required
-                  />
-                </div>
+          {/* What this run will take */}
+          <section className="pr-hero">
+            <span aria-hidden className="pr-hero-glow" />
+            <div className="pr-hero-top">
+              <span className="pr-hero-eyebrow">
+                <Banknote className="h-4 w-4" />
+                Total required
+              </span>
+              <span className="pr-hero-pill">USDC · {arcChain.name}</span>
+            </div>
+            <p className="pr-hero-amount">
+              {totals.totalRequired} <span>USDC</span>
+            </p>
+            <div className="pr-hero-chips">
+              <span>
+                <Users className="h-3.5 w-3.5" />
+                {totals.recipientCount} recipients
+              </span>
+              <span>Payout {totals.totalAmount}</span>
+              <span>Fee (1%) {totals.totalFees}</span>
+            </div>
+          </section>
 
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Target Group</label>
-                  <div className="mt-1">
-                    <StyledSelect
-                      ariaLabel="Target Group"
-                      onChange={(val) => handleGroupChange(val)}
-                      options={[
-                        { label: `All Active Team Members (${allMembers.length})`, value: "" },
-                        ...groups.map((g) => ({
-                          label: `${g.name} (${g.members_count ?? 0} members)`,
-                          value: g.id,
-                        })),
-                      ]}
-                      value={selectedGroupId}
-                    />
-                  </div>
-                </div>
+          {/* Run details */}
+          <section className="pr-card pr-pad">
+            <h2 className="pr-section-title">Run details</h2>
+            <label className="pr-field">
+              <span>Name *</span>
+              <Input
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. September 2026 Payroll"
+                required
+                value={name}
+              />
+            </label>
+            <div className="pr-field">
+              <span>Who&apos;s paid</span>
+              <div className="pr-chips is-wrap" role="radiogroup" aria-label="Who's paid">
+                <button
+                  aria-pressed={selectedGroupId === ""}
+                  className="pr-chip"
+                  onClick={() => handleGroupChange("")}
+                  type="button"
+                >
+                  Whole team
+                  <span>{allMembers.length}</span>
+                </button>
+                {groups.map((g) => (
+                  <button
+                    aria-pressed={selectedGroupId === g.id}
+                    className="pr-chip"
+                    key={g.id}
+                    onClick={() => handleGroupChange(g.id)}
+                    type="button"
+                  >
+                    {g.name}
+                    <span>{g.members_count ?? 0}</span>
+                  </button>
+                ))}
               </div>
             </div>
+          </section>
 
-            {/* Recipient Item Configurations */}
-            <div className="section-panel p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-heading font-bold text-lg">
-                  Recipients ({items.length})
-                </h3>
-                <span className="text-xs text-muted-foreground">USDC ({arcChain.name})</span>
+          {/* Recipients */}
+          <section className="pr-card">
+            <div className="pr-card-head">
+              <div>
+                <h2>Recipients</h2>
+                <p>Set each payout, add a bonus or a deduction</p>
               </div>
+              <span className="pr-count">{items.length}</span>
+            </div>
 
-              {loading ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                  Loading eligible team members…
-                </div>
-              ) : items.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  No active team members available for this selection.
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {items.map((item, index) => {
-                    const ci = totals.calculatedItems[index];
-
-                    return (
-                      <div key={item.teamMemberId} className="py-4 first:pt-0 last:pb-0 space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-foreground truncate">
-                                {item.fullName}
-                              </span>
-                              {item.role ? (
-                                <span className="text-xs text-muted-foreground">({item.role})</span>
-                              ) : null}
-                            </div>
-                            <p className="text-xs text-muted-foreground font-mono truncate">
-                              {item.paymentDestinationType === "SWIFTPAY_USER" ? `@${item.swiftpayUsername}` : item.walletAddress}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <div className="w-32">
-                              <label className="text-[10px] text-muted-foreground uppercase font-bold block">
-                                Base (USDC)
-                              </label>
-                              <Input
-                                type="number"
-                                step="any"
-                                className="h-8 text-xs font-semibold text-right"
-                                value={item.baseAmount}
-                                onChange={(e) => updateBaseAmount(index, e.target.value)}
-                              />
-                            </div>
-
-                            <button
-                              onClick={() => removeItem(index)}
-                              className="text-muted-foreground hover:text-destructive p-1 rounded mt-4"
-                              title="Remove recipient from this run"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Adjustments Section (Section 28) */}
-                        {item.adjustments.length > 0 ? (
-                          <div className="pl-4 space-y-2 border-l-2 border-primary/20">
-                            {item.adjustments.map((adj, adjIdx) => (
-                              <div key={adjIdx} className="flex items-center gap-2 text-xs">
-                                <span
-                                  className={`px-1.5 py-0.5 rounded font-bold text-[10px] uppercase ${
-                                    adj.type === "BONUS"
-                                      ? "bg-emerald-500/10 text-emerald-600"
-                                      : adj.type === "DEDUCTION"
-                                      ? "bg-rose-500/10 text-rose-600"
-                                      : "bg-blue-500/10 text-blue-600"
-                                  }`}
-                                >
-                                  {adj.type}
-                                </span>
-                                <Input
-                                  className="h-7 w-24 text-xs font-semibold text-right"
-                                  type="number"
-                                  step="any"
-                                  value={adj.amount}
-                                  onChange={(e) => updateAdjustment(index, adjIdx, { amount: e.target.value })}
-                                />
-                                <Input
-                                  className="h-7 flex-1 text-xs"
-                                  placeholder="Reason (e.g. Q3 performance)"
-                                  value={adj.reason || ""}
-                                  onChange={(e) => updateAdjustment(index, adjIdx, { reason: e.target.value })}
-                                />
-                                <button
-                                  onClick={() => removeAdjustment(index, adjIdx)}
-                                  className="text-muted-foreground hover:text-destructive p-1"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-
-                        {/* Total per Item + Quick Add Adjustment buttons */}
-                        <div className="flex items-center justify-between text-xs pt-1">
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => addAdjustment(index, "BONUS")}
-                              className="text-[11px] font-semibold text-primary hover:underline flex items-center"
-                            >
-                              <Plus className="h-3 w-3 mr-0.5" /> Bonus
-                            </button>
-                            <span className="text-muted-foreground">·</span>
-                            <button
-                              type="button"
-                              onClick={() => addAdjustment(index, "DEDUCTION")}
-                              className="text-[11px] font-semibold text-muted-foreground hover:text-foreground flex items-center"
-                            >
-                              <Plus className="h-3 w-3 mr-0.5" /> Deduction
-                            </button>
-                          </div>
-
-                          <div className="font-semibold text-foreground">
-                            Payout: <span className="font-bold text-sm">{ci ? ci.totalAmount : item.baseAmount} USDC</span>
-                          </div>
-                        </div>
+            {loading ? (
+              <p className="pr-empty">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading eligible team members…
+              </p>
+            ) : items.length === 0 ? (
+              <div className="pr-empty is-first">
+                <span aria-hidden className="pr-empty-icon">
+                  <Users className="h-7 w-7" />
+                </span>
+                <p className="pr-empty-title">No one to pay here</p>
+                <p>No active team members in this selection.</p>
+                <Button asChild className="mt-2 h-11" variant="outline">
+                  <Link href="/business/payroll/team">Manage team</Link>
+                </Button>
+              </div>
+            ) : (
+              <ul className="pr-runs">
+                {items.map((item, index) => {
+                  const ci = totals.calculatedItems[index];
+                  return (
+                    <li className="pr-recipient" key={item.teamMemberId}>
+                      <div className="pr-recipient-top">
+                        <span className="pr-avatar">
+                          <UserRound className="h-5 w-5" />
+                        </span>
+                        <span className="pr-run-main">
+                          <span className="pr-run-title">{item.fullName}</span>
+                          <span className="pr-run-sub">
+                            {item.role ? `${item.role} · ` : ""}
+                            {item.paymentDestinationType === "SWIFTPAY_USER"
+                              ? `@${item.swiftpayUsername}`
+                              : `${item.walletAddress.slice(0, 6)}…${item.walletAddress.slice(-4)}`}
+                          </span>
+                        </span>
+                        <button
+                          aria-label={`Remove ${item.fullName} from this run`}
+                          className="pr-icon-button is-danger"
+                          onClick={() => removeItem(index)}
+                          title="Remove from this run"
+                          type="button"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Right Summary Panel */}
-          <div className="space-y-4">
-            <div className="section-panel p-5 sticky top-6">
-              <h3 className="font-heading font-bold text-lg mb-4">Run Summary</h3>
+                      <label className="pr-amount">
+                        <span>Base pay</span>
+                        <Input
+                          inputMode="decimal"
+                          onChange={(e) => updateBaseAmount(index, e.target.value)}
+                          step="any"
+                          type="number"
+                          value={item.baseAmount}
+                        />
+                        <em>USDC</em>
+                      </label>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between border-b border-border pb-2">
-                  <span className="text-muted-foreground">Recipients</span>
-                  <span className="font-semibold text-foreground">{totals.recipientCount}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-border pb-2">
-                  <span className="text-muted-foreground">Total Payout</span>
-                  <span className="font-heading font-bold text-foreground">{totals.totalAmount} USDC</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-border pb-2">
-                  <span className="text-muted-foreground">Service Fee (1%)</span>
-                  <span className="font-semibold text-muted-foreground">{totals.totalFees} USDC</span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="font-bold text-foreground">Total Required</span>
-                  <span className="font-heading text-lg font-bold text-primary">
-                    {totals.totalRequired} USDC
-                  </span>
-                </div>
-              </div>
+                      {item.adjustments.length > 0 ? (
+                        <ul className="pr-adjustments">
+                          {item.adjustments.map((adj, adjIdx) => (
+                            <li key={adjIdx}>
+                              <span className="pr-adj-type" data-type={adj.type}>
+                                {adj.type === "BONUS" ? "Bonus" : adj.type === "DEDUCTION" ? "Deduction" : adj.type.toLowerCase()}
+                              </span>
+                              <Input
+                                aria-label="Adjustment amount"
+                                className="pr-adj-amount"
+                                inputMode="decimal"
+                                onChange={(e) => updateAdjustment(index, adjIdx, { amount: e.target.value })}
+                                step="any"
+                                type="number"
+                                value={adj.amount}
+                              />
+                              <Input
+                                aria-label="Reason"
+                                className="pr-adj-reason"
+                                onChange={(e) => updateAdjustment(index, adjIdx, { reason: e.target.value })}
+                                placeholder="Reason (e.g. Q3 performance)"
+                                value={adj.reason || ""}
+                              />
+                              <button
+                                aria-label="Remove adjustment"
+                                className="pr-icon-button is-danger"
+                                onClick={() => removeAdjustment(index, adjIdx)}
+                                type="button"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
 
-              <Button
-                className="w-full mt-6"
-                disabled={items.length === 0 || submitting}
-                onClick={handleSubmit}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Creating Run…
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Proceed to Review
-                  </>
-                )}
-              </Button>
-              <p className="mt-2 text-[11px] text-center text-muted-foreground">
-                You will have a full review screen to inspect and explicitly approve before funds are settled.
+                      <div className="pr-recipient-foot">
+                        <span className="pr-member-actions">
+                          <button onClick={() => addAdjustment(index, "BONUS")} type="button">
+                            <Plus className="h-3.5 w-3.5" /> Bonus
+                          </button>
+                          <button onClick={() => addAdjustment(index, "DEDUCTION")} type="button">
+                            <Minus className="h-3.5 w-3.5" /> Deduction
+                          </button>
+                        </span>
+                        <span className="pr-payout">
+                          Payout <strong>{ci ? ci.totalAmount : item.baseAmount} USDC</strong>
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <div className="pr-dock">
+            <div className="min-w-0">
+              <p className="pr-dock-total">{totals.totalRequired} USDC</p>
+              <p className="pr-dock-sub">
+                {totals.recipientCount} {totals.recipientCount === 1 ? "person" : "people"} · fee included · you review
+                before paying
               </p>
             </div>
+            <Button className="pr-dock-cta" disabled={items.length === 0 || submitting} onClick={handleSubmit}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {submitting ? "Creating…" : "Proceed to review"}
+            </Button>
           </div>
         </div>
       </PlatformChrome>

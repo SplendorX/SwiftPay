@@ -1,0 +1,455 @@
+/* Request money. Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.req-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.req-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.req-title {
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.req-round {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.req-round:hover {
+  background: var(--muted);
+}
+
+.req-round-count {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+/* Amount hero */
+.req-hero {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  overflow: hidden;
+  padding: 1.15rem 1.25rem 1.1rem;
+  border-radius: 1.4rem;
+  color: #ffffff;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+}
+
+.req-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.req-hero-top {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.req-hero-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.req-tokens {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.14);
+}
+
+.req-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgb(255 255 255 / 0.85);
+}
+
+.req-token[aria-checked="true"] {
+  background: #ffffff;
+  color: #3b1478;
+}
+
+.req-amount {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.req-amount input {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: #ffffff;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2.2rem, 10vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.req-amount input::placeholder {
+  color: rgb(255 255 255 / 0.45);
+}
+
+.req-amount span {
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.req-hero-sub {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  font-size: 0.82rem;
+  opacity: 0.9;
+}
+
+/* Cards */
+.req-card {
+  display: grid;
+  min-width: 0;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+}
+
+.req-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.req-field {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--background);
+}
+
+.req-field:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.req-field.is-area {
+  align-items: flex-start;
+  padding: 0.75rem 0.9rem;
+}
+
+.req-field input,
+.req-field textarea {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-size: 0.95rem;
+  color: var(--foreground);
+}
+
+.req-field textarea {
+  min-height: 3.5rem;
+  resize: none;
+}
+
+.req-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.req-chip {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.req-chip[aria-pressed="true"],
+.req-chip[aria-checked="true"] {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.req-sub-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.req-hint {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.req-hint.is-center {
+  text-align: center;
+}
+
+.req-cta {
+  width: 100%;
+  height: 3.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.req-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.req-message.is-error {
+  color: var(--destructive);
+}
+
+.req-message.is-ok {
+  color: #15803d;
+}
+
+.dark .req-message.is-ok {
+  color: #4ade80;
+}
+
+.req-or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.req-or::before,
+.req-or::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+}
+
+/* Link and QR */
+.req-share {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+@media (min-width: 560px) {
+  .req-share {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    justify-items: stretch;
+  }
+}
+
+.req-qr {
+  display: grid;
+  place-items: center;
+}
+
+.req-qr-code {
+  padding: 0.85rem;
+  border-radius: 1rem;
+  background: #ffffff;
+  color: #1e0b3a;
+}
+
+.req-qr-empty {
+  display: grid;
+  width: 11.5rem;
+  height: 11.5rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.req-share-side {
+  display: grid;
+  min-width: 0;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.req-link {
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.req-share-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .req-share-actions {
+    flex-direction: row;
+  }
+}
+
+/* History sheet */
+.req-sheet {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem max(1rem, env(safe-area-inset-bottom));
+}
+
+.req-history {
+  margin-top: 0.5rem;
+}
+
+.req-history li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.75rem 0;
+}
+
+.req-history li + li {
+  border-top: 1px solid var(--border);
+}
+
+.req-history-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+}
+
+.req-history-icon.is-paid {
+  background: color-mix(in oklch, #16a34a 14%, var(--card));
+  color: #15803d;
+}
+
+.req-status {
+  flex-shrink: 0;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--muted-foreground);
+}
+
+.req-status.is-paid {
+  background: color-mix(in oklch, #16a34a 14%, var(--card));
+  color: #15803d;
+}
+
+.req-copy {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+}
+
+.req-copy:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}

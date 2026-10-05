@@ -770,3 +770,203 @@
   gap: 0.35rem;
   margin-top: 0.25rem;
 }
+
+/* ── Run payroll ───────────────────────────────────────────────────────── */
+.pr-page.is-narrow {
+  max-width: 44rem;
+}
+
+.pr-pad {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.pr-section-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pr-chips.is-wrap {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.pr-recipient {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.pr-recipient-top {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.pr-amount {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--background);
+}
+
+.pr-amount:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.pr-amount > span {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.pr-amount input {
+  height: 2.4rem;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.pr-amount input:focus-visible {
+  box-shadow: none;
+}
+
+.pr-amount em {
+  flex-shrink: 0;
+  padding-right: 0.5rem;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+.pr-adjustments {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid color-mix(in oklch, var(--primary) 25%, var(--border));
+}
+
+.pr-adjustments li {
+  display: grid;
+  grid-template-columns: auto 6.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+@media (max-width: 520px) {
+  .pr-adjustments li {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .pr-adjustments .pr-adj-reason {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.pr-adj-type {
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: color-mix(in oklch, #2563eb 12%, var(--card));
+  color: #1d4ed8;
+}
+
+.pr-adj-type[data-type="BONUS"] {
+  background: color-mix(in oklch, #16a34a 14%, var(--card));
+  color: #15803d;
+}
+
+.pr-adj-type[data-type="DEDUCTION"] {
+  background: color-mix(in oklch, #dc2626 12%, var(--card));
+  color: #b91c1c;
+}
+
+.dark .pr-adj-type[data-type="BONUS"] {
+  color: #4ade80;
+}
+
+.dark .pr-adj-type[data-type="DEDUCTION"] {
+  color: #f87171;
+}
+
+.pr-adjustments input {
+  height: 2.25rem;
+  font-size: 0.85rem;
+}
+
+.pr-adj-amount {
+  font-weight: 700;
+  text-align: right;
+}
+
+.pr-recipient-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pr-payout {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+.pr-payout strong {
+  margin-left: 0.25rem;
+  font-size: 0.95rem;
+  color: var(--foreground);
+}
+
+/* Pinned total while editing */
+.pr-dock {
+  position: sticky;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem 0.75rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+  box-shadow: 0 18px 40px -20px rgb(15 23 42 / 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.pr-dock-total {
+  overflow: hidden;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr-dock-sub {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.pr-dock-cta {
+  flex-shrink: 0;
+  height: 2.9rem;
+  font-weight: 700;
+}

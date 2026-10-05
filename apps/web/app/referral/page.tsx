@@ -1,53 +1,67 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useAccount } from "wagmi";
 import { isAddress } from "viem";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { readActivatedExternalProfile } from "@/lib/platform-access";
 import {
   ArrowDownRight,
+  ArrowLeft,
   ArrowUpRight,
   Award,
   Check,
-  Clock,
   Coins,
   Copy,
-  DollarSign,
   Gift,
+  HandCoins,
   History,
   Info,
   Loader2,
-  Network,
   RefreshCw,
   Share2,
+  ShoppingCart,
   TrendingUp,
   Users,
-  Wallet,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ShareModal } from "@/components/referral/share-modal";
 import { RedeemModal } from "@/components/referral/redeem-modal";
 import { BuyPointsModal } from "@/components/referral/buy-points-modal";
 import { GiftPointsModal } from "@/components/referral/gift-points-modal";
+import { ReferralIllustration } from "@/components/referral/referral-illustration";
 import { TierBadge } from "@/components/referral/tier-badge";
 import { TierProgressCard } from "@/components/referral/tier-progress-card";
 import { ReferralBenefitsTable } from "@/components/referral/referral-benefits-table";
 import { ReferralProgressList } from "@/components/referral/referral-progress-list";
 import type { ReferralDashboardData, SwiftPointsLedgerEntry } from "@/lib/referral/types";
 
+import "./referral.css";
+
+type Tab = "referrals" | "ledger" | "ladder";
+
+function cashbackFor(tier: ReferralDashboardData["currentTier"]) {
+  return tier === "STARTER"
+    ? "0.2 pts per transaction over 10 USDC"
+    : tier === "BUILDER"
+      ? "0.3 pts per transaction over 10 USDC"
+      : tier === "ARCHITECT"
+        ? "0.5 pts per transaction over 10 USDC"
+        : "1.0 pt per transaction over 10 USDC";
+}
+
 export default function ReferralPage() {
   const {
     address: platformAddress,
     circleSocialUuid,
-    isConnected: isPlatformConnected,
   } = usePlatformWallet();
-  const { address: wagmiAddress, isConnected: isWagmiConnected } = useAccount();
+  const { address: wagmiAddress } = useAccount();
   const [activatedExternalAddress, setActivatedExternalAddress] = useState("");
 
   useEffect(() => {
@@ -66,8 +80,10 @@ export default function ReferralPage() {
   const [data, setData] = useState<ReferralDashboardData | null>(null);
   const [ledgerEntries, setLedgerEntries] = useState<SwiftPointsLedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"referrals" | "ledger" | "ladder">("referrals");
+  const [activeTab, setActiveTab] = useState<Tab>("referrals");
   const [linkCopied, setLinkCopied] = useState(false);
+  // The intro shows until the first referral, like RecurePay's; "How it works" reopens it.
+  const [showIntro, setShowIntro] = useState<boolean | null>(null);
 
   const fetchDashboard = useCallback(
     async (quiet = false) => {
@@ -135,6 +151,13 @@ export default function ReferralPage() {
     }
   }, [activeWallet, fetchDashboard, fetchLedger]);
 
+  // Decide once, when the first data arrives.
+  useEffect(() => {
+    if (data && showIntro === null) {
+      setShowIntro(data.activity.length === 0 && data.totalSuccessfulReferrals === 0);
+    }
+  }, [data, showIntro]);
+
   const handleCopyLink = async () => {
     if (!data?.referralLink) return;
     try {
@@ -147,394 +170,312 @@ export default function ReferralPage() {
     }
   };
 
+  const refreshAll = () => {
+    void fetchDashboard(true);
+    void fetchLedger();
+  };
+
+  const bar = (
+    <header className="ref-bar">
+      {showIntro && data && (data.activity.length > 0 || data.totalSuccessfulReferrals > 0) ? (
+        <button aria-label="Back" className="ref-round" onClick={() => setShowIntro(false)} type="button">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+      ) : (
+        <Link aria-label="Back to the dashboard" className="ref-round" href="/dashboard">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+      )}
+      <h1 className="ref-title">Invite &amp; Earn</h1>
+      {data && !showIntro ? (
+        <button
+          aria-label="Refresh"
+          className="ref-round"
+          disabled={refreshing}
+          onClick={refreshAll}
+          title="Refresh"
+          type="button"
+        >
+          <RefreshCw className={refreshing ? "h-5 w-5 animate-spin" : "h-5 w-5"} />
+        </button>
+      ) : (
+        <span />
+      )}
+    </header>
+  );
+
   return (
     <PlatformChrome
       title="Invite & Earn"
       subtitle="Invite friends & businesses to earn SwiftPoints and ongoing cashback"
       actions={<PlatformProfileControls />}
+      // The page draws its own bar with a back button.
+      hideHeader
     >
       <PlatformAccessGate>
-        <div className="space-y-6 pb-12">
-          {/* Header Banner & Share Hero */}
-          <div className="relative overflow-hidden rounded-2xl border bg-card p-6 sm:p-8 shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-              <div className="space-y-2 max-w-xl">
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                  <Network className="h-3.5 w-3.5" />
-                  Universal SwiftPay Referral Network
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                  Earn points & cashback with every friend you invite
-                </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Earn up to <strong>100 SwiftPoints</strong> for personal referrals, up to{" "}
-                  <strong>200 SwiftPoints</strong> for businesses, and up to{" "}
-                  <strong>1.0 SwiftPoint</strong> ongoing cashback on transactions &gt; $10. Plus, your friends receive{" "}
-                  <strong>20 SwiftPoints</strong> on qualified activation across all tiers!
-                </p>
-              </div>
-
-              {/* Referral Link & Share Box */}
-              <div className="flex flex-col sm:flex-row lg:flex-col gap-3 min-w-[300px]">
-                <div className="flex items-center gap-2 rounded-xl border bg-background/80 p-1.5 shadow-sm">
-                  <span className="truncate px-2 font-mono text-xs text-muted-foreground select-all">
-                    {data?.referralLink ||
-                      (activeWallet ? "Generating referral link…" : "Connect wallet to view link")}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCopyLink}
-                    disabled={!data?.referralLink}
-                    className="shrink-0 gap-1.5 text-xs font-medium"
-                  >
-                    {linkCopied ? (
-                      <>
-                        <Check className="h-3.5 w-3.5 text-emerald-500" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3.5 w-3.5" />
-                        Copy Link
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {data && (
-                  <ShareModal
-                    referralLink={data.referralLink}
-                    referralToken={data.referralToken}
-                    trigger={
-                      <Button className="w-full gap-2 shadow-sm font-semibold">
-                        <Share2 className="h-4 w-4" />
-                        Share Invitation
-                      </Button>
-                    }
-                  />
-                )}
-              </div>
-            </div>
-          </div>
+        <div className="ref-page">
+          {bar}
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 space-y-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading referral dashboard…</p>
+            <div className="ref-loading">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              Loading Invite &amp; Earn…
             </div>
           ) : !activeWallet ? (
-            <div className="rounded-2xl border border-dashed p-12 text-center space-y-3">
-              <Gift className="h-10 w-10 text-muted-foreground mx-auto" />
-              <h3 className="text-lg font-bold text-foreground">Connect your wallet</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Connect your account to access your unique referral link, tier progression, and SwiftPoints balance.
-              </p>
+            <div className="ref-empty">
+              <Gift className="h-9 w-9" />
+              <p className="ref-empty-title">Connect your wallet</p>
+              <p>Connect your account to get your invite link, tier progress and SwiftPoints balance.</p>
             </div>
           ) : !data ? (
-            <div className="rounded-2xl border border-dashed p-12 text-center space-y-3">
-              <Gift className="h-10 w-10 text-muted-foreground mx-auto" />
-              <h3 className="text-lg font-bold text-foreground">Unable to load referral data</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Could not load referral dashboard for this wallet. Please check your connection and retry.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void fetchDashboard()}
-                className="gap-1.5 mt-2"
-              >
+            <div className="ref-empty">
+              <Gift className="h-9 w-9" />
+              <p className="ref-empty-title">Couldn&apos;t load Invite &amp; Earn</p>
+              <p>Check your connection and try again.</p>
+              <Button className="mt-2 h-11" onClick={() => void fetchDashboard()} variant="outline">
                 <RefreshCw className="h-4 w-4" /> Retry
               </Button>
             </div>
+          ) : showIntro ? (
+            // ── Intro: what it is and the way in ──────────────────────────
+            <div className="ref-intro">
+              <ReferralIllustration className="ref-illustration" />
+              <h2 className="ref-intro-title">Invite friends. Earn together.</h2>
+              <p className="ref-intro-body">
+                Share your link. When a friend or business joins SwiftPay and qualifies, you both earn SwiftPoints,
+                worth 0.01 USDC each, and you keep earning cashback on their activity.
+              </p>
+              <ul className="ref-intro-points">
+                <li>
+                  <Gift className="h-4 w-4" /> Up to 100 SwiftPoints per personal referral, 200 per business
+                </li>
+                <li>
+                  <Users className="h-4 w-4" /> Your friend gets 20 SwiftPoints when they qualify
+                </li>
+                <li>
+                  <Zap className="h-4 w-4" /> Ongoing cashback on their transactions over 10 USDC
+                </li>
+              </ul>
+              <ShareModal
+                referralLink={data.referralLink}
+                referralToken={data.referralToken}
+                trigger={
+                  <Button className="ref-cta">
+                    <Share2 className="h-4 w-4" />
+                    Share your invite link
+                  </Button>
+                }
+              />
+              <button className="ref-text-link" onClick={() => setShowIntro(false)} type="button">
+                See my SwiftPoints
+              </button>
+            </div>
           ) : (
+            // ── Dashboard ─────────────────────────────────────────────────
             <>
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Available SwiftPoints */}
-                <div className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Available SwiftPoints
-                    </span>
-                    <Coins className="h-4 w-4 text-amber-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black tracking-tight text-foreground font-mono">
-                      {data.swiftPoints.available.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      ≈ {data.swiftPoints.usdcEquivalent.toFixed(2)} USDC (1 pt = 0.01 USDC)
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <RedeemModal
-                      availablePoints={data.swiftPoints.available}
-                      userWallet={activeWallet || ""}
-                      onSuccess={() => {
-                        void fetchDashboard(true);
-                        void fetchLedger();
-                      }}
-                    />
-                    <BuyPointsModal
-                      circleSocialUuid={circleSocialUuid}
-                      onSuccess={() => {
-                        void fetchDashboard(true);
-                        void fetchLedger();
-                      }}
-                      userWallet={activeWallet || ""}
-                    />
-                    <GiftPointsModal
-                      availablePoints={data.swiftPoints.available}
-                      circleSocialUuid={circleSocialUuid}
-                      onSuccess={() => {
-                        void fetchDashboard(true);
-                        void fetchLedger();
-                      }}
-                      userWallet={activeWallet || ""}
-                    />
-                  </div>
+              <section className="ref-hero">
+                <span aria-hidden className="ref-hero-glow" />
+                <div className="ref-hero-top">
+                  <span className="ref-hero-eyebrow">
+                    <Coins className="h-4 w-4" />
+                    Available SwiftPoints
+                  </span>
+                  <TierBadge className="ref-hero-tier" tier={data.currentTier} />
                 </div>
-
-                {/* Lifetime Earned */}
-                <div className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Lifetime Earned
-                    </span>
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black tracking-tight text-foreground font-mono">
-                      {data.swiftPoints.lifetimeEarned.toLocaleString()}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      Redeemed: {data.swiftPoints.redeemed.toLocaleString()} pts
-                    </div>
-                  </div>
-                  <div className="pt-2 text-xs text-muted-foreground">
-                    Pending balance: <strong>{data.swiftPoints.pending} pts</strong>
-                  </div>
+                <p className="ref-hero-amount">{data.swiftPoints.available.toLocaleString()}</p>
+                <p className="ref-hero-sub">
+                  ≈ {data.swiftPoints.usdcEquivalent.toFixed(2)} USDC · 1 point = 0.01 USDC
+                </p>
+                <div className="ref-hero-actions">
+                  <RedeemModal
+                    availablePoints={data.swiftPoints.available}
+                    onSuccess={refreshAll}
+                    trigger={
+                      <button className="ref-hero-action" type="button">
+                        <span>
+                          <HandCoins className="h-5 w-5" />
+                        </span>
+                        Redeem
+                      </button>
+                    }
+                    userWallet={activeWallet || ""}
+                  />
+                  <BuyPointsModal
+                    circleSocialUuid={circleSocialUuid}
+                    onSuccess={refreshAll}
+                    trigger={
+                      <button className="ref-hero-action" type="button">
+                        <span>
+                          <ShoppingCart className="h-5 w-5" />
+                        </span>
+                        Buy
+                      </button>
+                    }
+                    userWallet={activeWallet || ""}
+                  />
+                  <GiftPointsModal
+                    availablePoints={data.swiftPoints.available}
+                    circleSocialUuid={circleSocialUuid}
+                    onSuccess={refreshAll}
+                    trigger={
+                      <button className="ref-hero-action" type="button">
+                        <span>
+                          <Gift className="h-5 w-5" />
+                        </span>
+                        Gift
+                      </button>
+                    }
+                    userWallet={activeWallet || ""}
+                  />
                 </div>
+              </section>
 
-                {/* Successful Referrals */}
-                <div className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Qualified Referrals
-                    </span>
-                    <Users className="h-4 w-4 text-blue-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black tracking-tight text-foreground font-mono">
-                      {data.totalSuccessfulReferrals}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {data.successfulPersonalReferrals} Personal • {data.successfulBusinessReferrals} Business
-                    </div>
-                  </div>
-                  <div className="pt-2 text-xs text-muted-foreground">
-                    Total invited: <strong>{data.metrics.invited}</strong> accounts
-                  </div>
+              <section className="ref-card ref-invite">
+                <div className="ref-card-head">
+                  <h2>Your invite link</h2>
+                  <button className="ref-text-link" onClick={() => setShowIntro(true)} type="button">
+                    <Info className="h-3.5 w-3.5" /> How it works
+                  </button>
                 </div>
+                <div className="ref-link">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{data.referralLink}</span>
+                  <button className="ref-copy" onClick={() => void handleCopyLink()} type="button">
+                    {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {linkCopied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <ShareModal
+                  referralLink={data.referralLink}
+                  referralToken={data.referralToken}
+                  trigger={
+                    <Button className="ref-cta is-full">
+                      <Share2 className="h-4 w-4" />
+                      Share invitation
+                    </Button>
+                  }
+                />
+              </section>
 
-                {/* Current Tier */}
-                <div className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Current Tier
-                    </span>
-                    <Award className="h-4 w-4 text-purple-500" />
-                  </div>
-                  <div>
-                    <div className="mt-1">
-                      <TierBadge tier={data.currentTier} className="text-xs py-1 px-3" />
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1.5">
-                      Activity cashback:{" "}
-                      <strong className="text-foreground">
-                        {data.currentTier === "STARTER"
-                          ? "0.2 pts / tx > 10 USDC"
-                          : data.currentTier === "BUILDER"
-                            ? "0.3 pts / tx > 10 USDC"
-                            : data.currentTier === "ARCHITECT"
-                              ? "0.5 pts / tx > 10 USDC"
-                              : "1.0 pt / tx > 10 USDC"}
-                      </strong>
-                    </div>
-                  </div>
-                  <div className="pt-2 text-xs text-muted-foreground">
-                    Status: <strong className="text-emerald-600 dark:text-emerald-400">Active</strong>
-                  </div>
+              <div className="ref-stats">
+                <div className="ref-stat">
+                  <span className="ref-stat-top">
+                    Lifetime earned <TrendingUp className="h-4 w-4" />
+                  </span>
+                  <span className="ref-stat-value">{data.swiftPoints.lifetimeEarned.toLocaleString()}</span>
+                  <span className="ref-stat-foot">
+                    {data.swiftPoints.redeemed.toLocaleString()} redeemed · {data.swiftPoints.pending} pending
+                  </span>
+                </div>
+                <div className="ref-stat">
+                  <span className="ref-stat-top">
+                    Qualified referrals <Users className="h-4 w-4" />
+                  </span>
+                  <span className="ref-stat-value">{data.totalSuccessfulReferrals}</span>
+                  <span className="ref-stat-foot">
+                    {data.successfulPersonalReferrals} personal · {data.successfulBusinessReferrals} business ·{" "}
+                    {data.metrics.invited} invited
+                  </span>
+                </div>
+                <div className="ref-stat is-wide">
+                  <span className="ref-stat-top">
+                    Your cashback <Award className="h-4 w-4" />
+                  </span>
+                  <span className="ref-stat-value is-small">{cashbackFor(data.currentTier)}</span>
+                  <span className="ref-stat-foot">On your referrals&apos; activity, at your current tier</span>
                 </div>
               </div>
 
-              {/* Tier Progress Component */}
               <TierProgressCard
                 currentTier={data.currentTier}
-                totalSuccessfulReferrals={data.totalSuccessfulReferrals}
                 tierProgress={data.tierProgress}
+                totalSuccessfulReferrals={data.totalSuccessfulReferrals}
               />
 
-              {/* Navigation Tabs */}
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("referrals")}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                        activeTab === "referrals"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      Invited Referrals ({data.activity.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("ledger")}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                        activeTab === "ledger"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      SwiftPoints Ledger ({ledgerEntries.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("ladder")}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                        activeTab === "ladder"
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                      }`}
-                    >
-                      Tier Ladder & Rules
-                    </button>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      void fetchDashboard(true);
-                      void fetchLedger();
-                    }}
-                    disabled={refreshing}
-                    className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              <div aria-label="Section" className="ref-segment" role="tablist">
+                {(
+                  [
+                    ["referrals", `Referrals (${data.activity.length})`],
+                    ["ledger", "Points history"],
+                    ["ladder", "Tiers"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    aria-selected={activeTab === value}
+                    key={value}
+                    onClick={() => setActiveTab(value)}
+                    role="tab"
+                    type="button"
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
-                </div>
-
-                {/* Tab 1: Referral qualification progress */}
-                {activeTab === "referrals" && (
-                  <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    {data.activity.length === 0 ? (
-                      <div className="py-16 text-center space-y-3">
-                        <Users className="h-9 w-9 text-muted-foreground mx-auto" />
-                        <h4 className="text-sm font-semibold text-foreground">No referrals yet</h4>
-                        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                          Share your referral link with friends or business owners to start earning SwiftPoints and cashback.
-                        </p>
-                        <ShareModal
-                          referralLink={data.referralLink}
-                          referralToken={data.referralToken}
-                          trigger={
-                            <Button size="sm" className="gap-1.5 font-medium">
-                              <Share2 className="h-3.5 w-3.5" />
-                              Share Referral Link
-                            </Button>
-                          }
-                        />
-                      </div>
-                    ) : (
-                      <ReferralProgressList referrals={data.activity} tier={data.currentTier} />
-                    )}
-                  </div>
-                )}
-
-                {/* Tab 2: SwiftPoints Ledger */}
-                {activeTab === "ledger" && (
-                  <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-                    {ledgerLoading ? (
-                      <div className="py-12 text-center">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-                        <p className="text-xs text-muted-foreground mt-2">Loading ledger history…</p>
-                      </div>
-                    ) : ledgerEntries.length === 0 ? (
-                      <div className="py-12 text-center space-y-2">
-                        <History className="h-8 w-8 text-muted-foreground mx-auto" />
-                        <h4 className="text-sm font-semibold text-foreground">No ledger transactions yet</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Transactions and point awards will be recorded here in immutable fixed-precision accounting.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
-                              <th className="py-3 px-4">Event</th>
-                              <th className="py-3 px-4">Amount</th>
-                              <th className="py-3 px-4">Value (USDC)</th>
-                              <th className="py-3 px-4">Description</th>
-                              <th className="py-3 px-4">Date</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border/60">
-                            {ledgerEntries.map((entry) => {
-                              const isCredit = entry.display_amount > 0;
-                              return (
-                                <tr key={entry.id} className="hover:bg-muted/30 transition-colors">
-                                  <td className="py-3 px-4">
-                                    <div className="flex items-center gap-1.5 font-medium text-foreground">
-                                      {isCredit ? (
-                                        <ArrowDownRight className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                                      ) : (
-                                        <ArrowUpRight className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                      )}
-                                      <span className="font-mono text-[11px]">{entry.entry_type}</span>
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-4 font-mono font-bold">
-                                    <span
-                                      className={
-                                        isCredit
-                                          ? "text-emerald-600 dark:text-emerald-400"
-                                          : "text-amber-600 dark:text-amber-400"
-                                      }
-                                    >
-                                      {isCredit ? `+${entry.display_amount}` : entry.display_amount} pts
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-4 font-mono text-muted-foreground">
-                                    {Math.abs(entry.usdc_equivalent).toFixed(2)} USDC
-                                  </td>
-                                  <td className="py-3 px-4 text-muted-foreground max-w-xs truncate">
-                                    {entry.description || "—"}
-                                  </td>
-                                  <td className="py-3 px-4 text-muted-foreground font-mono text-[11px]">
-                                    {new Date(entry.created_at).toLocaleString()}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Tab 3: Tier Ladder & Economics */}
-                {activeTab === "ladder" && (
-                  <ReferralBenefitsTable currentTier={data.currentTier} />
-                )}
+                    {label}
+                  </button>
+                ))}
               </div>
+
+              {activeTab === "referrals" ? (
+                <section className="ref-card ref-flush">
+                  {data.activity.length === 0 ? (
+                    <div className="ref-empty is-inline">
+                      <Users className="h-8 w-8" />
+                      <p className="ref-empty-title">No referrals yet</p>
+                      <p>Share your link with friends or business owners to start earning.</p>
+                    </div>
+                  ) : (
+                    <ReferralProgressList referrals={data.activity} tier={data.currentTier} />
+                  )}
+                </section>
+              ) : null}
+
+              {activeTab === "ledger" ? (
+                <section className="ref-card">
+                  {ledgerLoading ? (
+                    <p className="ref-loading is-inline">
+                      <Loader2 className="h-5 w-5 animate-spin" /> Loading points history…
+                    </p>
+                  ) : ledgerEntries.length === 0 ? (
+                    <div className="ref-empty is-inline">
+                      <History className="h-8 w-8" />
+                      <p className="ref-empty-title">No points yet</p>
+                      <p>Points you earn, buy, gift and redeem are listed here.</p>
+                    </div>
+                  ) : (
+                    <ul className="ref-ledger">
+                      {ledgerEntries.map((entry) => {
+                        const isCredit = entry.display_amount > 0;
+                        return (
+                          <li key={entry.id}>
+                            <span className={isCredit ? "ref-ledger-icon is-in" : "ref-ledger-icon"}>
+                              {isCredit ? <ArrowDownRight className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold">
+                                {entry.description || entry.entry_type.replace(/_/g, " ").toLowerCase()}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                {new Date(entry.created_at).toLocaleString(undefined, {
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  month: "short",
+                                })}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              <span className={isCredit ? "ref-ledger-amount is-in" : "ref-ledger-amount"}>
+                                {isCredit ? `+${entry.display_amount}` : entry.display_amount} pts
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                {Math.abs(entry.usdc_equivalent).toFixed(2)} USDC
+                              </span>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+              ) : null}
+
+              {activeTab === "ladder" ? <ReferralBenefitsTable currentTier={data.currentTier} /> : null}
             </>
           )}
         </div>
