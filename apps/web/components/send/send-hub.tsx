@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardPaste,
+  ScanQrCode,
   Coins,
   Delete,
   ExternalLink,
@@ -21,12 +22,14 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isAddress } from "viem";
 
 import { BeneficiaryContacts } from "@/components/dashboard/beneficiary-contacts";
 import type { SendPaymentWizardProps } from "@/components/dashboard/send-payment-wizard";
 import { RecipientStatus } from "@/components/recipient-status";
+import { QrScanSheet } from "@/components/send/qr-scan-sheet";
 import { RecurringScheduleFields, RecurringToggle } from "@/components/recurring-schedule-fields";
 import { useTransactionReceipts } from "@/components/transactions/transaction-parts";
 import { TokenIcon } from "@/components/token-icon";
@@ -39,6 +42,7 @@ import { useAccountTransactions } from "@/lib/activity/use-account-transactions"
 import type { BeneficiaryRecord } from "@/lib/beneficiaries";
 import { fetchDirectoryProfile, searchPeople } from "@/lib/business/client";
 import type { DirectoryHit } from "@/lib/business/types";
+import { useWalletUsernames } from "@/lib/activity/usernames";
 import { fetchProfile } from "@/lib/profile";
 import { formatUsernameLabel } from "@/lib/profile-utils";
 import { calculateTransactionCashback } from "@/lib/referral/cashback-service";
@@ -176,6 +180,8 @@ export function SendHub(props: SendHubProps) {
   const [view, setView] = useState<View>("home");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [beneficiariesOpen, setBeneficiariesOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const router = useRouter();
   const [saveOpen, setSaveOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [directory, setDirectory] = useState<DirectoryHit[]>([]);
@@ -223,6 +229,16 @@ export function SendHub(props: SendHubProps) {
   }, [savedBeneficiaries]);
 
   // People you've paid, newest first, once each.
+  // The @username behind each wallet you've paid, so Recents names people.
+  const paidWallets = useMemo(
+    () =>
+      items
+        .filter((item) => item.direction === "out" && ["send", "wallet", "agent"].includes(item.source))
+        .map(counterpartyOf),
+    [items],
+  );
+  const usernameFor = useWalletUsernames(paidWallets);
+
   const recents = useMemo(() => {
     const seen = new Set<string>();
     const out: Array<Person & { lastAmount: string; when: string | null }> = [];
@@ -234,7 +250,8 @@ export function SendHub(props: SendHubProps) {
       seen.add(wallet);
       const saved = beneficiaryByWallet.get(wallet);
       const titled = (titleFor(item) ?? "").replace(/^Sent to /, "");
-      const handle = titled.startsWith("@") ? titled : null;
+      const username = usernameFor(wallet);
+      const handle = username ? `@${username}` : titled.startsWith("@") ? titled : null;
       out.push({
         lastAmount: `${formatAmount(item.amount)} ${item.token ?? ""}`.trim(),
         name: saved?.name ?? handle ?? shortenAddress(wallet),
@@ -245,7 +262,7 @@ export function SendHub(props: SendHubProps) {
       if (out.length >= 8) break;
     }
     return out;
-  }, [beneficiaryByWallet, items, shortenAddress, titleFor]);
+  }, [beneficiaryByWallet, items, shortenAddress, titleFor, usernameFor]);
 
   const beneficiaryPeople: Person[] = savedBeneficiaries.map((entry) => ({
     name: entry.name,
@@ -478,6 +495,16 @@ export function SendHub(props: SendHubProps) {
           </>
         )}
 
+        <QrScanSheet
+          onClose={() => setScanOpen(false)}
+          onResult={(text) => {
+            setScanOpen(false);
+            const scanned = readScannedRecipient(text);
+            if (scanned.link) router.push(scanned.link);
+            else if (scanned.recipient) onRecipientChange(scanned.recipient);
+          }}
+          open={scanOpen}
+        />
         <BeneficiariesSheet
           onClose={() => setBeneficiariesOpen(false)}
           open={beneficiariesOpen}
@@ -576,6 +603,9 @@ export function SendHub(props: SendHubProps) {
                 <ClipboardPaste className="h-4 w-4" />
               </button>
             </div>
+            <button aria-label="Scan a QR code" className="sx-scan-button" onClick={() => setScanOpen(true)} type="button">
+              <ScanQrCode className="h-6 w-6" />
+            </button>
           </div>
           {recipientAddress.trim() ? (
             <RecipientStatus
@@ -703,6 +733,24 @@ function OptionRow({
       {inner}
     </button>
   );
+}
+
+/**
+ * What a scanned code means: a SwiftPay payment link opens as itself so its
+ * amount and token come along; anything else is read for a username or address.
+ */
+function readScannedRecipient(text: string): { link?: string; recipient?: string } {
+  const value = text.trim();
+  try {
+    const url = new URL(value);
+    if (url.origin === window.location.origin) return { link: `${url.pathname}${url.search}` };
+    const username = url.searchParams.get("username");
+    if (username) return { recipient: `@${username.replace(/^@/, "")}` };
+  } catch {}
+  const address = value.match(/0x[a-fA-F0-9]{40}/)?.[0];
+  if (address) return { recipient: address };
+  if (/^@?[a-zA-Z0-9_.]{2,32}$/.test(value)) return { recipient: value.startsWith("@") ? value : `@${value}` };
+  return {};
 }
 
 function BeneficiariesSheet({ children, onClose, open }: { children: ReactNode; onClose: () => void; open: boolean }) {

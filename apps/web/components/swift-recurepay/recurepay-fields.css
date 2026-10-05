@@ -1,0 +1,27 @@
+/*
+ * iOS Safari gives date and time inputs an intrinsic width wider than half a
+ * phone, so side-by-side fields overflowed into each other. Let them shrink,
+ * and stack the pairs on narrow screens.
+ */
+.recurepay-grid-2 > * {
+  min-width: 0;
+}
+
+.recurepay-input[type="date"],
+.recurepay-input[type="time"] {
+  display: block;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
+.recurepay-input::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+@media (max-width: 480px) {
+  .recurepay-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

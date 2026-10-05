@@ -53,6 +53,8 @@ import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import { useSheetSide } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
+import "./recurepay-fields.css";
+
 // ── Small helpers ───────────────────────────────────────────────────────────
 
 const DAY_MS = 86_400_000;

@@ -222,6 +222,9 @@ export function SwiftRecurepayHub() {
   const [authWallet, setAuthWallet] = useState<string | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isProfileReady, setIsProfileReady] = useState(false);
+  // The wallet whose profile and session check has finished; until then the
+  // page doesn't know yet whether to ask for authorization.
+  const [checkedWallet, setCheckedWallet] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -519,6 +522,7 @@ export function SwiftRecurepayHub() {
       } finally {
         if (!cancelled) {
           setIsAuthLoading(false);
+          setCheckedWallet(connectedAddress);
         }
       }
     }
@@ -1383,7 +1387,7 @@ export function SwiftRecurepayHub() {
         </p>
       </div>
     </div>
-  ) : !canAccessRecurring ? (
+  ) : !canAccessRecurring && checkedWallet === ownerAddress ? (
     <div className="recurepay-card recurepay-notice">
       <KeyRound className="h-5 w-5 shrink-0 text-primary" />
       <div className="min-w-0 flex-1">

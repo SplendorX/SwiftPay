@@ -794,3 +794,72 @@
   font-size: 0.85rem;
   font-weight: 600;
 }
+
+/* The address field with the scan button beside it */
+.sx-to {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.sx-to-field {
+  min-width: 0;
+  flex: 1;
+}
+
+.sx-scan-button {
+  display: grid;
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 3.25rem;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  background: var(--card);
+  color: var(--muted-foreground);
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.sx-scan-button:hover,
+.sx-scan-button:focus-visible {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  color: var(--primary);
+}
+
+.sx-scan {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  width: 100%;
+  margin-top: 1rem;
+  border-radius: 1.25rem;
+  background: #0b0a10;
+}
+
+.sx-scan video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sx-scan-frame {
+  position: absolute;
+  inset: 18%;
+  border: 3px solid rgb(255 255 255 / 0.85);
+  border-radius: 1.25rem;
+  box-shadow: 0 0 0 999px rgb(0 0 0 / 0.35);
+}
+
+.sx-scan-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  color: #fff;
+  font-size: 0.875rem;
+  text-align: center;
+  background: #0b0a10;
+}
