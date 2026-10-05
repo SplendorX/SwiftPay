@@ -20,6 +20,8 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import "./bulkpay.css";
+
 import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
