@@ -34,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
 import { StyledSelect } from "@/components/ui/styled-select";
+import { UsernameField } from "@/components/username-field";
 import {
   cancelInvoiceClient,
   createInvoiceClient,
@@ -528,15 +529,15 @@ export function InvoicesHub() {
                   The invoice is emailed here with its payment link when you create it.
                 </span>
               </label>
-              <label className="text-sm font-medium">
-                SwiftPay username
-                <Input
-                  className="mt-2 h-11"
-                  onChange={(event) => setCustomerUsername(event.target.value)}
-                  placeholder="@optional"
-                  value={customerUsername}
+              <div className="text-sm font-medium">
+                <span className="mb-2 block">SwiftPay username</span>
+                <UsernameField
+                  id="invoice-customer-username"
+                  onChange={setCustomerUsername}
+                  placeholder="username (optional)"
+                  value={customerUsername.replace(/^@+/, "")}
                 />
-              </label>
+              </div>
               <p className="sm:col-span-2 text-xs text-muted-foreground">
                 Username is optional. If filled, sending the invoice also delivers it to that account’s notifications.
               </p>

@@ -242,8 +242,8 @@ export default function ReferralPage() {
               <ReferralIllustration className="ref-illustration" />
               <h2 className="ref-intro-title">Invite friends. Earn together.</h2>
               <p className="ref-intro-body">
-                Share your link. When a friend or business joins SwiftPay and qualifies, you both earn SwiftPoints,
-                worth 0.01 USDC each, and you keep earning cashback on their activity.
+                Share your link. When a friend or business joins SwiftPay and qualifies, you both earn SwiftPoints
+                you can redeem for USDC, and you keep earning cashback on their activity.
               </p>
               <ul className="ref-intro-points">
                 <li>

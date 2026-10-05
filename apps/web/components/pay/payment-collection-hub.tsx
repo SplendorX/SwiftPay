@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
-  AtSign,
   CheckCircle2,
   Clock3,
   Copy,
@@ -21,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
+import { UsernameField } from "@/components/username-field";
 import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
@@ -237,6 +237,8 @@ export function PaymentCollectionHub({
   const [shareError, setShareError] = useState<string | null>(null);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [requestId, setRequestId] = useState("");
+  // Whether the @username above is a real SwiftPay account.
+  const [shareResolved, setShareResolved] = useState(false);
 
   const trimmedWalletAddress = connectedWallet ?? "";
   const trimmedAmount = amount.trim();
@@ -650,21 +652,16 @@ export function PaymentCollectionHub({
       {/* Who */}
       <section className="req-card">
         <h2 className="req-card-title">Who&apos;s paying?</h2>
-        <label className="req-field">
-          <AtSign className="h-4 w-4 text-primary" />
-          <input
-            aria-label="SwiftPay username"
-            autoComplete="off"
-            onChange={(event) => {
-              setShareUsername(event.target.value.toLowerCase().replace(/^@+/, "").replace(/\s/g, ""));
-              setShareError(null);
-              setShareStatus(null);
-            }}
-            placeholder="username"
-            spellCheck={false}
-            value={shareUsername}
-          />
-        </label>
+        <UsernameField
+          id="request-from"
+          onChange={(next) => {
+            setShareUsername(next.toLowerCase());
+            setShareError(null);
+            setShareStatus(null);
+          }}
+          onResolved={(person) => setShareResolved(Boolean(person?.username))}
+          value={shareUsername}
+        />
         {usernameHistory.length > 0 ? (
           <div className="req-chips">
             {usernameHistory.map((username) => (
@@ -718,7 +715,9 @@ export function PaymentCollectionHub({
 
       <Button
         className="req-cta"
-        disabled={!requestLink || Boolean(shareUsernameError) || isSendingNotification || !isConnected}
+        disabled={
+          !requestLink || Boolean(shareUsernameError) || !shareResolved || isSendingNotification || !isConnected
+        }
         onClick={() => void sendRequestNotification()}
         type="button"
       >

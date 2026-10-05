@@ -326,29 +326,15 @@ export function BulkpaySummary({
 }) {
   return (
     <div className="bulkpay-summary">
-      <section className="bulkpay-hero">
-        <span aria-hidden className="bulkpay-hero-glow" />
-        <div className="bulkpay-hero-top">
-          <span className="bulkpay-hero-wallet">
-            <Wallet className="h-3.5 w-3.5" />
-            {walletLabel} · {shortAddress(walletAddress)}
-          </span>
-          <button aria-label="Copy summary" className="bulkpay-hero-copy" onClick={onCopy} title="Copy summary" type="button">
-            <Copy className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="bulkpay-hero-label">Total to send</p>
-        <p className="bulkpay-hero-amount">{breakdown.total}</p>
-        <p className="bulkpay-hero-sub">
-          To {breakdown.people.toLocaleString()} {breakdown.people === 1 ? "person" : "people"} in one transaction,
-          the {breakdown.feePercent}% fee included
-        </p>
-      </section>
 
       <section className="bulkpay-card">
         <div className="bulkpay-card-head">
-          <h2>Who you&apos;re paying</h2>
-          <span className="bulkpay-count">{people.length}</span>
+          <h2>
+            Who you&apos;re paying <span className="bulkpay-count">{people.length}</span>
+          </h2>
+          <button aria-label="Copy summary" className="bulkpay-icon-button" onClick={onCopy} title="Copy summary" type="button">
+            <Copy className="h-4 w-4" />
+          </button>
         </div>
         <ol className="bulkpay-review-list">
           {people.slice(0, 500).map((person) => (
@@ -374,6 +360,12 @@ export function BulkpaySummary({
       <section className="bulkpay-card">
         <BreakdownRows breakdown={breakdown} />
         <dl className="bulkpay-rows bulkpay-facts">
+          <div>
+            <dt>Paying from</dt>
+            <dd>
+              {walletLabel} · <span className="font-mono">{shortAddress(walletAddress)}</span>
+            </dd>
+          </div>
           <div>
             <dt>{contractLabel}</dt>
             <dd className="font-mono">{contract}</dd>

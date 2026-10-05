@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkspace } from "@/components/business/workspace-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UsernameField } from "@/components/username-field";
 import {
   createBusinessPayment,
   createBusinessRequest,
@@ -622,15 +623,10 @@ function SendPanel({
       <Button asChild className="mt-4">
         <Link href="/send">Send with the business wallet</Link>
       </Button>
-      <label className="mt-6 block text-sm font-medium">
-        Recipient
-        <Input
-          className="mt-2"
-          onChange={(event) => setRecipient(event.target.value)}
-          placeholder="@vendor or wallet"
-          value={recipient}
-        />
-      </label>
+      <div className="mt-6 block text-sm font-medium">
+        <span className="mb-2 block">Recipient</span>
+        <UsernameField allowAddress id="business-recipient" onChange={setRecipient} value={recipient} />
+      </div>
       <div className="mt-4 grid grid-cols-[1fr_auto] gap-3">
         <label className="text-sm font-medium">
           Amount

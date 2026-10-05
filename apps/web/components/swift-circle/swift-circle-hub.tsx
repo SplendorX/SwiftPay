@@ -59,6 +59,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UsernameField } from "@/components/username-field";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { SectionHub, type HubSection } from "@/components/layout/section-hub";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -2174,13 +2175,15 @@ export function SwiftCircleHub() {
             <p className="section-copy">
               Invite by username, then manage members in the board below.
             </p>
-            <div className="mt-4 flex gap-2">
-              <Input
-                onChange={(event) => setInviteName(event.target.value)}
-                placeholder="@username"
+            <div className="mt-4 flex items-start gap-2">
+              <UsernameField
+                className="flex-1"
+                id="circle-invite-username"
+                onChange={setInviteName}
                 value={inviteName}
               />
               <Button
+                className="h-[2.9rem] px-4"
                 disabled={busy || !inviteName || !hasPermission(role, "invite")}
                 onClick={() =>
                   void run("Invitation sent", async () => {

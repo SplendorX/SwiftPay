@@ -82,10 +82,10 @@ export function QuickActions({
 
   return (
     <section
-      aria-label="Quick actions"
+      aria-label="Services"
       className={cn("quick-actions-board", className)}
     >
-      <p className="quick-actions-board-title">Quick actions</p>
+      <p className="quick-actions-board-title">Services</p>
 
       <div className="quick-actions-grid">
         {visibleActions.map((action, index) => {

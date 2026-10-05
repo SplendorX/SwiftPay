@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AtSign, Check, Loader2, UserRound, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UsernameField } from "@/components/username-field";
 import { StyledSelect } from "@/components/ui/styled-select";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { createTeamMemberClient } from "@/lib/payroll/client";
@@ -253,20 +254,14 @@ export function AddTeamMemberModal({
                 <label className="text-xs font-semibold text-muted-foreground">
                   SwiftPay Username *
                 </label>
-                <div className="relative mt-1">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                    @
-                  </span>
-                  <Input
-                    className="pl-8"
+                <div className="mt-1">
+                  <UsernameField
+                    id="team-member-username"
+                    onChange={setSwiftpayUsername}
                     placeholder="janedoe"
                     value={swiftpayUsername}
-                    onChange={(e) => setSwiftpayUsername(e.target.value.replace(/^@+/, ""))}
                   />
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  We'll verify their wallet on SwiftPay.
-                </p>
               </div>
             ) : (
               <div>

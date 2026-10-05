@@ -3576,13 +3576,12 @@ export function DashboardContent({
           <QuickActions />
         </div>
 
-        <div className="dashboard-discover-row">
-          <FeaturePromos />
-          <DashboardTransactions
-            ownerWallet={address}
-            refreshKey={[swapExplorerUrl, transactionHash, transactionReceipt?.status].join("|")}
-          />
-        </div>
+        <DashboardTransactions
+          ownerWallet={address}
+          refreshKey={[swapExplorerUrl, transactionHash, transactionReceipt?.status].join("|")}
+        />
+
+        <FeaturePromos />
 
         <DashboardCircleInvites />
 
@@ -3610,6 +3609,8 @@ export function DashboardContent({
         />
       }
       backHref={view === "send" ? "/dashboard" : undefined}
+      // The dashboard opens straight on the balance; Send keeps its title.
+      hideHeader={view !== "send"}
       subtitle={
         view === "send"
           ? "Pay anyone on Arc, and reuse a saved contact"
