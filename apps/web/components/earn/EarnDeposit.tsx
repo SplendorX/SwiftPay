@@ -175,7 +175,7 @@ export function EarnDeposit({
       ) : null}
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <Button
-          className="h-11 flex-1"
+          className="h-11 w-full sm:w-auto sm:flex-1"
           disabled={!amountValid || busy !== null}
           onClick={() => void handlePreview()}
           type="button"
@@ -188,7 +188,7 @@ export function EarnDeposit({
           )}
         </Button>
         <Button
-          className="h-11 flex-1"
+          className="h-11 w-full sm:w-auto sm:flex-1"
           disabled={!amountValid || busy !== null}
           onClick={() => void handleDeposit()}
           type="button"

@@ -10511,6 +10511,508 @@ html.dark .tx-receipt-status,
   border-radius: var(--swift-bubble-radius) !important;
 }
 
+/* ── Earn ───────────────────────────────────────────────────────────────────
+ * A balance hero with rising coins, your vault, automation as a card, and
+ * every vault on Arc as a rate tile. Money moves happen in sheets. */
+
+.earn-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.earn-bar h1 {
+  padding: 0.25rem 0.25rem 0;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.earn-card {
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  padding: 1rem 1.1rem;
+}
+
+.earn-connect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.earn-quiet {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+}
+
+/* Hero */
+.earn-hero {
+  /* Overrides the older Earn header's flex layout of the same name. */
+  display: block;
+  position: relative;
+  overflow: hidden;
+  min-height: 15rem;
+  padding: 1.5rem 1.4rem;
+  border-radius: 1.6rem;
+  color: #ffffff;
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgb(99 102 241 / 0.55), transparent 55%),
+    linear-gradient(155deg, #0f0a2e 0%, #24135f 50%, #3b1478 100%);
+  box-shadow: 0 24px 60px -32px rgb(35 18 94 / 0.9);
+  isolation: isolate;
+}
+
+.earn-hero-art {
+  position: absolute;
+  right: -1.5rem;
+  bottom: -1.75rem;
+  z-index: -1;
+  width: min(15rem, 52%);
+  height: auto;
+  opacity: 0.95;
+}
+
+.earn-hero-coin-float {
+  animation: earn-float 3.6s ease-in-out infinite;
+}
+
+.earn-hero-arrow {
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
+  animation: earn-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) 250ms forwards;
+}
+
+@keyframes earn-float {
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes earn-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .earn-hero-coin-float {
+    animation: none;
+  }
+
+  .earn-hero-arrow {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+.earn-hero-body {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 30rem;
+}
+
+.earn-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.earn-hero-headline {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.9rem, 7vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.earn-hero-headline span {
+  color: #86efac;
+}
+
+.earn-hero-amount {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2.3rem, 9vw, 3.1rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.earn-hero-skeleton {
+  display: inline-block;
+  width: 9rem;
+  height: 2.6rem;
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 0.14);
+  animation: insights-pulse 1.2s ease-in-out infinite;
+}
+
+.earn-hero-sub,
+.earn-hero-hint {
+  max-width: 24rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 0.78);
+}
+
+.earn-hero-hint {
+  font-size: 0.8rem;
+}
+
+.earn-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.earn-hero-chip {
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.12);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.earn-hero-chip.is-good {
+  background: rgb(52 211 153 / 0.2);
+  color: #a7f3d0;
+}
+
+.earn-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.earn-hero-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.75rem 1.15rem;
+  border-radius: 0.85rem;
+  background: rgb(255 255 255 / 0.14);
+  color: #ffffff;
+  font-weight: 700;
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+
+.earn-hero-button.is-primary {
+  background: #ffffff;
+  color: #24135f;
+}
+
+.earn-hero-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.earn-hero-button:disabled {
+  opacity: 0.5;
+}
+
+/* Your vault */
+.earn-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  transition: border-color 150ms ease;
+}
+
+.earn-selected:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+}
+
+.dark .earn-selected:hover,
+.dark .earn-vault:hover,
+.dark .earn-automate:hover {
+  border-color: color-mix(in oklch, var(--link) 45%, var(--border));
+}
+
+.earn-vault-mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(140deg, #5b21b6, #6366f1);
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.earn-vault-name {
+  font-weight: 700;
+}
+
+.earn-vmeta {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 36rem) {
+  /* On phones the art sits back so text and buttons stay clear. */
+  .earn-hero-art {
+    width: 44%;
+    opacity: 0.5;
+  }
+}
+
+.earn-vault-apy {
+  display: grid;
+  justify-items: end;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #15803d;
+}
+
+.dark .earn-vault-apy {
+  color: #4ade80;
+}
+
+.earn-vault-apy small {
+  font-family: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+.earn-change {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--link);
+}
+
+@media (max-width: 30rem) {
+  .earn-change {
+    display: none;
+  }
+}
+
+.earn-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.earn-status.is-good {
+  background: rgb(22 163 74 / 0.13);
+  color: #15803d;
+}
+
+.earn-status.is-warn {
+  background: rgb(217 119 6 / 0.14);
+  color: #b45309;
+}
+
+.earn-status.is-brand {
+  background: color-mix(in oklch, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.earn-status.is-premium {
+  background: linear-gradient(90deg, #f5c451, #f59e0b);
+  color: #3b1d00;
+}
+
+.dark .earn-status.is-good {
+  color: #4ade80;
+}
+
+.dark .earn-status.is-warn {
+  color: #fbbf24;
+}
+
+.dark .earn-status.is-brand {
+  color: var(--link);
+}
+
+/* Figures */
+.earn-figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.earn-figure {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.earn-figure-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.earn-figure-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+/* Automate */
+.earn-automate {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  transition: border-color 150ms ease;
+}
+
+.earn-automate:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+}
+
+.earn-automate-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 0.9rem;
+  background: #fde7b0;
+  color: #7c4a03;
+}
+
+/* Vaults */
+.earn-section {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.earn-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+}
+
+.earn-section-head h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.earn-section-head span {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.earn-vaults {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.75rem;
+}
+
+.earn-vault {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+  text-align: left;
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.earn-vault:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+  box-shadow: 0 14px 30px -24px rgb(59 20 120 / 0.6);
+}
+
+.earn-vault.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.dark .earn-vault.is-selected {
+  border-color: var(--link);
+  box-shadow: 0 0 0 1px var(--link);
+}
+
+.earn-vault.is-muted {
+  opacity: 0.7;
+}
+
+.earn-vault-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #15803d;
+}
+
+.dark .earn-vault-rate {
+  color: #4ade80;
+}
+
+.earn-vault-rate small {
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+/* Facts */
+.earn-facts {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--border);
+  border-radius: 1.1rem;
+}
+
+.earn-facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.earn-facts svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--primary);
+}
+
+.dark .earn-facts svg {
+  color: var(--link);
+}
+
+/* Forms inside sheets: drop the old card chrome around them. */
+.earn-sheet .earn-panel-form {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* ── Save ───────────────────────────────────────────────────────────────────
  * A deep-purple balance hero with moving ribbons, an illustrated welcome,
  * pockets with goal rings, and the ways to save as one tidy list. */
