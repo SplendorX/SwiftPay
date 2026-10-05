@@ -1,0 +1,271 @@
+/* Settings. Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.st-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.1rem;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.st-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.st-title {
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.st-round:hover {
+  background: var(--muted);
+}
+
+/* Profile card */
+.st-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  overflow: hidden;
+  padding: 1.15rem 1.15rem 1.15rem 1.25rem;
+  border-radius: 1.4rem;
+  color: #ffffff;
+  text-align: left;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+}
+
+.st-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.st-hero-avatar {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3.75rem;
+  height: 3.75rem;
+  overflow: hidden;
+  border: 2px solid rgb(255 255 255 / 0.5);
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.18);
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.st-hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.st-hero-main {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.15rem;
+}
+
+.st-hero-name {
+  overflow: hidden;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-hero-sub {
+  overflow: hidden;
+  font-size: 0.82rem;
+  opacity: 0.88;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-hero-badge {
+  justify-self: start;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.18);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.st-hero-edit {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+/* Groups and rows */
+.st-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.st-group-title {
+  padding-left: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.st-card {
+  padding: 0.15rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  background: var(--card);
+}
+
+.st-card li + li {
+  border-top: 1px solid var(--border);
+}
+
+.st-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 0;
+  text-align: left;
+}
+
+.st-row-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.15rem;
+}
+
+.st-row-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.st-row-sub {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+/* Icons: one colour per group, so the list scans like a phone's settings. */
+.st-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, var(--primary) 14%, var(--muted));
+  color: var(--primary);
+}
+
+.st-icon.is-large {
+  width: 2.9rem;
+  height: 2.9rem;
+}
+
+.st-icon[data-group="Preferences"] {
+  background: color-mix(in oklch, #0ea5e9 16%, var(--card));
+  color: #0369a1;
+}
+
+.st-icon[data-group="Security & ALLIE"] {
+  background: color-mix(in oklch, #16a34a 16%, var(--card));
+  color: #15803d;
+}
+
+.st-icon[data-group="Notifications"] {
+  background: color-mix(in oklch, #f59e0b 18%, var(--card));
+  color: #b45309;
+}
+
+.st-icon[data-group="Help"] {
+  background: color-mix(in oklch, #ec4899 14%, var(--card));
+  color: #be185d;
+}
+
+.dark .st-icon {
+  color: var(--link);
+}
+
+.dark .st-icon[data-group="Preferences"] {
+  color: #7dd3fc;
+}
+
+.dark .st-icon[data-group="Security & ALLIE"] {
+  color: #4ade80;
+}
+
+.dark .st-icon[data-group="Notifications"] {
+  color: #fbbf24;
+}
+
+.dark .st-icon[data-group="Help"] {
+  color: #f9a8d4;
+}
+
+/* An open section */
+.st-section-intro {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  background: var(--card);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.st-section-body {
+  min-width: 0;
+}

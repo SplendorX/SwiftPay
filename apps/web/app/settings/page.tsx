@@ -9,6 +9,8 @@ export default function SettingsPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The hub draws its own bar with a back button.
+        hideHeader
         subtitle="Account preferences"
         title="Settings"
       >

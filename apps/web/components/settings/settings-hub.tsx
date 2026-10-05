@@ -4,7 +4,9 @@ import { AgentWalletSettings } from "@/components/settings/agent-wallet-settings
 import { InstallAppSettingsCard } from "@/components/pwa/install-app";
 import { SupportCenter } from "@/components/support/support-center";
 import {
+  ArrowLeft,
   Banknote,
+  ChevronRight,
   Bell,
   Bot,
   Building2,
@@ -18,7 +20,8 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
@@ -32,7 +35,10 @@ import { LanguageSettings } from "@/components/settings/language-settings";
 import { LightSurfacePicker } from "@/components/settings/light-surface-picker";
 import { SessionDeviceManagement } from "@/components/settings/session-device-management";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SectionHub, type HubSection } from "@/components/layout/section-hub";
+import { type HubSection } from "@/components/layout/section-hub";
+import { usePlatformWallet } from "@/lib/use-platform-wallet";
+
+import "./settings.css";
 
 /** Section ids double as URL hashes, so /settings#alerts links keep working. */
 type SettingsSection = HubSection & { render: () => ReactNode };
@@ -170,12 +176,139 @@ export function SettingsHub() {
     [isBusiness, t],
   );
 
+  return <SettingsHome groupOrder={[...groupOrder, "Help"]} sections={sections} />;
+}
+
+/**
+ * Settings, in the family of the other redesigned pages: a profile card and
+ * grouped rows; each section opens as its own page with a back arrow. The
+ * section id is the URL hash, so /settings#alerts links keep working and the
+ * phone's back gesture returns to the list.
+ */
+function SettingsHome({ groupOrder, sections }: { groupOrder: string[]; sections: SettingsSection[] }) {
+  const accountContext = useOptionalAccount();
+  const { address } = usePlatformWallet();
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sync = () => {
+      const id = window.location.hash.replace(/^#/, "");
+      setOpenId(sections.some((section) => section.id === id) ? id : null);
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, [sections]);
+
+  function open(id: string) {
+    window.history.pushState(null, "", `#${id}`);
+    setOpenId(id);
+    window.scrollTo({ top: 0 });
+  }
+
+  function close() {
+    window.history.pushState(null, "", window.location.pathname + window.location.search);
+    setOpenId(null);
+    window.scrollTo({ top: 0 });
+  }
+
+  const active = openId ? sections.find((section) => section.id === openId) : undefined;
+  if (active) {
+    const Icon = active.icon as LucideIcon;
+    return (
+      <div className="st-page">
+        <header className="st-bar">
+          <button aria-label="Back to settings" className="st-round" onClick={close} type="button">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="st-title">{active.title}</h1>
+          <span />
+        </header>
+        <div className="st-section-intro">
+          <span className="st-icon is-large" data-group={active.group}>
+            <Icon className="h-5 w-5" />
+          </span>
+          <p>{active.blurb}</p>
+        </div>
+        {/* Keyed so each section mounts fresh, like opening a page. */}
+        <div className="st-section-body" key={active.id}>
+          {active.render()}
+        </div>
+      </div>
+    );
+  }
+
+  const account = accountContext?.account ?? null;
+  const business = accountContext?.profile ?? null;
+  const isBusiness = accountContext?.isBusiness ?? false;
+  const name = isBusiness
+    ? business?.business_name || account?.display_name || account?.username
+    : account?.display_name || account?.username;
+  const avatar = isBusiness ? business?.logo_url ?? account?.avatar_url : account?.avatar_url;
+  const wallet = account?.wallet_address ?? address ?? "";
+
   return (
-    <SectionHub
-      ariaLabel="Settings sections"
-      backLabel="All settings"
-      groupOrder={groupOrder}
-      sections={sections}
-    />
+    <div className="st-page">
+      <header className="st-bar">
+        <Link aria-label="Back to the dashboard" className="st-round" href="/dashboard">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="st-title">Settings</h1>
+        <span />
+      </header>
+
+      <button className="st-hero" onClick={() => open("wallet-profile")} type="button">
+        <span aria-hidden className="st-hero-glow" />
+        <span className="st-hero-avatar">
+          {avatar ? <img alt="" src={avatar} /> : (name ?? "S").replace(/^@/, "").charAt(0).toUpperCase()}
+        </span>
+        <span className="st-hero-main">
+          <span className="st-hero-name">{name ?? "Your account"}</span>
+          <span className="st-hero-sub">
+            {account?.username ? `@${account.username}` : null}
+            {account?.username && wallet ? " · " : null}
+            {wallet ? `${wallet.slice(0, 6)}…${wallet.slice(-4)}` : null}
+          </span>
+          <span className="st-hero-badge">{isBusiness ? "Business account" : "Personal account"}</span>
+        </span>
+        <span className="st-hero-edit">
+          Edit
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      </button>
+
+      {groupOrder.map((group) => {
+        const inGroup = sections.filter((section) => section.group === group);
+        if (inGroup.length === 0) return null;
+        return (
+          <section className="st-group" key={group}>
+            <h2 className="st-group-title">{group}</h2>
+            <ul className="st-card">
+              {inGroup.map((section) => {
+                const Icon = section.icon as LucideIcon;
+                return (
+                  <li key={section.id}>
+                    <button className="st-row" onClick={() => open(section.id)} type="button">
+                      <span className="st-icon" data-group={section.group}>
+                        <Icon className="h-[1.1rem] w-[1.1rem]" />
+                      </span>
+                      <span className="st-row-main">
+                        <span className="st-row-title">{section.title}</span>
+                        <span className="st-row-sub">{section.blurb}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
   );
 }
