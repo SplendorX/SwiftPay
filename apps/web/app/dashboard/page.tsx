@@ -65,7 +65,6 @@ import {
   type RecurringScheduleDraft,
 } from "@/components/recurring-schedule-fields";
 import { showSuccess } from "@/components/success-popup";
-import { DashboardEarnSummary } from "@/components/earn/dashboard-earn-summary";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
@@ -3591,12 +3590,6 @@ export function DashboardContent({
         </section>
 
         <div className="dashboard-utility-row">
-          <DashboardEarnSummary
-            availableUsdc={
-              typeof rawUsdcBalance === "bigint" ? rawUsdcBalance : undefined
-            }
-            hideBalance={hideBalance}
-          />
           <QuickActions />
         </div>
 
@@ -3684,12 +3677,6 @@ export function DashboardContent({
       }
       changeLabel={portfolioChangeLabel}
       currency={portfolioDisplayCurrency}
-      earn={
-        <DashboardEarnSummary
-          availableUsdc={typeof rawUsdcBalance === "bigint" ? rawUsdcBalance : undefined}
-          hideBalance={hideBalance}
-        />
-      }
       extras={
         <>
           <FeaturePromos />

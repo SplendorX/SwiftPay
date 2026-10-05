@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Crown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -28,7 +28,7 @@ export function ProTierBadge({
           : "Handled by ALLIE Pro's language model, not the free tier."
       }
     >
-      <Sparkles aria-hidden className="h-3 w-3" />
+      <Crown aria-hidden className="h-3 w-3" />
       ALLIE Pro
       {overagePoints ? (
         <span className="font-medium opacity-80">· {overagePoints} pts</span>

@@ -61,7 +61,7 @@ export const POCKET_ICON_PRESETS = [
   { id: "business", emoji: "💼", label: "Business" },
   { id: "phone", emoji: "📱", label: "Phone" },
   { id: "future", emoji: "🚀", label: "Future" },
-  { id: "star", emoji: "⭐", label: "Goal" },
+  { id: "star", emoji: "🎯", label: "Goal" },
 ] as const;
 
 export type PocketIconId = (typeof POCKET_ICON_PRESETS)[number]["id"];

@@ -51,9 +51,11 @@ export function ReferralIllustration({ className }: { className?: string }) {
         </text>
       </g>
 
-      {/* Sparkles */}
-      <path d="M252 70 l4 10 l10 4 l-10 4 l-4 10 l-4 -10 l-10 -4 l10 -4 Z" fill="#5b21b6" />
-      <path d="M70 92 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 Z" fill="#f5c451" />
+      {/* Loose coins: SwiftPoints on their way */}
+      <circle cx="254" cy="82" fill="#f6c94c" r="9" stroke="#e0a82e" strokeWidth="2" />
+      <circle cx="270" cy="66" fill="#f6c94c" opacity="0.7" r="5.5" stroke="#e0a82e" strokeWidth="1.5" />
+      <circle cx="72" cy="96" fill="#5b21b6" r="7" />
+      <circle cx="60" cy="112" fill="#5b21b6" opacity="0.6" r="4" />
     </svg>
   );
 }

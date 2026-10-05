@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 import { BusinessInsightItem } from "./business-insight-item";
 import type { BusinessInsightItemData } from "./types";
 
@@ -15,7 +15,7 @@ export function BusinessInsightsCard({ insights }: BusinessInsightsCardProps) {
         {/* Header */}
         <div className="flex items-center gap-2 pb-4 border-b border-border/70">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/10 text-[#5B21B6] dark:text-purple-400">
-            <Sparkles className="h-4 w-4" />
+            <Lightbulb className="h-4 w-4" />
           </div>
           <div>
             <h2 className="font-heading text-lg sm:text-xl font-bold tracking-tight text-foreground">
