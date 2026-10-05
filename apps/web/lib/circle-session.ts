@@ -330,6 +330,7 @@ function looksTechnical(message: string) {
 export function userFacingErrorMessage(error: unknown, fallback: string) {
   const friendly = friendlyCircleSdkMessage(error);
   if (friendly) return friendly;
+  if (isCircleDeviceIdError(error)) return circleDeviceIdHelp;
   // Already worded for the person (e.g. how to add Arc to a wallet).
   if (error instanceof Error && error.name === "ArcNetworkError") return error.message;
 
@@ -372,6 +373,40 @@ export function getCircleErrorMessage(error: unknown, fallback: string) {
  * after a renewal, a challenge created with the new token must be confirmed
  * with it too. Not for sign-in flows, whose fresh login is not stored yet.
  */
+/**
+ * The device credentials Circle issued at sign-in, for a new W3S SDK. Phones
+ * (and the installed app) keep Circle's own device storage apart from the
+ * page, so without them a confirm can fail with "device ID is not found".
+ */
+export function circleSdkLoginConfigs() {
+  const deviceToken = readCircleSessionStorage(circleStorageKeys.deviceToken);
+  const deviceEncryptionKey = readCircleSessionStorage(circleStorageKeys.deviceEncryptionKey);
+  if (!deviceToken || !deviceEncryptionKey) return {};
+  return {
+    loginConfigs: {
+      deviceEncryptionKey,
+      deviceToken,
+      google: {
+        clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "",
+        redirectUri: typeof window !== "undefined" ? window.location.origin : "",
+        selectAccountPrompt: true,
+      },
+    },
+  };
+}
+
+/** Circle's answer when its device record doesn't match this browser. */
+export function isCircleDeviceIdError(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : String((error as { message?: unknown } | null)?.message ?? error ?? "");
+  return /device id is not found|device ?id.*not found/i.test(message);
+}
+
+export const circleDeviceIdHelp =
+  "Circle couldn't recognise this device. Sign out, sign back in on this device, and try again. Nothing was sent.";
+
 export function currentCircleAuth(fallback: { encryptionKey: string; userToken: string }) {
   const stored = readCircleLogin();
   return {

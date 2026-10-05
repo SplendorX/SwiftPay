@@ -125,8 +125,11 @@ import {
   usdPerUnit,
 } from "@/lib/use-conversion-rates";
 import {
+  circleDeviceIdHelp,
+  circleSdkLoginConfigs,
   currentCircleAuth,
   callCircleWalletApi,
+  isCircleDeviceIdError,
   findCircleTokenBalance,
   friendlyCircleSdkMessage,
   userFacingErrorMessage,
@@ -1308,6 +1311,7 @@ export function DashboardContent({
               encryptionKey: login.encryptionKey,
               userToken: login.userToken,
             },
+            ...circleSdkLoginConfigs(),
           });
         }
 
@@ -2968,23 +2972,51 @@ export function DashboardContent({
       setSwapStatus(`Confirm ${label} in Circle wallet`);
     }
 
-    const executed = await new Promise<{
-      transactionId?: string;
-      txHash?: string;
-    }>((resolve, reject) => {
-      sdk.execute(challengeId, (error, result) => {
-        if (error) {
-          reject(new Error(getErrorMessage(error)));
-          return;
-        }
+    const runChallenge = (client: W3SSdk) =>
+      new Promise<{
+        transactionId?: string;
+        txHash?: string;
+      }>((resolve, reject) => {
+        client.execute(challengeId, (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
 
-        const challengeResult = result as CircleChallengeResult | undefined;
-        resolve({
-          transactionId: extractCircleTransactionId(challengeResult),
-          txHash: extractCircleTxHash(challengeResult),
+          const challengeResult = result as CircleChallengeResult | undefined;
+          resolve({
+            transactionId: extractCircleTransactionId(challengeResult),
+            txHash: extractCircleTxHash(challengeResult),
+          });
         });
       });
-    });
+
+    let executed: { transactionId?: string; txHash?: string };
+    try {
+      executed = await runChallenge(sdk);
+    } catch (error) {
+      if (!isCircleDeviceIdError(error)) {
+        throw new Error(getErrorMessage(error));
+      }
+      // Circle lost track of this device: start a fresh SDK with the device
+      // credentials from sign-in and ask once more.
+      try {
+        const appId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID?.trim() ?? "";
+        document.getElementById("sdkIframe")?.remove();
+        const { W3SSdk: CircleW3SSdk } = await import("@circle-fin/w3s-pw-web-sdk");
+        const fresh = new CircleW3SSdk({
+          appSettings: { appId },
+          authentication: currentCircleAuth(circleLogin),
+          ...circleSdkLoginConfigs(),
+        });
+        circleSdkRef.current = fresh;
+        executed = await runChallenge(fresh);
+      } catch (retryError) {
+        throw new Error(
+          isCircleDeviceIdError(retryError) ? circleDeviceIdHelp : getErrorMessage(retryError),
+        );
+      }
+    }
 
     const targetWalletId = options?.walletId || circleWallet?.id;
     if (options?.recoverHash === false || executed.txHash || !targetWalletId) {
