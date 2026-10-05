@@ -233,10 +233,13 @@ function ArticleList({ articles, onOpen }: { articles: SupportArticle[]; onOpen:
  */
 export function SupportCenter({
   guest = false,
+  initialView = "home",
   onClose,
   onNavigate,
   variant = "panel",
 }: {
+  /** Where it opens: the home, straight into the chat, the FAQ topics, or your requests. */
+  initialView?: "home" | "chat" | "topics" | "requests";
   /** Treat the visitor as signed out (the lock screen: the account is locked). */
   guest?: boolean;
   /** Shows a close button in the header. */
@@ -257,7 +260,7 @@ export function SupportCenter({
     ? account?.display_name?.trim().split(/\s+/)[0] || account?.username || null
     : null;
 
-  const [view, setView] = useState<View>({ name: "home" });
+  const [view, setView] = useState<View>({ name: initialView } as View);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");

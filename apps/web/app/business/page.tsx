@@ -10,7 +10,6 @@ export default function BusinessPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        backHref="/dashboard"
         hideHeader={true}
         subtitle="How your business is doing on SwiftPay"
         title="Overview"

@@ -269,3 +269,26 @@
 .st-section-body {
   min-width: 0;
 }
+
+/* Help & Support menu icons, Kuda style: a coloured glyph on a dark tile. */
+.st-help-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.75rem;
+  background: var(--muted);
+}
+
+.st-help-icon[data-tone="chat"] {
+  color: #0ea5e9;
+}
+
+.st-help-icon[data-tone="requests"] {
+  color: #ef4444;
+}
+
+.st-help-icon[data-tone="faq"] {
+  color: #f59e0b;
+}

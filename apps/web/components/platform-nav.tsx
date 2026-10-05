@@ -2,6 +2,8 @@
 
 import {
   Banknote,
+  Briefcase,
+  FileText,
   Gift,
   ChartNoAxesColumn,
   LayoutDashboard,
@@ -20,9 +22,9 @@ import { navLabelKeys } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
- * The sidebar carries the places you live in. Overview, Invoices, Request and
- * Swap are task pages reached from the dashboard's quick actions board
- * instead, so they are deliberately absent here.
+ * The sidebar carries the places you live in. Business accounts also get
+ * Overview and Invoices. Request, Swap, BulkPay and RecurePay are task pages
+ * reached from Services and Send instead.
  */
 export const platformNavItems = [
   {
@@ -30,6 +32,8 @@ export const platformNavItems = [
     label: "Dashboard",
     icon: LayoutDashboard,
   },
+  { href: "/business", label: "Overview", icon: Briefcase, businessOnly: true },
+  { href: "/business/invoices", label: "Invoices", icon: FileText, businessOnly: true },
   {
     href: "/business/payroll",
     label: "Payroll",

@@ -1,0 +1,319 @@
+/* Business Overview. Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.ov-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.ov-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.ov-title {
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.ov-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.ov-round:hover {
+  background: var(--muted);
+}
+
+/* Hero */
+.ov-hero {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+  overflow: hidden;
+  padding: 1.2rem 1.25rem 1.1rem;
+  border-radius: 1.4rem;
+  color: #ffffff;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+}
+
+.ov-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.ov-hero-top {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ov-hero-name {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.ov-hero-pill {
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.16);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ov-hero-label {
+  position: relative;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.ov-hero-amount {
+  position: relative;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2rem, 8vw, 2.8rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.ov-hero-chips {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.ov-hero-chips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.14);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ov-hero-foot {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  font-size: 0.82rem;
+}
+
+.ov-hero-foot strong {
+  font-weight: 700;
+}
+
+/* Profile completion */
+.ov-complete {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in oklch, #f59e0b 35%, var(--border));
+  border-radius: 1rem;
+  background: color-mix(in oklch, #f59e0b 10%, var(--card));
+  font-size: 0.88rem;
+}
+
+.ov-complete-cta {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.15rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.dark .ov-complete-cta {
+  color: var(--link);
+}
+
+/* Quick actions */
+.ov-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.25rem, 1fr));
+  gap: 0.5rem;
+  padding: 0.9rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+}
+
+.ov-quick a {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.ov-quick-icon {
+  display: grid;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+  transition: transform 150ms ease;
+}
+
+.dark .ov-quick-icon {
+  color: var(--link);
+}
+
+.ov-quick a:first-child .ov-quick-icon {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.ov-quick a:hover .ov-quick-icon {
+  transform: translateY(-2px);
+}
+
+/* Metrics */
+.ov-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .ov-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.ov-metric {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
+.ov-metric.is-link:hover {
+  border-color: color-mix(in oklch, var(--primary) 40%, var(--border));
+}
+
+.ov-metric-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.ov-metric-value {
+  overflow: hidden;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-metric-sub {
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+}
+
+.ov-metric-sub em {
+  margin-right: 0.3rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ov-metric-sub em.is-up {
+  color: #15803d;
+}
+
+.ov-metric-sub em.is-down {
+  color: #b91c1c;
+}
+
+.dark .ov-metric-sub em.is-up {
+  color: #4ade80;
+}
+
+.dark .ov-metric-sub em.is-down {
+  color: #f87171;
+}
+
+/* The existing cards, set into the new rhythm */
+.ov-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .ov-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ov-block {
+  min-width: 0;
+}
+
+.ov-block > * {
+  border-radius: 1.25rem !important;
+}
+
+.ov-card {
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+}
+
+.ov-pad {
+  padding: 1.25rem;
+}
+
+.ov-section-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+}

@@ -2,7 +2,7 @@
 
 import { AgentWalletSettings } from "@/components/settings/agent-wallet-settings";
 import { InstallAppSettingsCard } from "@/components/pwa/install-app";
-import { SupportCenter } from "@/components/support/support-center";
+import { HelpSupportMenu } from "@/components/settings/help-support-menu";
 import {
   ArrowLeft,
   Banknote,
@@ -156,13 +156,9 @@ export function SettingsHub() {
         id: "support",
         group: "Help",
         icon: Headset,
-        title: "Help & Support",
-        blurb: "Instant answers to common questions, and a direct line to the SwiftPay team.",
-        render: () => (
-          <div className="overflow-hidden rounded-2xl border border-border">
-            <SupportCenter variant="page" />
-          </div>
-        ),
+        title: "Get help",
+        blurb: "Get support or send feedback.",
+        render: () => <HelpSupportMenu />,
       },
       {
         id: "alerts",

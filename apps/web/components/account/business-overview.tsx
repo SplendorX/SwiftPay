@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  ArrowDownLeft,
+  ArrowLeft,
+  BadgeCheck,
+  Building2,
+  ChevronRight,
+  FileText,
+  Send,
+  Store,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createPublicClient, formatUnits, getAddress, http, isAddress } from "viem";
@@ -26,10 +37,8 @@ import {
   type CircleTokenBalance,
 } from "@/lib/circle-session";
 
-import { BusinessPageHeader } from "@/components/business/overview/business-page-header";
-import { BusinessBalanceCard } from "@/components/business/overview/business-balance-card";
-import { BusinessQuickActions } from "@/components/business/overview/business-quick-actions";
-import { BusinessMetricsGrid } from "@/components/business/overview/business-metrics-grid";
+import { TokenIcon } from "@/components/token-icon";
+import { checkoutEnabled } from "@/lib/checkout/flag";
 import { CashFlowCard } from "@/components/business/overview/cash-flow-card";
 import { BusinessActivityCard } from "@/components/business/overview/business-activity-card";
 import { BusinessInsightsCard } from "@/components/business/overview/business-insights-card";
@@ -43,6 +52,8 @@ import {
   buildRealOverviewData,
   computeRealCashFlow,
 } from "@/components/business/overview/overview-data";
+
+import "./overview.css";
 
 const arcPublicClient = createPublicClient({
   chain: arcChain,
@@ -263,14 +274,17 @@ export function BusinessOverview() {
 
   if (!isBusiness) {
     return (
-      <div className="section-panel p-8">
-        <h2 className="font-heading text-2xl">{t("business.overview")}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Business overview is exclusive to SwiftPay Business accounts. Upgrade this account to Business to unlock invoicing, payroll, and business analytics.
-        </p>
-        <Button asChild className="mt-5">
-          <Link href="/settings#account-type">Upgrade to Business</Link>
-        </Button>
+      <div className="ov-page">
+        <OverviewBar />
+        <div className="ov-card ov-pad">
+          <h2 className="ov-section-title">{t("business.overview")}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Business overview is exclusive to SwiftPay Business accounts. Upgrade this account to Business to unlock invoicing, payroll, and business analytics.
+          </p>
+          <Button asChild className="mt-5 h-11">
+            <Link href="/settings#account-type">Upgrade to Business</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -304,60 +318,148 @@ export function BusinessOverview() {
     payrollSummary,
   });
 
+  const quickActions = [
+    { href: "/send", icon: Send, label: "Send" },
+    { href: "/business/invoices?new=1", icon: FileText, label: "Invoice" },
+    { href: "/pay", icon: ArrowDownLeft, label: "Request" },
+    { href: "/business/payroll", icon: Users, label: "Pay team" },
+    ...(checkoutEnabled ? [{ href: "/business/checkout", icon: Store, label: "Checkout" }] : []),
+  ];
+
   return (
-    <div className="space-y-8 pb-12">
-      {/* 1. Page Header with Title, Subtitle, and Verified Business Badge (only if 100% complete) */}
-      <BusinessPageHeader
-        businessName={businessDisplayName}
-        isVerified={completion.percent === 100}
-      />
+    <div className="ov-page">
+      <OverviewBar />
 
-      {/* Profile Completion Callout (if not 100% complete) */}
-      {completion.percent < 100 && (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              Business profile {completion.percent}% complete
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Missing details: {completion.missing.join(", ") || "none"}
-            </p>
-          </div>
-          <Button asChild size="sm" variant="outline" className="border-border">
-            <Link href="/business/profile">Complete profile</Link>
-          </Button>
+      {/* The business and its money */}
+      <section className="ov-hero">
+        <span aria-hidden className="ov-hero-glow" />
+        <div className="ov-hero-top">
+          <span className="ov-hero-name">
+            <Building2 className="h-4 w-4" />
+            {businessDisplayName}
+            {completion.percent === 100 ? <BadgeCheck className="h-4 w-4" /> : null}
+          </span>
+          {balanceData.trendDirection !== "flat" ? (
+            <span className="ov-hero-pill">
+              {balanceData.trendDirection === "up" ? "▲" : "▼"} {Math.abs(balanceData.trendPercentage).toFixed(1)}%
+            </span>
+          ) : null}
         </div>
-      )}
+        <p className="ov-hero-label">Total balance</p>
+        <p className="ov-hero-amount">{balanceData.totalBalanceFormatted}</p>
+        <div className="ov-hero-chips">
+          {balanceData.assets.map((asset) => (
+            <span key={asset.symbol}>
+              <TokenIcon className="h-3.5 w-3.5" symbol={asset.symbol} />
+              {asset.formatted}
+            </span>
+          ))}
+        </div>
+        <div className="ov-hero-foot">
+          <span>
+            Available <strong>{balanceData.liquidity.availableToSpendFormatted}</strong>
+          </span>
+          <span>
+            Scheduled <strong>{balanceData.liquidity.scheduledAndReservedFormatted}</strong>
+          </span>
+        </div>
+      </section>
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {completion.percent < 100 ? (
+        <Link className="ov-complete" href="/business/profile">
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Business profile {completion.percent}% complete</span>
+            <span className="block text-xs opacity-80">
+              Missing: {completion.missing.join(", ") || "none"}
+            </span>
+          </span>
+          <span className="ov-complete-cta">
+            Complete
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        </Link>
+      ) : null}
 
-      {/* 2. Primary Financial Command Center (Total Business Balance, Assets, Liquidity) */}
-      <BusinessBalanceCard data={balanceData} />
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
-      {/* 3. Primary Action Bar (Send Payment in Imperial Purple #5B21B6, Create Invoice, Request, Pay Team, BulkPay) */}
-      <BusinessQuickActions />
+      <nav aria-label="Business actions" className="ov-quick">
+        {quickActions.map((action) => (
+          <Link href={action.href} key={action.href}>
+            <span className="ov-quick-icon">
+              <action.icon className="h-5 w-5" />
+            </span>
+            {action.label}
+          </Link>
+        ))}
+      </nav>
+
       {checkoutSummary ? <CheckoutOverviewCard summary={checkoutSummary} /> : null}
 
-      {/* 4. Business Metrics Grid (Revenue Received, Payments Sent, Outstanding Invoices, Scheduled Payments) */}
-      <BusinessMetricsGrid metrics={metrics} />
-
-      {/* 5. Cash Flow Section (Dual curve interactive chart, 7D/30D/3M/1Y tabs, incoming/outgoing/net summary) */}
-      <CashFlowCard summariesByPeriod={cashFlowSummaries} />
-
-      {/* 6. Two-Column Business Operations Section (Business Activity & Business Insights) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <BusinessActivityCard activities={activities} />
-        <BusinessInsightsCard insights={insights} />
+      <div className="ov-metrics">
+        {metrics.map((metric) => {
+          const body = (
+            <>
+              <span className="ov-metric-title">{metric.title}</span>
+              <span className="ov-metric-value">{metric.valueFormatted}</span>
+              <span className="ov-metric-sub">
+                {metric.trend ? (
+                  <em className={metric.trendPositive ? "is-up" : "is-down"}>{metric.trend}</em>
+                ) : null}
+                {metric.subtitle}
+              </span>
+            </>
+          );
+          return metric.href ? (
+            <Link className="ov-metric is-link" href={metric.href} key={metric.id}>
+              {body}
+            </Link>
+          ) : (
+            <div className="ov-metric" key={metric.id}>
+              {body}
+            </div>
+          );
+        })}
       </div>
 
-      {/* 7. Two-Column Invoices & Team Payments Section */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <InvoiceOverviewCard data={invoiceOverview} />
-        <TeamPaymentsCard data={teamPayments} />
+      <div className="ov-block">
+        <CashFlowCard summariesByPeriod={cashFlowSummaries} />
       </div>
 
-      {/* 8. Business Financial Health Section (4 Pillars: Cash Position, Payment Activity, Invoice Collection, Obligations) */}
-      <BusinessHealthCard data={financialHealth} />
+      <div className="ov-two">
+        <div className="ov-block">
+          <BusinessActivityCard activities={activities} />
+        </div>
+        <div className="ov-block">
+          <BusinessInsightsCard insights={insights} />
+        </div>
+      </div>
+
+      <div className="ov-two">
+        <div className="ov-block">
+          <InvoiceOverviewCard data={invoiceOverview} />
+        </div>
+        <div className="ov-block">
+          <TeamPaymentsCard data={teamPayments} />
+        </div>
+      </div>
+
+      <div className="ov-block">
+        <BusinessHealthCard data={financialHealth} />
+      </div>
     </div>
+  );
+}
+
+function OverviewBar() {
+  return (
+    <header className="ov-bar">
+      <Link aria-label="Back to the dashboard" className="ov-round" href="/dashboard">
+        <ArrowLeft className="h-5 w-5" />
+      </Link>
+      <h1 className="ov-title">Overview</h1>
+      <Link aria-label="Business profile" className="ov-round" href="/business/profile" title="Business profile">
+        <Building2 className="h-5 w-5" />
+      </Link>
+    </header>
   );
 }
