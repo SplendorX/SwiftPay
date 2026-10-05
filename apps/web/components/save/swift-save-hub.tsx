@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Info,
   KeyRound,
@@ -7,6 +8,7 @@ import {
   PiggyBank,
   Plus,
   Wallet,
+  ArrowLeft,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -729,6 +731,13 @@ export function SwiftSaveHub() {
   if (!isConnected || !address) {
     return (
       <div className="save-page">
+        <header className="pocket-bar">
+          <Link aria-label="Back to the dashboard" className="pocket-round" href="/dashboard">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="pocket-bar-title">Save</h1>
+          <span />
+        </header>
         <SaveHero
           disabled
           hidden={hideBalance}
@@ -752,6 +761,13 @@ export function SwiftSaveHub() {
 
   return (
     <div className="save-page">
+      <header className="pocket-bar">
+        <Link aria-label="Back to the dashboard" className="pocket-round" href="/dashboard">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="pocket-bar-title">Save</h1>
+        <span />
+      </header>
       <SaveHero
         disabled={!isWalletAuthenticated}
         hidden={hideBalance}

@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, Wallet } from "lucide-react";
+import { ArrowLeft, Loader2, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -91,8 +92,12 @@ export function EarnPage() {
         title="Earn"
       >
         <div className="earn-shell">
-          <header className="earn-bar">
-            <h1>Earn</h1>
+          <header className="pocket-bar">
+            <Link aria-label="Back to the dashboard" className="pocket-round" href="/dashboard">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="pocket-bar-title">Earn</h1>
+            <span />
           </header>
 
           <EarnHero
