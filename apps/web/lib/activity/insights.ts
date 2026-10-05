@@ -60,16 +60,15 @@ export function monthRange(month: string, tzOffsetMinutes: number) {
   return { daysInMonth, from, to: new Date(next.getTime() - 1) };
 }
 
-export function summarizeMonth(
-  items: readonly SummaryItem[],
-  month: string,
-  tzOffsetMinutes: number,
-  now = Date.now(),
-): MonthSummary {
-  const { daysInMonth, from, to } = monthRange(month, tzOffsetMinutes);
-  const daysElapsed =
-    now >= to.getTime() ? daysInMonth : Math.max(0, Math.min(daysInMonth, Math.floor((now - from.getTime()) / DAY_MS) + 1));
-  const days = Array.from({ length: daysInMonth }, () => ({ in: {} as TokenSums, out: {} as TokenSums }));
+type Span = {
+  days: MonthSummary["days"];
+  totals: MonthSummary["totals"];
+  categories: MonthSummary["categories"];
+};
+
+/** Money in and out between `from` and `to`, bucketed into `dayCount` days. */
+function summarizeSpan(items: readonly SummaryItem[], from: Date, to: Date, dayCount: number): Span {
+  const days = Array.from({ length: dayCount }, () => ({ in: {} as TokenSums, out: {} as TokenSums }));
   const totals = { count: 0, in: {} as TokenSums, out: {} as TokenSums };
   const categories = new Map<ActivityFeed, { in: TokenSums; out: TokenSums; count: number }>();
 
@@ -83,7 +82,7 @@ export function summarizeMonth(
     const at = item.occurredAt ? Date.parse(item.occurredAt) : Number.NaN;
     if (Number.isNaN(at) || at < from.getTime() || at > to.getTime()) continue;
 
-    const day = Math.min(daysInMonth - 1, Math.floor((at - from.getTime()) / DAY_MS));
+    const day = Math.min(dayCount - 1, Math.floor((at - from.getTime()) / DAY_MS));
     add(days[day][item.direction], token, amount);
     add(totals[item.direction], token, amount);
     totals.count += 1;
@@ -99,9 +98,50 @@ export function summarizeMonth(
       .map(([source, value]) => ({ source, ...value }))
       .sort((left, right) => spent(right.out) - spent(left.out) || spent(right.in) - spent(left.in)),
     days,
-    daysElapsed,
-    daysInMonth,
-    month,
     totals,
   };
+}
+
+export function summarizeMonth(
+  items: readonly SummaryItem[],
+  month: string,
+  tzOffsetMinutes: number,
+  now = Date.now(),
+): MonthSummary {
+  const { daysInMonth, from, to } = monthRange(month, tzOffsetMinutes);
+  const daysElapsed =
+    now >= to.getTime() ? daysInMonth : Math.max(0, Math.min(daysInMonth, Math.floor((now - from.getTime()) / DAY_MS) + 1));
+  return { ...summarizeSpan(items, from, to, daysInMonth), daysElapsed, daysInMonth, month };
+}
+
+/** Insights' window: the last 30 days, today included. */
+export const insightPeriodDays = 30;
+
+export type PeriodSummary = Span & {
+  /** First instant of the period (local midnight), ISO. */
+  from: string;
+  /** Last instant of the period, ISO. */
+  to: string;
+  dayCount: number;
+};
+
+/**
+ * `dayCount` whole local days ending today, or the same span `back` periods
+ * earlier. `tzOffsetMinutes` is Date#getTimezoneOffset().
+ */
+export function periodRange(now: number, tzOffsetMinutes: number, dayCount = insightPeriodDays, back = 0) {
+  const offset = tzOffsetMinutes * 60_000;
+  const todayStart = Math.floor((now - offset) / DAY_MS) * DAY_MS + offset;
+  const from = todayStart - (dayCount - 1 + back * dayCount) * DAY_MS;
+  return { from: new Date(from), to: new Date(from + dayCount * DAY_MS - 1) };
+}
+
+/** Money in and out for the last `dayCount` days (`back` = 1: the period before). */
+export function summarizePeriod(
+  items: readonly SummaryItem[],
+  options: { now?: number; tzOffsetMinutes?: number; dayCount?: number; back?: number } = {},
+): PeriodSummary {
+  const dayCount = options.dayCount ?? insightPeriodDays;
+  const { from, to } = periodRange(options.now ?? Date.now(), options.tzOffsetMinutes ?? 0, dayCount, options.back ?? 0);
+  return { ...summarizeSpan(items, from, to, dayCount), dayCount, from: from.toISOString(), to: to.toISOString() };
 }

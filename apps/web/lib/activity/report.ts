@@ -39,9 +39,14 @@ export async function loadActivityItems(
   range: { from: Date; to: Date },
 ): Promise<AccountActivityItem[]> {
   const { from, to } = range;
+  // Each source stands alone: one that fails (an unreachable RPC, a missing
+  // table) must not blank everything the others found.
   const [entries, own, agentWallet] = await Promise.all([
     listAccountActivity(wallet, { from, limit: REPORT_LIMIT, to }),
-    transfersFor(wallet, from, to),
+    transfersFor(wallet, from, to).catch((error: unknown) => {
+      console.warn("[activity-report] on-chain history unavailable", error instanceof Error ? error.message : error);
+      return [] as WalletTransfer[];
+    }),
     loadAgentWalletConfig(wallet).catch(() => null),
   ]);
 

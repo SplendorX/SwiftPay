@@ -3,7 +3,6 @@ import type {
   ActivityDirection,
   ActivitySource,
 } from "@/lib/activity/types";
-import type { MonthSummary } from "@/lib/activity/insights";
 import { getCircleLoginIdentity, readCircleLogin } from "@/lib/circle-session";
 
 export const accountActivityChangedEventName = "swiftpay:account-activity";
@@ -64,8 +63,9 @@ export async function recordAccountActivity(
   }
 }
 
-export async function fetchAccountActivity(ownerWallet: string) {
+export async function fetchAccountActivity(ownerWallet: string, options: { days?: number } = {}) {
   const params = new URLSearchParams({ ownerWallet });
+  if (options.days) params.set("days", String(options.days));
   const socialUuid = circleSocialUuid();
   if (socialUuid) params.set("circleSocialUuid", socialUuid);
 
@@ -85,20 +85,3 @@ export async function fetchAccountActivity(ownerWallet: string) {
   return payload?.entries ?? [];
 }
 
-/** This month's and last month's money in and out (see /api/activity/insights). */
-export async function fetchInsights(ownerWallet: string) {
-  const params = new URLSearchParams({ ownerWallet, tz: String(new Date().getTimezoneOffset()) });
-  const socialUuid = circleSocialUuid();
-  if (socialUuid) params.set("circleSocialUuid", socialUuid);
-  const response = await fetch(`/api/activity/insights?${params}`, {
-    cache: "no-store",
-    credentials: "include",
-  });
-  const payload = (await response.json().catch(() => null)) as
-    | { current: MonthSummary; previous: MonthSummary; generatedAt: string; message?: string }
-    | null;
-  if (!response.ok || !payload) {
-    throw new Error(payload?.message ?? "Insights couldn't be loaded.");
-  }
-  return payload;
-}

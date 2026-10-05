@@ -8,6 +8,7 @@ import { readWalletToken, walletSessionCookieName } from "@/lib/wallet-session";
 const protectedRouteMatchers = [
   "/activity",
   "/insights",
+  "/transactions",
   "/dashboard",
   "/deposit",
   "/business",
@@ -197,6 +198,7 @@ export const config = {
     "/api/:path*",
     "/activity/:path*",
     "/insights/:path*",
+    "/transactions/:path*",
     "/dashboard/:path*",
     "/deposit/:path*",
     "/business/:path*",

@@ -39,7 +39,7 @@ export function BusinessActivityCard({ activities }: BusinessActivityCardProps) 
             </p>
           </div>
           <Link
-            href="/insights"
+            href="/transactions"
             className="group flex items-center gap-1 text-xs font-semibold text-[#5B21B6] hover:text-[#4C1D95] dark:text-purple-400 dark:hover:text-purple-300 transition-colors shrink-0"
           >
             <span>View all</span>

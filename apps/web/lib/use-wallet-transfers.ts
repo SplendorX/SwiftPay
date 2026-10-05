@@ -10,7 +10,7 @@ import type { WalletTransfer } from "@/lib/arcscan-history";
  * RPC on mainnet, where the explorer blocks servers and browsers alike).
  * Change `refreshKey` to refetch (e.g. when a payment settles).
  */
-export function useWalletTransfers(address?: string | null, refreshKey = "") {
+export function useWalletTransfers(address?: string | null, refreshKey = "", days?: number) {
   const [walletTransfers, setWalletTransfers] = useState<WalletTransfer[]>([]);
   const [isTransfersLoading, setIsTransfersLoading] = useState(false);
   const [transfersError, setTransfersError] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export function useWalletTransfers(address?: string | null, refreshKey = "") {
 
     async function loadLocalArcScanHistory() {
       const response = await fetch(
-        `/api/arcscan/history?address=${connectedAddress}`,
+        `/api/arcscan/history?address=${connectedAddress}${days ? `&days=${days}` : ""}`,
         {
           cache: "no-store",
           signal: controller.signal,
@@ -68,7 +68,7 @@ export function useWalletTransfers(address?: string | null, refreshKey = "") {
     return () => {
       controller.abort();
     };
-  }, [address, refreshKey]);
+  }, [address, days, refreshKey]);
 
   return {
     error: transfersError,

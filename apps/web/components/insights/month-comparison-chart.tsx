@@ -14,6 +14,7 @@ import { useEffect, useId, useMemo, useRef, useState, type PointerEvent } from "
 export function MonthComparisonChart({
   current,
   currentLabel,
+  dayLabel,
   daysElapsed,
   format,
   formatTick,
@@ -24,16 +25,19 @@ export function MonthComparisonChart({
   /** Running totals for each elapsed day of this month. */
   current: number[];
   currentLabel: string;
+  /** The x-axis label for a day index; defaults to "Oct 3" from `monthShort`. */
+  dayLabel?: (index: number) => string;
   daysElapsed: number;
   format: (value: number) => string;
   formatTick: (value: number) => string;
   /** "Oct": prefixes the x-axis days. */
-  monthShort: string;
+  monthShort?: string;
   /** Running totals for every day of last month. */
   previous: number[];
   previousLabel: string;
 }) {
   const id = useId();
+  const labelFor = (index: number) => (dayLabel ? dayLabel(index) : `${monthShort ?? ""} ${index + 1}`.trim());
   const svgRef = useRef<SVGSVGElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -130,7 +134,7 @@ export function MonthComparisonChart({
           ))}
           {xTicks.map((index) => (
             <text className="insights-tick" key={index} textAnchor="middle" x={x(index)} y={height - 8}>
-              {`${monthShort} ${index + 1}`}
+              {labelFor(index)}
             </text>
           ))}
 
@@ -180,7 +184,7 @@ export function MonthComparisonChart({
               transform: `translateX(${tooltipLeft > 60 ? "-105%" : "5%"})`,
             }}
           >
-            <p className="insights-tooltip-day">{`${monthShort} ${hover + 1}`}</p>
+            <p className="insights-tooltip-day">{labelFor(hover)}</p>
             <p className="insights-tooltip-row">
               <i className="insights-key insights-key-current" />
               <strong>{hoverCurrent !== null ? format(hoverCurrent) : "—"}</strong>

@@ -112,13 +112,13 @@ export const supportArticles: SupportArticle[] = [
     title: "My payment is pending or hasn't arrived",
     keywords: ["pending", "stuck", "not received", "didn't arrive", "missing payment", "where is my money", "processing", "delayed", "not showing"],
     answer:
-      "Arc payments usually settle in seconds. If it's still pending, check Activity and open the transaction on the explorer. A payment that shows as confirmed on the explorer has arrived — the recipient may need to refresh.",
+      "Arc payments usually settle in seconds. If it's still pending, check Transactions and open the transaction on the explorer. A payment that shows as confirmed on the explorer has arrived — the recipient may need to refresh.",
     steps: [
-      "Open Activity and find the payment.",
+      "Open Transactions (Dashboard → View all) and find the payment.",
       "Open it on the Arc explorer to see its status.",
       "If it failed, your funds stayed in your wallet — you can try again.",
     ],
-    links: [{ label: "Open Insights", href: "/insights" }],
+    links: [{ label: "Open Transactions", href: "/transactions" }],
   },
   {
     id: "wrong-address",
@@ -127,7 +127,7 @@ export const supportArticles: SupportArticle[] = [
     keywords: ["wrong address", "wrong person", "mistake", "reverse", "refund", "undo", "cancel payment", "sent by mistake"],
     answer:
       "Blockchain payments can't be reversed by SwiftPay. If you know the recipient, ask them to send it back. If you sent to a SwiftPay @username, our team can try to contact them for you.",
-    links: [{ label: "Open Insights", href: "/insights" }],
+    links: [{ label: "Open Transactions", href: "/transactions" }],
     urgent: true,
   },
   {

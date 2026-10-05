@@ -29,8 +29,20 @@ export type ActivitySource = (typeof activitySources)[number];
 export const activityWindowDays = 30;
 
 /** The start of the Activity window, as of `now`. */
-export function activityWindowStart(now = Date.now()) {
-  return new Date(now - activityWindowDays * 24 * 60 * 60 * 1000);
+export function activityWindowStart(now = Date.now(), days = activityWindowDays) {
+  return new Date(now - days * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Transaction History reaches back three months; anything older is in a
+ * downloaded statement. Insights reads the last 30 days and the 30 before.
+ */
+export const transactionHistoryDays = 90;
+
+/** A requested window in days, kept between 1 and the history limit. */
+export function clampActivityDays(value: unknown, fallback = activityWindowDays) {
+  const days = Math.round(Number(value));
+  return Number.isFinite(days) && days >= 1 ? Math.min(days, transactionHistoryDays) : fallback;
 }
 
 /** Feature sources plus "wallet": on-chain transfers no feature claimed. */

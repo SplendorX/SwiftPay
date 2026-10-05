@@ -48,7 +48,7 @@ import { Button } from "@/components/ui/button";
 import { TokenSelect } from "@/components/design/token-select";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { FeaturePromos } from "@/components/dashboard/feature-promos";
-import { FxRatesBoard } from "@/components/dashboard/fx-rates-board";
+import { DashboardTransactions } from "@/components/dashboard/dashboard-transactions";
 import { DashboardCircleInvites } from "@/components/swift-circle/circle-invite-inbox";
 import { BeneficiaryContacts } from "@/components/dashboard/beneficiary-contacts";
 import { useWalletTransfers } from "@/lib/use-wallet-transfers";
@@ -3578,7 +3578,10 @@ export function DashboardContent({
 
         <div className="dashboard-discover-row">
           <FeaturePromos />
-          <FxRatesBoard />
+          <DashboardTransactions
+            ownerWallet={address}
+            refreshKey={[swapExplorerUrl, transactionHash, transactionReceipt?.status].join("|")}
+          />
         </div>
 
         <DashboardCircleInvites />

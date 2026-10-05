@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { listAccountActivity, recordAccountActivity } from "@/lib/activity/service";
 import { swiftBatchMaxRecipients } from "@/lib/contracts";
-import { activityWindowStart, isActivitySource } from "@/lib/activity/types";
+import { activityWindowStart, clampActivityDays, isActivitySource } from "@/lib/activity/types";
 import { jsonError, jsonOk, readJsonRecord } from "@/lib/http";
 import { assertRecurringAccess, normalizeOwnerWallet } from "@/lib/recurring-auth";
 
@@ -25,9 +25,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Activity shows the last 30 days; older entries are in statements.
+    // 30 days by default, up to three months (Transaction History); older
+    // entries are in statements.
+    const days = clampActivityDays(request.nextUrl.searchParams.get("days"));
     return jsonOk({
-      entries: await listAccountActivity(ownerWallet, { from: activityWindowStart() }),
+      entries: await listAccountActivity(ownerWallet, { from: activityWindowStart(Date.now(), days) }),
     });
   } catch (error) {
     return jsonError(

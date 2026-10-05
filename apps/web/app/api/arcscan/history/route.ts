@@ -6,6 +6,7 @@ import {
   type WalletTransfer,
 } from "@/lib/arcscan-history";
 import { loadAgentWalletConfig } from "@/lib/agent-wallet/config";
+import { activityWindowStart, clampActivityDays } from "@/lib/activity/types";
 import { isArcMainnet } from "@/lib/network";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { walletHistoryFromRpc } from "@/lib/wallet-history";
@@ -23,17 +24,22 @@ function toTime(value: string | null) {
  * lib/wallet-history). Testnet keeps the explorer's full history and falls
  * back to the RPC if the explorer is down.
  */
-async function walletTransfers(address: string) {
-  if (isArcMainnet()) return walletHistoryFromRpc(address);
+async function walletTransfers(address: string, days: number | null) {
+  // A window (Transaction History's three months) reads further than the
+  // default newest-100.
+  const options = days ? { from: activityWindowStart(Date.now(), days), limit: 1_000 } : undefined;
+  if (isArcMainnet()) return walletHistoryFromRpc(address, options);
   try {
     return await fetchArcScanTransfers(address);
   } catch {
-    return walletHistoryFromRpc(address);
+    return walletHistoryFromRpc(address, options);
   }
 }
 
 export async function GET(request: NextRequest) {
   const address = request.nextUrl.searchParams.get("address");
+  const daysParam = request.nextUrl.searchParams.get("days");
+  const days = daysParam ? clampActivityDays(daysParam) : null;
 
   if (!address || !isAddress(address)) {
     return NextResponse.json(
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const transfers = await walletTransfers(address);
+    const transfers = await walletTransfers(address, days);
 
     // ALLIE pays from the Agent Wallet, so those transfers never appear in the
     // primary wallet's history. Merge them in — they are the same person's
@@ -63,7 +69,7 @@ export async function GET(request: NextRequest) {
       const agentWallet = await loadAgentWalletConfig(address);
 
       if (agentWallet?.walletAddress && isAddress(agentWallet.walletAddress)) {
-        agentTransfers = (await walletTransfers(agentWallet.walletAddress)).map(
+        agentTransfers = (await walletTransfers(agentWallet.walletAddress, days)).map(
           (transfer) => ({ ...transfer, viaAgentWallet: true }),
         );
       }

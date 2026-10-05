@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { monthKey, monthRange, previousMonthKey, summarizeMonth } from "@/lib/activity/insights";
+import { monthKey, monthRange, periodRange, previousMonthKey, summarizeMonth, summarizePeriod } from "@/lib/activity/insights";
 
 const item = (overrides) => ({
   amount: "10",
@@ -94,5 +94,35 @@ describe("summarizeMonth", () => {
 
   it("counts every day of a past month as elapsed", () => {
     assert.equal(summarizeMonth([], "2026-09", 0, now).daysElapsed, 30);
+  });
+});
+
+describe("30-day periods", () => {
+  const now = Date.parse("2026-10-05T10:00:00.000Z");
+
+  it("ends today and spans 30 whole local days", () => {
+    const { from, to } = periodRange(now, -60, 30);
+    // Lagos midnight on Sep 6 is 23:00 UTC on Sep 5.
+    assert.equal(from.toISOString(), "2026-09-05T23:00:00.000Z");
+    assert.equal(to.toISOString(), "2026-10-05T22:59:59.999Z");
+  });
+
+  it("counts this period and the one before separately", () => {
+    const items = [
+      item({ occurredAt: "2026-10-04T12:00:00.000Z", amount: "5" }),
+      item({ occurredAt: "2026-09-20T12:00:00.000Z", amount: "7", direction: "in", source: "wallet" }),
+      item({ occurredAt: "2026-08-20T12:00:00.000Z", amount: "3" }),
+      item({ occurredAt: "2026-10-04T13:00:00.000Z", amount: "9", direction: "internal" }),
+    ];
+    const current = summarizePeriod(items, { now, tzOffsetMinutes: 0 });
+    const previous = summarizePeriod(items, { back: 1, now, tzOffsetMinutes: 0 });
+    assert.equal(current.totals.count, 2);
+    assert.equal(current.totals.out.USDC, 5);
+    assert.equal(current.totals.in.USDC, 7);
+    assert.equal(current.days.length, 30);
+    assert.equal(current.days[28].out.USDC, 5); // Oct 4; index 29 is today
+    assert.deepEqual(current.categories.map((c) => c.source), ["send", "wallet"]);
+    assert.equal(previous.totals.count, 1);
+    assert.equal(previous.totals.out.USDC, 3);
   });
 });

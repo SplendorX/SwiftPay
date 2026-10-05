@@ -1,0 +1,497 @@
+/* Transactions: the dashboard card, Transaction History and shared rows.
+ * In its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+/* ── Rows ─────────────────────────────────────────────────────────────── */
+.tx-list {
+  display: grid;
+}
+
+.tx-list > li + li,
+.txh-group li + li {
+  border-top: 1px solid var(--border);
+}
+
+.tx-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 0;
+  text-align: left;
+}
+
+button.tx-row {
+  cursor: pointer;
+  border-radius: 0.75rem;
+  transition: background-color 140ms ease;
+}
+
+button.tx-row:hover {
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+}
+
+button.tx-row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.tx-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+}
+
+.dark .tx-icon {
+  background: color-mix(in oklch, var(--primary) 26%, var(--muted));
+  color: var(--link);
+}
+
+.tx-icon.is-sm {
+  width: 2rem;
+  height: 2rem;
+}
+
+.tx-icon[data-feature="agent"] {
+  background: transparent;
+}
+
+.tx-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.2rem;
+}
+
+.tx-title {
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-when {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.tx-side {
+  display: grid;
+  flex-shrink: 0;
+  justify-items: end;
+  gap: 0.2rem;
+  max-width: 45%;
+  text-align: right;
+}
+
+.tx-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tx-amount.is-in {
+  color: #15803d;
+}
+
+.dark .tx-amount.is-in {
+  color: #4ade80;
+}
+
+.tx-feature {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Dashboard card ───────────────────────────────────────────────────── */
+.tx-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--board-surface, var(--card));
+  padding: 0.5rem 1.1rem 0.6rem;
+}
+
+.tx-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tx-card-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.tx-live-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: #22c55e;
+}
+
+.tx-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.dark .tx-view-all {
+  color: var(--link);
+}
+
+.tx-view-all:hover {
+  text-decoration: underline;
+}
+
+.tx-card-empty {
+  display: flex;
+  min-height: 8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+/* ── Transaction History ──────────────────────────────────────────────── */
+.txh-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.9rem;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.txh-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.txh-title {
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.txh-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.txh-round:hover {
+  background: var(--muted);
+}
+
+.txh-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.txh-search {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.55rem;
+  height: 2.9rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+
+.txh-search:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.txh-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.txh-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.txh-filter {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--card);
+}
+
+.txh-filter.is-active {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  color: var(--primary);
+}
+
+.dark .txh-filter.is-active {
+  color: var(--link);
+}
+
+.txh-filter-count {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.txh-months {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: none;
+}
+
+.txh-months::-webkit-scrollbar {
+  display: none;
+}
+
+.txh-month {
+  flex-shrink: 0;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--card);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.txh-month[aria-selected="true"] {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.txh-notice {
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.85rem;
+  background: color-mix(in oklch, var(--primary) 7%, var(--card));
+  font-size: 0.85rem;
+}
+
+.txh-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
+.txh-day {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.5rem 1rem;
+  background: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.txh-group ul {
+  padding: 0 1rem;
+}
+
+.txh-loading {
+  display: flex;
+  min-height: 12rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+}
+
+.txh-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.txh-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 10%, var(--muted));
+  color: var(--primary);
+}
+
+.txh-older {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--muted-foreground);
+}
+
+.txh-older strong {
+  color: var(--primary);
+}
+
+.dark .txh-older strong {
+  color: var(--link);
+}
+
+/* Filter sheet */
+.txh-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem max(1rem, env(safe-area-inset-bottom));
+}
+
+.txh-sheet-label {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.txh-segment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.txh-segment button {
+  padding: 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.txh-segment button[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+}
+
+.txh-categories {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.txh-categories li + li {
+  border-top: 1px solid var(--border);
+}
+
+.txh-categories button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.txh-category-count {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.txh-check {
+  display: grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border: 1.5px solid var(--border);
+  border-radius: 0.4rem;
+}
+
+.txh-check.is-on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.txh-sheet-actions {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
