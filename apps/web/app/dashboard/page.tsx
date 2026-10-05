@@ -49,6 +49,7 @@ import { TokenSelect } from "@/components/design/token-select";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { FeaturePromos } from "@/components/dashboard/feature-promos";
 import { DashboardTransactions } from "@/components/dashboard/dashboard-transactions";
+import { DashboardHome } from "@/components/dashboard/home/dashboard-home";
 import { DashboardCircleInvites } from "@/components/swift-circle/circle-invite-inbox";
 import { useWalletTransfers } from "@/lib/use-wallet-transfers";
 import {
@@ -256,6 +257,9 @@ function getStablecoinUsdValue(amount: bigint | undefined, decimals: number) {
   const value = Number(formatUnits(amount, decimals));
   return Number.isFinite(value) ? value : undefined;
 }
+
+/** The new dashboard home; false brings back the previous layout. */
+const NEW_DASHBOARD = true;
 
 type PortfolioFlow = {
   inflow7d: number;
@@ -3608,8 +3612,117 @@ export function DashboardContent({
     </>
   );
 
+  // ── The new home (2026-10-05). Set NEW_DASHBOARD to false to bring back the
+  // previous layout below, which is kept intact.
+  const homeFraction = portfolioDisplayCurrency === "JPY" ? 0 : 2;
+  const homePlain = (usdValue: number | undefined) => {
+    const amount = convertFromUsd(usdValue, portfolioDisplayCurrency, fxRates);
+    return amount === undefined || !Number.isFinite(amount)
+      ? "0.00"
+      : new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: homeFraction,
+          minimumFractionDigits: homeFraction,
+        }).format(amount);
+  };
+  const homeUsdPerEur = usdPerUnit("EUR", fxRates) ?? 1;
+  const homeUsdc = getStablecoinUsdValue(tokenBalances.USDC, arcTokens.USDC.decimals) ?? 0;
+  const homeEurc = getStablecoinUsdValue(tokenBalances.EURC, arcTokens.EURC.decimals) ?? 0;
+  const homeTotal = homeUsdc + homeEurc * homeUsdPerEur;
+  const homeTokens = (["USDC", "EURC"] as const)
+    .map((symbol) => {
+      const units = symbol === "USDC" ? homeUsdc : homeEurc;
+      const usd = symbol === "USDC" ? homeUsdc : homeEurc * homeUsdPerEur;
+      return {
+        amount: units.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }),
+        share: homeTotal > 0 ? (usd / homeTotal) * 100 : 0,
+        symbol,
+      };
+    })
+    .filter((token) => token.symbol === "USDC" || homeEurc > 0);
+  const toggleHideBalance = () => {
+    setHideBalance((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("swiftpay.hide-balance", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const dashboardHome = (
+    <DashboardHome
+      avatarUrl={walletProfile?.avatar_url ?? null}
+      balanceLabel={homePlain(portfolioValue)}
+      banners={
+        <>
+          <InstallAppBanner />
+          {isTreasuryMismatch && treasuryAddress ? (
+            <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-950 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                <div>
+                  <p className="font-semibold">Business Treasury Wallet Mismatch</p>
+                  <p className="mt-0.5 text-xs opacity-90">
+                    Your active wallet (<strong>{shortenAddress(address)}</strong>) does not match {activeWorkspace?.name ?? "this workspace"}&apos;s treasury wallet (<strong>{shortenAddress(treasuryAddress)}</strong>). Transactions sent now will be debited from your personal wallet.
+                  </p>
+                </div>
+              </div>
+              <Button
+                className="shrink-0 border-amber-500/40 hover:bg-amber-500/20"
+                onClick={handleSwitchToTreasuryWallet}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Switch in wallet
+              </Button>
+            </div>
+          ) : null}
+        </>
+      }
+      changeLabel={portfolioChangeLabel}
+      currency={portfolioDisplayCurrency}
+      earn={
+        <DashboardEarnSummary
+          availableUsdc={typeof rawUsdcBalance === "bigint" ? rawUsdcBalance : undefined}
+          hideBalance={hideBalance}
+        />
+      }
+      extras={
+        <>
+          <FeaturePromos />
+          <DashboardCircleInvites />
+        </>
+      }
+      greetingName={dashboardGreetingName}
+      hideBalance={hideBalance}
+      isBusiness={Boolean(isBusinessWorkspace)}
+      isConnected={isConnected}
+      isLoading={isPortfolioLoading}
+      moneyIn={`${homePlain(portfolioFlow.inflow7d)} ${portfolioDisplayCurrency}`}
+      moneyOut={`${homePlain(portfolioFlow.outflow7d)} ${portfolioDisplayCurrency}`}
+      onToggleHide={toggleHideBalance}
+      tokens={homeTokens}
+      transactions={
+        <DashboardTransactions
+          ownerWallet={address}
+          refreshKey={[swapExplorerUrl, transactionHash, transactionReceipt?.status].join("|")}
+        />
+      }
+      trend={
+        portfolioChangeValue === undefined || portfolioChangeValue === 0
+          ? "flat"
+          : portfolioChangeValue > 0
+            ? "up"
+            : "down"
+      }
+    />
+  );
+
   const workspace =
-    view === "send" ? sendWorkspace : dashboardWorkspace;
+    view === "send" ? sendWorkspace : NEW_DASHBOARD ? dashboardHome : dashboardWorkspace;
 
   if (preview) {
     return workspace;
