@@ -10,6 +10,8 @@ export default function SwiftSavePage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The balance hero leads the page; skip the frame's title.
+        hideHeader
         subtitle="Non-interest savings pockets and Spend&Save"
         title="Save"
       >

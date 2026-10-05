@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarClock, Loader2, LockKeyhole, Unlock } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,8 @@ type CreatePocketDialogProps = {
   ownerWallet: string;
   circleSocialUuid?: string;
   currency?: ArcTokenSymbol;
+  /** Which kind the form starts on: Save's "As you want" or "Locked" entry. */
+  initialLockKind?: "flexible" | "fixed";
   onCreated: (pocket: SavingsPocketRecord) => void;
 };
 
@@ -41,6 +43,7 @@ export function CreatePocketDialog({
   ownerWallet,
   circleSocialUuid,
   currency = "USDC",
+  initialLockKind = "flexible",
   onCreated,
 }: CreatePocketDialogProps) {
   const [name, setName] = useState("");
@@ -53,6 +56,11 @@ export function CreatePocketDialog({
   const [customDate, setCustomDate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Each opening starts on the kind the person picked.
+  useEffect(() => {
+    if (open) setLockKind(initialLockKind);
+  }, [initialLockKind, open]);
 
   const minDate = useMemo(() => {
     const date = new Date();

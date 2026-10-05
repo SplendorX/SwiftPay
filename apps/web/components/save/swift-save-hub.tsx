@@ -1,23 +1,14 @@
 "use client";
 
 import {
-  Archive,
-  ArrowDownToLine,
-  ArrowUpFromLine,
   ExternalLink,
   Info,
   KeyRound,
   Loader2,
-  LockKeyhole,
-  Pause,
   PiggyBank,
-  Play,
   Plus,
-  CalendarDays,
-  Settings2,
   Wallet,
 } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useAccount,
@@ -37,15 +28,18 @@ import { CreatePocketDialog } from "@/components/save/create-pocket-dialog";
 import {
   formatMoney,
   formatMoneyShort,
-  pocketProgress,
 } from "@/components/save/format";
 import { SpendSaveSetupDialog } from "@/components/save/spend-save-setup-dialog";
-import { KpiCard } from "@/components/design/kpi-card";
-import { TokenIcon } from "@/components/token-icon";
+import {
+  PocketCard,
+  PocketsIntro,
+  SaveHero,
+  SaveWays,
+  SpendSaveCard,
+} from "@/components/save/save-views";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PagedActivityBox } from "@/components/ui/paged-activity-box";
-import { Progress } from "@/components/ui/progress";
 import {
   currentCircleAuth,
   getCircleLoginIdentity,
@@ -82,13 +76,11 @@ import {
   swiftSaveVaultAddress,
 } from "@/lib/save/config";
 import {
-  formatLockRemaining,
   formatUnlockDate,
   getPocketLockState,
 } from "@/lib/save/lock";
 import { executeSavingsReversal } from "@/lib/save/spend-save-browser";
 import {
-  getPocketEmoji,
   type SavingsPocketRecord,
   type SavingsSummary,
   type SavingsTransactionRecord,
@@ -283,6 +275,27 @@ export function SwiftSaveHub() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [createKind, setCreateKind] = useState<"flexible" | "fixed">("flexible");
+  // Shares the dashboard's "hide balances" choice.
+  const [hideBalance, setHideBalance] = useState(false);
+  useEffect(() => {
+    try {
+      setHideBalance(window.localStorage.getItem("swiftpay.hide-balance") === "1");
+    } catch {
+      setHideBalance(false);
+    }
+  }, []);
+  const toggleHideBalance = useCallback(() => {
+    setHideBalance((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("swiftpay.hide-balance", next ? "1" : "0");
+      } catch {
+        // Private mode: the choice lasts this visit.
+      }
+      return next;
+    });
+  }, []);
   const [setupOpen, setSetupOpen] = useState(false);
   const [amountMode, setAmountMode] = useState<"deposit" | "withdraw" | null>(
     null,
@@ -899,560 +912,269 @@ export function SwiftSaveHub() {
   const spendSavePct = spendSave ? Number(spendSave.percentage) : null;
   const spendSavePocket = pockets.find((p) => p.id === spendSave?.pocket_id);
 
+  const openCreate = (kind: "flexible" | "fixed") => {
+    setCreateKind(kind);
+    setCreateOpen(true);
+  };
+  const activePockets = pockets.filter((pocket) => pocket.status === "active");
+
   if (!isConnected || !address) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-card/40 p-10 text-center">
-        <PiggyBank className="mx-auto h-10 w-10 text-primary" />
-        <h2 className="mt-4 text-lg font-semibold">{t("save.connectToUse")}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t("save.connectToUseBody")}
-        </p>
+      <div className="save-page">
+        <SaveHero
+          disabled
+          hidden={hideBalance}
+          loading={false}
+          monthSaved="0"
+          onAddPocket={() => undefined}
+          onToggleHidden={toggleHideBalance}
+          pocketCount={0}
+          total="0"
+        />
+        <div className="save-card save-notice">
+          <PiggyBank className="h-5 w-5 shrink-0 text-primary" />
+          <div>
+            <p className="font-semibold">{t("save.connectToUse")}</p>
+            <p className="text-sm text-muted-foreground">{t("save.connectToUseBody")}</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-border/80 bg-card p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-xl space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              <PiggyBank className="h-3.5 w-3.5" />
-              {t("save.nonInterest")}
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              {t("save.heading")}
-            </h1>
-            <p className="text-sm text-muted-foreground sm:text-base">
-              {t("save.body")}
+    <div className="save-page">
+      <SaveHero
+        disabled={!isWalletAuthenticated}
+        hidden={hideBalance}
+        loading={isLoading}
+        monthSaved={summary?.monthSaved ?? "0"}
+        onAddPocket={() => openCreate("flexible")}
+        onToggleHidden={toggleHideBalance}
+        pocketCount={summary?.pocketCount ?? activePockets.length}
+        total={summary?.totalSaved ?? "0"}
+      />
+
+      {!isWalletAuthenticated ? (
+        <div className="save-card save-notice">
+          <KeyRound className="h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Authorize this wallet</p>
+            <p className="text-sm text-muted-foreground">
+              Sign a one-time message so SwiftPay can manage your pockets.
             </p>
-            <div className="text-xs text-muted-foreground">
-              <button
-                aria-expanded={disclaimerOpen}
-                aria-label="What Save is"
-                className="save-disclaimer-toggle"
-                onClick={() => setDisclaimerOpen((open) => !open)}
-                type="button"
-              >
-                <Info className="h-3.5 w-3.5" />
-              </button>
-              {disclaimerOpen ? (
-                <p className="mt-2 max-w-xl leading-5">
-                  {SWIFT_SAVE_DISCLAIMER}
-                </p>
-              ) : null}
-            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {!isWalletAuthenticated ? (
-              <Button
-                disabled={isAuthLoading || isSigningIn}
-                onClick={() => void handleWalletSignIn()}
-                type="button"
-                variant="outline"
-              >
-                {isAuthLoading || isSigningIn ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <KeyRound className="mr-2 h-4 w-4" />
-                )}
-                {t("common.authorizeWallet")}
-              </Button>
+          <Button
+            disabled={isAuthLoading || isSigningIn}
+            onClick={() => void handleWalletSignIn()}
+            size="sm"
+            type="button"
+          >
+            {isAuthLoading || isSigningIn ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Badge variant="secondary" className="h-9 px-3">
-                Authorized
-              </Badge>
+              <KeyRound className="h-4 w-4" />
             )}
-            <Button
-              disabled={!isWalletAuthenticated}
-              onClick={() => setCreateOpen(true)}
-              type="button"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create savings pocket
-            </Button>
-            <Button
-              disabled={!isWalletAuthenticated}
-              onClick={() => setSetupOpen(true)}
-              type="button"
-              variant="outline"
-            >
-              <Settings2 className="mr-2 h-4 w-4" />
-              Set up Spend&Save
-            </Button>
-          </div>
+            {t("common.authorizeWallet")}
+          </Button>
         </div>
-      </div>
+      ) : null}
 
       {!isSwiftSaveVaultConfigured() ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-50">
-          Vault not configured. Deploy with{" "}
-          <code className="rounded bg-black/10 px-1">
-            pnpm --filter @swiftpay/contracts deploy:swiftsave
-          </code>{" "}
-          and set{" "}
-          <code className="rounded bg-black/10 px-1">
-            NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS
-          </code>
-          . Pockets and Spend&Save config still work; deposits need the vault.
+        <div className="save-card save-warning">
+          Savings vault isn&rsquo;t configured on this deployment, so money can&rsquo;t be moved in or out yet. Pockets and
+          Spend + Save settings still work.
         </div>
       ) : null}
 
-      {error ? (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
-          {error}
-        </div>
-      ) : null}
-      {success ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-100">
-          {success}
-        </div>
+      {error ? <p className="save-message is-error">{error}</p> : null}
+      {success ? <p className="save-message is-success">{success}</p> : null}
+
+      {spendSave ? (
+        <SpendSaveCard
+          disabled={!isWalletAuthenticated}
+          onDisable={() => void handleSpendSaveControl("disable")}
+          onEdit={() => setSetupOpen(true)}
+          onPause={() => void handleSpendSaveControl("pause")}
+          onResume={() => void handleSpendSaveControl("resume")}
+          pocketName={spendSavePocket?.name ?? null}
+          spendSave={spendSave}
+        />
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          icon={PiggyBank}
-          label="Total Saved"
-          value={
-            isLoading ? (
-              <span className="inline-block h-7 w-24 animate-pulse rounded bg-muted" />
-            ) : (
-              formatMoney(summary?.totalSaved ?? "0", currency)
-            )
-          }
-        />
-        <KpiCard
-          icon={CalendarDays}
-          label="This Month"
-          change={
-            !isLoading && summary
-              ? `+${formatMoneyShort(summary.monthSaved)}`
-              : undefined
-          }
-          changeTone="positive"
-          value={
-            isLoading ? (
-              <span className="inline-block h-7 w-20 animate-pulse rounded bg-muted" />
-            ) : (
-              formatMoney(summary?.monthSaved ?? "0", currency)
-            )
-          }
-        />
-        <KpiCard
-          icon={Wallet}
-          label="Savings Pockets"
-          value={
-            isLoading ? (
-              <span className="inline-block h-7 w-8 animate-pulse rounded bg-muted" />
-            ) : (
-              String(summary?.pocketCount ?? 0)
-            )
-          }
-        />
-        <KpiCard
-          icon={Wallet}
-          label="Spend&Save"
-          value={
-            isLoading ? (
-              <span className="inline-block h-7 w-16 animate-pulse rounded bg-muted" />
-            ) : spendSaveActive && spendSavePct != null ? (
-              <span className="inline-flex items-center gap-2">
-                {spendSavePct}%
-                <Badge>ACTIVE</Badge>
-              </span>
-            ) : spendSave ? (
-              "Off"
-            ) : (
-              "Not set up"
-            )
-          }
-        />
-      </div>
-
-      {/* Spend&Save status card */}
-      <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-w-lg">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold">{t("save.spendSave")}</h2>
-              <Badge variant={spendSaveActive ? "default" : "secondary"}>
-                {spendSaveActive
-                  ? "ACTIVE"
-                  : spendSave
-                    ? "PAUSED"
-                    : "OFF"}
-              </Badge>
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Automatically save while you spend.
-            </p>
-            {spendSaveActive && spendSavePct != null && spendSavePocket ? (
-              <div className="mt-3 space-y-1 text-sm">
-                <p>
-                  <span className="font-semibold text-foreground">
-                    {spendSavePct}%
-                  </span>{" "}
-                  → {spendSavePocket.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Example: Spend $100 → Save $
-                  {((100 * spendSavePct) / 100).toFixed(2)}
-                </p>
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Choose how much you want to save whenever you spend.
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
+      {isLoading ? (
+        <div className="save-pockets-grid">
+          {[0, 1].map((index) => (
+            <div className="save-pocket save-pocket-skeleton" key={index} />
+          ))}
+        </div>
+      ) : activePockets.length === 0 ? (
+        <PocketsIntro disabled={!isWalletAuthenticated} onStart={() => openCreate("flexible")} />
+      ) : (
+        <section className="save-section">
+          <div className="save-section-head">
+            <h2 className="save-section-title">{t("save.pockets")}</h2>
+            <button
+              className="save-link"
               disabled={!isWalletAuthenticated}
-              onClick={() => setSetupOpen(true)}
-              size="sm"
+              onClick={() => openCreate("flexible")}
               type="button"
-              variant="outline"
             >
-              {spendSave ? "Edit" : "Set up"}
-            </Button>
-            {spendSave ? (
-              spendSaveActive ? (
-                <Button
-                  onClick={() => void handleSpendSaveControl("pause")}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Pause className="mr-1.5 h-3.5 w-3.5" />
-                  Pause
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => void handleSpendSaveControl("resume")}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <Play className="mr-1.5 h-3.5 w-3.5" />
-                  Resume
-                </Button>
-              )
-            ) : null}
-            {spendSave ? (
-              <Button
-                onClick={() => void handleSpendSaveControl("disable")}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                Disable
-              </Button>
-            ) : null}
+              <Plus className="h-4 w-4" /> New pocket
+            </button>
           </div>
-        </div>
-      </section>
-
-      {/* Pockets grid */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">{t("save.pockets")}</h2>
-          {pockets.length > 0 ? (
-            <Button
-              disabled={!isWalletAuthenticated}
-              onClick={() => setCreateOpen(true)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              New pocket
-            </Button>
-          ) : null}
-        </div>
-
-        {isLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {[0, 1, 2].map((i) => (
-              <div
-                className="h-44 animate-pulse rounded-2xl border border-border/60 bg-muted/40"
-                key={i}
-              />
-            ))}
-          </div>
-        ) : pockets.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-card/50 px-6 py-14 text-center">
-            <PiggyBank className="mx-auto h-10 w-10 text-primary" />
-            <h3 className="mt-4 text-lg font-semibold">
-              Your savings journey starts here.
-            </h3>
-            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Create a pocket for anything you’re saving towards: emergency
-              fund, vacation, laptop, rent, or a personal goal.
-            </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-              <Button
-                disabled={!isWalletAuthenticated}
-                onClick={() => setCreateOpen(true)}
-                type="button"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Create your first pocket
-              </Button>
-              <Button
-                disabled={!isWalletAuthenticated}
-                onClick={() => setSetupOpen(true)}
-                type="button"
-                variant="outline"
-              >
-                Learn about Spend&Save
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {pockets.map((pocket) => {
-              const progress = pocketProgress(pocket);
+          <div className="save-pockets-grid">
+            {activePockets.map((pocket) => {
               const lockState = getPocketLockState(pocket);
-              const goalReached =
-                pocket.target_amount_units &&
-                BigInt(pocket.current_balance_units || "0") >=
-                  BigInt(pocket.target_amount_units);
               return (
-                <article
-                  className="group flex flex-col rounded-2xl border border-border/80 bg-card p-4 transition hover:border-primary/30"
+                <PocketCard
+                  disabled={!isWalletAuthenticated}
+                  hidden={hideBalance}
                   key={pocket.id}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-2xl">
-                        {getPocketEmoji(pocket.icon)}
-                      </div>
-                      <div>
-                        <Link
-                          className="font-semibold hover:text-primary"
-                          href={`/save/${pocket.id}`}
-                        >
-                          {pocket.name}
-                        </Link>
-                        <p className="text-xs text-muted-foreground">
-                          {pocket.description || "No goal note"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      {lockState.kind === "fixed" && lockState.locked ? (
-                        <Badge className="bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200">
-                          Locked · {formatLockRemaining(lockState.remainingMs)}
-                        </Badge>
-                      ) : lockState.kind === "fixed" ? (
-                        <Badge variant="secondary">Unlocked</Badge>
-                      ) : (
-                        <Badge variant="outline">Flexible</Badge>
-                      )}
-                      {goalReached ? (
-                        <Badge className="shrink-0">Goal reached!</Badge>
-                      ) : null}
-                    </div>
-                  </div>
+                  onAdd={() => {
+                    setActivePocket(pocket);
+                    setAmountMode("deposit");
+                    setActionError(null);
+                  }}
+                  onArchive={() => void handleArchive(pocket)}
+                  onWithdraw={() => {
+                    if (lockState.locked) {
+                      setError(`“${pocket.name}” is locked until ${formatUnlockDate(lockState.until)}.`);
+                      return;
+                    }
+                    setActivePocket(pocket);
+                    setAmountMode("withdraw");
+                    setActionError(null);
+                  }}
+                  pocket={pocket}
+                />
+              );
+            })}
+          </div>
+        </section>
+      )}
 
-                  <div className="mt-4">
-                    <p className="text-xl font-semibold tracking-tight">
-                      {formatMoney(pocket.current_balance, pocket.currency)}
-                    </p>
-                    {goalReached && pocket.target_amount ? (
-                      <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                        Your {pocket.name} is fully funded.
-                      </p>
+      <SaveWays
+        disabled={!isWalletAuthenticated}
+        onFlexible={() => openCreate("flexible")}
+        onLocked={() => openCreate("fixed")}
+        onSpendSave={() => setSetupOpen(true)}
+        spendSave={spendSave}
+      />
+
+      <div className="save-activity">
+      <PagedActivityBox
+          activeFilter={activityFilter}
+          empty={
+            activityFilter === "ALL"
+              ? "Deposits, withdrawals, and Spend&Save transfers will appear here."
+              : "Nothing matches this filter yet."
+          }
+          filters={[
+            { count: activityCounts.ALL, id: "ALL", label: "All" },
+            {
+              count: activityCounts.SPEND_SAVE,
+              id: "SPEND_SAVE",
+              label: "Spend&Save",
+            },
+            { count: activityCounts.DEPOSIT, id: "DEPOSIT", label: "Deposits" },
+            {
+              count: activityCounts.WITHDRAWAL,
+              id: "WITHDRAWAL",
+              label: "Withdrawals",
+            },
+          ]}
+          items={visibleActivity}
+          onFilterChange={(id) => setActivityFilter(id as SavingsActivityFilter)}
+          title="Savings activity"
+          renderItem={(item) => {
+            const pocket = pockets.find((entry) => entry.id === item.pocketId);
+            const tx = item.transaction;
+            return (
+              <div
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
+                key={item.id}
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    {item.spend
+                      ? `${formatMoneyShort(item.spend.paymentAmount)} spent · ${formatMoneyShort(item.amount)} saved`
+                      : `${item.typeLabel} · ${formatMoney(item.amount, item.currency)}`}
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <Badge
+                      variant={
+                        item.status === "COMPLETED" ? "default" : "secondary"
+                      }
+                    >
+                      {item.status}
+                    </Badge>
+                    {item.spend ? (
+                      <span>
+                        {item.spend.savePercentage}% → {pocket?.name ?? "Pocket"}
+                      </span>
+                    ) : pocket ? (
+                      <span>{pocket.name}</span>
                     ) : null}
-                    {pocket.target_amount ? (
-                      <>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {formatMoneyShort(pocket.current_balance)} /{" "}
-                          {formatMoneyShort(pocket.target_amount)}
-                          {progress != null ? ` · ${progress}% complete` : null}
-                        </p>
-                        <Progress className="mt-2" value={progress ?? 0} />
-                        {pocket.stop_at_target ? (
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            Stops auto-save at target
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            Continues beyond target
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatMoneyShort(pocket.current_balance)} saved · No
-                        target
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      disabled={!isWalletAuthenticated}
-                      onClick={() => {
-                        setActivePocket(pocket);
-                        setAmountMode("deposit");
-                        setActionError(null);
-                      }}
-                      size="sm"
-                      type="button"
+                    <span>{new Date(item.createdAt).toLocaleString()}</span>
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {item.spend?.paymentTxHash ? (
+                    <a
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      href={explorerTxUrl(item.spend.paymentTxHash)}
+                      rel="noreferrer"
+                      target="_blank"
                     >
-                      <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
-                      Add money
-                    </Button>
-                    <Button
-                      disabled={
-                        !isWalletAuthenticated || lockState.locked
-                      }
-                      onClick={() => {
-                        if (lockState.locked) {
-                          setError(
-                            `“${pocket.name}” is locked until ${formatUnlockDate(lockState.until)}.`,
-                          );
-                          return;
-                        }
-                        setActivePocket(pocket);
-                        setAmountMode("withdraw");
-                        setActionError(null);
-                      }}
-                      size="sm"
-                      title={
-                        lockState.locked
-                          ? `Locked until ${formatUnlockDate(lockState.until)}`
-                          : "Withdraw"
-                      }
-                      type="button"
-                      variant="outline"
+                      Payment tx
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                  {item.txHash ? (
+                    <a
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      href={explorerTxUrl(item.txHash)}
+                      rel="noreferrer"
+                      target="_blank"
                     >
-                      {lockState.locked ? (
-                        <LockKeyhole className="mr-1.5 h-3.5 w-3.5" />
-                      ) : (
-                        <ArrowUpFromLine className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      {lockState.locked ? "Locked" : "Withdraw"}
-                    </Button>
-                    <Button asChild size="sm" type="button" variant="ghost">
-                      <Link href={`/save/${pocket.id}`}>Details</Link>
-                    </Button>
+                      View
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                  {tx &&
+                  tx.type === "SPEND_SAVE" &&
+                  tx.status === "COMPLETED" &&
+                  isWalletAuthenticated ? (
                     <Button
-                      disabled={!isWalletAuthenticated}
-                      onClick={() => void handleArchive(pocket)}
+                      disabled={isActing}
+                      onClick={() => void handleReverseSpendSave(tx)}
                       size="sm"
                       type="button"
                       variant="ghost"
                     >
-                      <Archive className="h-3.5 w-3.5" />
+                      Reverse refund
                     </Button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <PagedActivityBox
-        activeFilter={activityFilter}
-        empty={
-          activityFilter === "ALL"
-            ? "Deposits, withdrawals, and Spend&Save transfers will appear here."
-            : "Nothing matches this filter yet."
-        }
-        filters={[
-          { count: activityCounts.ALL, id: "ALL", label: "All" },
-          {
-            count: activityCounts.SPEND_SAVE,
-            id: "SPEND_SAVE",
-            label: "Spend&Save",
-          },
-          { count: activityCounts.DEPOSIT, id: "DEPOSIT", label: "Deposits" },
-          {
-            count: activityCounts.WITHDRAWAL,
-            id: "WITHDRAWAL",
-            label: "Withdrawals",
-          },
-        ]}
-        items={visibleActivity}
-        onFilterChange={(id) => setActivityFilter(id as SavingsActivityFilter)}
-        title="Savings activity"
-        renderItem={(item) => {
-          const pocket = pockets.find((entry) => entry.id === item.pocketId);
-          const tx = item.transaction;
-          return (
-            <div
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm"
-              key={item.id}
-            >
-              <div className="min-w-0">
-                <p className="font-medium">
-                  {item.spend
-                    ? `${formatMoneyShort(item.spend.paymentAmount)} spent · ${formatMoneyShort(item.amount)} saved`
-                    : `${item.typeLabel} · ${formatMoney(item.amount, item.currency)}`}
-                </p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                  <Badge
-                    variant={
-                      item.status === "COMPLETED" ? "default" : "secondary"
-                    }
-                  >
-                    {item.status}
-                  </Badge>
-                  {item.spend ? (
-                    <span>
-                      {item.spend.savePercentage}% → {pocket?.name ?? "Pocket"}
-                    </span>
-                  ) : pocket ? (
-                    <span>{pocket.name}</span>
                   ) : null}
-                  <span>{new Date(item.createdAt).toLocaleString()}</span>
-                </p>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {item.spend?.paymentTxHash ? (
-                  <a
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    href={explorerTxUrl(item.spend.paymentTxHash)}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Payment tx
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                ) : null}
-                {item.txHash ? (
-                  <a
-                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                    href={explorerTxUrl(item.txHash)}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    View
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                ) : null}
-                {tx &&
-                tx.type === "SPEND_SAVE" &&
-                tx.status === "COMPLETED" &&
-                isWalletAuthenticated ? (
-                  <Button
-                    disabled={isActing}
-                    onClick={() => void handleReverseSpendSave(tx)}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    Reverse refund
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          );
-        }}
-      />
+            );
+          }}
+        />
+
+      </div>
+
+      <div className="save-about">
+        <button
+          aria-expanded={disclaimerOpen}
+          className="save-about-toggle"
+          onClick={() => setDisclaimerOpen((open) => !open)}
+          type="button"
+        >
+          <Info className="h-3.5 w-3.5" /> About Save
+        </button>
+        {disclaimerOpen ? <p className="mt-2 leading-5">{SWIFT_SAVE_DISCLAIMER}</p> : null}
+      </div>
 
       <CreatePocketDialog
         circleSocialUuid={circleSocialUuid}
@@ -1464,6 +1186,7 @@ export function SwiftSaveHub() {
         open={createOpen}
         ownerWallet={address}
         currency={currency}
+        initialLockKind={createKind}
       />
 
       <SpendSaveSetupDialog

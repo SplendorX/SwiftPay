@@ -10511,6 +10511,618 @@ html.dark .tx-receipt-status,
   border-radius: var(--swift-bubble-radius) !important;
 }
 
+/* ── Save ───────────────────────────────────────────────────────────────────
+ * A deep-purple balance hero with moving ribbons, an illustrated welcome,
+ * pockets with goal rings, and the ways to save as one tidy list. */
+
+.save-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.1rem;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.save-card {
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  padding: 1rem 1.1rem;
+}
+
+.save-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+}
+
+.save-warning {
+  font-size: 0.875rem;
+  border-color: rgb(217 119 6 / 0.35);
+  background: rgb(217 119 6 / 0.08);
+}
+
+.save-message {
+  padding: 0 0.25rem;
+  font-size: 0.875rem;
+}
+
+.save-message.is-error {
+  color: var(--destructive);
+}
+
+.save-message.is-success {
+  color: #15803d;
+}
+
+.dark .save-message.is-success {
+  color: #4ade80;
+}
+
+/* Hero */
+.save-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.6rem;
+  min-height: 14.5rem;
+  color: #ffffff;
+  background: linear-gradient(150deg, #120a3a 0%, #23125e 45%, #3b1478 100%);
+  box-shadow: 0 24px 60px -32px rgb(35 18 94 / 0.9);
+  isolation: isolate;
+}
+
+.save-hero-waves {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+
+.save-wave {
+  transform-origin: center;
+  animation: save-drift 14s ease-in-out infinite alternate;
+}
+
+.save-wave-2 {
+  animation-duration: 18s;
+  animation-direction: alternate-reverse;
+}
+
+.save-wave-3 {
+  animation-duration: 22s;
+}
+
+@keyframes save-drift {
+  from {
+    transform: translate3d(-8px, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(10px, 6px, 0) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-wave,
+  .save-art-notes,
+  .save-art-piggy {
+    animation: none !important;
+  }
+}
+
+.save-hero-body {
+  position: relative;
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.5rem 1.4rem 1.4rem;
+}
+
+.save-hero-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.72);
+}
+
+.save-hero-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.save-hero-amount {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2.3rem, 9vw, 3.1rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.save-hero-skeleton {
+  display: block;
+  width: 9rem;
+  height: 2.6rem;
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 0.14);
+  animation: insights-pulse 1.2s ease-in-out infinite;
+}
+
+.save-hero-eye {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.12);
+  color: #ffffff;
+  transition: background-color 150ms ease;
+}
+
+.save-hero-eye:hover {
+  background: rgb(255 255 255 / 0.2);
+}
+
+.save-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.save-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: rgb(52 211 153 / 0.2);
+  color: #a7f3d0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.save-hero-chip.is-quiet {
+  background: rgb(255 255 255 / 0.1);
+  color: rgb(255 255 255 / 0.8);
+}
+
+.save-hero-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: fit-content;
+  margin-top: 0.7rem;
+  padding: 0.7rem 1.2rem 0.7rem 0.75rem;
+  border-radius: 0.9rem;
+  background: rgb(15 10 30 / 0.55);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.save-hero-add:hover:not(:disabled) {
+  background: rgb(15 10 30 / 0.75);
+  transform: translateY(-1px);
+}
+
+.save-hero-add:disabled {
+  opacity: 0.55;
+}
+
+.save-hero-add-icon {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #23125e;
+}
+
+/* Empty state */
+.save-intro {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 1.75rem 1rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1.6rem;
+  background:
+    radial-gradient(90% 70% at 50% 100%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 70%),
+    var(--card);
+  text-align: center;
+}
+
+.save-intro-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.save-intro-body {
+  max-width: 26rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+  line-height: 1.55;
+}
+
+.save-pockets-art {
+  width: min(19rem, 80vw);
+  height: auto;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.save-art-notes {
+  transform-origin: 230px 110px;
+  animation: save-fan 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes save-fan {
+  from {
+    transform: rotate(18deg) translateY(16px);
+    opacity: 0;
+  }
+}
+
+.save-art-piggy {
+  transform-origin: 102px 196px;
+  animation: save-bob 3.2s ease-in-out 900ms infinite;
+}
+
+@keyframes save-bob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.save-cta {
+  width: 100%;
+  max-width: 26rem;
+  height: 3.25rem;
+  border-radius: 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Ways to save */
+.save-section {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.save-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.save-section-title {
+  padding: 0 0.25rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.save-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--link);
+}
+
+.save-link:disabled {
+  opacity: 0.5;
+}
+
+.save-ways {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
+.save-way {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  transition: background-color 150ms ease;
+}
+
+.save-way + .save-way {
+  border-top: 1px solid var(--border);
+}
+
+.save-way:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.save-way:disabled {
+  opacity: 0.55;
+}
+
+.save-way-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+}
+
+.save-way-icon.is-mint {
+  background: #c8f1e2;
+  color: #0f5f46;
+}
+
+.save-way-icon.is-lavender {
+  background: #e4dcff;
+  color: #4c1d95;
+}
+
+.save-way-icon.is-amber {
+  background: #fde7b0;
+  color: #7c4a03;
+}
+
+.save-way-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.save-way-body {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.save-pill {
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.save-pill.is-on {
+  background: rgb(22 163 74 / 0.14);
+  color: #15803d;
+}
+
+.dark .save-pill.is-on {
+  color: #4ade80;
+}
+
+/* Spend + Save card */
+.save-spend {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.save-spend.is-active {
+  border-color: color-mix(in oklch, #16a34a 30%, var(--border));
+  background: color-mix(in oklch, #16a34a 5%, var(--card));
+}
+
+.save-spend-dial {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.save-spend-dial svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.save-spend-dial > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.save-ring-track {
+  fill: none;
+  stroke: color-mix(in oklch, var(--primary) 14%, transparent);
+  stroke-width: 5;
+}
+
+.save-ring-fill {
+  fill: none;
+  stroke: var(--primary);
+  stroke-linecap: round;
+  stroke-width: 5;
+  transition: stroke-dasharray 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark .save-ring-fill {
+  stroke: var(--link);
+}
+
+.dark .save-spend.is-active {
+  border-color: rgb(74 222 128 / 0.28);
+  background: color-mix(in oklch, rgb(74 222 128) 5%, var(--card));
+}
+
+.save-spend.is-active .save-ring-fill {
+  stroke: #16a34a;
+}
+
+/* Pockets */
+.save-pockets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: 0.85rem;
+}
+
+.save-pocket {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.save-pocket:hover {
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  box-shadow: 0 14px 30px -24px rgb(59 20 120 / 0.6);
+}
+
+.dark .save-pocket:hover {
+  border-color: color-mix(in oklch, var(--link) 45%, var(--border));
+}
+
+.save-pocket.is-reached {
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgb(22 163 74 / 0.12), transparent 60%),
+    var(--card);
+}
+
+.save-pocket-skeleton {
+  min-height: 12rem;
+  animation: insights-pulse 1.2s ease-in-out infinite;
+}
+
+.save-pocket-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.save-pocket-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.save-pocket-emoji {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--primary) 9%, var(--muted));
+  font-size: 1.5rem;
+}
+
+.save-pocket-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.save-pocket-identity:hover .save-pocket-name {
+  color: var(--link);
+}
+
+.save-pocket-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.save-goal-ring {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.save-goal-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.save-goal-ring > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.save-goal-ring.is-reached .save-ring-fill {
+  stroke: #16a34a;
+}
+
+.save-goal-ring.is-reached > span {
+  color: #16a34a;
+  font-size: 1rem;
+}
+
+.save-pocket-balance {
+  margin-top: 0.5rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.save-pocket-goal {
+  min-height: 1.25rem;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.save-pocket.is-reached .save-pocket-goal {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.dark .save-pocket.is-reached .save-pocket-goal {
+  color: #4ade80;
+}
+
+.save-pocket-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.save-activity {
+  display: grid;
+}
+
+.save-about {
+  padding: 0 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+.save-about-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
 /* ── RecurePay (scheduled payments) ─────────────────────────────────────────
  * A calm flow: an illustrated welcome, a "next payment" hero in the SwiftPay
  * gradient, a timeline of what's coming, then a Kuda-style form and review. */
