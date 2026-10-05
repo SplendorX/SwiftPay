@@ -12,5 +12,6 @@
 /* Circle's confirmation window must take clicks even while a sheet or dialog
  * underneath has made the rest of the page inert. */
 #sdkIframe {
+  z-index: 2147483647 !important;
   pointer-events: auto !important;
 }

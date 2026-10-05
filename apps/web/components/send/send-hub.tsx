@@ -824,9 +824,15 @@ function ChatView(
       setAwaitingWallet(false);
     }
   }, [busy]);
+  // The sheet closes while the wallet confirms (on a phone it would cover
+  // Circle's window); it comes back with the result.
   useEffect(() => {
-    if (transactionConfirmed || paymentError) setAwaitingWallet(false);
-  }, [paymentError, transactionConfirmed]);
+    if (!awaitingWallet) return;
+    if (transactionConfirmed || paymentError) {
+      setAwaitingWallet(false);
+      onConfirmOpenChange(true);
+    }
+  }, [awaitingWallet, onConfirmOpenChange, paymentError, transactionConfirmed]);
   const walletLock = busy || awaitingWallet;
   const needsSignIn = isConnected && !isWalletAuthenticated && !isEmbeddedWalletMode;
 
@@ -932,11 +938,18 @@ function ChatView(
         )}
       </div>
 
+      {walletLock && !confirmOpen ? (
+        <p className="sx-pending" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Confirm in your wallet to send {formatAmount(paymentAmount)} {selectedToken}…
+        </p>
+      ) : null}
+
       {/* One button; the amount slides up to be filled in. */}
       <div className="sx-dock">
         <Button
           className="sx-dock-cta"
-          disabled={!isRecipientValid}
+          disabled={!isRecipientValid || walletLock}
           onClick={() => setAmountOpen(true)}
           type="button"
         >
@@ -1199,6 +1212,7 @@ function ChatView(
                     disabled={busy || !canSubmitPayment}
                     onClick={() => {
                       setAwaitingWallet(true);
+                      onConfirmOpenChange(false);
                       onSubmit();
                     }}
                   >

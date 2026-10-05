@@ -780,3 +780,17 @@
 .sx-amount-sheet .sx-amount {
   font-size: 2.2rem;
 }
+
+/* While the wallet confirms: a quiet line above the Send money button. */
+.sx-pending {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--primary) 9%, var(--card));
+  font-size: 0.85rem;
+  font-weight: 600;
+}
