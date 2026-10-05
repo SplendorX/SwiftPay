@@ -1,7 +1,7 @@
 // Server-only. A wallet's USDC/EURC history from the Arc RPC, kept in
 // wallet_transfer_history so a page load only reads what is new (see
 // packages/database/supabase/wallet-transfer-history.sql).
-import type { Address, Hash } from "viem";
+import { erc20Abi, zeroAddress, type Address, type Hash } from "viem";
 
 import {
   createArcRpcClient,
@@ -11,7 +11,7 @@ import {
 import { getPlatformFeeRecipientAddresses, type WalletTransfer } from "@/lib/arcscan-history";
 import { arcChain } from "@/lib/chains";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import type { ArcTokenSymbol } from "@/lib/tokens";
+import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 const historyTable = "wallet_transfer_history";
 const cursorTable = "wallet_history_cursors";
@@ -23,13 +23,6 @@ const HISTORY_DEPTH_BLOCKS = 15_552_000n;
 const FIRST_READ_BLOCKS = 21_600n;
 /** Most new blocks one load reads (~6 hours); a longer gap catches up over loads. */
 const MAX_FORWARD_BLOCKS = 43_200n;
-/**
- * How much older history one load fills. Each 5,000 blocks costs two RPC
- * queries (in and out), so the default stays gentle on the shared public RPC;
- * raise it with a dedicated ARC_SERVER_RPC_URL.
- */
-const BACKFILL_BLOCKS =
-  BigInt(Math.max(1, Number(process.env.ARC_HISTORY_BACKFILL_CHUNKS ?? "6") || 6)) * 5_000n;
 /** Skip a wallet read this recently (another tab, the overview). */
 const MIN_SYNC_INTERVAL_MS = 15_000;
 /** Rows returned, newest first, like the explorer's list. */
@@ -154,16 +147,90 @@ export async function syncWalletHistory(walletInput: string) {
       await storeTransfers(wallet, await readRange(wallet, { fromBlock, toBlock }, client));
       next.newestBlock = toBlock;
     }
-    // Backward: one more slice of the past, down to the floor.
-    if (cursor.oldestBlock > next.floorBlock) {
-      const toBlock = cursor.oldestBlock - 1n;
-      const fromBlock =
-        toBlock - next.floorBlock + 1n > BACKFILL_BLOCKS ? toBlock - BACKFILL_BLOCKS + 1n : next.floorBlock;
-      await storeTransfers(wallet, await readRange(wallet, { fromBlock, toBlock }, client));
-      next.oldestBlock = fromBlock;
-    }
+  }
+  // Backward: as much of the past as the time budget allows, down to the floor.
+  if (next.oldestBlock > next.floorBlock) {
+    next.oldestBlock = await backfill(wallet, next, client);
   }
   await writeCursor(wallet, next);
+}
+
+/** How long one load spends filling the past. */
+const BACKFILL_BUDGET_MS = 7_000;
+/** The widest span checked in one step; a quiet wallet skips this much at once. */
+const MAX_SKIP_BLOCKS = 2_000_000n;
+/** Below this, a span with movement is read with getLogs. */
+const SCAN_BLOCKS = 9_999n;
+
+type BalanceReader = ReturnType<typeof createArcRpcClient>;
+
+/**
+ * The wallet's USDC and EURC balances and transaction count at a block.
+ * Equal at both ends of a span means no transfer happened in between (bar an
+ * exact in-and-out of the same amount), so that span needs no log reads.
+ */
+async function walletStateAt(client: BalanceReader, wallet: Address, block: bigint, cache: Map<bigint, string>) {
+  const known = cache.get(block);
+  if (known) return known;
+  const eurc = arcTokens.EURC.address;
+  // One at a time: the public RPC rate-limits bursts.
+  const usdc = await client.getBalance({ address: wallet, blockNumber: block });
+  const nonce = await client.getTransactionCount({ address: wallet, blockNumber: block });
+  const eurcBalance =
+    eurc === zeroAddress
+      ? 0n
+      : await client.readContract({ abi: erc20Abi, address: eurc, args: [wallet], blockNumber: block, functionName: "balanceOf" });
+  const state = `${usdc}:${eurcBalance}:${nonce}`;
+  cache.set(block, state);
+  return state;
+}
+
+/**
+ * Fills history below `oldestBlock`, newest first, within the time budget.
+ * The public RPC allows only 10,000 blocks per log query (about 3,000 queries
+ * for 90 days), so spans where the wallet's balances didn't change are
+ * skipped whole and only spans with movement are read. Returns the new
+ * oldest block: everything from it upward is stored.
+ */
+async function backfill(wallet: string, cursor: Omit<Cursor, "updatedAt">, client: BalanceReader) {
+  const deadline = Date.now() + BACKFILL_BUDGET_MS;
+  const address = wallet as Address;
+  const states = new Map<bigint, string>();
+  let oldest = cursor.oldestBlock;
+  let span = MAX_SKIP_BLOCKS;
+  while (oldest > cursor.floorBlock && Date.now() < deadline) {
+    try {
+      ({ oldest, span } = await backfillStep(wallet, address, cursor.floorBlock, oldest, span, client, states));
+    } catch (error) {
+      // Busy RPC: keep what's done; the next load carries on from here.
+      console.warn("[wallet-history] backfill paused", wallet, error instanceof Error ? error.message : error);
+      break;
+    }
+  }
+  return oldest;
+}
+
+async function backfillStep(
+  wallet: string,
+  address: Address,
+  floor: bigint,
+  oldest: bigint,
+  span: bigint,
+  client: BalanceReader,
+  states: Map<bigint, string>,
+): Promise<{ oldest: bigint; span: bigint }> {
+  {
+    const hi = oldest - 1n;
+    const lo = hi - span + 1n > floor ? hi - span + 1n : floor;
+    if (hi - lo + 1n <= SCAN_BLOCKS) {
+      await storeTransfers(wallet, await readRange(wallet, { fromBlock: lo, toBlock: hi }, client));
+      return { oldest: lo, span: MAX_SKIP_BLOCKS };
+    }
+    const before = lo === 0n ? "0:0:0" : await walletStateAt(client, address, lo - 1n, states);
+    const after = await walletStateAt(client, address, hi, states);
+    // Unchanged: skip the span whole. Changed: look closer at the newer half.
+    return before === after ? { oldest: lo, span: MAX_SKIP_BLOCKS } : { oldest, span: span / 2n };
+  }
 }
 
 /** Known SwiftPay contracts, labelled "App action" on receipts like the explorer did. */
