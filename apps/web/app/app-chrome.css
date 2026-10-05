@@ -1,0 +1,10 @@
+/* App chrome tweaks. Its own file (not globals.css), so the build cache can't
+ * serve a stale copy. */
+
+/* Phones hide the top bar's theme switch for room; the copy in the profile
+ * menu (which sits inside the top bar) must still show. */
+@media (max-width: 639px) {
+  .app-topbar .profile-theme-row [aria-label] {
+    display: inline-flex;
+  }
+}

@@ -11,6 +11,7 @@
 .pr-dock-cta,
 .req-cta,
 .ref-cta,
-.sx-confirm-cta {
+.sx-confirm-cta,
+.sx-dock-cta {
   border-radius: var(--swift-bubble-radius) !important;
 }

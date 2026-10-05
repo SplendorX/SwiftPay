@@ -770,6 +770,7 @@ function ChatView(
   } = props;
   const side = useSheetSide();
   const logRef = useRef<HTMLDivElement>(null);
+  const [amountOpen, setAmountOpen] = useState(false);
   // Every bubble, sent or received, opens its receipt.
   const { modals: receiptModals, openerFor } = useTransactionReceipts(walletAddress || null);
   const [touch, setTouch] = useState(false);
@@ -857,7 +858,7 @@ function ChatView(
           <div className="sx-center sx-log-empty">
             <Avatar name={recipientName} size="lg" />
             <p>
-              Your first payment to <strong>{recipientName}</strong>. Enter an amount below.
+              Your first payment to <strong>{recipientName}</strong>. Tap Send money to start.
             </p>
           </div>
         ) : (
@@ -894,8 +895,28 @@ function ChatView(
         )}
       </div>
 
-      {/* Composer */}
-      <div className="sx-composer">
+      {/* One button; the amount slides up to be filled in. */}
+      <div className="sx-dock">
+        <Button
+          className="sx-dock-cta"
+          disabled={!isRecipientValid}
+          onClick={() => setAmountOpen(true)}
+          type="button"
+        >
+          Send money
+        </Button>
+      </div>
+
+      <Sheet onOpenChange={setAmountOpen} open={amountOpen}>
+        <SheetContent
+          className={cn("gap-0 p-0", side === "bottom" ? "max-h-[92dvh] rounded-t-[1.75rem] border-t-0" : "w-full sm:max-w-md")}
+          showCloseButton={false}
+          side={side}
+        >
+          {side === "bottom" ? <SheetGrabber /> : null}
+          <div className="sx-sheet sx-amount-sheet">
+            <SheetTitle className="text-center text-lg font-bold">Send to {recipientName}</SheetTitle>
+            <SheetDescription className="sr-only">Enter the amount and a note</SheetDescription>
         <div className="sx-balance">
           {selectedToken} balance: {hideBalance ? "••••" : balance !== undefined ? formatAmount(balance) : "—"}
         </div>
@@ -938,7 +959,10 @@ function ChatView(
             aria-label="Review payment"
             className="sx-send"
             disabled={!isRecipientValid || !hasAmount}
-            onClick={() => onConfirmOpenChange(true)}
+            onClick={() => {
+              setAmountOpen(false);
+              onConfirmOpenChange(true);
+            }}
             type="button"
           >
             <Send className="h-5 w-5" />
@@ -958,7 +982,9 @@ function ChatView(
             ))}
           </div>
         ) : null}
-      </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {receiptModals}
 

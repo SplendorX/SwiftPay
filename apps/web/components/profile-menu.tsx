@@ -8,6 +8,7 @@ import {
   UserCircle,
   Wallet,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -593,6 +594,11 @@ export function ProfileMenu({
           </div>
 
           <div className="mt-3 grid gap-2 text-sm">
+            {/* Phones: the top bar has no room for the theme switch, so it lives here. */}
+            <div className="profile-theme-row flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 sm:hidden">
+              <span className="font-semibold text-muted-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
             {/* One wallet per profile: only the wallet this session runs on. */}
             {activeLogin ? (
             <div className="rounded-lg border border-border px-3 py-3">

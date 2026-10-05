@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { CommandPaletteTrigger } from "@/components/command-palette";
@@ -17,8 +18,11 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({ actions, className }: AppHeaderProps) {
+  // Phones: only the dashboard keeps the top bar. Every other page draws its
+  // own header with a back button, so it gets the full screen.
+  const onDashboard = usePathname() === "/dashboard";
   return (
-    <header className={cn("app-topbar w-full min-w-0", className)}>
+    <header className={cn("app-topbar w-full min-w-0", !onDashboard && "max-md:hidden", className)}>
       <div className="app-topbar-inner">
         {/* Phones and tablets: the menu button leads, and the brand moves into
             the drawer. Desktop keeps the logo here. */}
