@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   Settings,
+  Store,
   TrendingUp,
   UsersRound,
   type LucideIcon,
@@ -18,6 +19,7 @@ import { usePathname } from "next/navigation";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
+import { checkoutEnabled } from "@/lib/checkout/flag";
 import { navLabelKeys } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +36,10 @@ export const platformNavItems = [
   },
   { href: "/business", label: "Overview", icon: Briefcase, businessOnly: true },
   { href: "/business/invoices", label: "Invoices", icon: FileText, businessOnly: true },
+  // Checkout appears once NEXT_PUBLIC_CHECKOUT_ENABLED is on.
+  ...(checkoutEnabled
+    ? [{ href: "/business/checkout", label: "Checkout", icon: Store, businessOnly: true }]
+    : []),
   {
     href: "/business/payroll",
     label: "Payroll",

@@ -998,28 +998,28 @@ export function SwiftCircleHub() {
       >
         <TabsContent value="home">
           <div className="sc-room-grid">
-            <section className="sc-stat">
-              <p className="kpi-label">Circle funds</p>
-              <div className="mt-4">
-                <button className="sc-stat w-full text-left" onClick={() => setTab("save")} type="button">
-                  <p className="kpi-label">Circle Save</p>
-                  <b>{formatUsd(save?.balance ?? "0")}</b>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {save?.goal_name || "Shared savings"}
-                    {savePockets.length
-                      ? ` · ${savePockets.filter((pocket) => pocket.status === "active").length} pockets`
-                      : ""}
-                  </p>
+            <section className="cr-hero">
+              <span aria-hidden className="cr-hero-glow" />
+              <button className="cr-hero-main" onClick={() => setTab("save")} type="button">
+                <span className="cr-hero-label">Circle Save</span>
+                <span className="cr-hero-amount">{formatUsd(save?.balance ?? "0")}</span>
+                <span className="cr-hero-sub">
+                  {save?.goal_name || "Shared savings"}
+                  {savePockets.length
+                    ? ` · ${savePockets.filter((pocket) => pocket.status === "active").length} pockets`
+                    : ""}
+                </span>
+              </button>
+              <div className="cr-hero-actions">
+                <button className="cr-hero-button is-solid" onClick={() => setTab("pay")} type="button">
+                  Send money
                 </button>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button onClick={() => setTab("pay")}>Send money</Button>
-                <Button onClick={() => setTab("requests")} variant="outline">
+                <button className="cr-hero-button" onClick={() => setTab("requests")} type="button">
                   Request
-                </Button>
-                <Button onClick={() => setTab("chat")} variant="outline">
+                </button>
+                <button className="cr-hero-button" onClick={() => setTab("chat")} type="button">
                   Open chat
-                </Button>
+                </button>
               </div>
             </section>
             <section className="sc-stat">
