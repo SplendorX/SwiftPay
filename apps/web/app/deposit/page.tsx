@@ -10,7 +10,8 @@ export default function DepositPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        backHref="/dashboard"
+        // The hub draws its own bar with a back button.
+        hideHeader
         subtitle="Get paid, or bring funds onto Arc"
         title="Deposit"
       >

@@ -54,7 +54,7 @@ export function BulkpayBar({
           <ArrowLeft className="h-5 w-5" />
         </button>
       ) : (
-        <Link aria-label="Back to the dashboard" className="bulkpay-round" href={backHref ?? "/dashboard"}>
+        <Link aria-label="Back to Send" className="bulkpay-round" href={backHref ?? "/send"}>
           <ArrowLeft className="h-5 w-5" />
         </Link>
       )}

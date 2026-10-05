@@ -1,0 +1,234 @@
+/* Add money (Deposit). Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.dep-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.1rem;
+  width: 100%;
+  max-width: 36rem;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.dep-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.dep-title {
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dep-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.dep-round:hover {
+  background: var(--muted);
+}
+
+/* Account hero */
+.dep-hero {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  overflow: hidden;
+  padding: 1.2rem 1.25rem 1.1rem;
+  border-radius: 1.4rem;
+  color: #ffffff;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+}
+
+.dep-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.dep-hero-label {
+  position: relative;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.88;
+}
+
+.dep-hero-name {
+  position: relative;
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.7rem, 7vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.dep-hero-wallet,
+.dep-hero-sub {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  opacity: 0.88;
+}
+
+.dep-hero-actions {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+}
+
+.dep-hero-action {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.dep-hero-action > span {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.16);
+  transition: background-color 150ms ease;
+}
+
+.dep-hero-action:hover > span {
+  background: rgb(255 255 255 / 0.28);
+}
+
+/* Methods */
+.dep-section {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.dep-section-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.dep-card {
+  padding: 0.2rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  background: var(--card);
+}
+
+.dep-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.dep-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 0;
+  text-align: left;
+}
+
+.dep-row.is-soon {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.dep-row-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.8rem;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+}
+
+.dark .dep-row-icon {
+  color: var(--link);
+}
+
+.dep-row-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.15rem;
+}
+
+.dep-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.97rem;
+  font-weight: 700;
+}
+
+.dep-row-sub {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.dep-soon {
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.35rem;
+  background: var(--muted);
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.dep-note {
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+/* The bridge and bank panels inside the flow */
+.dep-panel .section-panel {
+  border-radius: 1.25rem;
+}
+
+.dep-sheet {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+}

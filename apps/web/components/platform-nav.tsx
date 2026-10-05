@@ -2,14 +2,12 @@
 
 import {
   Banknote,
-  CalendarClock,
   Gift,
   ChartNoAxesColumn,
   LayoutDashboard,
   PiggyBank,
   Settings,
   TrendingUp,
-  Users,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
@@ -41,8 +39,6 @@ export const platformNavItems = [
   { href: "/circle", label: "Circle", icon: UsersRound },
   { href: "/save", label: "Save", icon: PiggyBank },
   { href: "/earn", label: "Earn", icon: TrendingUp },
-  { href: "/bulkpay", label: "BulkPay", icon: Users },
-  { href: "/recurepay", label: "RecurePay", icon: CalendarClock },
   { href: "/insights", label: "Insights", icon: ChartNoAxesColumn },
   { href: "/referral", label: "Invite & Earn", icon: Gift },
   { href: "/settings", label: "Settings", icon: Settings },

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Send, FileText, ArrowDownLeft, Users, Layers, Store } from "lucide-react";
+import { Send, FileText, ArrowDownLeft, Users, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { checkoutEnabled } from "@/lib/checkout/flag";
 
@@ -66,16 +66,6 @@ export function BusinessQuickActions() {
         </Link>
       </Button>
 
-      <Button
-        asChild
-        variant="outline"
-        className="h-11 rounded-full border-border bg-card px-4.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-      >
-        <Link href="/bulkpay" className="flex items-center gap-2">
-          <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span>BulkPay</span>
-        </Link>
-      </Button>
     </div>
   );
 }
