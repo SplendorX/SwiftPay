@@ -39,6 +39,7 @@ import { useAccountTransactions } from "@/lib/activity/use-account-transactions"
 import type { BeneficiaryRecord } from "@/lib/beneficiaries";
 import { searchPeople } from "@/lib/business/client";
 import type { DirectoryHit } from "@/lib/business/types";
+import { fetchProfile } from "@/lib/profile";
 import { formatUsernameLabel } from "@/lib/profile-utils";
 import { calculateTransactionCashback } from "@/lib/referral/cashback-service";
 import { arcTokenSymbols } from "@/lib/tokens";
@@ -181,6 +182,22 @@ export function SendHub(props: SendHubProps) {
   const navigated = useRef(false);
 
   const { items, titleFor } = useAccountTransactions(walletAddress || null, transactionHistoryDays, refreshKey);
+
+  // The recipient's profile photo, when they have a SwiftPay profile.
+  const [recipientAvatar, setRecipientAvatar] = useState<string | null>(null);
+  useEffect(() => {
+    setRecipientAvatar(null);
+    if (!isRecipientValid || !trimmedRecipientAddress) return;
+    let cancelled = false;
+    void fetchProfile(trimmedRecipientAddress)
+      .then((profile) => {
+        if (!cancelled) setRecipientAvatar(profile?.avatar_url ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isRecipientValid, trimmedRecipientAddress]);
 
   // A link that already names who to pay (?to=…, an invoice, ALLIE) opens the chat.
   useEffect(() => {
@@ -601,6 +618,7 @@ export function SendHub(props: SendHubProps) {
       paymentError={paymentError}
       paymentNarration={paymentNarration}
       primaryButtonText={primaryButtonText}
+      recipientAvatar={recipientAvatar}
       recipientName={recipientName}
       recurring={recurring}
       recurringEnabled={recurringEnabled}
@@ -707,6 +725,7 @@ function ChatView(
     onBack: () => void;
     onConfirmOpenChange: (open: boolean) => void;
     onSaveOpenChange: (open: boolean) => void;
+    recipientAvatar: string | null;
     recipientName: string;
     saveOpen: boolean;
     treasuryBanner: ReactNode;
@@ -751,6 +770,7 @@ function ChatView(
     paymentError,
     paymentNarration,
     primaryButtonText,
+    recipientAvatar,
     recipientName,
     recipientResolveError,
     recurring,
@@ -791,6 +811,23 @@ function ChatView(
   const hasAmount = paymentAmountUnits !== null && paymentAmountUnits > BigInt(0);
   const balance = availableBalances?.find((entry) => entry.symbol === selectedToken)?.amount;
   const busy = isSubmitting || isSwitchingChain;
+  // From the Send tap until the wallet answers, the confirm sheet must not
+  // hold the page modal: Circle's confirmation window opens on top of it and
+  // needs clicks and typing.
+  const [awaitingWallet, setAwaitingWallet] = useState(false);
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (busy) {
+      wasBusy.current = true;
+    } else if (wasBusy.current) {
+      wasBusy.current = false;
+      setAwaitingWallet(false);
+    }
+  }, [busy]);
+  useEffect(() => {
+    if (transactionConfirmed || paymentError) setAwaitingWallet(false);
+  }, [paymentError, transactionConfirmed]);
+  const walletLock = busy || awaitingWallet;
   const needsSignIn = isConnected && !isWalletAuthenticated && !isEmbeddedWalletMode;
 
   function press(key: string) {
@@ -821,7 +858,7 @@ function ChatView(
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="sx-chat-who">
-          <Avatar name={recipientName} size="sm" />
+          <Avatar name={recipientName} size="sm" url={recipientAvatar} />
           <span className="sx-chat-name">{recipientName}</span>
           {isRecipientValid ? (
             <span className="sx-chat-wallet">{shortenAddress(trimmedRecipientAddress)}</span>
@@ -856,7 +893,7 @@ function ChatView(
           </div>
         ) : bubbles.length === 0 ? (
           <div className="sx-center sx-log-empty">
-            <Avatar name={recipientName} size="lg" />
+            <Avatar name={recipientName} size="lg" url={recipientAvatar} />
             <p>
               Your first payment to <strong>{recipientName}</strong>. Tap Send money to start.
             </p>
@@ -1026,8 +1063,9 @@ function ChatView(
 
       {/* Confirm and send */}
       <Sheet
+        modal={!walletLock}
         onOpenChange={(next) => {
-          if (busy) return;
+          if (walletLock) return;
           if (!next && transactionConfirmed) finish();
           else onConfirmOpenChange(next);
         }}
@@ -1035,6 +1073,12 @@ function ChatView(
       >
         <SheetContent
           className={cn("gap-0 p-0", side === "bottom" ? "max-h-[92dvh] rounded-t-[1.75rem] border-t-0" : "w-full sm:max-w-md")}
+          onFocusOutside={(event) => {
+            if (walletLock) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (walletLock) event.preventDefault();
+          }}
           showCloseButton={false}
           side={side}
         >
@@ -1067,7 +1111,7 @@ function ChatView(
             ) : (
               <>
                 <div className="sx-confirm-head">
-                  <Avatar name={recipientName} />
+                  <Avatar name={recipientName} url={recipientAvatar} />
                   <div className="min-w-0">
                     <SheetTitle className="truncate text-base font-bold">{recipientName}</SheetTitle>
                     <SheetDescription className="truncate font-mono text-xs text-muted-foreground">
@@ -1153,7 +1197,10 @@ function ChatView(
                   <Button
                     className="sx-confirm-cta"
                     disabled={busy || !canSubmitPayment}
-                    onClick={() => onSubmit()}
+                    onClick={() => {
+                      setAwaitingWallet(true);
+                      onSubmit();
+                    }}
                   >
                     {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                     {busy ? "Sending…" : recurringEnabled ? primaryButtonText : `Send ${formatAmount(paymentAmount)} ${selectedToken}`}

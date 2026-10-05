@@ -8,3 +8,9 @@
     display: inline-flex;
   }
 }
+
+/* Circle's confirmation window must take clicks even while a sheet or dialog
+ * underneath has made the rest of the page inert. */
+#sdkIframe {
+  pointer-events: auto !important;
+}
