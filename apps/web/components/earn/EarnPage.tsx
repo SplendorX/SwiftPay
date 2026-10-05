@@ -1,45 +1,33 @@
 "use client";
 
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  LayoutGrid,
-  PieChart,
-  Repeat,
-  Wallet,
-} from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AutoDepositPanel } from "@/components/earn/auto-deposit-panel";
 import { EarnDeposit } from "@/components/earn/EarnDeposit";
-import { EarnPosition } from "@/components/earn/EarnPosition";
-import { EarnVaultList } from "@/components/earn/EarnVaultList";
+import {
+  AutomateCard,
+  EarnFacts,
+  EarnHero,
+  EarnPositionFacts,
+  EarnSheet,
+  SelectedVaultCard,
+  VaultGrid,
+} from "@/components/earn/earn-views";
 import { EarnWithdraw } from "@/components/earn/EarnWithdraw";
+import { useEarnPosition } from "@/components/earn/use-earn-position";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { useEarnVaults, useSelectedEarnVault } from "@/hooks/useEarnVaults";
-import { formatApy, vaultName } from "@/lib/earn/display";
+import { vaultName } from "@/lib/earn/display";
+import { useAutoDeposit } from "@/lib/earn/use-auto-deposit";
 import { useEarnWallet } from "@/lib/earn/use-earn-wallet";
-import type { EarnTab } from "@/lib/earn/types";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
-import { cn } from "@/lib/utils";
 
-const tabs: Array<{ icon: typeof LayoutGrid; id: EarnTab; label: string }> = [
-  { icon: LayoutGrid, id: "vaults", label: "Vaults" },
-  { icon: PieChart, id: "position", label: "Position" },
-  { icon: ArrowDownToLine, id: "deposit", label: "Deposit" },
-  { icon: ArrowUpFromLine, id: "withdraw", label: "Withdraw" },
-  { icon: Repeat, id: "automate", label: "Automate" },
-];
-
-const PANEL_TITLES: Partial<Record<EarnTab, string>> = {
-  automate: "Automatic deposits",
-  deposit: "Deposit USDC",
-  withdraw: "Withdraw USDC",
-};
+type EarnSheetName = "deposit" | "withdraw" | "vaults" | "automate";
 
 export function EarnPage() {
   const searchParams = useSearchParams();
@@ -48,202 +36,179 @@ export function EarnPage() {
   // Google sessions sign with their Circle wallet, everyone else with theirs.
   const earnWallet = useEarnWallet();
   const { selectVault, vaultAddress } = useSelectedEarnVault();
-  // ALLIE's handoff names the tab "intent"; older links use "action".
+  const walletAddress = earnWallet.address ?? address;
+  // ALLIE's handoff names the action "intent"; older links use "action".
   const initialAction = searchParams.get("action") ?? searchParams.get("intent");
   const linkAmount = searchParams.get("amount")?.trim() ?? "";
   const initialAmount = /^\d+(\.\d+)?$/.test(linkAmount) ? linkAmount : "";
-  const [tab, setTab] = useState<EarnTab>(() => {
-    if (initialAction === "deposit") return "deposit";
-    if (initialAction === "withdraw") return "withdraw";
-    if (initialAction === "automate") return "automate";
-    return "vaults";
-  });
+  const [sheet, setSheet] = useState<EarnSheetName | null>(null);
 
   useEffect(() => {
-    if (
-      initialAction === "deposit" ||
-      initialAction === "withdraw" ||
-      initialAction === "automate"
-    ) {
-      setTab(initialAction);
+    if (initialAction === "deposit" || initialAction === "withdraw" || initialAction === "automate") {
+      setSheet(initialAction);
     }
   }, [initialAction]);
 
   const selectedVault = useMemo(
     () =>
       vaults.find(
-        (vault) =>
-          vaultAddress &&
-          vault.vaultAddress.toLowerCase() === vaultAddress.toLowerCase(),
+        (vault) => vaultAddress && vault.vaultAddress.toLowerCase() === vaultAddress.toLowerCase(),
       ) ?? null,
     [vaultAddress, vaults],
   );
 
-  const topApy = useMemo(() => {
+  const bestApy = useMemo(() => {
     const rates = vaults
       .map((vault) => vault.currentApy)
       .filter((rate): rate is number => typeof rate === "number");
     return rates.length > 0 ? Math.max(...rates) : null;
   }, [vaults]);
 
+  const { loading: positionLoading, position } = useEarnPosition({
+    connectedAddress: walletAddress,
+    currentChainId: earnWallet.currentChainId,
+    resolveProvider: earnWallet.resolveProvider,
+    vaultAddress,
+  });
+
+  const automation = useAutoDeposit({ circleSocialUuid, walletAddress });
+
+  /** Picking a vault goes straight on to depositing into it. */
   function handleSelectVault(nextAddress: string) {
     selectVault(nextAddress);
-    setTab("deposit");
+    setSheet(isConnected ? "deposit" : null);
   }
 
-  const walletLabel =
-    earnWallet.kind === "circle"
-      ? "SwiftPay wallet"
-      : earnWallet.kind === "external"
-        ? "Connected wallet"
-        : null;
-
-  const isPanelTab =
-    tab === "deposit" || tab === "withdraw" || tab === "automate";
+  const vaultSheetTitle = selectedVault ? `Into ${vaultName(selectedVault)}` : undefined;
 
   return (
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The hero leads; skip the frame's title.
+        hideHeader
         subtitle="Put your idle USDC to work while keeping your funds accessible."
         title="Earn"
       >
-        <div className="earn-page">
-          <section className="earn-headline">
-            <div className="earn-headline-main">
-              <p className="earn-kicker">Earn on idle USDC</p>
-              <h2 className="earn-headline-title">
-                {selectedVault ? vaultName(selectedVault) : "Choose a vault"}
-              </h2>
-              <p className="earn-headline-sub">
-                Withdraw any time. No lock-up, no notice period.
-              </p>
-            </div>
-            <div className="earn-headline-stats">
-              <div className="earn-headline-stat">
-                <span className="earn-headline-stat-label">
-                  {selectedVault ? "Selected APY" : "Best APY"}
-                </span>
-                <span className="earn-headline-stat-value">
-                  {formatApy(selectedVault?.currentApy ?? topApy) ?? "—"}
-                </span>
-              </div>
-              <div className="earn-headline-stat">
-                <span className="earn-headline-stat-label">Vaults</span>
-                <span className="earn-headline-stat-value">
-                  {loading ? "…" : vaults.length}
-                </span>
-              </div>
-              {walletLabel ? (
-                <div className="earn-headline-stat">
-                  <span className="earn-headline-stat-label">Wallet</span>
-                  <span className="earn-headline-stat-value earn-headline-stat-sm">
-                    {walletLabel}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          </section>
+        <div className="earn-shell">
+          <header className="earn-bar">
+            <h1>Earn</h1>
+          </header>
+
+          <EarnHero
+            bestApy={bestApy}
+            canTransact={isConnected}
+            connected={isConnected}
+            loadingPosition={positionLoading}
+            onDeposit={() => setSheet("deposit")}
+            onPickVault={() => setSheet("vaults")}
+            onWithdraw={() => setSheet("withdraw")}
+            position={position}
+            vault={selectedVault}
+          />
 
           {!isConnected ? (
-            <div className="earn-connect-hint">
-              <Wallet className="h-5 w-5" />
-              <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p>Connect a wallet to deposit, view your position, or withdraw.</p>
-                <WalletConnectButton />
-              </div>
+            <div className="earn-card earn-connect">
+              <Wallet className="h-5 w-5 shrink-0 text-primary" />
+              <p className="min-w-0 flex-1 text-sm">Connect a wallet to deposit, see your balance or withdraw.</p>
+              <WalletConnectButton />
             </div>
           ) : null}
 
-          <div aria-label="Earn" className="earn-tabs" role="tablist">
-            {tabs.map((item) => {
-              const active = tab === item.id;
-              const Icon = item.icon;
-              return (
-                <button
-                  aria-selected={active}
-                  className={cn("earn-tab", active && "is-active")}
-                  key={item.id}
-                  onClick={() => setTab(item.id)}
-                  role="tab"
-                  type="button"
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
-                  {item.id === "automate" ? (
-                    <span className="earn-tab-badge">Premium</span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+          {selectedVault ? <SelectedVaultCard onChange={() => setSheet("vaults")} vault={selectedVault} /> : null}
 
-          {tab === "vaults" ? (
-            <EarnVaultList
-              error={error}
-              loading={loading}
-              onSelect={handleSelectVault}
-              selectedVaultAddress={vaultAddress}
-              vaults={vaults}
+          <EarnPositionFacts position={position} />
+
+          {isConnected ? (
+            <AutomateCard
+              expiresAt={automation.expiresAt ?? null}
+              loading={automation.loading && !automation.rule}
+              onOpen={() => setSheet("automate")}
+              rule={automation.rule ?? null}
+              unlockCost={automation.unlockCost}
+              unlocked={automation.unlocked}
             />
           ) : null}
 
-          {tab === "position" ? (
-            <EarnPosition
-              connectedAddress={earnWallet.address ?? address}
+          <section className="earn-section">
+            <div className="earn-section-head">
+              <h2>Vaults</h2>
+              <span>{loading ? "" : `${vaults.length} on Arc`}</span>
+            </div>
+            {loading ? (
+              <div className="earn-card earn-quiet">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading vaults…
+              </div>
+            ) : error ? (
+              <p className="earn-error">{error}</p>
+            ) : vaults.length === 0 ? (
+              <div className="earn-card earn-quiet">No Earn vaults are available on Arc right now.</div>
+            ) : (
+              <VaultGrid onSelect={handleSelectVault} selected={vaultAddress} vaults={vaults} />
+            )}
+          </section>
+
+          <EarnFacts />
+
+          <EarnSheet
+            description={vaultSheetTitle}
+            onClose={() => setSheet(null)}
+            open={sheet === "deposit"}
+            title="Deposit USDC"
+          >
+            <EarnDeposit
+              connectedAddress={walletAddress}
               currentChainId={earnWallet.currentChainId}
+              initialAmount={initialAction === "deposit" ? initialAmount : undefined}
               resolveProvider={earnWallet.resolveProvider}
               selectedVault={selectedVault}
+              switchChainAsync={earnWallet.switchChainAsync}
               vaultAddress={vaultAddress}
+              walletReason={earnWallet.reason}
             />
-          ) : null}
+          </EarnSheet>
 
-          {isPanelTab ? (
-            <article className="earn-balance-card">
-              <div className="earn-balance-header">
-                <span>{PANEL_TITLES[tab]}</span>
-                {selectedVault ? (
-                  <span className="earn-balance-header-note">
-                    {vaultName(selectedVault)}
-                  </span>
-                ) : null}
-              </div>
+          <EarnSheet
+            description={selectedVault ? `From ${vaultName(selectedVault)}` : undefined}
+            onClose={() => setSheet(null)}
+            open={sheet === "withdraw"}
+            title="Withdraw USDC"
+          >
+            <EarnWithdraw
+              connectedAddress={walletAddress}
+              currentChainId={earnWallet.currentChainId}
+              initialAmount={initialAction === "withdraw" ? initialAmount : undefined}
+              resolveProvider={earnWallet.resolveProvider}
+              selectedVault={selectedVault}
+              switchChainAsync={earnWallet.switchChainAsync}
+              vaultAddress={vaultAddress}
+              walletReason={earnWallet.reason}
+            />
+          </EarnSheet>
 
-              {tab === "deposit" ? (
-                <EarnDeposit
-                  connectedAddress={earnWallet.address ?? address}
-                  currentChainId={earnWallet.currentChainId}
-                  initialAmount={initialAction === "deposit" ? initialAmount : undefined}
-                  resolveProvider={earnWallet.resolveProvider}
-                  selectedVault={selectedVault}
-                  switchChainAsync={earnWallet.switchChainAsync}
-                  vaultAddress={vaultAddress}
-                  walletReason={earnWallet.reason}
-                />
-              ) : null}
+          <EarnSheet
+            description="Rates are live and change with the market."
+            onClose={() => setSheet(null)}
+            open={sheet === "vaults"}
+            title="Choose a vault"
+          >
+            {loading ? (
+              <p className="earn-quiet">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading vaults…
+              </p>
+            ) : (
+              <VaultGrid onSelect={handleSelectVault} selected={vaultAddress} vaults={vaults} />
+            )}
+          </EarnSheet>
 
-              {tab === "withdraw" ? (
-                <EarnWithdraw
-                  connectedAddress={earnWallet.address ?? address}
-                  currentChainId={earnWallet.currentChainId}
-                  initialAmount={initialAction === "withdraw" ? initialAmount : undefined}
-                  resolveProvider={earnWallet.resolveProvider}
-                  selectedVault={selectedVault}
-                  switchChainAsync={earnWallet.switchChainAsync}
-                  vaultAddress={vaultAddress}
-                  walletReason={earnWallet.reason}
-                />
-              ) : null}
-
-              {tab === "automate" ? (
-                <AutoDepositPanel
-                  circleSocialUuid={circleSocialUuid}
-                  vaultAddress={vaultAddress}
-                  walletAddress={earnWallet.address ?? address}
-                />
-              ) : null}
-            </article>
-          ) : null}
+          <EarnSheet
+            description={selectedVault ? `Deposits go into ${vaultName(selectedVault)}.` : undefined}
+            onClose={() => setSheet(null)}
+            open={sheet === "automate"}
+            title="Automatic deposits"
+          >
+            <AutoDepositPanel circleSocialUuid={circleSocialUuid} vaultAddress={vaultAddress} walletAddress={walletAddress} />
+          </EarnSheet>
         </div>
       </PlatformChrome>
     </PlatformAccessGate>
