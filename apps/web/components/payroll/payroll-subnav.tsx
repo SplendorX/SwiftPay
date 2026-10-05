@@ -16,8 +16,8 @@ export function PayrollSubnav() {
   const pathname = usePathname();
 
   return (
-    <div className="mb-6 overflow-x-auto">
-      <nav className="inline-flex gap-1 rounded-xl border border-border bg-muted/40 p-1">
+    <div className="payroll-subnav mb-6 overflow-x-auto [scrollbar-width:none]">
+      <nav className="inline-flex gap-2">
         {links.map((item) => {
           const isActive = item.exact
             ? pathname === item.href
@@ -30,14 +30,14 @@ export function PayrollSubnav() {
               href={item.href}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition-all",
+                "inline-flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
                 isActive
-                  ? "bg-card text-foreground shadow-xs ring-1 ring-border"
-                  : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
+                  ? "border-transparent bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon
-                className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")}
+                className="h-4 w-4"
               />
               {item.label}
             </Link>

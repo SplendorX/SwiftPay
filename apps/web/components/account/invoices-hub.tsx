@@ -1,14 +1,18 @@
 "use client";
 
 import {
+  ArrowLeft,
+  ChevronRight,
   Copy,
   Eye,
+  FileText,
   Link2,
   Loader2,
   Mail,
   Plus,
   Share2,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -28,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
 import { StyledSelect } from "@/components/ui/styled-select";
 import {
   cancelInvoiceClient,
@@ -41,6 +46,7 @@ import {
   formatInvoiceMoney,
   invoiceStatusLabel,
   previewInvoiceTotals,
+  remainingInvoiceBalance,
 } from "@/lib/account/invoice-preview";
 import type {
   BusinessAsset,
@@ -48,7 +54,10 @@ import type {
   InvoiceRecord,
   InvoiceWithItems,
 } from "@/lib/account/types";
+import { useSheetSide } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
+
+import "./invoices.css";
 
 const emptyItem = (): InvoiceItemInput => ({
   description: "",
@@ -119,6 +128,9 @@ export function InvoicesHub() {
   // What ALLIE opened the preview to do, confirmed with one button there.
   const [previewIntent, setPreviewIntent] = useState<InvoiceIntent | null>(null);
   const deepLinked = useRef(false);
+  const [filter, setFilter] = useState<InvoiceFilter>("all");
+  // The invoice whose actions sheet is open.
+  const [actionInvoice, setActionInvoice] = useState<InvoiceRecord | null>(null);
 
   const totals = useMemo(() => previewInvoiceTotals(items), [items]);
 
@@ -365,55 +377,44 @@ export function InvoicesHub() {
     (item) => item.description.trim() && Number(item.unitPrice) > 0,
   );
 
-  return (
-    <div className="space-y-6">
-      {/* The page frame carries the "Invoices" heading. */}
-      <div className="flex justify-end">
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="h-4 w-4" />
-          Create invoice
-        </Button>
-      </div>
+  const stepLabels = ["Details", "Customer", "Items", "Review"];
+  const summary = summarizeInvoices(invoices);
 
-      {error && !creating ? (
-        <div className="flex items-center justify-between rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-          <span>{error}</span>
+  // ── New invoice: a focused view, one step at a time ─────────────────────
+  if (creating) {
+    return (
+      <div className="inv-page">
+        <header className="inv-bar">
           <button
-            className="text-xs font-semibold hover:underline"
-            onClick={() => setError(null)}
+            aria-label={step === 0 ? "Cancel" : "Back"}
+            className="inv-round"
+            onClick={() => {
+              if (step === 0) {
+                setCreating(false);
+                return;
+              }
+              setStep((value) => value - 1);
+            }}
             type="button"
           >
-            Dismiss
+            <ArrowLeft className="h-5 w-5" />
           </button>
-        </div>
-      ) : null}
+          <h1 className="inv-title">{t("business.newInvoice")}</h1>
+          <span className="inv-step-count">
+            {step + 1}/{stepLabels.length}
+          </span>
+        </header>
 
-      {creating ? (
-        <section className="section-panel space-y-6 p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-heading text-xl">{t("business.newInvoice")}</h3>
-            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Step {step + 1} of 4
-            </p>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {["Details", "Customer", "Items", "Review"].map((label, index) => (
-              <div
-                className={cn(
-                  "rounded-full px-2 py-1 text-center text-[11px] font-semibold",
-                  index === step
-                    ? "bg-primary text-primary-foreground"
-                    : index < step
-                      ? "bg-primary/15 text-primary"
-                      : "bg-muted text-muted-foreground",
-                )}
-                key={label}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
+        <ol aria-label="Steps" className="inv-steps">
+          {stepLabels.map((label, index) => (
+            <li className={cn(index === step && "is-current", index < step && "is-done")} key={label}>
+              <span aria-hidden className="inv-step-bar" />
+              {label}
+            </li>
+          ))}
+        </ol>
 
+        <section className="inv-card inv-compose">
           {step === 0 ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="text-sm font-medium">
@@ -715,214 +716,211 @@ export function InvoicesHub() {
           ) : null}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-          <div className="flex flex-wrap justify-between gap-2">
-            <Button
-              onClick={() => {
-                if (step === 0) {
-                  setCreating(false);
-                  return;
-                }
-                setStep((value) => value - 1);
-              }}
-              variant="outline"
-            >
-              {step === 0 ? "Cancel" : "Back"}
-            </Button>
-            {step < 3 ? (
-              <Button
-                disabled={step === 2 && !canContinueItems}
-                onClick={() => setStep((value) => value + 1)}
-              >
-                Continue
-              </Button>
-            ) : (
-              <Button disabled={busy || !canContinueItems} onClick={() => void create()}>
-                Create invoice
-              </Button>
-            )}
-          </div>
         </section>
+
+        <div className="inv-compose-actions">
+          <Button
+            className="h-12 w-full rounded-xl sm:w-auto sm:min-w-32"
+            onClick={() => {
+              if (step === 0) {
+                setCreating(false);
+                return;
+              }
+              setStep((value) => value - 1);
+            }}
+            variant="outline"
+          >
+            {step === 0 ? "Cancel" : "Back"}
+          </Button>
+          {step < 3 ? (
+            <Button
+              className="h-12 w-full rounded-xl font-bold sm:w-auto sm:min-w-40"
+              disabled={step === 2 && !canContinueItems}
+              onClick={() => setStep((value) => value + 1)}
+            >
+              Continue
+            </Button>
+          ) : (
+            <Button
+              className="h-12 w-full rounded-xl font-bold sm:w-auto sm:min-w-40"
+              disabled={busy || !canContinueItems}
+              onClick={() => void create()}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Create invoice
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Home: what's owed, then every invoice ───────────────────────────────
+  const visible = invoices.filter((invoice) => matchesInvoiceFilter(invoice, filter));
+
+  return (
+    <div className="inv-page">
+      <header className="inv-bar">
+        <Link aria-label="Back to the dashboard" className="inv-round" href="/dashboard">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="inv-title">{t("business.invoices")}</h1>
+        <button
+          aria-label="Create invoice"
+          className="inv-round is-primary"
+          onClick={() => setCreating(true)}
+          title="Create invoice"
+          type="button"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      </header>
+
+      {error ? (
+        <div className="inv-alert" role="alert">
+          <span className="min-w-0 break-words">{error}</span>
+          <button onClick={() => setError(null)} type="button">
+            Dismiss
+          </button>
+        </div>
       ) : null}
 
-      <section className="section-panel p-5">
+      <section className="inv-hero">
+        <span aria-hidden className="inv-hero-glow" />
+        <p className="inv-hero-label">Awaiting payment</p>
+        <p className="inv-hero-amount">{formatSums(summary.pending)}</p>
+        <p className="inv-hero-sub">
+          {summary.counts.open} open · {summary.counts.overdue} overdue
+          {summary.counts.overdue > 0 ? ` (${formatSums(summary.overdue)})` : ""}
+        </p>
+        <div className="inv-hero-foot">
+          <span>
+            Paid <strong>{formatSums(summary.paid)}</strong>
+          </span>
+          <span>
+            Invoiced <strong>{formatSums(summary.invoiced)}</strong>
+          </span>
+        </div>
+      </section>
+
+      {invoices.length > 0 ? (
+        <div aria-label="Filter invoices" className="inv-filters" role="tablist">
+          {invoiceFilters
+            .filter((entry) => entry.key === "all" || summary.counts[entry.key] > 0)
+            .map((entry) => (
+              <button
+                aria-selected={filter === entry.key}
+                className="inv-filter"
+                key={entry.key}
+                onClick={() => setFilter(entry.key)}
+                role="tab"
+                type="button"
+              >
+                {entry.label}
+                <span>{entry.key === "all" ? invoices.length : summary.counts[entry.key]}</span>
+              </button>
+            ))}
+        </div>
+      ) : null}
+
+      <section className="inv-card inv-list-card">
         {loadingInvoices && invoices.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <p className="inv-empty">
+            <Loader2 className="h-4 w-4 animate-spin" />
             Loading invoices…
-          </div>
+          </p>
         ) : invoices.length === 0 ? (
-          <div>
-            <p className="font-medium">Create your first invoice</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Send a polished payment request. Customers can pay from the public invoice page without a Business account.
+          <div className="inv-empty is-first">
+            <span aria-hidden className="inv-empty-icon">
+              <FileText className="h-7 w-7" />
+            </span>
+            <p className="inv-empty-title">Create your first invoice</p>
+            <p>
+              Send a polished payment request. Customers can pay from the public invoice page without a Business
+              account.
             </p>
+            <Button className="mt-2 h-11 rounded-xl" onClick={() => setCreating(true)}>
+              <Plus className="h-4 w-4" />
+              Create invoice
+            </Button>
           </div>
+        ) : visible.length === 0 ? (
+          <p className="inv-empty">No invoices here.</p>
         ) : (
-          <div className="max-h-[30rem] overflow-auto rounded-lg">
-            <table className="w-full min-w-[42rem] text-left text-sm">
-              <thead className="sticky top-0 z-10 bg-card text-muted-foreground shadow-sm">
-                <tr className="border-b border-border">
-                  <th className="py-2.5 px-3">Invoice</th>
-                  <th className="px-3">Customer</th>
-                  <th className="px-3">Amount</th>
-                  <th className="px-3">Status</th>
-                  <th className="px-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((invoice) => (
-                  <tr className="border-t border-border hover:bg-muted/30 transition-colors" key={invoice.id}>
-                    <td className="py-3 px-3 font-medium">
-                      <a
-                        className="underline-offset-2 hover:underline"
-                        href={invoiceLink(invoice)}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {invoice.invoice_number}
-                      </a>
-                    </td>
-                    <td className="px-3">
-                      <div>{invoice.customer_name || "—"}</div>
-                      {invoice.customer_username ? (
-                        <div className="text-xs text-muted-foreground">
-                          @{invoice.customer_username}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-3">{formatInvoiceMoney(invoice.total, invoice.currency)}</td>
-                    <td className="capitalize px-3">
+          <ul className="inv-list">
+            {visible.map((invoice) => (
+              <li key={invoice.id}>
+                <button className="inv-row" onClick={() => setActionInvoice(invoice)} type="button">
+                  <span aria-hidden className="inv-row-icon" data-tone={invoiceTone(invoice.status)}>
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <span className="inv-row-main">
+                    <span className="inv-row-title">{invoice.customer_name || invoice.invoice_number}</span>
+                    <span className="inv-row-sub">
+                      {invoice.invoice_number}
+                      {invoice.customer_username ? ` · @${invoice.customer_username}` : ""}
+                      {dueLabel(invoice) ? ` · ${dueLabel(invoice)}` : ""}
+                    </span>
+                  </span>
+                  <span className="inv-row-side">
+                    <span className="inv-row-amount">{formatInvoiceMoney(invoice.total, invoice.currency)}</span>
+                    <span className="inv-pill" data-tone={invoiceTone(invoice.status)}>
                       {invoiceStatusLabel(invoice.status, invoice.overpayment)}
-                    </td>
-                    <td className="px-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          className="inline-flex items-center justify-center rounded-md p-1.5 text-primary hover:bg-primary/10 transition-colors"
-                          onClick={() => void copyLink(invoice)}
-                          title="Copy payment link"
-                          aria-label="Copy payment link"
-                          type="button"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </button>
-                        <button
-                          aria-label="Share"
-                          className="invoice-row-action"
-                          onClick={() => void shareInvoice(invoice)}
-                          title="Share"
-                          type="button"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                          <span className="invoice-row-action-label">Share</span>
-                        </button>
-                        {activeWallet ? (
-                          <button
-                            aria-label="Preview"
-                            className="invoice-row-action"
-                            title="Preview"
-                            onClick={() =>
-                              void fetchInvoice(
-                                activeWallet,
-                                invoice.id,
-                                effectiveSocialUuid,
-                              )
-                                .then((payload) => setPreview(payload.invoice))
-                                .catch((err: unknown) =>
-                                  setError(
-                                    err instanceof Error ? err.message : "Could not preview.",
-                                  ),
-                                )
-                            }
-                            type="button"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span className="invoice-row-action-label">Preview</span>
-                          </button>
-                        ) : null}
-                        {emailableInvoiceStatuses.includes(invoice.status) && activeWallet ? (
-                          <button
-                            aria-label={
-                              invoice.customer_email ? `Email to ${invoice.customer_email}` : "Email"
-                            }
-                            className="invoice-row-action"
-                            disabled={emailingId === invoice.id}
-                            onClick={() => {
-                              if (invoice.customer_email) {
-                                void emailInvoice(invoice);
-                              } else {
-                                setEmailAddress("");
-                                setEmailTarget(invoice);
-                              }
-                            }}
-                            title={
-                              invoice.customer_email
-                                ? `Email to ${invoice.customer_email}`
-                                : "Email this invoice"
-                            }
-                            type="button"
-                          >
-                            {emailingId === invoice.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Mail className="h-3.5 w-3.5" />
-                            )}
-                            <span className="invoice-row-action-label">Email</span>
-                          </button>
-                        ) : null}
-                        {invoice.status === "DRAFT" && activeWallet ? (
-                          <button
-                            className="inline-flex items-center gap-1 text-xs font-semibold"
-                            onClick={() =>
-                              void sendInvoiceClient(
-                                activeWallet,
-                                invoice.id,
-                                effectiveSocialUuid,
-                              )
-                                .then(async () => {
-                                  toast.success(
-                                    invoice.customer_username
-                                      ? `Invoice sent to @${invoice.customer_username}`
-                                      : "Invoice sent",
-                                  );
-                                  await load();
-                                })
-                                .catch((err: unknown) =>
-                                  setError(err instanceof Error ? err.message : "Could not send."),
-                                )
-                            }
-                            type="button"
-                          >
-                            <Link2 className="h-3.5 w-3.5" />
-                            Send
-                          </button>
-                        ) : null}
-                        {invoice.status !== "PAID" &&
-                        invoice.status !== "CANCELLED" &&
-                        activeWallet ? (
-                          <button
-                            className="text-xs text-destructive"
-                            onClick={() =>
-                              void cancelInvoiceClient(
-                                activeWallet,
-                                invoice.id,
-                                effectiveSocialUuid,
-                              ).then(load)
-                            }
-                            type="button"
-                          >
-                            Cancel
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
+
+      <InvoiceActionSheet
+        emailing={emailingId !== null}
+        invoice={actionInvoice}
+        onCancelInvoice={(invoice) => {
+          if (!activeWallet) return;
+          setActionInvoice(null);
+          void cancelInvoiceClient(activeWallet, invoice.id, effectiveSocialUuid).then(load);
+        }}
+        onClose={() => setActionInvoice(null)}
+        onCopy={(invoice) => {
+          setActionInvoice(null);
+          void copyLink(invoice);
+        }}
+        onEmail={(invoice) => {
+          setActionInvoice(null);
+          if (invoice.customer_email) {
+            void emailInvoice(invoice);
+          } else {
+            setEmailAddress("");
+            setEmailTarget(invoice);
+          }
+        }}
+        onPreview={(invoice) => {
+          setActionInvoice(null);
+          if (!activeWallet) return;
+          void fetchInvoice(activeWallet, invoice.id, effectiveSocialUuid)
+            .then((payload) => setPreview(payload.invoice))
+            .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not preview."));
+        }}
+        onSend={(invoice) => {
+          setActionInvoice(null);
+          if (!activeWallet) return;
+          void sendInvoiceClient(activeWallet, invoice.id, effectiveSocialUuid)
+            .then(async () => {
+              toast.success(
+                invoice.customer_username ? `Invoice sent to @${invoice.customer_username}` : "Invoice sent",
+              );
+              await load();
+            })
+            .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not send."));
+        }}
+        onShare={(invoice) => {
+          setActionInvoice(null);
+          void shareInvoice(invoice).catch(() => undefined);
+        }}
+      />
 
       <Dialog
         onOpenChange={(open) => {
@@ -1039,5 +1037,193 @@ export function InvoicesHub() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+type InvoiceFilter = "all" | "draft" | "open" | "overdue" | "paid" | "cancelled";
+
+const invoiceFilters: Array<{ key: InvoiceFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "open", label: "Open" },
+  { key: "overdue", label: "Overdue" },
+  { key: "draft", label: "Drafts" },
+  { key: "paid", label: "Paid" },
+  { key: "cancelled", label: "Cancelled" },
+];
+
+const openStatuses: string[] = ["SENT", "VIEWED", "PENDING", "PARTIALLY_PAID"];
+
+function invoiceGroup(status: string): Exclude<InvoiceFilter, "all"> {
+  if (status === "DRAFT") return "draft";
+  if (status === "OVERDUE") return "overdue";
+  if (status === "PAID") return "paid";
+  if (status === "CANCELLED") return "cancelled";
+  return "open";
+}
+
+function matchesInvoiceFilter(invoice: InvoiceRecord, filter: InvoiceFilter) {
+  return filter === "all" || invoiceGroup(invoice.status) === filter;
+}
+
+function invoiceTone(status: string) {
+  const group = invoiceGroup(status);
+  return group === "open" ? "open" : group;
+}
+
+type AssetSums = Partial<Record<BusinessAsset, number>>;
+
+function addTo(sums: AssetSums, asset: BusinessAsset, amount: number) {
+  sums[asset] = (sums[asset] ?? 0) + amount;
+}
+
+/**
+ * Totals per currency, by the same rules as the business overview's invoice
+ * summary: drafts and cancelled invoices aren't invoiced, a partly paid
+ * invoice is awaiting only what's left.
+ */
+function summarizeInvoices(invoices: readonly InvoiceRecord[]) {
+  const pending: AssetSums = {};
+  const overdue: AssetSums = {};
+  const paid: AssetSums = {};
+  const invoiced: AssetSums = {};
+  const counts: Record<Exclude<InvoiceFilter, "all">, number> = {
+    cancelled: 0,
+    draft: 0,
+    open: 0,
+    overdue: 0,
+    paid: 0,
+  };
+  for (const invoice of invoices) {
+    const total = Number(invoice.total) || 0;
+    const group = invoiceGroup(invoice.status);
+    counts[group] += 1;
+    if (group !== "draft" && group !== "cancelled") addTo(invoiced, invoice.currency, total);
+    if (group === "paid") addTo(paid, invoice.currency, total);
+    if (group === "overdue") addTo(overdue, invoice.currency, total);
+    if (openStatuses.includes(invoice.status) || group === "overdue") {
+      addTo(
+        pending,
+        invoice.currency,
+        remainingInvoiceBalance({ amountReceived: invoice.amount_received, total: invoice.total }),
+      );
+    }
+  }
+  return { counts, invoiced, overdue, paid, pending };
+}
+
+function formatSums(sums: AssetSums) {
+  const parts = (["USDC", "EURC"] as const)
+    .filter((asset) => (sums[asset] ?? 0) > 0)
+    .map((asset) => formatInvoiceMoney(sums[asset] ?? 0, asset));
+  return parts.join(" · ") || formatInvoiceMoney(0, "USDC");
+}
+
+function dueLabel(invoice: InvoiceRecord) {
+  if (invoice.status === "PAID") {
+    return invoice.paid_at ? `Paid ${shortDay(invoice.paid_at)}` : null;
+  }
+  if (invoice.status === "CANCELLED" || !invoice.due_date) return null;
+  return `Due ${shortDay(invoice.due_date)}`;
+}
+
+function shortDay(value: string) {
+  const date = new Date(value.length === 10 ? `${value}T12:00:00` : value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+/** Everything you can do with one invoice, in a sheet. */
+function InvoiceActionSheet({
+  emailing,
+  invoice,
+  onCancelInvoice,
+  onClose,
+  onCopy,
+  onEmail,
+  onPreview,
+  onSend,
+  onShare,
+}: {
+  emailing: boolean;
+  invoice: InvoiceRecord | null;
+  onCancelInvoice: (invoice: InvoiceRecord) => void;
+  onClose: () => void;
+  onCopy: (invoice: InvoiceRecord) => void;
+  onEmail: (invoice: InvoiceRecord) => void;
+  onPreview: (invoice: InvoiceRecord) => void;
+  onSend: (invoice: InvoiceRecord) => void;
+  onShare: (invoice: InvoiceRecord) => void;
+}) {
+  const side = useSheetSide();
+  const actions = invoice
+    ? [
+        { icon: Eye, label: "Preview", run: () => onPreview(invoice) },
+        { icon: Copy, label: "Copy payment link", run: () => onCopy(invoice) },
+        { icon: Share2, label: "Share", run: () => onShare(invoice) },
+        ...(emailableInvoiceStatuses.includes(invoice.status)
+          ? [
+              {
+                icon: Mail,
+                label: invoice.customer_email ? `Email to ${invoice.customer_email}` : "Email this invoice",
+                run: () => onEmail(invoice),
+              },
+            ]
+          : []),
+        ...(invoice.status === "DRAFT" ? [{ icon: Link2, label: "Send invoice", run: () => onSend(invoice) }] : []),
+      ]
+    : [];
+
+  return (
+    <Sheet onOpenChange={(next) => !next && onClose()} open={invoice !== null}>
+      <SheetContent
+        className={cn(
+          "gap-0 p-0",
+          side === "bottom" ? "max-h-[85dvh] rounded-t-[1.75rem] border-t-0" : "w-full sm:max-w-sm",
+        )}
+        showCloseButton={false}
+        side={side}
+      >
+        {side === "bottom" ? <SheetGrabber /> : null}
+        {invoice ? (
+          <div className="inv-sheet">
+            <div className="inv-sheet-head">
+              <span aria-hidden className="inv-row-icon is-large" data-tone={invoiceTone(invoice.status)}>
+                <FileText className="h-6 w-6" />
+              </span>
+              <SheetTitle className="text-lg font-bold">{invoice.invoice_number}</SheetTitle>
+              <SheetDescription className="text-sm text-muted-foreground">
+                {invoice.customer_name || "No customer name"}
+                {invoice.customer_username ? ` · @${invoice.customer_username}` : ""}
+              </SheetDescription>
+              <p className="inv-sheet-amount">{formatInvoiceMoney(invoice.total, invoice.currency)}</p>
+              <span className="inv-pill" data-tone={invoiceTone(invoice.status)}>
+                {invoiceStatusLabel(invoice.status, invoice.overpayment)}
+              </span>
+              {dueLabel(invoice) ? <p className="text-xs text-muted-foreground">{dueLabel(invoice)}</p> : null}
+            </div>
+            <ul className="inv-actions">
+              {actions.map((action) => (
+                <li key={action.label}>
+                  <button disabled={action.icon === Mail && emailing} onClick={action.run} type="button">
+                    <action.icon className="h-4 w-4" />
+                    <span className="min-w-0 flex-1 truncate">{action.label}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </li>
+              ))}
+              {invoice.status !== "PAID" && invoice.status !== "CANCELLED" ? (
+                <li>
+                  <button className="is-danger" onClick={() => onCancelInvoice(invoice)} type="button">
+                    <X className="h-4 w-4" />
+                    <span className="min-w-0 flex-1">Cancel invoice</span>
+                  </button>
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }

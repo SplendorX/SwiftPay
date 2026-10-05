@@ -5,19 +5,20 @@ import { useEffect, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   Ban,
   Banknote,
   Calendar,
   CalendarClock,
   CheckCircle2,
-  ChevronRight,
   Clock,
   FileText,
   Layers,
   Loader2,
   Plus,
   Send,
+  UserPlus,
   Users,
 } from "lucide-react";
 
@@ -32,6 +33,8 @@ import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
 import { PayrollSubnav } from "@/components/payroll/payroll-subnav";
 import { fetchPayrollDashboard } from "@/lib/payroll/client";
 import type { PayrollDashboardSummary, PayrollRunStatus } from "@/lib/payroll/types";
+
+import "./payroll.css";
 
 function formatAmount(value?: string | null) {
   if (value === null || value === undefined || value === "") return null;
@@ -216,340 +219,229 @@ export default function PayrollDashboardPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
+        // The page draws its own bar with a back button.
+        hideHeader
         subtitle="Manage your team and run payments from one place."
         title="Payroll"
       >
-        <PayrollSubnav />
-
-        {/* Action bar */}
-        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="font-heading text-xl font-bold tracking-tight text-foreground">
-              Overview
-            </h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Monitor team compensation, upcoming payroll, and automated runs.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setIsAddModalOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Team Member
-            </Button>
-            <Button size="sm" asChild>
-              <Link href="/business/payroll/runs/new">
-                <Send className="mr-1.5 h-4 w-4" />
-                Run Payroll
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        {error ? (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">Couldn&apos;t load payroll</p>
-              <p className="mt-0.5 break-words text-destructive/90">{error}</p>
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="shrink-0 text-destructive hover:bg-destructive/10"
-              onClick={() => void loadData()}
+        <div className="pr-page">
+          <header className="pr-bar">
+            <Link aria-label="Back to the business overview" className="pr-round" href="/business">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="pr-title">Payroll</h1>
+            <button
+              aria-label="Add team member"
+              className="pr-round is-primary"
+              onClick={() => setIsAddModalOpen(true)}
+              title="Add team member"
+              type="button"
             >
-              Retry
-            </Button>
-          </div>
-        ) : null}
+              <UserPlus className="h-5 w-5" />
+            </button>
+          </header>
 
-        {/* Hero: upcoming payroll */}
-        <section className="mb-6 rounded-2xl border border-border bg-card p-6 shadow-xs sm:p-8">
-          <div className="relative grid gap-6 lg:grid-cols-12 lg:items-center lg:gap-8">
-            <div className="lg:col-span-7">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-[0.18em] text-primary">
-                  {upcoming ? "Upcoming Payroll" : "Next Payroll"}
-                </span>
-                {upcoming ? <PayrollStatusBadge status={upcoming.status} /> : null}
-                {nextCountdown ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-                    <CalendarClock className="h-3 w-3" />
-                    {nextCountdown}
-                  </span>
-                ) : null}
+          <PayrollSubnav />
+
+          {error ? (
+            <div className="pr-alert" role="alert">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Couldn&apos;t load payroll</p>
+                <p className="mt-0.5 break-words opacity-90">{error}</p>
               </div>
-
-              {upcoming ? (
-                <>
-                  <h3 className="mt-3 truncate font-heading text-lg font-semibold text-foreground">
-                    {upcoming.name}
-                  </h3>
-                  <p className="mt-1 font-heading text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                    {heroAmount ?? "0.00"}{" "}
-                    <span className="text-xl font-bold text-muted-foreground sm:text-2xl">
-                      {heroAsset}
-                    </span>
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/60 px-3 py-1.5 text-xs font-medium text-foreground">
-                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      {upcoming.recipient_count} recipients
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/60 px-3 py-1.5 text-xs font-medium text-foreground">
-                      Fees {formatAmount(upcoming.total_fees) ?? upcoming.total_fees}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/60 px-3 py-1.5 text-xs font-medium text-foreground">
-                      Total required{" "}
-                      <span className="font-semibold">
-                        {formatAmount(upcoming.total_required) ?? upcoming.total_required}{" "}
-                        {upcoming.asset}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="mt-5 flex flex-wrap items-center gap-2">
-                    <Button asChild size="lg">
-                      <Link href={`/business/payroll/runs/${upcoming.id}`}>
-                        Review Payroll
-                        <ArrowRight className="ml-1.5 h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button asChild size="lg" variant="outline">
-                      <Link href="/business/payroll/schedules">View schedules</Link>
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="mt-3 font-heading text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                    {heroAmount ? (
-                      <>
-                        {heroAmount}{" "}
-                        <span className="text-xl font-bold text-muted-foreground sm:text-2xl">
-                          {heroAsset}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">Not scheduled</span>
-                    )}
-                  </p>
-                  <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-                    {nextDate
-                      ? `Your next run is set for ${nextDate}. Review it or start a manual payroll at any time.`
-                      : "No upcoming payroll yet — create a schedule to automate runs, or pay your team manually now."}
-                  </p>
-                  <div className="mt-5 flex flex-wrap items-center gap-2">
-                    <Button asChild size="lg">
-                      <Link href="/business/payroll/runs/new">
-                        <Send className="mr-1.5 h-4 w-4" />
-                        Create Payroll
-                      </Link>
-                    </Button>
-                    <Button asChild size="lg" variant="outline">
-                      <Link href="/business/payroll/schedules">
-                        <Calendar className="mr-1.5 h-4 w-4" />
-                        Set up a schedule
-                      </Link>
-                    </Button>
-                  </div>
-                </>
-              )}
+              <button onClick={() => void loadData()} type="button">
+                Retry
+              </button>
             </div>
+          ) : null}
 
-            {/* Readiness summary */}
-            <div className="lg:col-span-5">
-              <div className="rounded-xl border border-border bg-background/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  At a glance
-                </p>
-                <dl className="mt-3 divide-y divide-border/60">
-                  <div className="flex items-center justify-between py-2.5 first:pt-0">
-                    <dt className="text-sm text-muted-foreground">Active members</dt>
-                    <dd className="text-sm font-semibold text-foreground">{teamCount}</dd>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5">
-                    <dt className="text-sm text-muted-foreground">Next run date</dt>
-                    <dd className="text-sm font-semibold text-foreground">
-                      {nextDate ?? "Not set"}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between py-2.5 last:pb-0">
-                    <dt className="text-sm text-muted-foreground">Last run</dt>
-                    <dd className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      {lastAmount ? `${lastAmount} USDC` : "None"}
-                      {summary?.lastPayrollStatus ? (
-                        <PayrollStatusBadge status={summary.lastPayrollStatus} />
-                      ) : null}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Metrics */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            href="/business/payroll/team"
-            icon={Users}
-            label="Active Team Members"
-            value={String(teamCount)}
-            footer={teamCount === 1 ? "1 member on payroll" : `${teamCount} members on payroll`}
-          />
-          <MetricCard
-            href="/business/payroll/schedules"
-            icon={Calendar}
-            label="Next Payroll"
-            value={nextDate ?? "Not set"}
-            footer={nextCountdown ?? "No schedule configured"}
-          />
-          <MetricCard
-            icon={Banknote}
-            label="Estimated Payroll"
-            value={
-              formatAmount(summary?.nextPayrollAmount)
-                ? `${formatAmount(summary?.nextPayrollAmount)} USDC`
-                : "0.00 USDC"
-            }
-            footer="Based on active members"
-          />
-          <MetricCard
-            icon={Clock}
-            label="Last Payroll"
-            value={lastAmount ? `${lastAmount} USDC` : "None"}
-            footer={prettyStatus(summary?.lastPayrollStatus) ?? "No prior runs"}
-            footerClassName="capitalize"
-          />
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          {/* Recent runs */}
-          <section className="flex flex-col rounded-2xl border border-border bg-card shadow-xs lg:col-span-2">
-            <div className="flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4 sm:px-6">
-              <div>
-                <h3 className="font-heading text-lg font-bold tracking-tight text-foreground">
-                  Recent Payroll Runs
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Every manual and scheduled settlement, newest first
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full border border-border bg-muted/60 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-                {summary?.recentRuns.length ?? 0} total
+          {/* Hero: the next payroll */}
+          <section className="pr-hero">
+            <span aria-hidden className="pr-hero-glow" />
+            <div className="pr-hero-top">
+              <span className="pr-hero-eyebrow">
+                <Banknote className="h-4 w-4" />
+                {upcoming ? "Upcoming payroll" : "Next payroll"}
               </span>
+              {nextCountdown ? (
+                <span className="pr-hero-pill">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  {nextCountdown}
+                </span>
+              ) : null}
             </div>
 
-            {loading ? (
-              <div className="flex flex-1 items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Loading payroll records…
-              </div>
-            ) : !summary?.recentRuns || summary.recentRuns.length === 0 ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-muted/60">
-                  <Banknote className="h-6 w-6 text-muted-foreground/70" />
+            {upcoming ? (
+              <>
+                <p className="pr-hero-name">
+                  {upcoming.name} · {prettyStatus(upcoming.status)}
+                </p>
+                <p className="pr-hero-amount">
+                  {heroAmount ?? "0.00"} <span>{heroAsset}</span>
+                </p>
+                <div className="pr-hero-chips">
+                  <span>
+                    <Users className="h-3.5 w-3.5" />
+                    {upcoming.recipient_count} recipients
+                  </span>
+                  <span>Fees {formatAmount(upcoming.total_fees) ?? upcoming.total_fees}</span>
+                  <span>
+                    Total {formatAmount(upcoming.total_required) ?? upcoming.total_required} {upcoming.asset}
+                  </span>
                 </div>
-                <p className="text-sm font-semibold text-foreground">
-                  No payroll has been run yet
-                </p>
-                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
-                  Create your first payroll run to pay your employees and contractors.
-                </p>
-                <Button asChild size="sm" className="mt-4">
-                  <Link href="/business/payroll/runs/new">Run Payroll</Link>
-                </Button>
-              </div>
+                <div className="pr-hero-actions">
+                  <Link className="pr-hero-button is-solid" href={`/business/payroll/runs/${upcoming.id}`}>
+                    Review payroll
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <Link className="pr-hero-button" href="/business/payroll/schedules">
+                    View schedules
+                  </Link>
+                </div>
+              </>
             ) : (
-              <div className="max-h-[24rem] divide-y divide-border/60 overflow-y-auto px-2 py-1 sm:px-3">
-                {summary.recentRuns.map((run) => {
-                  const { Icon, tone } = runVisual(run.status);
-                  return (
-                    <Link
-                      key={run.id}
-                      href={`/business/payroll/runs/${run.id}`}
-                      className="group flex items-center justify-between gap-3 rounded-lg px-3 py-3.5 transition-colors hover:bg-muted/40"
-                    >
-                      <div className="flex min-w-0 items-center gap-3.5">
-                        <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${tone}`}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-semibold text-foreground">
-                              {run.name}
-                            </span>
-                            <PayrollStatusBadge status={run.status} />
-                          </div>
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                            {run.recipient_count} recipients ·{" "}
-                            {formatDate(run.created_at, true) ?? "—"} · Req{" "}
-                            {formatAmount(run.total_required) ?? run.total_required} {run.asset}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-2 pl-2">
-                        <p className="font-heading text-sm font-bold tracking-tight text-foreground">
-                          {formatAmount(run.total_amount) ?? run.total_amount} {run.asset}
-                        </p>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+              <>
+                <p className="pr-hero-amount">
+                  {heroAmount ? (
+                    <>
+                      {heroAmount} <span>{heroAsset}</span>
+                    </>
+                  ) : (
+                    "Not scheduled"
+                  )}
+                </p>
+                <p className="pr-hero-sub">
+                  {nextDate
+                    ? `Your next run is set for ${nextDate}. Review it or start a manual payroll at any time.`
+                    : "No upcoming payroll yet. Create a schedule to automate runs, or pay your team manually now."}
+                </p>
+                <div className="pr-hero-actions">
+                  <Link className="pr-hero-button is-solid" href="/business/payroll/runs/new">
+                    <Send className="h-4 w-4" />
+                    Create payroll
+                  </Link>
+                  <Link className="pr-hero-button" href="/business/payroll/schedules">
+                    <Calendar className="h-4 w-4" />
+                    Set up a schedule
+                  </Link>
+                </div>
+              </>
             )}
           </section>
 
-          {/* Shortcuts */}
-          <section className="rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-6">
-            <h3 className="font-heading text-lg font-bold tracking-tight text-foreground">
-              Manage payroll
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Jump straight into the setup that drives each run
-            </p>
+          {/* Quick actions */}
+          <nav aria-label="Payroll actions" className="pr-quick">
+            <Link href="/business/payroll/runs/new">
+              <span className="pr-quick-icon">
+                <Send className="h-5 w-5" />
+              </span>
+              Run payroll
+            </Link>
+            <button onClick={() => setIsAddModalOpen(true)} type="button">
+              <span className="pr-quick-icon">
+                <Plus className="h-5 w-5" />
+              </span>
+              Add member
+            </button>
+            {shortcuts.map((item) => (
+              <Link href={item.href} key={item.href} title={item.description}>
+                <span className="pr-quick-icon">
+                  <item.icon className="h-5 w-5" />
+                </span>
+                {item.label}
+              </Link>
+            ))}
+          </nav>
 
-            <div className="mt-4 space-y-2">
-              {shortcuts.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="group flex items-center gap-3 rounded-xl border border-border bg-background/50 p-3 transition-all hover:border-primary/30 hover:bg-muted/40"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                      <p className="truncate text-xs text-muted-foreground">{item.description}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-                  </Link>
-                );
-              })}
+          {/* At a glance */}
+          <div className="pr-stats">
+            <StatTile
+              footer={teamCount === 1 ? "1 member on payroll" : `${teamCount} members on payroll`}
+              href="/business/payroll/team"
+              icon={Users}
+              label="Active members"
+              value={String(teamCount)}
+            />
+            <StatTile
+              footer={nextCountdown ?? "No schedule configured"}
+              href="/business/payroll/schedules"
+              icon={Calendar}
+              label="Next payroll"
+              value={nextDate ?? "Not set"}
+            />
+            <StatTile
+              footer="Based on active members"
+              icon={Banknote}
+              label="Estimated payroll"
+              value={
+                formatAmount(summary?.nextPayrollAmount)
+                  ? `${formatAmount(summary?.nextPayrollAmount)} USDC`
+                  : "0.00 USDC"
+              }
+            />
+            <StatTile
+              footer={prettyStatus(summary?.lastPayrollStatus) ?? "No prior runs"}
+              icon={Clock}
+              label="Last payroll"
+              value={lastAmount ? `${lastAmount} USDC` : "None"}
+            />
+          </div>
+
+          {/* Recent runs */}
+          <section className="pr-card">
+            <div className="pr-card-head">
+              <div>
+                <h2>Recent payroll runs</h2>
+                <p>Every manual and scheduled run, newest first</p>
+              </div>
+              <span className="pr-count">{summary?.recentRuns.length ?? 0}</span>
             </div>
 
-            <div className="mt-4 rounded-xl border border-dashed border-border p-4">
-              <p className="text-sm font-semibold text-foreground">Add someone new</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                New members are included in the next run once their wallet is set.
+            {loading ? (
+              <p className="pr-empty">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading payroll records…
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-3 w-full"
-                onClick={() => setIsAddModalOpen(true)}
-              >
-                <Plus className="mr-1.5 h-4 w-4" />
-                Add Team Member
-              </Button>
-            </div>
+            ) : !summary?.recentRuns || summary.recentRuns.length === 0 ? (
+              <div className="pr-empty is-first">
+                <span aria-hidden className="pr-empty-icon">
+                  <Banknote className="h-7 w-7" />
+                </span>
+                <p className="pr-empty-title">No payroll has been run yet</p>
+                <p>Create your first payroll run to pay your employees and contractors.</p>
+                <Button asChild className="mt-2 h-11 rounded-xl">
+                  <Link href="/business/payroll/runs/new">Run payroll</Link>
+                </Button>
+              </div>
+            ) : (
+              <ul className="pr-runs">
+                {summary.recentRuns.map((run) => {
+                  const { Icon, tone } = runVisual(run.status);
+                  return (
+                    <li key={run.id}>
+                      <Link className="pr-run" href={`/business/payroll/runs/${run.id}`}>
+                        <span className={`pr-run-icon ${tone}`}>
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <span className="pr-run-main">
+                          <span className="pr-run-title">{run.name}</span>
+                          <span className="pr-run-sub">
+                            {run.recipient_count} recipients · {formatDate(run.created_at, true) ?? "—"}
+                          </span>
+                        </span>
+                        <span className="pr-run-side">
+                          <span className="pr-run-amount">
+                            {formatAmount(run.total_amount) ?? run.total_amount} {run.asset}
+                          </span>
+                          <PayrollStatusBadge className="pr-run-badge" status={run.status} />
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
         </div>
 
@@ -568,50 +460,40 @@ export default function PayrollDashboardPage() {
   );
 }
 
-function MetricCard({
+function StatTile({
   footer,
-  footerClassName,
   href,
   icon: Icon,
   label,
   value,
 }: {
   footer: string;
-  footerClassName?: string;
   href?: string;
   icon: typeof Users;
   label: string;
   value: string;
 }) {
   const content = (
-    <div className="group flex h-full flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-xs transition-all hover:border-primary/25 hover:shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+    <>
+      <span className="pr-stat-top">
+        <span>{label}</span>
+        <span className="pr-stat-icon">
           <Icon className="h-4 w-4" />
-        </div>
-      </div>
-      <p className="mt-3 font-heading text-2xl font-bold tracking-tight text-foreground sm:text-[1.75rem]">
-        {value}
-      </p>
-      <p
-        className={`mt-2 flex items-center gap-1 text-xs text-muted-foreground ${footerClassName ?? ""}`}
-      >
+        </span>
+      </span>
+      <span className="pr-stat-value">{value}</span>
+      <span className="pr-stat-foot">
         {footer}
-        {href ? (
-          <ArrowRight className="h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5" />
-        ) : null}
-      </p>
-    </div>
+        {href ? <ArrowRight className="h-3 w-3 shrink-0" /> : null}
+      </span>
+    </>
   );
 
   return href ? (
-    <Link href={href} className="h-full">
+    <Link className="pr-stat is-link" href={href}>
       {content}
     </Link>
   ) : (
-    content
+    <div className="pr-stat">{content}</div>
   );
 }

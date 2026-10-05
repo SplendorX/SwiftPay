@@ -3,6 +3,7 @@
 import {
  AlertCircle,
  ArrowDownUp,
+ ArrowLeft,
  ArrowRight,
  ExternalLink,
  Loader2,
@@ -10,6 +11,7 @@ import {
  RefreshCw,
  Wallet,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import {
@@ -25,7 +27,7 @@ import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { useT } from "@/components/locale-provider";
 import { showSuccess } from "@/components/success-popup";
 import { TokenSelect } from "@/components/design/token-select";
-import { TokenIcon } from "@/components/token-icon";
+import { Button } from "@/components/ui/button";
 import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
 import {
   currentCircleAuth,
@@ -45,6 +47,8 @@ import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
 import { arcChain } from "@/lib/chains";
 import { readSwapReceived } from "@/lib/swap-received";
 import type { CircleSwapEstimate } from "@/lib/circle-swap";
+
+import "./swap.css";
 
 const fallbackAddress = "0x0000000000000000000000000000000000000000";
 const zeroAmount = BigInt(0);
@@ -288,7 +292,6 @@ export function SwapPanel() {
  : !hasEnoughSwapBalance
  ? `Insufficient ${swapTokenIn}`
  : "Get quote";
- const swapButtonText = !swapEstimate ? "Get quote first" : "Swap now";
 
  async function ensureCircleSdk(login: CircleLoginResult | null = circleLogin) {
  if (!login) {
@@ -655,192 +658,186 @@ export function SwapPanel() {
  setSwapExplorerUrl(undefined);
  }
 
+ const quotedRate =
+  swapEstimate && Number(swapAmount) > 0 && Number(swapEstimate.estimatedOutputAmount) > 0
+   ? (Number(swapEstimate.estimatedOutputAmount) / Number(swapAmount)).toLocaleString(undefined, {
+      maximumFractionDigits: 6,
+     })
+   : null;
+ const statusText = isCircleLoading
+  ? "Loading Circle wallet"
+  : isSwitchingChain
+   ? "Switching network"
+   : swapStatus;
+ const busy = isSwapEstimating || isSwapPending || isSwitchingChain;
+ const primaryLabel = swapEstimate
+  ? isSwapPending
+   ? "Swapping"
+   : `Swap ${swapAmount} ${swapTokenIn}`
+  : isSwapEstimating
+   ? "Getting quote"
+   : swapQuoteButtonText;
+
  return (
-  <div className="swap-layout">
-   <section className="section-panel swap-form-board">
- <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
- <div>
- <p className="section-eyebrow">{t("swap.eyebrow")}</p>
- <h1 className="section-title">
- {t("swap.heading")}
- </h1>
- <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
- {t("swap.body")}
- </p>
- </div>
+  <div className="swap2-page">
+   <header className="swap2-bar">
+    <Link aria-label="Back to the dashboard" className="swap2-round" href="/dashboard">
+     <ArrowLeft className="h-5 w-5" />
+    </Link>
+    <h1 className="swap2-title">Swap</h1>
+    <button
+     aria-label={t("common.refresh")}
+     className="swap2-round"
+     onClick={() => void refreshBalances()}
+     title={t("common.refresh")}
+     type="button"
+    >
+     <RefreshCw
+      className={`h-5 w-5 ${isEurcBalanceLoading || isUsdcBalanceLoading ? "animate-spin" : ""}`}
+     />
+    </button>
+   </header>
 
- <button
- className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-accent active:translate-y-0"
- onClick={() => void refreshBalances()}
- type="button"
- >
- <RefreshCw
- className={`h-4 w-4 ${
- isEurcBalanceLoading || isUsdcBalanceLoading
- ? "animate-spin"
- : ""
- }`}
- />
- {t("common.refresh")}
- </button>
- </div>
+   <p className="swap2-lede">{t("swap.body")}</p>
 
- <div className="grid gap-4">
- <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
- <TokenSelect
- label="From"
- onChange={(next) => {
- setSwapTokenIn(next);
- if (next === swapTokenOut) {
- setSwapTokenOut(next === "EURC" ? "USDC" : "EURC");
- }
- setSwapEstimate(undefined);
- setSwapExplorerUrl(undefined);
- }}
- value={swapTokenIn}
- />
+   <section className="swap2-legs">
+    <div className="swap2-leg">
+     <div className="swap2-leg-top">
+      <span>You pay</span>
+      <span>
+       Balance{" "}
+       <strong>
+        {isConnected
+         ? formatTokenAmount(swapTokenBalance, arcTokens[swapTokenIn].decimals, swapTokenIn)
+         : "—"}
+       </strong>
+      </span>
+     </div>
+     <div className="swap2-leg-main">
+      <input
+       aria-label="Amount to swap"
+       className="swap2-amount"
+       inputMode="decimal"
+       onChange={(event) => {
+        setSwapAmount(event.target.value);
+        setSwapEstimate(undefined);
+        setSwapExplorerUrl(undefined);
+       }}
+       placeholder="0.00"
+       value={swapAmount}
+      />
+      <TokenSelect
+       className="swap2-token"
+       onChange={(next) => {
+        setSwapTokenIn(next);
+        if (next === swapTokenOut) {
+         setSwapTokenOut(next === "EURC" ? "USDC" : "EURC");
+        }
+        setSwapEstimate(undefined);
+        setSwapExplorerUrl(undefined);
+       }}
+       size="sm"
+       value={swapTokenIn}
+      />
+     </div>
+    </div>
 
- <button
- className="inline-flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-card text-swift-700 shadow-sm transition hover:-translate-y-0.5 hover:border-swift-600 hover:bg-swift-700 hover:text-white active:translate-y-0"
- onClick={flipSwapTokens}
- type="button"
- >
- <ArrowDownUp className="h-4 w-4" />
- </button>
+    <button aria-label="Swap direction" className="swap2-flip" onClick={flipSwapTokens} type="button">
+     <ArrowDownUp className="h-5 w-5" />
+    </button>
 
- <TokenSelect
- label="To"
- onChange={(next) => {
- setSwapTokenOut(next);
- if (next === swapTokenIn) {
- setSwapTokenIn(next === "EURC" ? "USDC" : "EURC");
- }
- setSwapEstimate(undefined);
- setSwapExplorerUrl(undefined);
- }}
- value={swapTokenOut}
- />
- </div>
-
- <label className="grid gap-2">
- <span className="text-sm font-semibold text-foreground">Amount</span>
- <div className="flex h-12 items-center gap-2 rounded-lg border border-border bg-card px-3 transition focus-within:border-swift-600 focus-within:bg-card focus-within:ring-2 focus-within:ring-swift-600/15">
- <ArrowDownUp className="h-4 w-4 text-swift-600" />
- <input
- className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground"
- inputMode="decimal"
- onChange={(event) => {
- setSwapAmount(event.target.value);
- setSwapEstimate(undefined);
- setSwapExplorerUrl(undefined);
- }}
- placeholder="0.00"
- value={swapAmount}
- />
- </div>
- </label>
-
- <div className="grid gap-2 rounded-lg border border-border bg-card/75 p-4 text-sm ">
- <div className="flex items-center justify-between gap-3">
- <span className="font-semibold text-muted-foreground">Wallet</span>
- <span className="text-right font-bold text-foreground">
- <span className="mr-2 text-xs text-muted-foreground">
- {isEmbeddedWalletMode ? "Circle" : "External"}
- </span>
- <span className="font-mono text-xs">
- {shortenAddress(address)}
- </span>
- </span>
- </div>
- <div className="flex items-center justify-between gap-3">
- <span className="font-semibold text-muted-foreground">Available</span>
- <span className="text-right font-bold text-foreground">
- {isConnected
- ? formatTokenAmount(
- swapTokenBalance,
- arcTokens[swapTokenIn].decimals,
- swapTokenIn,
- )
- : "Connect wallet"}
- </span>
- </div>
- <div className="flex items-center justify-between gap-3">
- <span className="font-semibold text-muted-foreground">Estimate</span>
- <span className="text-right font-bold text-foreground">
- {swapEstimate?.estimatedOutput ?? "Not quoted"}
- </span>
- </div>
- <div className="flex items-center justify-between gap-3">
- <span className="font-semibold text-muted-foreground">Minimum</span>
- <span className="text-right font-bold text-foreground">
- {swapEstimate?.minimumOutput ?? "Not quoted"}
- </span>
- </div>
- <div className="flex items-center justify-between gap-3">
- <span className="font-semibold text-muted-foreground">Service fee</span>
- <span className="text-right font-bold text-foreground">0.3%</span>
- </div>
- <div className="flex items-center justify-between gap-3">
- <span className="font-semibold text-muted-foreground">Status</span>
- <span className="text-right font-bold text-swift-700">
- {isCircleLoading
- ? "Loading Circle wallet"
- : isSwitchingChain
- ? "Switching network"
- : swapStatus}
- </span>
- </div>
- </div>
-
- {swapError ? (
- <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
- <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
- <span className="min-w-0 break-words">{swapError}</span>
- </div>
- ) : null}
-
- {swapExplorerUrl ? (
- <a
- className="inline-flex items-center gap-2 text-sm font-bold text-swift-700 transition hover:text-swift-600"
- href={swapExplorerUrl}
- rel="noreferrer"
- target="_blank"
- >
- View swap on ArcScan
- <ExternalLink className="h-4 w-4" />
- </a>
- ) : null}
-
- <div className="grid gap-3 sm:grid-cols-2">
- <button
- className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card px-5 text-sm font-bold text-foreground shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
- disabled={!canRequestSwapQuote}
- onClick={handleEstimateSwap}
- type="button"
- >
- {isSwapEstimating ? (
- <Loader2 className="h-4 w-4 animate-spin" />
- ) : (
- <ReceiptText className="h-4 w-4" />
- )}
- {swapQuoteButtonText}
- </button>
- <button
- className="sp-bubble inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-swift-600 px-5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(66,17,143,0.26)] transition hover:-translate-y-0.5 hover:bg-swift-700 active:translate-y-0 disabled:cursor-not-allowed disabled:bg-lavender-300 disabled:shadow-none"
- disabled={!canExecuteSwap}
- onClick={handleExecuteSwap}
- type="button"
- >
- {isSwapPending || isSwitchingChain ? (
- <Loader2 className="h-4 w-4 animate-spin" />
- ) : (
- <ArrowRight className="h-4 w-4" />
- )}
- {isSwapPending ? "Swapping" : swapButtonText}
- </button>
- </div>
- </div>
+    <div className="swap2-leg is-receive">
+     <div className="swap2-leg-top">
+      <span>You receive</span>
+      <span>{swapEstimate ? "Quoted" : "Get a quote to see"}</span>
+     </div>
+     <div className="swap2-leg-main">
+      <span className={swapEstimate ? "swap2-amount" : "swap2-amount is-empty"}>
+       {swapEstimate
+        ? Number(swapEstimate.estimatedOutputAmount).toLocaleString(undefined, { maximumFractionDigits: 6 })
+        : "0.00"}
+      </span>
+      <TokenSelect
+       className="swap2-token"
+       onChange={(next) => {
+        setSwapTokenOut(next);
+        if (next === swapTokenIn) {
+         setSwapTokenIn(next === "EURC" ? "USDC" : "EURC");
+        }
+        setSwapEstimate(undefined);
+        setSwapExplorerUrl(undefined);
+       }}
+       size="sm"
+       value={swapTokenOut}
+      />
+     </div>
+    </div>
    </section>
+
+   <dl className="swap2-details">
+    <div>
+     <dt>Rate</dt>
+     <dd>{quotedRate ? `1 ${swapTokenIn} ≈ ${quotedRate} ${swapTokenOut}` : "Not quoted"}</dd>
+    </div>
+    <div>
+     <dt>Minimum received</dt>
+     <dd>{swapEstimate?.minimumOutput ?? "Not quoted"}</dd>
+    </div>
+    <div>
+     <dt>Service fee</dt>
+     <dd>0.3%</dd>
+    </div>
+    <div>
+     <dt>Paying from</dt>
+     <dd>
+      <Wallet className="h-3.5 w-3.5" />
+      {isEmbeddedWalletMode ? "Circle wallet" : "External wallet"} ·{" "}
+      <span className="font-mono">{shortenAddress(address)}</span>
+     </dd>
+    </div>
+    <div>
+     <dt>Status</dt>
+     <dd className="swap2-status">
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+      {statusText}
+     </dd>
+    </div>
+   </dl>
+
+   {swapError ? (
+    <p className="swap2-error" role="alert">
+     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+     <span className="min-w-0 break-words">{swapError}</span>
+    </p>
+   ) : null}
+
+   <Button
+    className="swap2-cta"
+    disabled={swapEstimate ? !canExecuteSwap : !canRequestSwapQuote}
+    onClick={swapEstimate ? handleExecuteSwap : handleEstimateSwap}
+    type="button"
+   >
+    {busy ? (
+     <Loader2 className="h-4 w-4 animate-spin" />
+    ) : swapEstimate ? (
+     <ArrowRight className="h-4 w-4" />
+    ) : (
+     <ReceiptText className="h-4 w-4" />
+    )}
+    {primaryLabel}
+   </Button>
+   {swapEstimate && !isSwapPending ? (
+    <button className="swap2-requote" disabled={!canRequestSwapQuote} onClick={handleEstimateSwap} type="button">
+     Refresh quote
+    </button>
+   ) : null}
+
+   {swapExplorerUrl ? (
+    <a className="swap2-link" href={swapExplorerUrl} rel="noreferrer" target="_blank">
+     View swap on ArcScan
+     <ExternalLink className="h-4 w-4" />
+    </a>
+   ) : null}
   </div>
  );
 }

@@ -10,7 +10,8 @@ export default function SwapPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        backHref="/dashboard"
+        // The panel draws its own bar with a back button.
+        hideHeader
         subtitle="Stablecoin exchange on Arc"
         title="Swap"
       >

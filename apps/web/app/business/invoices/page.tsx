@@ -10,7 +10,8 @@ export default function InvoicesPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        backHref="/dashboard"
+        // The hub draws its own bar with a back button.
+        hideHeader
         subtitle="Create, send and track professional payment requests"
         title="Invoices"
       >

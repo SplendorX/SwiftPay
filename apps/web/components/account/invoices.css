@@ -1,0 +1,487 @@
+/* Invoices. In its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.inv-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.inv-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.inv-title {
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.inv-round:hover {
+  background: var(--muted);
+}
+
+.inv-round.is-primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.inv-round.is-primary:hover {
+  background: var(--primary-hover, var(--primary));
+}
+
+.inv-step-count {
+  justify-self: end;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+.inv-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--destructive) 9%, var(--card));
+  font-size: 0.88rem;
+  color: var(--destructive);
+}
+
+.inv-alert button {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* Hero */
+.inv-hero {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  overflow: hidden;
+  padding: 1.2rem 1.25rem 1.05rem;
+  border-radius: 1.4rem;
+  color: #ffffff;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+}
+
+.inv-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.inv-hero-label {
+  position: relative;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.inv-hero-amount {
+  position: relative;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.inv-hero-sub {
+  position: relative;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.inv-hero-foot {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  font-size: 0.82rem;
+}
+
+.inv-hero-foot strong {
+  font-weight: 700;
+}
+
+/* Filters */
+.inv-filters {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.inv-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.inv-filter {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.inv-filter span {
+  min-width: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.inv-filter[aria-selected="true"] {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.inv-filter[aria-selected="true"] span {
+  background: rgb(255 255 255 / 0.22);
+}
+
+/* Cards and rows */
+.inv-card {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+}
+
+.inv-list-card {
+  padding: 0.25rem 1rem;
+}
+
+.inv-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.inv-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 0;
+  border-radius: 0.75rem;
+  text-align: left;
+  transition: background-color 140ms ease;
+}
+
+.inv-row:hover {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.inv-row-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+}
+
+.inv-row-icon.is-large {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.inv-row-icon[data-tone="paid"] {
+  background: color-mix(in oklch, #16a34a 14%, var(--card));
+  color: #15803d;
+}
+
+.inv-row-icon[data-tone="overdue"] {
+  background: color-mix(in oklch, #dc2626 12%, var(--card));
+  color: #b91c1c;
+}
+
+.inv-row-icon[data-tone="draft"],
+.inv-row-icon[data-tone="cancelled"] {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.dark .inv-row-icon[data-tone="open"] {
+  color: var(--link);
+}
+
+.dark .inv-row-icon[data-tone="paid"] {
+  color: #4ade80;
+}
+
+.dark .inv-row-icon[data-tone="overdue"] {
+  color: #f87171;
+}
+
+.inv-row-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.2rem;
+}
+
+.inv-row-title {
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-row-sub {
+  overflow: hidden;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inv-row-side {
+  display: grid;
+  flex-shrink: 0;
+  justify-items: end;
+  gap: 0.25rem;
+}
+
+.inv-row-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.inv-pill {
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.dark .inv-pill {
+  color: var(--link);
+}
+
+.inv-pill[data-tone="paid"] {
+  background: color-mix(in oklch, #16a34a 14%, var(--card));
+  color: #15803d;
+}
+
+.inv-pill[data-tone="overdue"] {
+  background: color-mix(in oklch, #dc2626 12%, var(--card));
+  color: #b91c1c;
+}
+
+.inv-pill[data-tone="draft"],
+.inv-pill[data-tone="cancelled"] {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.dark .inv-pill[data-tone="paid"] {
+  color: #4ade80;
+}
+
+.dark .inv-pill[data-tone="overdue"] {
+  color: #f87171;
+}
+
+.inv-empty {
+  display: flex;
+  min-height: 8rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  font-size: 0.9rem;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.inv-empty.is-first {
+  flex-direction: column;
+  padding: 2rem 1rem;
+}
+
+.inv-empty.is-first p {
+  max-width: 26rem;
+  line-height: 1.5;
+}
+
+.inv-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 10%, var(--muted));
+  color: var(--primary);
+}
+
+.inv-empty-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+/* Action sheet */
+.inv-sheet {
+  display: grid;
+  gap: 1rem;
+  overflow-y: auto;
+  padding: 1.5rem 1.25rem max(1rem, env(safe-area-inset-bottom));
+}
+
+.inv-sheet-head {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  text-align: center;
+}
+
+.inv-sheet-amount {
+  margin-top: 0.25rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.inv-actions {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.inv-actions li + li {
+  border-top: 1px solid var(--border);
+}
+
+.inv-actions button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.inv-actions button:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+}
+
+.inv-actions button:disabled {
+  opacity: 0.5;
+}
+
+.inv-actions button.is-danger {
+  color: var(--destructive);
+}
+
+/* New invoice */
+.inv-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.inv-steps li {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.inv-step-bar {
+  height: 0.3rem;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.inv-steps li.is-done .inv-step-bar,
+.inv-steps li.is-current .inv-step-bar {
+  background: var(--primary);
+}
+
+.inv-steps li.is-current {
+  color: var(--foreground);
+}
+
+.inv-compose {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+}
+
+@media (min-width: 640px) {
+  .inv-compose {
+    padding: 1.5rem;
+  }
+}
+
+.inv-compose-actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .inv-compose-actions {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
