@@ -414,3 +414,133 @@
   transform: translateY(-2px);
   background: color-mix(in oklch, var(--primary) 16%, var(--muted));
 }
+
+/* ── Greeting: the name in a colour of its own for each theme ───────────── */
+.dh-hello {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.dh-hello-name {
+  font-size: 1.6rem;
+  line-height: 1.15;
+  background: linear-gradient(100deg, #5b21b6 0%, #9333ea 55%, #db2777 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Light, white surface: indigo into sky. */
+[data-light-surface="glass"]:not(.dark) .dh-hello-name {
+  background-image: linear-gradient(100deg, #4338ca 0%, #6366f1 50%, #0ea5e9 100%);
+}
+
+/* Dark: lavender into aqua, bright against the night. */
+.dark .dh-hello-name {
+  background-image: linear-gradient(100deg, #c4b5fd 0%, #a78bfa 45%, #67e8f9 100%);
+}
+
+/* ── The balance wheel ───────────────────────────────────────────────────── */
+.dh-wheel {
+  display: grid;
+  gap: 0.15rem;
+  margin-top: 0.5rem;
+  touch-action: pan-x;
+  user-select: none;
+  outline: none;
+}
+
+.dh-wheel:focus-visible {
+  border-radius: 1rem;
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.4);
+}
+
+.dh-wheel-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.85rem;
+  color: #ffffff;
+  text-align: left;
+  transition: filter 280ms ease, opacity 280ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dh-wheel-row[hidden] {
+  display: none;
+}
+
+.dh-wheel-label {
+  display: inline-grid;
+  flex-shrink: 0;
+  min-width: 3.6rem;
+  place-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgb(255 255 255 / 0.55);
+  transition: background-color 280ms ease, color 280ms ease;
+}
+
+.dh-wheel-amount {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dh-wheel-amount small {
+  font-size: 0.55em;
+  color: rgb(255 255 255 / 0.6);
+}
+
+.dh-wheel-amount em {
+  margin-left: 0.35rem;
+  font-size: 0.5em;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgb(255 255 255 / 0.55);
+}
+
+/* Above and below: small, blurred, waiting. */
+.dh-wheel-row:not([data-offset="0"]) {
+  opacity: 0.45;
+  filter: blur(2.5px);
+  transform: scale(0.96);
+  transform-origin: left center;
+}
+
+.dh-wheel-row:not([data-offset="0"]) .dh-wheel-amount {
+  font-size: 1.15rem;
+}
+
+.dh-wheel-row:not([data-offset="0"]):hover {
+  opacity: 0.7;
+  filter: blur(1px);
+}
+
+/* The chosen row: big, sharp, with a white pill. */
+.dh-wheel-row[data-offset="0"] .dh-wheel-label {
+  background: #ffffff;
+  color: #1a0b38;
+}
+
+.dh-wheel-row[data-offset="0"] .dh-wheel-amount {
+  font-size: clamp(2.2rem, 9.5vw, 2.9rem);
+  line-height: 1.1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dh-wheel-row {
+    transition: none;
+  }
+}
+
+.dh-split {
+  margin-top: 0.85rem;
+}

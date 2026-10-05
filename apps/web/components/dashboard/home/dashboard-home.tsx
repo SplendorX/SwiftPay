@@ -21,9 +21,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
-import { TokenIcon } from "@/components/token-icon";
 import { checkoutEnabled } from "@/lib/checkout/flag";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
@@ -101,19 +100,13 @@ export function DashboardHome({
   transactions: ReactNode;
   trend: "up" | "down" | "flat";
 }) {
-  const [whole, cents] = splitAmount(balanceLabel);
   const shown = services.filter((service) => !service.business || isBusiness);
 
   return (
     <div className="dh">
       <header className="dh-hello">
-        <span aria-hidden className="dh-avatar">
-          {avatarUrl ? <img alt="" src={avatarUrl} /> : (greetingName ?? "S").replace(/^@/, "").charAt(0).toUpperCase()}
-        </span>
-        <div className="min-w-0">
-          <p className="dh-hello-small">{greeting()},</p>
-          <p className="dh-hello-name">{greetingName ?? "Welcome to SwiftPay"}</p>
-        </div>
+        <p className="dh-hello-small">{greeting()},</p>
+        <p className="dh-hello-name">{greetingName ?? "Welcome to SwiftPay"}</p>
       </header>
 
       {/* The one card that matters */}
@@ -134,20 +127,34 @@ export function DashboardHome({
           </button>
         </div>
 
-        <p className="dh-amount" aria-live="polite">
-          {!isConnected ? (
+        {!isConnected ? (
+          <p className="dh-amount">
             <span className="dh-amount-quiet">Connect a wallet</span>
-          ) : isLoading ? (
+          </p>
+        ) : isLoading ? (
+          <p className="dh-amount">
             <span className="dh-amount-skeleton" />
-          ) : hideBalance ? (
-            "••••••"
-          ) : (
-            <>
-              {whole}
-              <small>{cents}</small>
-            </>
-          )}
-        </p>
+          </p>
+        ) : (
+          <BalanceWheel
+            hidden={hideBalance}
+            rows={[
+              {
+                amount: tokens.find((token) => token.symbol === "USDC")?.amount ?? "0.00",
+                key: "USDC",
+                label: "USDC",
+                unit: "USDC",
+              },
+              { amount: balanceLabel, key: "all", label: "All", unit: currency },
+              {
+                amount: tokens.find((token) => token.symbol === "EURC")?.amount ?? "0.00",
+                key: "EURC",
+                label: "EURC",
+                unit: "EURC",
+              },
+            ]}
+          />
+        )}
 
         {isConnected ? (
           <p className={cn("dh-change", `is-${trend}`)}>
@@ -156,22 +163,11 @@ export function DashboardHome({
           </p>
         ) : null}
 
-        {isConnected && tokens.length > 0 ? (
-          <div className="dh-tokens">
-            <div aria-hidden className="dh-split">
-              {tokens.map((token) => (
-                <span data-symbol={token.symbol} key={token.symbol} style={{ flexGrow: Math.max(token.share, 0.5) }} />
-              ))}
-            </div>
-            <div className="dh-token-row">
-              {tokens.map((token) => (
-                <span className="dh-token" key={token.symbol}>
-                  <TokenIcon className="h-4 w-4" symbol={token.symbol} />
-                  {hideBalance ? "••••" : token.amount}
-                  <em>{token.symbol}</em>
-                </span>
-              ))}
-            </div>
+        {isConnected && tokens.length > 1 ? (
+          <div aria-hidden className="dh-split">
+            {tokens.map((token) => (
+              <span data-symbol={token.symbol} key={token.symbol} style={{ flexGrow: Math.max(token.share, 0.5) }} />
+            ))}
           </div>
         ) : null}
 
@@ -229,6 +225,76 @@ export function DashboardHome({
       {transactions}
 
       {extras}
+    </div>
+  );
+}
+
+type WheelRow = { amount: string; key: string; label: string; unit: string };
+
+/**
+ * The balance as a wheel: All in the middle, each coin above and below,
+ * blurred until chosen. Tap a row, swipe, or use the arrow keys.
+ */
+function BalanceWheel({ hidden, rows }: { hidden: boolean; rows: WheelRow[] }) {
+  const [index, setIndex] = useState(1);
+  const startY = useRef<number | null>(null);
+  const move = (step: number) => setIndex((current) => Math.min(rows.length - 1, Math.max(0, current + step)));
+
+  return (
+    <div
+      aria-label="Balance by currency"
+      className="dh-wheel"
+      onKeyDown={(event) => {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          move(-1);
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          move(1);
+        }
+      }}
+      onPointerDown={(event) => {
+        startY.current = event.clientY;
+      }}
+      onPointerUp={(event) => {
+        if (startY.current === null) return;
+        const delta = event.clientY - startY.current;
+        startY.current = null;
+        if (Math.abs(delta) > 24) move(delta < 0 ? 1 : -1);
+      }}
+      role="listbox"
+      tabIndex={0}
+    >
+      {rows.map((row, rowIndex) => {
+        const offset = rowIndex - index;
+        const [whole, cents] = splitAmount(row.amount);
+        return (
+          <button
+            aria-selected={offset === 0}
+            className="dh-wheel-row"
+            data-offset={Math.max(-1, Math.min(1, offset))}
+            hidden={Math.abs(offset) > 1}
+            key={row.key}
+            onClick={() => setIndex(rowIndex)}
+            role="option"
+            tabIndex={-1}
+            type="button"
+          >
+            <span className="dh-wheel-label">{row.label}</span>
+            <span className="dh-wheel-amount">
+              {hidden ? (
+                "••••••"
+              ) : (
+                <>
+                  {whole}
+                  <small>{cents}</small>
+                </>
+              )}
+              <em>{row.unit}</em>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

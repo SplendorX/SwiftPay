@@ -63,6 +63,34 @@ function claimantFor(candidates: AccountActivityItem[], transfer: WalletTransfer
   );
 }
 
+/** How far apart a record and its on-chain transfer may be, in time. */
+const sameMoveWindowMs = 15 * 60 * 1000;
+
+/**
+ * A feature record with no transfer yet that is the same money movement as
+ * `transfer`: same direction, amount and token, within a few minutes. The
+ * closest in time wins.
+ */
+function sameMoveMatch(items: AccountActivityItem[], transfer: WalletTransfer) {
+  const at = time(transfer.timestamp);
+  if (!at) return null;
+  let best: AccountActivityItem | null = null;
+  let bestGap = Number.POSITIVE_INFINITY;
+  for (const item of items) {
+    if (item.source === "wallet" || item.transfer || item.direction !== transfer.direction) continue;
+    if (!sameAmount(item.amount, transfer.amount)) continue;
+    if (item.token && item.token.toUpperCase() !== transfer.symbol) continue;
+    const itemAt = time(item.occurredAt);
+    if (!itemAt) continue;
+    const gap = Math.abs(itemAt - at);
+    if (gap <= sameMoveWindowMs && gap < bestGap) {
+      best = item;
+      bestGap = gap;
+    }
+  }
+  return best;
+}
+
 /**
  * One list of account activity: each feature's records, with the wallet's
  * on-chain transfers folded into the feature that produced them. A transfer
@@ -101,6 +129,14 @@ export function mergeAccountActivity(
         items.push(item);
         byHash.set(hash, [item]);
       }
+    }
+
+    // No record shares this hash: a Circle smart-wallet payment can be
+    // recorded with the hash it was submitted under, while the chain shows
+    // the bundle's. Claim the record that is clearly the same payment.
+    if (!item && !candidates) {
+      item = sameMoveMatch(items, transfer);
+      if (item) byHash.set(hash, [item]);
     }
 
     if (!item) {

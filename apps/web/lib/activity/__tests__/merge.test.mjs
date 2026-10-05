@@ -174,3 +174,33 @@ describe("mergeAccountActivity", () => {
     assert.equal(receipt.counterpartyLabel, "@ben");
   });
 });
+
+describe("records saved under another hash", () => {
+  // A Circle smart-wallet send recorded with its submit hash, while the chain
+  // shows the bundle's: the same payment, so one row.
+  it("folds the transfer into the matching record", () => {
+    const items = mergeAccountActivity(
+      [entry({ id: "send:1", source: "send", title: "Sent to acme", counterparty: "acme", amount: "0.1", txHashes: [hash(7)], occurredAt: "2026-10-05T19:46:47.158Z" })],
+      [transfer({ amount: "0.1", hash: hash(8), timestamp: "2026-10-05T19:46:46.000Z" })],
+    );
+    assert.equal(items.length, 1);
+    assert.equal(items[0].source, "send");
+    assert.equal(items[0].transfer.hash, hash(8));
+  });
+
+  it("keeps a different amount apart", () => {
+    const items = mergeAccountActivity(
+      [entry({ id: "send:1", source: "send", amount: "0.1", txHashes: [hash(7)], occurredAt: "2026-10-05T19:46:47.000Z" })],
+      [transfer({ amount: "0.2", hash: hash(8), timestamp: "2026-10-05T19:46:46.000Z" })],
+    );
+    assert.equal(items.length, 2);
+  });
+
+  it("keeps a far-apart time apart", () => {
+    const items = mergeAccountActivity(
+      [entry({ id: "send:1", source: "send", amount: "0.1", txHashes: [hash(7)], occurredAt: "2026-10-05T19:46:47.000Z" })],
+      [transfer({ amount: "0.1", hash: hash(8), timestamp: "2026-10-05T21:46:46.000Z" })],
+    );
+    assert.equal(items.length, 2);
+  });
+});

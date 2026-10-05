@@ -15,3 +15,83 @@
   z-index: 2147483647 !important;
   pointer-events: auto !important;
 }
+
+/* Receipts (and the success card that shares their frame) slide in like the
+ * app's other sheets: up from the bottom on phones and tablets, in from the
+ * right on desktop. Contents are unchanged. */
+.tx-receipt-backdrop {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.tx-receipt {
+  width: 100%;
+  max-width: 34rem;
+  max-height: 92dvh;
+  overflow-y: auto;
+  border-bottom: 0;
+  border-radius: 1.75rem 1.75rem 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: tx-receipt-slide-up 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The grab handle of a bottom sheet. */
+.tx-receipt::before {
+  content: "";
+  position: sticky;
+  top: 0.55rem;
+  z-index: 2;
+  align-self: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 0.3rem;
+  margin: 0.55rem auto 0;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
+}
+
+@keyframes tx-receipt-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 1024px) {
+  .tx-receipt-backdrop {
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+
+  .tx-receipt {
+    width: 28rem;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+    animation-name: tx-receipt-slide-in;
+  }
+
+  .tx-receipt::before {
+    display: none;
+  }
+}
+
+@keyframes tx-receipt-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tx-receipt {
+    animation: none;
+  }
+}
