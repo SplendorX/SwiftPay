@@ -39,6 +39,7 @@ import {
 } from "@/lib/activity/merge";
 import {
   activityFeatureMeta,
+  activityWindowStart,
   type AccountActivityEntry,
   type ActivityFeed,
 } from "@/lib/activity/types";
@@ -167,11 +168,14 @@ export function AccountActivity({
   onOpenBatch,
   onOpenReceipt,
   ownerWallet,
+  range,
   transfers,
   transfersError,
   transfersLoading,
   walletExplorerUrl,
 }: {
+  /** Only show activity in this window (epoch ms), e.g. one month on Insights. */
+  range?: { from: number; to: number };
   className?: string;
   /** For hosts that draw their own page header (the Activity page). */
   hideHeading?: boolean;
@@ -239,10 +243,19 @@ export function AccountActivity({
     if (transferCount > 0) void loadEntries();
   }, [loadEntries, transferCount]);
 
-  const items = useMemo(
-    () => mergeAccountActivity(entries, transfers),
-    [entries, transfers],
-  );
+  // Activity covers the last 30 days; older history is in statements.
+  const rangeFrom = range?.from;
+  const rangeTo = range?.to;
+  const items = useMemo(() => {
+    const windowStart = activityWindowStart().getTime();
+    const from = Math.max(windowStart, rangeFrom ?? windowStart);
+    const to = rangeTo ?? Number.POSITIVE_INFINITY;
+    return mergeAccountActivity(entries, transfers).filter((item) => {
+      const at = item.occurredAt ? Date.parse(item.occurredAt) : Number.NaN;
+      // Undated rows are just-confirmed payments still waiting for a block time.
+      return Number.isNaN(at) ? rangeTo === undefined : at >= from && at <= to;
+    });
+  }, [entries, rangeFrom, rangeTo, transfers]);
 
   const usernameFor = useWalletUsernames([
     ...items.map((item) => item.transfer?.counterparty ?? item.counterparty),
@@ -415,8 +428,9 @@ export function AccountActivity({
             </p>
           ) : items.length === 0 ? (
             <p className="account-activity-empty">
-              No activity yet. Payments, swaps, savings and everything else you
-              do on SwiftPay will show up here.
+              {range
+                ? "No transactions in this period."
+                : "No activity in the last 30 days. Payments, swaps, savings and everything else you do on SwiftPay will show up here."}
             </p>
           ) : filtered.length === 0 ? (
             <p className="account-activity-empty">

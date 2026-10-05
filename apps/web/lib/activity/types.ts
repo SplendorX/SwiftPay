@@ -22,6 +22,17 @@ export const activitySources = [
 
 export type ActivitySource = (typeof activitySources)[number];
 
+/**
+ * The Activity page shows this many days. Anything older is only available
+ * in a downloaded statement of account, for a range the user picks.
+ */
+export const activityWindowDays = 30;
+
+/** The start of the Activity window, as of `now`. */
+export function activityWindowStart(now = Date.now()) {
+  return new Date(now - activityWindowDays * 24 * 60 * 60 * 1000);
+}
+
 /** Feature sources plus "wallet": on-chain transfers no feature claimed. */
 export type ActivityFeed = ActivitySource | "wallet";
 

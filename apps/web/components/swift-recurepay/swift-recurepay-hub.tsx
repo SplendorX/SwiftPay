@@ -1,19 +1,7 @@
 "use client";
 
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
-import {
-  CalendarClock,
-  CheckCircle2,
-  KeyRound,
-  Loader2,
-  Pause,
-  Play,
-  Plus,
-  RefreshCw,
-  Repeat,
-  Trash2,
-  Wallet,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Plus, Wallet } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
 import {
@@ -34,23 +22,27 @@ import {
   useWriteContract,
 } from "wagmi";
 
-import { KpiCard } from "@/components/design/kpi-card";
-import { useT } from "@/components/locale-provider";
 import {
-  RecurringScheduleFields,
-  createRecurringDraft,
-  datetimeLocalToIso,
   isoToDatetimeLocalValue,
-  startTimeError,
   toDatetimeLocalValue,
-  type RecurringScheduleDraft,
 } from "@/components/recurring-schedule-fields";
 import { showSuccess } from "@/components/success-popup";
-import { TokenSelect } from "@/components/design/token-select";
-import { TokenIcon } from "@/components/token-icon";
-import { Badge } from "@/components/ui/badge";
+import {
+  RecurepayBar,
+  RecurepayCompose,
+  RecurepayDashboard,
+  RecurepayEmpty,
+  RecurepayReview,
+  ScheduleSheet,
+} from "@/components/swift-recurepay/recurepay-views";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { fetchBeneficiaries, type BeneficiaryRecord } from "@/lib/beneficiaries";
+import {
+  describeCadence,
+  projectRuns,
+  scheduleFromCompose,
+  type ComposeSchedule,
+} from "@/lib/recurepay-plan";
 import { personalCircleWallet } from "@/lib/business/provision-wallet";
 import {
   circleSessionEventName,
@@ -74,7 +66,6 @@ import {
 } from "@/lib/contracts";
 import { formatUnitsToDecimal } from "@/lib/save/decimal";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
-import { RecipientSpinner, RecipientStatus } from "@/components/recipient-status";
 import {
   authorizeRecurringSchedule,
   createRecurringSchedule,
@@ -86,10 +77,6 @@ import {
   updateRecurringSchedule,
 } from "@/lib/recurring-schedules";
 import {
-  formatAuthorizationStatusLabel,
-  formatExecutionStatusLabel,
-  formatFrequencyLabel,
-  formatScheduleRecipient,
   isCompletedDisplayStatus,
   isDueDisplayStatus,
   isProcessingDisplayStatus,
@@ -217,7 +204,6 @@ function getErrorMessage(error: unknown) {
 }
 
 export function SwiftRecurepayHub() {
-  const t = useT();
   const { address, connector, isConnected } = useAccount();
   const chainId = useChainId();
   const { signMessageAsync, isPending: isSigningIn } = useSignMessage();
@@ -244,9 +230,23 @@ export function SwiftRecurepayHub() {
   const [amount, setAmount] = useState("");
   const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
   const [token, setToken] = useState<ArcTokenSymbol>("USDC");
-  const [narration, setNarration] = useState("RecurePay schedule");
-  const [recurringDraft, setRecurringDraft] =
-    useState<RecurringScheduleDraft>(createRecurringDraft);
+  const [narration, setNarration] = useState("");
+  // The page is a small flow: home → compose → review, plus a detail sheet.
+  const [view, setView] = useState<"home" | "compose" | "review">("home");
+  const [compose, setCompose] = useState<ComposeSchedule>(() => ({
+    date: "",
+    endDate: "",
+    frequency: "monthly",
+    intervalDays: "30",
+    payments: "",
+    time: "",
+    type: "recurring",
+  }));
+  const [autopay, setAutopay] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
+  const [openScheduleId, setOpenScheduleId] = useState<string | null>(null);
+  const [detailBusy, setDetailBusy] = useState<string | null>(null);
+  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryRecord[]>([]);
   const [approvingScheduleId, setApprovingScheduleId] = useState<string | null>(
     null,
   );
@@ -255,7 +255,8 @@ export function SwiftRecurepayHub() {
   );
 
   // ALLIE's "Review and authorize" carries the schedule in the URL:
-  // /recurepay?recipient=@ada&amount=20&token=USDC&frequency=monthly.
+  // /recurepay?recipient=@ada&amount=20&token=USDC&frequency=monthly. It
+  // fills the form and opens it, so the person only has to check and confirm.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const recipient = params.get("recipient")?.trim();
@@ -267,12 +268,6 @@ export function SwiftRecurepayHub() {
     if (linkAmount && /^\d+(\.\d+)?$/.test(linkAmount)) setAmount(linkAmount);
     if (linkToken && arcTokenSymbols.includes(linkToken as ArcTokenSymbol)) {
       setToken(linkToken as ArcTokenSymbol);
-    }
-    if (frequency && recurringFrequencies.includes(frequency as RecurringFrequency)) {
-      setRecurringDraft((draft) => ({
-        ...draft,
-        frequency: frequency as RecurringFrequency,
-      }));
     }
 
     // Schedule bounds from ALLIE: an explicit start, or `startIn` minutes from
@@ -291,15 +286,22 @@ export function SwiftRecurepayHub() {
             : null;
     const endsAt = isoToDatetimeLocalValue(params.get("endsAt"));
     const maxRuns = params.get("maxRuns")?.trim();
+    const start = startsAt ? toDatetimeLocalValue(startsAt) : "";
 
-    if (startsAt || endsAt || maxRuns) {
-      setRecurringDraft((draft) => ({
-        ...draft,
-        ...(startsAt ? { startsAt: toDatetimeLocalValue(startsAt) } : {}),
-        ...(endsAt ? { endsAt } : {}),
-        ...(maxRuns && /^[1-9]\d{0,3}$/.test(maxRuns) ? { maxRuns } : {}),
-      }));
-    }
+    setCompose((current) => ({
+      ...current,
+      ...(frequency && recurringFrequencies.includes(frequency as RecurringFrequency)
+        ? { frequency: frequency as RecurringFrequency }
+        : {}),
+      ...(start ? { date: start.slice(0, 10), time: start.slice(11, 16) } : {}),
+      ...(endsAt ? { endDate: endsAt.slice(0, 10) } : {}),
+      ...(maxRuns && /^[1-9]\d{0,3}$/.test(maxRuns)
+        ? maxRuns === "1"
+          ? { type: "one-time" as const }
+          : { payments: maxRuns }
+        : {}),
+    }));
+    if (recipient || linkAmount) setView("compose");
   }, []);
 
   const circleIdentity = getCircleLoginIdentity(circleLogin);
@@ -409,10 +411,6 @@ export function SwiftRecurepayHub() {
       ),
     [executions],
   );
-
-  const activeSchedules = schedules.filter(
-    (schedule) => schedule.status === "active",
-  ).length;
 
   const refreshData = useCallback(async (silent = false) => {
     if (!canAccessRecurring || !requestContext) {
@@ -631,33 +629,34 @@ export function SwiftRecurepayHub() {
     }
   }
 
-  async function handleCreateSchedule() {
+  /** The form, checked: what to send to the API, or the first problem. */
+  function validateCompose() {
     if (!requestContext || !ownerAddress) {
-      setError("Connect a wallet before creating a recurring schedule.");
-      return;
+      return "Connect and authorize a wallet before scheduling a payment.";
     }
-
     if (!isRecipientValid || !resolvedRecipientAddress) {
-      setError(
-        recipientResolveError ?? "Enter a valid recipient wallet or @username.",
-      );
-      return;
+      return recipientResolveError ?? "Enter a valid @username or wallet address.";
     }
-
-    const startError = startTimeError(recurringDraft.startsAt);
-    if (startError) {
-      setError(startError);
-      return;
+    const value = Number(amount);
+    if (!amount || !Number.isFinite(value) || value <= 0) {
+      return "Enter an amount.";
     }
+    const plan = scheduleFromCompose(compose);
+    return plan.ok ? null : plan.error;
+  }
 
-    const startsAt = datetimeLocalToIso(recurringDraft.startsAt);
-    const endsAt = datetimeLocalToIso(recurringDraft.endsAt);
-    if (
-      startsAt &&
-      endsAt &&
-      new Date(endsAt).getTime() < new Date(startsAt).getTime()
-    ) {
-      setError("End time must be after the start time.");
+  function handleComposeNext() {
+    const problem = validateCompose();
+    setComposeError(problem);
+    setError(null);
+    if (!problem) setView("review");
+  }
+
+  async function handleCreateSchedule() {
+    const plan = scheduleFromCompose(compose);
+    if (!requestContext || !ownerAddress || !resolvedRecipientAddress || !plan.ok) {
+      setComposeError(validateCompose() ?? "Check the details and try again.");
+      setView("compose");
       return;
     }
 
@@ -668,82 +667,71 @@ export function SwiftRecurepayHub() {
     try {
       const schedule = await createRecurringSchedule({
         amount,
-        autopayEnabled: canUseAutopay ? recurringDraft.autopayEnabled : undefined,
+        autopayEnabled: canUseAutopay ? autopay : undefined,
         beneficiaryLabel: beneficiaryLabel || undefined,
         beneficiaryUsername: resolvedRecipientUsername ?? undefined,
         beneficiaryWallet: resolvedRecipientAddress,
         circleSocialUuid: requestContext.circleSocialUuid,
-        endsAt: datetimeLocalToIso(recurringDraft.endsAt),
-        frequency: recurringDraft.frequency,
-        intervalDays:
-          recurringDraft.frequency === "custom"
-            ? Number(recurringDraft.intervalDays) || undefined
-            : undefined,
-        maxRuns: recurringDraft.maxRuns
-          ? Number(recurringDraft.maxRuns)
-          : undefined,
-        narration,
+        endsAt: plan.endsAt?.toISOString(),
+        frequency: plan.frequency,
+        intervalDays: plan.intervalDays ?? undefined,
+        maxRuns: plan.maxRuns ?? undefined,
+        narration: narration.trim() || "RecurePay schedule",
         ownerWallet: ownerAddress,
-        startsAt: datetimeLocalToIso(recurringDraft.startsAt),
+        startsAt: plan.startsAt.toISOString(),
         tokenSymbol: token,
         walletMode: isEmbeddedWalletMode ? "circle" : "external",
       });
 
       setSchedules((current) => [schedule, ...current]);
-      setRecipientInput("");
-      setBeneficiaryLabel("");
-      setAmount("");
 
-      if (recurringDraft.autopayEnabled) {
+      let autopayFailed: string | null = null;
+      if (autopay && canUseAutopay) {
         try {
           await authorizeScheduleAutopay(schedule);
           await refreshData();
-          setSuccess(
-            "Schedule created. Autopay is authorized. Due payments run in the background without this page.",
-          );
-          showSuccess({
-            amount: `${schedule.amount} ${schedule.token_symbol}`,
-            eyebrow: "RecurePay",
-            subtitle: "Autopay is authorized for background settlement.",
-            title: "Recurring payment created",
-          });
         } catch (authorizeError) {
-          setSuccess("Schedule created. Authorize Autopay to enable background payments.");
-          showSuccess({
-            amount: `${schedule.amount} ${schedule.token_symbol}`,
-            eyebrow: "RecurePay",
-            subtitle: "Authorize Autopay from this page to enable background payments.",
-            title: "Recurring payment created",
-          });
-          setError(getErrorMessage(authorizeError));
+          autopayFailed = getErrorMessage(authorizeError);
         }
-      } else {
-        setSuccess(
-          "Schedule created. Use Pay now for a manual run, or authorize Autopay to let the backend execute when due.",
-        );
-        showSuccess({
-          amount: `${schedule.amount} ${schedule.token_symbol}`,
-          eyebrow: "RecurePay",
-          rows: [
-            {
-              label: "Start",
-              value: new Date(schedule.starts_at).toLocaleString(),
-            },
-            {
-              label: "End",
-              value: schedule.ends_at
-                ? new Date(schedule.ends_at).toLocaleString()
-                : "Open",
-            },
-          ],
-          subtitle: "Manage this schedule from this page.",
-          title: "Recurring payment created",
-        });
+      }
+
+      setRecipientInput("");
+      setBeneficiaryLabel("");
+      setAmount("");
+      setNarration("");
+      setCompose((current) => ({ ...current, date: "", endDate: "", payments: "", time: "" }));
+      setAutopay(false);
+      setView("home");
+      setOpenScheduleId(null);
+
+      showSuccess({
+        amount: `${schedule.amount} ${schedule.token_symbol}`,
+        eyebrow: "RecurePay",
+        rows: [
+          { label: "First payment", value: new Date(schedule.starts_at).toLocaleString() },
+          {
+            label: "Ends",
+            value: schedule.ends_at
+              ? new Date(schedule.ends_at).toLocaleDateString()
+              : schedule.max_runs
+                ? `After ${schedule.max_runs} payment${schedule.max_runs === 1 ? "" : "s"}`
+                : "When you stop it",
+          },
+        ],
+        subtitle:
+          autopay && !autopayFailed
+            ? "Autopay is on: it pays on time, even with SwiftPay closed."
+            : "We'll remind you here when it's due.",
+        title: schedule.max_runs === 1 ? "Payment scheduled" : "Recurring payment scheduled",
+      });
+      if (autopayFailed) {
+        setError(`Scheduled, but Autopay wasn't turned on: ${autopayFailed} Turn it on from the schedule.`);
       }
     } catch (createError) {
       setError(getErrorMessage(createError));
     } finally {
       setIsSaving(false);
+      setSuccess(null);
     }
   }
 
@@ -1341,538 +1329,244 @@ export function SwiftRecurepayHub() {
     }
   }
 
-  return (
-    <div className="grid min-w-0 gap-4 overflow-x-hidden">
-      {!ownerAddress ? (
-        <section className="rounded-lg border border-border bg-card px-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">Wallet required</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Connect an external wallet or sign in with Google from Home before
-                managing recurring payments.
-              </p>
-            </div>
-            <Wallet className="h-5 w-5 text-primary" />
-          </div>
-        </section>
-      ) : null}
+  // Saved contacts for "Choose beneficiary".
+  useEffect(() => {
+    if (!canAccessRecurring || !requestContext) return;
+    let cancelled = false;
+    void fetchBeneficiaries(requestContext)
+      .then((list) => {
+        if (!cancelled) setBeneficiaries(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessRecurring, requestContext]);
 
-      {ownerAddress && !canAccessRecurring ? (
-        <section className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-3">
-              <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-              <div>
-                <p className="text-sm font-semibold">Authorize this wallet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {isEmbeddedWalletMode
-                    ? "Your Circle session is missing a linked profile. Return to Home, sign in with Google, then reopen RecurePay."
-                    : "Sign a one-time message to authorize recurring schedules and executions for this wallet."}
-                </p>
-              </div>
-            </div>
-            {!isEmbeddedWalletMode ? (
-              <Button
-                disabled={isAuthenticatingWallet}
-                onClick={() => void handleWalletSignIn()}
-              >
-                {isAuthenticatingWallet ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <KeyRound className="h-4 w-4" />
-                )}
-                Authorize wallet
-              </Button>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
+  const openSchedule = openScheduleId ? scheduleMap.get(openScheduleId) ?? null : null;
+  const reviewPlan = scheduleFromCompose(compose);
+  const reviewRuns = reviewPlan.ok
+    ? projectRuns(
+        {
+          amount,
+          ends_at: reviewPlan.endsAt?.toISOString() ?? null,
+          frequency: reviewPlan.frequency,
+          id: "draft",
+          interval_days: reviewPlan.intervalDays,
+          max_runs: reviewPlan.maxRuns,
+          next_run_at: reviewPlan.startsAt.toISOString(),
+          run_count: 0,
+          status: "active",
+          token_symbol: token,
+        },
+        { limit: 12 },
+      )
+    : [];
 
-      <section className="section-panel">
-        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="section-eyebrow">{t("recure.eyebrow")}</p>
-            <h1 className="section-title">{t("recure.heading")}</h1>
-            <p className="section-copy">{t("recure.body", { network: arcChain.name })}</p>
-          </div>
-          <Button
-            disabled={!canAccessRecurring || isLoading}
-            onClick={() => void refreshData()}
-            variant="outline"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Refresh
-          </Button>
-        </div>
+  async function runScheduleAction(action: string, work: () => Promise<void>) {
+    setDetailBusy(action);
+    setError(null);
+    try {
+      await work();
+    } finally {
+      setDetailBusy(null);
+    }
+  }
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard
-            change={ownerAddress ? shortenAddress(ownerAddress) : "Connect wallet"}
-            icon={Wallet}
-            label="Payer wallet"
-            value={isEmbeddedWalletMode ? "Circle" : "External"}
-          />
-          <KpiCard
-            change="Active cadence"
-            icon={Repeat}
-            label="Schedules"
-            value={String(activeSchedules)}
-          />
-          <KpiCard
-            change="Awaiting confirmation"
-            changeTone={dueExecutions.length > 0 ? "positive" : "neutral"}
-            icon={CalendarClock}
-            label="Due now"
-            value={String(dueExecutions.length)}
-          />
-          <KpiCard
-            change="Confirmed onchain"
-            icon={CheckCircle2}
-            label="Completed runs"
-            value={String(
-              executions.filter((execution) =>
-                isCompletedDisplayStatus(execution.status),
-              ).length,
-            )}
-          />
-        </div>
-      </section>
-
-
-      {/* Two equal columns: the queue and the form carry the same weight. */}
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2 lg:gap-6">
-        <section className="glass-panel min-w-0 overflow-x-hidden p-4 sm:p-5">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="section-eyebrow">{t("recure.dueQueue")}</p>
-              <h2 className="font-heading text-xl font-semibold">Payments ready to send</h2>
-            </div>
-            <Badge variant={dueExecutions.length > 0 ? "secondary" : "outline"}>
-              {dueExecutions.length} due
-            </Badge>
-          </div>
-
-          {isLoading ? (
-            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading RecurePay queue...
-            </div>
-          ) : dueExecutions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No manual payments waiting. Authorized Autopay runs in the
-              background and appears in execution history after settlement.
-            </p>
-          ) : (
-            <div className="grid gap-3">
-              {dueExecutions.map((execution) => {
-                const schedule = scheduleMap.get(execution.schedule_id);
-
-                if (!schedule) {
-                  return null;
-                }
-
-                return (
-                  <article
-                    className="rounded-lg border border-border bg-card px-4 py-4"
-                    key={execution.id}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold">
-                            {schedule.amount} {schedule.token_symbol}
-                          </p>
-                          <Badge variant="outline">
-                            {formatExecutionStatusLabel(execution.status)}
-                          </Badge>
-                          <Badge variant="outline">
-                            +{recurringPlatformFeeBasisPoints / 100}% fee
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          To {formatScheduleRecipient(schedule)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Due {new Date(execution.due_at).toLocaleString()}
-                          {" · "}
-                          Service fee {recurringPlatformFeeBasisPoints / 100}%
-                          is charged separately and hidden from history
-                        </p>
-                        {execution.error_message ? (
-                          <p className="mt-1 text-xs text-destructive">
-                            {execution.error_message}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          disabled={Boolean(payingExecutionId) || !ownerAddress}
-                          onClick={() => void handlePayExecution(execution)}
-                        >
-                          {payingExecutionId === execution.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Play className="h-4 w-4" />
-                          )}
-                          Pay now
-                        </Button>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className="glass-panel min-w-0 overflow-x-hidden p-4 sm:p-5">
-          <div className="mb-4">
-            <p className="section-eyebrow">{t("recure.create")}</p>
-            <h2 className="font-heading text-xl font-semibold">New schedule</h2>
-          </div>
-
-          <div className="grid gap-3">
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Recipient</span>
-              <div className="relative">
-                <Input
-                  aria-describedby="recure-recipient-status"
-                  autoComplete="off"
-                  className="pr-9"
-                  onChange={(event) => setRecipientInput(event.target.value)}
-                  placeholder="0x address or @username"
-                  spellCheck={false}
-                  value={recipientInput}
-                />
-                <RecipientSpinner resolution={recipientResolution} />
-              </div>
-              <RecipientStatus id="recure-recipient-status" resolution={recipientResolution} />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Label</span>
-              <Input
-                onChange={(event) => setBeneficiaryLabel(event.target.value)}
-                placeholder="Rent, payroll, subscription"
-                value={beneficiaryLabel}
-              />
-            </label>
-
-            <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_11rem]">
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold">Amount</span>
-                <div className="field-shell flex h-11 items-center gap-2 px-3">
-                  <TokenIcon className="h-5 w-5 rounded-full" symbol={token} />
-                  <Input
-                    className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-                    inputMode="decimal"
-                    onChange={(event) => setAmount(event.target.value)}
-                    placeholder="0.00"
-                    value={amount}
-                  />
-                </div>
-              </label>
-              <TokenSelect label="Asset" onChange={setToken} size="sm" value={token} />
-            </div>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold">Narration</span>
-              <Input
-                onChange={(event) => setNarration(event.target.value)}
-                value={narration}
-              />
-            </label>
-
-            <RecurringScheduleFields
-              onChange={setRecurringDraft}
-              showAutopay={canUseAutopay}
-              value={recurringDraft}
-            />
-
-            {/* Shown before creating, not only once a payment is due. */}
-            <div className="rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">
-                  Service fee ({recurringPlatformFeeBasisPoints / 100}%)
-                </span>
-                <span className="font-medium tabular-nums">
-                  {Number(amount) > 0
-                    ? `${((Number(amount) * recurringPlatformFeeBasisPoints) / 10_000).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${token}`
-                    : "—"}
-                </span>
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Each payment costs</span>
-                <span className="font-semibold tabular-nums">
-                  {Number(amount) > 0
-                    ? `${((Number(amount) * (10_000 + recurringPlatformFeeBasisPoints)) / 10_000).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${token}`
-                    : "—"}
-                </span>
-              </div>
-            </div>
-
-            <Button
-              disabled={
-                !canAccessRecurring ||
-                isSaving ||
-                isRecipientResolving ||
-                !isRecipientValid ||
-                !amount ||
-                isWritePending
-              }
-              onClick={() => void handleCreateSchedule()}
-            >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Create schedule
-            </Button>
-          </div>
-        </section>
+  const walletNotice = !ownerAddress ? (
+    <div className="recurepay-card recurepay-notice">
+      <Wallet className="h-5 w-5 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">Connect a wallet</p>
+        <p className="text-sm text-muted-foreground">
+          Sign in with Google or email, or connect a wallet, to schedule payments.
+        </p>
       </div>
-
-      {processingExecutions.length > 0 ? (
-        <section className="section-panel">
-          <div className="mb-4">
-            <p className="section-eyebrow">{t("recure.inFlight")}</p>
-            <h2 className="section-title">{t("recure.processing")}</h2>
-          </div>
-          <div className="grid gap-3">
-            {processingExecutions.map((execution) => {
-              const schedule = scheduleMap.get(execution.schedule_id);
-              return (
-                <article
-                  className="rounded-lg border border-border bg-card px-4 py-3"
-                  key={execution.id}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">
-                      {execution.amount ?? schedule?.amount}{" "}
-                      {schedule?.token_symbol}
-                    </p>
-                    <Badge variant="secondary">
-                      {formatExecutionStatusLabel(execution.status)}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Occurrence {execution.occurrence_number ?? "n/a"}
-                    {execution.tx_hash
-                      ? ` · ${execution.tx_hash.slice(0, 10)}…`
-                      : ""}
-                  </p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <section className="section-panel min-w-0">
-          <div className="mb-4">
-            <p className="section-eyebrow">{t("recure.schedules")}</p>
-            <h2 className="section-title">{t("recure.managed")}</h2>
-          </div>
-
-          {schedules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No Recurepay schedules yet. Create one to automate rent, payroll,
-              or subscription transfers.
-            </p>
-          ) : (
-            <div className="grid max-h-[36rem] gap-3 overflow-y-auto pr-1">
-              {schedules.map((schedule) => (
-                <article
-                  className="rounded-lg border border-border bg-card px-4 py-4"
-                  key={schedule.id}
-                >
-                  <div className="grid gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold">
-                          {schedule.amount} {schedule.token_symbol}
-                        </p>
-                        <Badge variant="outline">{schedule.status}</Badge>
-                        {schedule.autopay_enabled &&
-                        schedule.authorization_status === "AUTHORIZED" ? (
-                          <Badge variant="secondary">Autopay</Badge>
-                        ) : null}
-                        <Badge variant="outline">
-                          {formatAuthorizationStatusLabel(
-                            schedule.authorization_status,
-                          )}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {formatScheduleRecipient(schedule)} ·{" "}
-                        {formatFrequencyLabel(schedule.frequency, schedule.interval_days)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {new Date(schedule.next_run_at).getTime() <= Date.now() &&
-                        schedule.autopay_enabled &&
-                        schedule.authorization_status === "AUTHORIZED"
-                          ? "Due now. Autopay is queued in the background"
-                          : `Next run ${new Date(schedule.next_run_at).toLocaleString()}`}
-                        {" · "}
-                        {schedule.run_count} completed
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {schedule.authorization_status === "AUTHORIZED" &&
-                      schedule.autopay_enabled ? (
-                        <Button
-                          onClick={() => void handleDisableAutopay(schedule)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          Revoke Autopay
-                        </Button>
-                      ) : (
-                        <Button
-                          disabled={
-                            authorizingScheduleId === schedule.id ||
-                            approvingScheduleId === schedule.id
-                          }
-                          onClick={() => void handleEnableAutopay(schedule)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          {authorizingScheduleId === schedule.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : null}
-                          Authorize Autopay
-                        </Button>
-                      )}
-                      {schedule.status === "active" ? (
-                        <Button
-                          onClick={() => void handleScheduleStatus(schedule, "paused")}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Pause className="h-3.5 w-3.5" />
-                          Pause
-                        </Button>
-                      ) : null}
-                      {schedule.status === "paused" ? (
-                        <Button
-                          onClick={() => void handleScheduleStatus(schedule, "active")}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Play className="h-3.5 w-3.5" />
-                          Resume
-                        </Button>
-                      ) : null}
-                      {schedule.status !== "cancelled" &&
-                      schedule.status !== "completed" ? (
-                        <>
-                          <Button
-                            onClick={() => void handleRunNow(schedule.id)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Run now
-                          </Button>
-                          <Button
-                            onClick={() =>
-                              void handleScheduleStatus(schedule, "cancelled")
-                            }
-                            size="sm"
-                            variant="outline"
-                          >
-                            Cancel
-                          </Button>
-                        </>
-                      ) : null}
-                      <Button
-                        disabled={deletingScheduleId === schedule.id}
-                        onClick={() => void handleDeleteSchedule(schedule.id)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        {deletingScheduleId === schedule.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" />
-                        )}
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="section-panel min-w-0">
-          <div className="mb-4">
-            <p className="section-eyebrow">{t("recure.history")}</p>
-            <h2 className="section-title">{t("recure.executionHistory")}</h2>
-          </div>
-          {historyExecutions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No completed or failed Autopay runs yet.
-            </p>
-          ) : (
-            <div className="grid max-h-[36rem] gap-3 overflow-y-auto pr-1">
-              {historyExecutions.slice(0, 25).map((execution) => {
-                const schedule = scheduleMap.get(execution.schedule_id);
-                return (
-                  <article
-                    className="rounded-lg border border-border bg-card px-4 py-3"
-                    key={execution.id}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold">
-                        {execution.amount ?? schedule?.amount}{" "}
-                        {schedule?.token_symbol}
-                      </p>
-                      <Badge
-                        variant={
-                          isCompletedDisplayStatus(execution.status)
-                            ? "secondary"
-                            : "outline"
-                        }
-                      >
-                        {formatExecutionStatusLabel(execution.status)}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {schedule ? formatScheduleRecipient(schedule) : execution.owner_wallet}
-                      {" · "}
-                      {new Date(execution.due_at).toLocaleString()}
-                      {execution.tx_hash
-                        ? ` · ${execution.tx_hash.slice(0, 10)}…`
-                        : ""}
-                    </p>
-                    {execution.error_message ? (
-                      <p className="mt-1 text-xs text-destructive">
-                        {execution.error_message}
-                      </p>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+    </div>
+  ) : !canAccessRecurring ? (
+    <div className="recurepay-card recurepay-notice">
+      <KeyRound className="h-5 w-5 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">Authorize this wallet</p>
+        <p className="text-sm text-muted-foreground">
+          {isEmbeddedWalletMode
+            ? "Your session is missing a linked profile. Return to Home, sign in again, then reopen RecurePay."
+            : "Sign a one-time message so SwiftPay can manage scheduled payments for this wallet."}
+        </p>
       </div>
+      {!isEmbeddedWalletMode ? (
+        <Button disabled={isAuthenticatingWallet} onClick={() => void handleWalletSignIn()} size="sm">
+          {isAuthenticatingWallet ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+          Authorize
+        </Button>
+      ) : null}
+    </div>
+  ) : null;
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {success ? (
-        <p className="inline-flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="h-4 w-4" />
+  const messages = (
+    <>
+      {error && view === "home" ? (
+        <p className="recurepay-error">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+      {success && view === "home" && !isSaving ? (
+        <p className="recurepay-success">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
           {success}
         </p>
       ) : null}
+    </>
+  );
+
+  if (view === "compose") {
+    return (
+      <div className="recurepay-page">
+        {walletNotice}
+        <RecurepayCompose
+          amount={amount}
+          autopay={autopay}
+          beneficiaries={beneficiaries}
+          canAutopay={canUseAutopay}
+          compose={compose}
+          error={composeError}
+          feeBps={recurringPlatformFeeBasisPoints}
+          label={beneficiaryLabel}
+          narration={narration}
+          onAmount={setAmount}
+          onAutopay={setAutopay}
+          onBack={() => {
+            setComposeError(null);
+            setView("home");
+          }}
+          onCompose={(next) => {
+            setCompose(next);
+            setComposeError(null);
+          }}
+          onLabel={setBeneficiaryLabel}
+          onNarration={setNarration}
+          onNext={handleComposeNext}
+          onRecipient={setRecipientInput}
+          onToken={setToken}
+          recipient={recipientInput}
+          resolution={recipientResolution}
+          token={token}
+        />
+      </div>
+    );
+  }
+
+  if (view === "review" && reviewPlan.ok) {
+    const recipientLabel = resolvedRecipientUsername
+      ? `@${resolvedRecipientUsername.replace(/^@/, "")}`
+      : resolvedRecipientAddress
+        ? `${resolvedRecipientAddress.slice(0, 6)}…${resolvedRecipientAddress.slice(-4)}`
+        : recipientInput;
+    return (
+      <div className="recurepay-page">
+        <RecurepayReview
+          amount={amount}
+          autopay={autopay && canUseAutopay}
+          cadence={describeCadence({
+            frequency: reviewPlan.frequency,
+            intervalDays: reviewPlan.intervalDays,
+            oneTime: reviewPlan.maxRuns === 1,
+            startsAt: reviewPlan.startsAt,
+          })}
+          ends={
+            reviewPlan.maxRuns === 1
+              ? "After 1 payment"
+              : reviewPlan.endsAt
+                ? reviewPlan.endsAt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+                : reviewPlan.maxRuns
+                  ? `After ${reviewPlan.maxRuns} payments`
+                  : "When you stop it"
+          }
+          error={error}
+          feeBps={recurringPlatformFeeBasisPoints}
+          label={beneficiaryLabel}
+          narration={narration}
+          onBack={() => setView("compose")}
+          onConfirm={() => void handleCreateSchedule()}
+          recipientLabel={recipientLabel}
+          runs={reviewRuns}
+          saving={isSaving || isWritePending}
+          status={isSaving ? success : null}
+          token={token}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="recurepay-page">
+      <RecurepayBar
+        action={
+          schedules.length > 0 ? (
+            <button
+              aria-label="Schedule a payment"
+              className="recurepay-round is-primary"
+              disabled={!canAccessRecurring}
+              onClick={() => setView("compose")}
+              type="button"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          ) : null
+        }
+        title="Scheduled payments"
+      />
+      {walletNotice}
+      {messages}
+
+      {isLoading && canAccessRecurring ? (
+        <div className="recurepay-loading">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : schedules.length === 0 ? (
+        <RecurepayEmpty disabled={!canAccessRecurring} onStart={() => setView("compose")} />
+      ) : (
+        <RecurepayDashboard
+          dueExecutions={dueExecutions}
+          executions={executions}
+          historyExecutions={historyExecutions}
+          onCompose={() => setView("compose")}
+          onOpenSchedule={setOpenScheduleId}
+          onPay={(execution) => void handlePayExecution(execution)}
+          payingExecutionId={payingExecutionId}
+          processingExecutions={processingExecutions}
+          scheduleMap={scheduleMap}
+          schedules={schedules}
+        />
+      )}
+
+      <ScheduleSheet
+        busy={detailBusy ?? (openSchedule && authorizingScheduleId === openSchedule.id ? "autopay" : deletingScheduleId === openSchedule?.id ? "delete" : null)}
+        canAct={canAccessRecurring}
+        executions={openSchedule ? executions.filter((execution) => execution.schedule_id === openSchedule.id) : []}
+        onAutopay={() => openSchedule && void runScheduleAction("autopay", () => handleEnableAutopay(openSchedule))}
+        onCancel={() => openSchedule && void runScheduleAction("cancel", () => handleScheduleStatus(openSchedule, "cancelled"))}
+        onClose={() => setOpenScheduleId(null)}
+        onDelete={() =>
+          openSchedule &&
+          void runScheduleAction("delete", async () => {
+            await handleDeleteSchedule(openSchedule.id);
+            setOpenScheduleId(null);
+          })
+        }
+        onPause={() => openSchedule && void runScheduleAction("pause", () => handleScheduleStatus(openSchedule, "paused"))}
+        onResume={() => openSchedule && void runScheduleAction("resume", () => handleScheduleStatus(openSchedule, "active"))}
+        onRevoke={() => openSchedule && void runScheduleAction("revoke", () => handleDisableAutopay(openSchedule))}
+        onRunNow={() =>
+          openSchedule &&
+          void runScheduleAction("run", async () => {
+            await handleRunNow(openSchedule.id);
+            setOpenScheduleId(null);
+          })
+        }
+        schedule={openSchedule}
+      />
     </div>
   );
 }

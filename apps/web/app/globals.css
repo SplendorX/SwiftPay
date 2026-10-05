@@ -1177,14 +1177,47 @@ html[data-theme="dark"] .portfolio-hero-stats dd.is-negative {
     box-shadow 180ms ease;
 }
 
-/* Support: a soft brand wash behind the header, like the coin sheet. */
-.support-hero {
+/*
+ * Support panel: a deep brand-purple greeting that fades into a soft page,
+ * with white cards floating over the fade.
+ */
+.support-shell {
+  --support-purple: #3f1a78;
+  --support-purple-2: #5b21b6;
+  background: color-mix(in oklch, var(--muted) 55%, var(--background));
+}
+
+.support-home-hero {
   background: linear-gradient(
     180deg,
-    color-mix(in oklch, var(--primary) 12%, transparent) 0%,
-    color-mix(in oklch, var(--primary) 3%, transparent) 75%,
+    var(--support-purple) 0%,
+    var(--support-purple) 62%,
+    color-mix(in oklch, var(--support-purple) 45%, transparent) 84%,
     transparent 100%
   );
+}
+
+.support-bar {
+  background: linear-gradient(90deg, var(--support-purple), var(--support-purple-2));
+}
+
+.support-card {
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--card);
+  box-shadow:
+    0 1px 2px rgb(23 17 28 / 0.06),
+    0 6px 20px -12px rgb(23 17 28 / 0.18);
+}
+
+.dark .support-shell {
+  --support-purple: #2a1150;
+  background: var(--background);
+}
+
+.dark .support-card {
+  border: 1px solid var(--border);
+  box-shadow: none;
 }
 
 /* Coin detail sheet: the header washes in the coin's own colour. */
@@ -8189,28 +8222,28 @@ html[data-light-surface="glass"]:not(.dark):not([data-theme="dark"]) .styled-sel
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Sampled from the supplied bubble artwork. */
-  --allie-bubble: #e1d2e5;
-  --allie-bubble-ink: #1a141f;
-  /* The launcher wears the SwiftPay wordmark gradient in light mode, so it
-     reads as part of the product. `--allie-pill` stays a solid colour because
-     color-mix() and the board glow both consume it as one. */
-  --allie-pill: #6366f1;
-  --allie-pill-paint: var(--swift-pay-gradient);
+  /* ALLIE's identity: the cobalt of her bandana and jacket, fading to the
+     violet at the edge of her portrait. */
+  --allie-blue: #2638e8;
+  --allie-violet: #6d28d9;
+  --allie-bubble: #dfe5ff;
+  --allie-bubble-ink: #0f1440;
+  /* `--allie-pill` stays a solid colour because color-mix() and the board
+     glow both consume it as one; the pill itself wears the gradient. */
+  --allie-pill: var(--allie-blue);
+  --allie-pill-paint: linear-gradient(135deg, var(--allie-violet) 0%, var(--allie-blue) 58%, #1d4ed8 100%);
   --allie-pill-ink: #ffffff;
 }
 
 html.dark,
 .dark,
 html[data-theme="dark"] {
-  /* Same hue, carried down far enough to hold white text. */
-  --allie-bubble: #3a2f45;
-  --allie-bubble-ink: #f2ecf5;
-  /* The warm cream pulled toward the brand, a shade deeper than the greeting
-     so it sits back on a near-black page. Still pale enough for dark ink. */
-  --allie-pill: color-mix(in oklch, var(--foreground) 66%, var(--primary));
-  --allie-pill-paint: var(--allie-pill);
-  --allie-pill-ink: #17111c;
+  /* The same cobalt, deep enough to hold light text on a near-black page. */
+  --allie-bubble: #1d2a6b;
+  --allie-bubble-ink: #eef1ff;
+  --allie-pill: #3347f0;
+  --allie-pill-paint: linear-gradient(135deg, #7c3aed 0%, #3347f0 58%, #2563eb 100%);
+  --allie-pill-ink: #ffffff;
 }
 
 /* The name is a wordmark, not body copy. Manrope semibold read as generic UI
@@ -8242,8 +8275,8 @@ html[data-theme="dark"] {
 }
 
 .allie-dock {
-  --allie-accent: #6d28d9;
-  --allie-accent-soft: #8b5cf6;
+  --allie-accent: var(--allie-blue);
+  --allie-accent-soft: #5b7cff;
   position: fixed;
 }
 
@@ -8257,13 +8290,21 @@ html[data-theme="dark"] {
   --allie-accent-soft: #e11d48;
 }
 
+/* ALLIE's surfaces wear her cobalt in place of the SwiftPay purple: every
+ * `--primary` inside them (buttons, focus rings, chips, glows) follows. */
+.allie-panel,
+.allie-dock,
+.allie-stage,
+.allie-landing-lockup {
+  --primary: var(--allie-blue);
+  --primary-foreground: #ffffff;
+  --ring: var(--allie-blue);
+}
+
 /* ── The mark ─────────────────────────────────────────────────────────────── */
-/* The artwork is masked, not an <img>: the shapes stay exactly as supplied
- * while the colour is set here. It is split into its two shapes (one mask
- * each) so they can be coloured apart: the tall shape a flat blue, the small
- * one a deep-to-bright blue gradient. One mask with one gradient would smear
- * the dark end across the tall shape's edge. The same blues read on both
- * themes. */
+/* ALLIE's avatar: the round character portrait, drawn as a background so the
+ * call sites that size it in CSS (the landing lockup scales with type) keep
+ * working. 256px covers every size used at 3x pixel density. */
 .allie-mark {
   position: relative;
   display: inline-block;
@@ -8272,46 +8313,14 @@ html[data-theme="dark"] {
   /* Fallback for call sites that let CSS size the mark. */
   width: 2.5rem;
   height: 2.5rem;
+  border-radius: 9999px;
+  background: #2638e8 url("/brand/allie-avatar-256.webp") center / cover no-repeat;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--allie-blue) 35%, transparent);
 }
 
-.allie-mark::before,
-.allie-mark::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-
-.allie-mark::before {
-  background: #2684ff;
-  -webkit-mask: url("/brand/allie-mark-tall.png") center / contain no-repeat;
-  mask: url("/brand/allie-mark-tall.png") center / contain no-repeat;
-}
-
-/* The gradient is sized to the small shape's own box (6.1% 45.1%, 37.9% x
-   48% of the artwork), darkest at its upper right. */
-.allie-mark::after {
-  background:
-    linear-gradient(to bottom left, #0052cc 12%, #2684ff 88%) 9.8% 86.7% / 37.9% 48% no-repeat,
-    #2684ff;
-  -webkit-mask: url("/brand/allie-mark-small.png") center / contain no-repeat;
-  mask: url("/brand/allie-mark-small.png") center / contain no-repeat;
-}
-
-/* The launcher pill keeps its single-ink mark in the pill's text colour, on
-   both themes: the "Pay with ALLIE" colours do not change. */
-.allie-trigger-mark .allie-mark,
-html.dark .allie-trigger-mark .allie-mark,
-.dark .allie-trigger-mark .allie-mark,
-html[data-theme="dark"] .allie-trigger-mark .allie-mark {
-  color: var(--allie-pill-ink);
-  background-color: currentColor;
-  -webkit-mask: url("/brand/allie-mark.png") center / contain no-repeat;
-  mask: url("/brand/allie-mark.png") center / contain no-repeat;
-}
-
-.allie-trigger-mark .allie-mark::before,
-.allie-trigger-mark .allie-mark::after {
-  content: none;
+/* In the launcher pill the avatar sits on the gradient with a white ring. */
+.allie-trigger-mark .allie-mark {
+  box-shadow: 0 0 0 2px #ffffff;
 }
 
 /* ── Launcher pill ───────────────────────────────────────────────────────── */
@@ -10500,6 +10509,1564 @@ html.dark .tx-receipt-status,
 .earn-btn-primary,
 .tx-receipt-btn-primary {
   border-radius: var(--swift-bubble-radius) !important;
+}
+
+/* ── RecurePay (scheduled payments) ─────────────────────────────────────────
+ * A calm flow: an illustrated welcome, a "next payment" hero in the SwiftPay
+ * gradient, a timeline of what's coming, then a Kuda-style form and review. */
+
+.recurepay-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.recurepay-bar {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 4.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.recurepay-title {
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recurepay-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.recurepay-round:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.recurepay-round.is-primary {
+  margin-left: auto;
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.recurepay-round.is-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.recurepay-round:disabled {
+  opacity: 0.5;
+}
+
+.recurepay-next {
+  margin-left: auto;
+  border-radius: 0.6rem;
+}
+
+.recurepay-card {
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  padding: 1rem 1.1rem;
+}
+
+.recurepay-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+}
+
+.recurepay-loading {
+  display: grid;
+  place-items: center;
+  min-height: 40vh;
+  color: var(--muted-foreground);
+}
+
+/* Empty state */
+.recurepay-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  padding: 1.5rem 0.5rem 0;
+  text-align: center;
+}
+
+.recurepay-illustration {
+  width: min(19rem, 78vw);
+  height: auto;
+  margin-bottom: 0.75rem;
+  filter: drop-shadow(0 18px 40px rgb(91 33 182 / 0.18));
+}
+
+.recurepay-tick {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: recurepay-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes recurepay-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recurepay-tick {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+.recurepay-empty-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.recurepay-empty-body {
+  max-width: 26rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+  line-height: 1.55;
+}
+
+.recurepay-empty-points {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.5rem 0 0.75rem;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.recurepay-empty-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.recurepay-empty-points svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.dark .recurepay-empty-points svg {
+  color: var(--link);
+}
+
+.recurepay-cta {
+  width: 100%;
+  max-width: 24rem;
+  height: 3.25rem;
+  justify-self: center;
+  border-radius: 0.85rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Dashboard */
+.recurepay-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.recurepay-hero {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  overflow: hidden;
+  width: 100%;
+  padding: 1.25rem 1.25rem 1.1rem;
+  border-radius: 1.4rem;
+  text-align: left;
+  color: #ffffff;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+  transition: transform 160ms ease;
+}
+
+.recurepay-hero:hover {
+  transform: translateY(-1px);
+}
+
+.recurepay-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 11rem;
+  height: 11rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.recurepay-hero-top,
+.recurepay-hero-foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.recurepay-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.recurepay-hero-when {
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.18);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.recurepay-hero-amount {
+  position: relative;
+  margin-top: 0.4rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.9rem, 7vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.recurepay-hero-to {
+  position: relative;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.recurepay-hero-foot {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  font-size: 0.8rem;
+}
+
+.recurepay-hero-date {
+  opacity: 0.85;
+}
+
+.recurepay-hero-pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.16);
+  font-weight: 600;
+}
+
+.recurepay-quiet {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+}
+
+.recurepay-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.recurepay-stat {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.recurepay-stat-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.recurepay-stat-unit {
+  font-size: 0.75em;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+.recurepay-stat-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.recurepay-section {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.recurepay-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.recurepay-toggle {
+  width: 100%;
+  text-align: left;
+}
+
+.recurepay-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--link);
+}
+
+.recurepay-link.is-green {
+  color: #15803d;
+}
+
+.dark .recurepay-link.is-green {
+  color: #34d399;
+}
+
+.recurepay-avatar {
+  --avatar-hue: 265;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 9999px;
+  background: hsl(var(--avatar-hue) 70% 92%);
+  color: hsl(var(--avatar-hue) 55% 32%);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.dark .recurepay-avatar {
+  background: hsl(var(--avatar-hue) 35% 24%);
+  color: hsl(var(--avatar-hue) 80% 82%);
+}
+
+.recurepay-avatar.is-large {
+  width: 3.25rem;
+  height: 3.25rem;
+  font-size: 1rem;
+}
+
+.recurepay-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.12rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.recurepay-chip.is-good {
+  background: rgb(22 163 74 / 0.12);
+  color: #15803d;
+}
+
+.recurepay-chip.is-warn {
+  background: rgb(217 119 6 / 0.14);
+  color: #b45309;
+}
+
+.recurepay-chip.is-bad {
+  background: rgb(220 38 38 / 0.12);
+  color: #b91c1c;
+}
+
+.recurepay-chip.is-brand {
+  background: color-mix(in oklch, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.dark .recurepay-chip.is-good {
+  color: #4ade80;
+}
+
+.dark .recurepay-chip.is-warn {
+  color: #fbbf24;
+}
+
+.dark .recurepay-chip.is-bad {
+  color: #f87171;
+}
+
+.dark .recurepay-chip.is-brand {
+  color: var(--link);
+}
+
+.recurepay-due {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border-color: rgb(217 119 6 / 0.35);
+  background: color-mix(in oklch, rgb(217 119 6) 6%, var(--card));
+}
+
+.recurepay-timeline {
+  position: relative;
+  display: grid;
+  gap: 0.9rem;
+  padding-left: 1rem;
+}
+
+.recurepay-timeline::before {
+  content: "";
+  position: absolute;
+  left: 0.3rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  width: 2px;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 22%, transparent);
+}
+
+.recurepay-timeline > li {
+  position: relative;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.recurepay-timeline > li::before {
+  content: "";
+  position: absolute;
+  left: -0.95rem;
+  top: 0.3rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px var(--background);
+}
+
+.recurepay-timeline-day {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+}
+
+.recurepay-timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  transition: border-color 150ms ease;
+}
+
+.recurepay-timeline-item:hover,
+.recurepay-schedule:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+}
+
+.recurepay-schedule {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 0.9rem;
+  transition: border-color 150ms ease;
+}
+
+.recurepay-schedule.is-inactive {
+  opacity: 0.72;
+}
+
+.recurepay-progress {
+  display: block;
+  height: 0.3rem;
+  margin-top: 0.45rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 14%, transparent);
+  overflow: hidden;
+}
+
+.recurepay-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+
+.recurepay-history-dot {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-top: 0.1rem;
+  border-radius: 9999px;
+}
+
+.recurepay-history-dot.is-good {
+  background: rgb(22 163 74 / 0.14);
+  color: #16a34a;
+}
+
+.recurepay-history-dot.is-bad {
+  background: rgb(220 38 38 / 0.12);
+  color: #dc2626;
+}
+
+.recurepay-history-dot.is-warn {
+  background: rgb(217 119 6 / 0.14);
+  color: #d97706;
+}
+
+/* Form */
+.recurepay-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.recurepay-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.05rem;
+}
+
+.recurepay-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.recurepay-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.recurepay-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.recurepay-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.recurepay-input {
+  width: 100%;
+  min-height: 3.4rem;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.8rem;
+  background: color-mix(in oklch, var(--muted) 85%, var(--card));
+  color: var(--foreground);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.dark .recurepay-input {
+  background: #1c1620;
+}
+
+.recurepay-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.recurepay-input:focus,
+.recurepay-input:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+  background: var(--card);
+}
+
+.recurepay-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.recurepay-select.is-placeholder {
+  color: var(--muted-foreground);
+}
+
+.recurepay-input-wrap {
+  position: relative;
+}
+
+.recurepay-input-wrap .recurepay-input {
+  padding-right: 2.75rem;
+}
+
+.recurepay-clear {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+}
+
+.recurepay-clear:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.recurepay-textarea {
+  min-height: 7.5rem;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+  resize: vertical;
+}
+
+.recurepay-amount {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.recurepay-amount-input {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.recurepay-token-switch {
+  display: inline-flex;
+  width: fit-content;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.recurepay-token-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+.recurepay-token-switch button[aria-checked="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px rgb(23 17 28 / 0.14);
+}
+
+.recurepay-fee {
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.recurepay-fee strong {
+  color: var(--foreground);
+}
+
+.recurepay-autopay {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.recurepay-autopay.is-on {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+}
+
+/* The deep brand purple reads as maroon on near-black; use the lighter link purple. */
+.dark .recurepay-autopay.is-on,
+.dark .insights-total[aria-pressed="true"],
+.dark .recurepay-timeline-item:hover,
+.dark .recurepay-schedule:hover,
+.dark .recurepay-action:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--link) 55%, var(--border));
+}
+
+.recurepay-autopay-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.dark .recurepay-autopay-icon {
+  color: var(--link);
+}
+
+.recurepay-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.6rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+  transition: background-color 160ms ease;
+}
+
+.recurepay-switch > span {
+  position: absolute;
+  left: 0.2rem;
+  top: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition: transform 160ms ease;
+}
+
+.recurepay-autopay.is-on .recurepay-switch {
+  background: var(--primary);
+}
+
+.recurepay-autopay.is-on .recurepay-switch > span {
+  transform: translateX(1.15rem);
+}
+
+.recurepay-picker {
+  display: grid;
+  padding: 0 1.25rem 0.75rem;
+}
+
+.recurepay-picker li + li {
+  border-top: 1px solid var(--border);
+}
+
+.recurepay-picker button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 0.25rem;
+  text-align: left;
+}
+
+.recurepay-picker button[aria-pressed="true"] {
+  color: var(--primary);
+}
+
+.dark .recurepay-picker button[aria-pressed="true"] {
+  color: var(--link);
+}
+
+/* Review */
+.recurepay-receipt {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1.6rem 1rem 1.4rem;
+  border-radius: 1.4rem;
+  text-align: center;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 70%),
+    var(--card);
+  border: 1px solid var(--border);
+}
+
+.recurepay-receipt-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.recurepay-receipt-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.8rem, 7vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.recurepay-receipt-to {
+  font-size: 1rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.recurepay-receipt-cadence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.dark .recurepay-receipt-cadence {
+  color: var(--link);
+}
+
+.recurepay-facts {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
+.recurepay-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  font-size: 0.9rem;
+}
+
+.recurepay-fact + .recurepay-fact {
+  border-top: 1px solid var(--border);
+}
+
+.recurepay-fact dt {
+  color: var(--muted-foreground);
+}
+
+.recurepay-fact dd {
+  text-align: right;
+  font-weight: 600;
+}
+
+.recurepay-run-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.recurepay-run-chips li {
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.recurepay-run-chips li.is-more {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.recurepay-note,
+.recurepay-status,
+.recurepay-error,
+.recurepay-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.recurepay-note {
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--primary) 6%, var(--card));
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.recurepay-status {
+  color: var(--muted-foreground);
+}
+
+.recurepay-error {
+  color: var(--destructive);
+}
+
+.recurepay-success {
+  color: #15803d;
+}
+
+.dark .recurepay-success {
+  color: #4ade80;
+}
+
+/* Schedule sheet */
+.recurepay-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.recurepay-action {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  background: var(--card);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.recurepay-action:hover:not(:disabled) {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+}
+
+.recurepay-action:disabled {
+  opacity: 0.5;
+}
+
+.recurepay-action-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.65rem;
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.dark .recurepay-action-icon {
+  color: var(--link);
+}
+
+.recurepay-danger-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--destructive);
+}
+
+@media (min-width: 640px) {
+  .recurepay-stat-value {
+    font-size: 1.2rem;
+  }
+}
+
+/* ── Insights (formerly Activity) ──────────────────────────────────────────
+ * A calm, card-based money overview: month tabs, money in / out, analytics.
+ * Chart colours were run through the palette validator for both themes. */
+
+:root {
+  --insight-current: #5b21b6;
+  --insight-previous: #2a9d8f;
+  --insight-in: #15803d;
+  --insight-in-soft: rgb(21 128 61 / 0.12);
+  --insight-out: #dc2626;
+  --insight-out-soft: rgb(220 38 38 / 0.1);
+}
+
+html.dark,
+.dark,
+html[data-theme="dark"] {
+  --insight-current: #9d74f7;
+  --insight-previous: #27a796;
+  --insight-in: #34d399;
+  --insight-in-soft: rgb(52 211 153 / 0.14);
+  --insight-out: #f87171;
+  --insight-out-soft: rgb(248 113 113 / 0.14);
+}
+
+.insights-page {
+  display: grid;
+  /* minmax(0, 1fr): the wide filter-chip row scrolls instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.insights-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  padding-top: 0.25rem;
+}
+
+.insights-title {
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.insights-round-button {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.insights-round-button:hover {
+  background: var(--muted);
+}
+
+.insights-months {
+  display: flex;
+  gap: 1.75rem;
+  padding: 0.25rem 0.25rem 0;
+  overflow-x: auto;
+}
+
+.insights-month {
+  position: relative;
+  padding: 0.35rem 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  transition: color 150ms ease;
+}
+
+.insights-month[aria-selected="true"] {
+  color: var(--foreground);
+}
+
+.insights-month[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+
+.insights-card {
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+  padding: 1rem 1.1rem;
+}
+
+.insights-card-title {
+  display: block;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--foreground);
+}
+
+.insights-card-sub {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.insights-flow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.insights-flow-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 4.75rem;
+}
+
+.insights-flow-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+}
+
+.insights-flow-icon.is-large {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.is-in .insights-flow-icon {
+  background: var(--insight-in-soft);
+  color: var(--insight-in);
+}
+
+.is-out .insights-flow-icon {
+  background: var(--insight-out-soft);
+  color: var(--insight-out);
+}
+
+.insights-flow-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.is-in .insights-flow-value,
+.is-in .insights-total-value {
+  color: var(--insight-in);
+}
+
+.is-out .insights-flow-value,
+.is-out .insights-total-value {
+  color: var(--insight-out);
+}
+
+.insights-flow-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.insights-skeleton {
+  display: block;
+  width: 5.5rem;
+  height: 1.15rem;
+  margin-bottom: 0.25rem;
+  border-radius: 0.4rem;
+  background: var(--muted);
+  animation: insights-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes insights-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.insights-analytics-link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.insights-analytics-link:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.insights-analytics-link:disabled {
+  opacity: 0.5;
+}
+
+.insights-insight {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  text-align: left;
+  transition: border-color 150ms ease;
+}
+
+.insights-insight:hover {
+  border-color: color-mix(in oklch, var(--primary) 35%, var(--border));
+}
+
+.insights-insight-art {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 1rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+}
+
+.insights-insight-art.is-up {
+  background: linear-gradient(135deg, #f97316, #e11d48);
+}
+
+.insights-categories {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.insights-category-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.insights-category-value {
+  display: inline-flex;
+  gap: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.insights-category-value span {
+  min-width: 2.5rem;
+  text-align: right;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.insights-category-track {
+  height: 0.5rem;
+  margin-top: 0.4rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--insight-current) 12%, transparent);
+}
+
+.insights-category-bar {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--insight-current);
+}
+
+.insights-transactions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.insights-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.25rem 0;
+}
+
+.insights-statement-note {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--muted-foreground);
+}
+
+.insights-statement-note strong {
+  color: var(--link);
+}
+
+.insights-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 3.5rem 1rem;
+  text-align: center;
+}
+
+.insights-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 5rem;
+  height: 5rem;
+  margin-bottom: 0.75rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.insights-empty-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.insights-empty-body {
+  max-width: 22rem;
+  color: var(--muted-foreground);
+}
+
+.insights-error {
+  font-size: 0.875rem;
+  color: var(--destructive);
+}
+
+/* Analytics */
+.insights-segment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: var(--muted);
+}
+
+.insights-segment button {
+  padding: 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.insights-segment button[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px rgb(23 17 28 / 0.12);
+}
+
+.insights-chart-card {
+  padding-bottom: 0.75rem;
+}
+
+.insights-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  margin: 0.85rem 0 0.25rem;
+  font-size: 0.85rem;
+  color: var(--foreground-secondary, var(--muted-foreground));
+}
+
+.insights-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.insights-key {
+  display: inline-block;
+  width: 0.9rem;
+  height: 2px;
+  border-radius: 9999px;
+}
+
+.insights-key-current {
+  background: var(--insight-current);
+}
+
+.insights-key-previous {
+  background: var(--insight-previous);
+}
+
+.insights-chart-frame {
+  position: relative;
+}
+
+.insights-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+
+.insights-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.insights-tick {
+  fill: var(--muted-foreground);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.insights-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.insights-line-current {
+  stroke: var(--insight-current);
+}
+
+.insights-line-previous {
+  stroke: var(--insight-previous);
+}
+
+.insights-dot {
+  stroke: var(--card);
+  stroke-width: 2;
+}
+
+.insights-dot-current {
+  fill: var(--insight-current);
+}
+
+.insights-dot-previous {
+  fill: var(--insight-previous);
+}
+
+.insights-crosshair {
+  stroke: var(--muted-foreground);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+.insights-tooltip {
+  position: absolute;
+  top: 0.25rem;
+  min-width: 10rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--popover);
+  box-shadow: 0 8px 24px -12px rgb(23 17 28 / 0.35);
+  pointer-events: none;
+  font-size: 0.8rem;
+}
+
+.insights-tooltip-day {
+  margin-bottom: 0.3rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.insights-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.insights-tooltip-row strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+.insights-tooltip-row span {
+  color: var(--muted-foreground);
+}
+
+.insights-table {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.insights-table summary {
+  cursor: pointer;
+  width: fit-content;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.insights-table table {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.insights-table th,
+.insights-table td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+
+.insights-table th:first-child {
+  text-align: left;
+}
+
+.insights-totals {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.insights-total {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  transition: border-color 150ms ease;
+}
+
+.insights-total[aria-pressed="true"] {
+  border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+}
+
+.insights-total-value {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.insights-footnote {
+  padding: 0 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
 }
 
 /* ── Activity page ── */

@@ -6,13 +6,25 @@ import { useCallback, useEffect, useState } from "react";
 import { useBusinessActor } from "@/components/business/use-business-actor";
 import { usePlatformAccess } from "@/components/platform-access-gate";
 import { SupportCenter } from "@/components/support/support-center";
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { listSupportTickets, readStoredTickets, supportChangedEvent } from "@/lib/support/client";
+import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
+import {
+  listSupportTickets,
+  openSupportEvent,
+  readStoredTickets,
+  supportChangedEvent,
+} from "@/lib/support/client";
+import { bottomSheetClassName, useSheetSide } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
-/** The header's help button: opens SwiftPay Support; a dot means a reply is waiting. */
+/**
+ * The header's help button: opens SwiftPay Support; a dot means a reply is
+ * waiting. It also owns the panel for the rest of the app: the mobile menu
+ * (where this button is hidden) opens it with `openSupport()`. A bottom
+ * sheet on phones and tablets, a side panel on desktop.
+ */
 export function SupportLauncher({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
+  const side = useSheetSide();
   const [unread, setUnread] = useState(0);
   const access = usePlatformAccess();
   const { circleSocialUuid, ownerWallet } = useBusinessActor();
@@ -28,6 +40,12 @@ export function SupportLauncher({ className }: { className?: string }) {
       setUnread(0);
     }
   }, [circleSocialUuid, ownerWallet, signedIn]);
+
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener(openSupportEvent, show);
+    return () => window.removeEventListener(openSupportEvent, show);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -66,10 +84,18 @@ export function SupportLauncher({ className }: { className?: string }) {
         }}
         open={open}
       >
-        <SheetContent className="w-full gap-0 overflow-hidden p-0 sm:max-w-md" side="right">
+        <SheetContent
+          className={cn(
+            "w-full gap-0 overflow-hidden p-0 sm:max-w-md",
+            side === "bottom" && `${bottomSheetClassName} sm:max-w-none`,
+          )}
+          showCloseButton={false}
+          side={side}
+        >
+          {side === "bottom" ? <SheetGrabber className="bg-white/40" /> : null}
           <SheetTitle className="sr-only">SwiftPay Support</SheetTitle>
           <SheetDescription className="sr-only">Answers to common questions, and a way to reach the SwiftPay team.</SheetDescription>
-          <SupportCenter onNavigate={() => setOpen(false)} />
+          <SupportCenter onClose={() => setOpen(false)} onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
     </>

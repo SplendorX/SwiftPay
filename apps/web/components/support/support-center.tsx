@@ -5,20 +5,26 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Check,
   CheckCircle2,
   ChevronRight,
+  CircleHelp,
   Headset,
   Inbox,
   Loader2,
   MessageSquareText,
+  Search,
+  SendHorizontal,
   ShieldAlert,
   ThumbsDown,
   ThumbsUp,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
+import { useOptionalAccount } from "@/components/account/account-provider";
 import { useBusinessActor } from "@/components/business/use-business-actor";
 import { usePlatformAccess } from "@/components/platform-access-gate";
 import { Button } from "@/components/ui/button";
@@ -33,7 +39,6 @@ import {
   type SupportThreadMessage,
 } from "@/lib/support/client";
 import {
-
   supportArticles,
   supportCategories,
   type SupportArticle,
@@ -50,12 +55,34 @@ type ChatEntry =
   | { id: string; from: "assistant"; kind: "handoff"; urgent: boolean };
 
 type View =
-  | { name: "help" }
+  | { name: "home" }
+  | { name: "chat" }
+  | { name: "topics" }
   | { name: "category"; category: SupportCategory }
   | { name: "handoff"; urgent: boolean }
   | { name: "sent"; reference: string; urgent: boolean }
   | { name: "requests" }
   | { name: "thread"; id: string };
+
+type ServiceStatus = { status: "operational" | "degraded"; checkedAt: string; issues: string[] };
+
+/** The live status card's data; null when it can't be read. */
+async function fetchServiceStatus(): Promise<ServiceStatus | null> {
+  try {
+    const response = await fetch("/api/support/status");
+    if (!response.ok) return null;
+    return (await response.json()) as ServiceStatus;
+  } catch {
+    return null;
+  }
+}
+
+function formatStatusTime(iso: string) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? "just now"
+    : date.toLocaleString(undefined, { day: "numeric", hour: "2-digit", minute: "2-digit", month: "short" });
+}
 
 const statusLabel: Record<SupportTicketSummary["status"], string> = {
   open: "Open",
@@ -201,29 +228,49 @@ function ArticleList({ articles, onOpen }: { articles: SupportArticle[]; onOpen:
 
 /**
  * SwiftPay Support: instant answers from the help library, and a person when
- * those run out. Used in the header's help panel and on /support.
+ * those run out. Used in the help panel (a bottom sheet on phones, a side
+ * panel on desktop), on /support, and from the lock screen as a guest.
  */
-export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: () => void; variant?: "panel" | "page" }) {
+export function SupportCenter({
+  guest = false,
+  onClose,
+  onNavigate,
+  variant = "panel",
+}: {
+  /** Treat the visitor as signed out (the lock screen: the account is locked). */
+  guest?: boolean;
+  /** Shows a close button in the header. */
+  onClose?: () => void;
+  onNavigate?: () => void;
+  variant?: "panel" | "page";
+}) {
   const pathname = usePathname() ?? "/";
   const access = usePlatformAccess();
   const actor = useBusinessActor();
-  const signedIn = access === "allowed" && Boolean(actor.ownerWallet);
+  const account = useOptionalAccount()?.account ?? null;
+  const signedIn = !guest && access === "allowed" && Boolean(actor.ownerWallet);
   const identity = useMemo(
     () => (signedIn ? { circleSocialUuid: actor.circleSocialUuid, ownerWallet: actor.ownerWallet } : {}),
     [actor.circleSocialUuid, actor.ownerWallet, signedIn],
   );
+  const firstName = signedIn
+    ? account?.display_name?.trim().split(/\s+/)[0] || account?.username || null
+    : null;
 
-  const [view, setView] = useState<View>({ name: "help" });
+  const [view, setView] = useState<View>({ name: "home" });
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [draft, setDraft] = useState("");
+  const [search, setSearch] = useState("");
   const [tickets, setTickets] = useState<SupportTicketSummary[]>([]);
+  const [status, setStatus] = useState<ServiceStatus | null>(null);
+  const [statusChecked, setStatusChecked] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadTickets = useCallback(async () => {
     try {
       setTickets(await listSupportTickets(identity));
     } catch {
-      // Support storage not set up yet: the help library still works.
+      // Support storage not set up yet (or the app is locked): the help library still works.
     }
   }, [identity]);
 
@@ -234,7 +281,23 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
   }, [loadTickets]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ behavior: "smooth", top: scrollRef.current.scrollHeight });
+    let cancelled = false;
+    void fetchServiceStatus().then((next) => {
+      if (cancelled) return;
+      setStatus(next);
+      setStatusChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (view.name === "chat") {
+      scrollRef.current?.scrollTo({ behavior: "smooth", top: scrollRef.current.scrollHeight });
+    } else {
+      scrollRef.current?.scrollTo({ top: 0 });
+    }
   }, [entries, view]);
 
   const suggestions = useMemo(() => suggestedArticles(pathname), [pathname]);
@@ -242,7 +305,7 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
 
   function push(...next: ChatEntry[]) {
     setEntries((current) => [...current, ...next]);
-    setView({ name: "help" });
+    setView({ name: "chat" });
   }
 
   function answerWith(article: SupportArticle, asked?: string) {
@@ -255,16 +318,19 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
     );
   }
 
-  function ask(event?: FormEvent) {
-    event?.preventDefault();
-    const question = draft.trim();
-    if (!question) return;
-    setDraft("");
-    const reply = replyTo(question, pathname);
-    const customer: ChatEntry = { from: "customer", id: nextId(), text: question };
+  function ask(question: string) {
+    const text = question.trim();
+    if (!text) return;
+    const reply = replyTo(text, pathname);
+    const customer: ChatEntry = { from: "customer", id: nextId(), text };
 
     if (reply.kind === "greeting") {
-      push(customer, { from: "assistant", id: nextId(), kind: "text", text: "Hi! What can I help you with? Ask in your own words, or pick a topic." });
+      push(customer, {
+        from: "assistant",
+        id: nextId(),
+        kind: "text",
+        text: "Hi! What can I help you with? Ask in your own words, or pick a topic.",
+      });
     } else if (reply.kind === "thanks") {
       push(customer, { from: "assistant", id: nextId(), kind: "text", text: "Happy to help. Anything else?" });
     } else if (reply.kind === "answer") {
@@ -284,6 +350,20 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
     }
   }
 
+  function submitDraft(event: FormEvent) {
+    event.preventDefault();
+    const question = draft;
+    setDraft("");
+    ask(question);
+  }
+
+  function submitSearch(event: FormEvent) {
+    event.preventDefault();
+    const question = search;
+    setSearch("");
+    ask(question);
+  }
+
   const transcript = entries.flatMap((entry): { sender: "customer" | "assistant"; body: string }[] =>
     entry.from === "customer"
       ? [{ body: entry.text, sender: "customer" as const }]
@@ -297,96 +377,218 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
     | Extract<ChatEntry, { from: "customer" }>
     | undefined;
 
-  const tabs = (
-    <div className="grid grid-cols-2 gap-1 rounded-full border border-border bg-muted/40 p-1">
-      {[
-        { active: view.name !== "requests" && view.name !== "thread", label: "Help", onClick: () => setView({ name: "help" }) },
-        {
-          active: view.name === "requests" || view.name === "thread",
-          label: `My requests${tickets.length ? ` (${tickets.length})` : ""}`,
-          onClick: () => {
-            void loadTickets();
-            setView({ name: "requests" });
-          },
-        },
-      ].map((tab) => (
-        <button
-          className={cn(
-            "relative rounded-full py-1.5 text-xs font-semibold transition",
-            tab.active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-          )}
-          key={tab.label}
-          onClick={tab.onClick}
-          type="button"
-        >
-          {tab.label}
-          {tab.label.startsWith("My") && unread > 0 ? (
-            <span className="absolute right-3 top-1.5 h-2 w-2 rounded-full bg-primary" />
-          ) : null}
-        </button>
-      ))}
-    </div>
-  );
+  const closeButton = onClose ? (
+    <button
+      aria-label="Close support"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/15 text-white ring-1 ring-white/30 transition hover:bg-white/25"
+      onClick={onClose}
+      type="button"
+    >
+      <X className="h-5 w-5" />
+    </button>
+  ) : null;
 
-  return (
-    <div className={cn("flex min-h-0 flex-col", variant === "panel" ? "h-full" : "min-h-[70vh]")}>
-      <div className="support-hero space-y-4 border-b border-border/60 px-5 pb-4 pt-5">
-        {/* pr-12 keeps clear of the panel's close button. */}
-        <div className="flex items-center gap-3.5 pr-12">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
-            <Headset className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-muted-foreground">SwiftPay</p>
-            <p className="font-heading text-xl font-semibold leading-tight tracking-tight">Help &amp; Support</p>
+  const shellClass = cn("support-shell flex min-h-0 flex-col", variant === "panel" ? "h-full" : "min-h-[70vh]");
+
+  // Home: greeting, inbox, live status, message us, search.
+  if (view.name === "home") {
+    return (
+      <div className={shellClass}>
+        <div className="min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
+          <div className="support-home-hero px-5 pb-24 pt-6 text-white">
+            <div className="flex items-start justify-between gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="SwiftPay" className="h-10 w-10 rounded-xl" height={40} src="/icons/icon-192.png" width={40} />
+              {closeButton}
+            </div>
+            <p className="mt-7 font-heading text-[1.7rem] font-bold leading-tight tracking-tight">
+              Hi {firstName ?? "there"} <span aria-hidden="true">👋</span>
+              <br />
+              How can we help?
+            </p>
+          </div>
+
+          <div className="-mt-16 space-y-3 px-4 pb-6">
+            <div className="support-card divide-y divide-border">
+              <button
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+                onClick={() => {
+                  void loadTickets();
+                  setView({ name: "requests" });
+                }}
+                type="button"
+              >
+                <span className="font-semibold">Messages</span>
+                {unread > 0 ? (
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-destructive px-1.5 text-[0.7rem] font-bold text-white">
+                    {unread}
+                  </span>
+                ) : tickets.length > 0 ? (
+                  <span className="text-xs font-medium text-muted-foreground">{tickets.length}</span>
+                ) : (
+                  <Inbox className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              <button
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left"
+                onClick={() => setView({ name: "topics" })}
+                type="button"
+              >
+                <span className="font-semibold">Help</span>
+                <CircleHelp className="h-5 w-5 text-primary" />
+              </button>
+            </div>
+
+            <div className="support-card flex items-center gap-3 px-4 py-4">
+              {!statusChecked ? (
+                <Loader2 className="h-6 w-6 shrink-0 animate-spin text-muted-foreground" />
+              ) : status?.status === "operational" ? (
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
+                  <Check className="h-4 w-4" strokeWidth={3} />
+                </span>
+              ) : (
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-500 text-white">
+                  <AlertTriangle className="h-4 w-4" />
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="font-semibold">
+                  {!statusChecked
+                    ? "Checking status…"
+                    : status?.status === "operational"
+                      ? "Status: All systems operational"
+                      : status
+                        ? "Status: Some services are slow"
+                        : "Status: Couldn't check right now"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {status?.status === "degraded" && status.issues[0]
+                    ? status.issues[0]
+                    : status
+                      ? `Updated ${formatStatusTime(status.checkedAt)}`
+                      : statusChecked
+                        ? "If something isn't working, send us a message."
+                        : "One moment"}
+                </p>
+              </div>
+            </div>
+
+            <button
+              className="support-card flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+              onClick={() => setView({ name: "handoff", urgent: false })}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block font-semibold">Send us a message</span>
+                <span className="block text-sm text-muted-foreground">We usually reply within one business day</span>
+              </span>
+              <SendHorizontal className="h-5 w-5 shrink-0 fill-primary text-primary" />
+            </button>
+
+            <div className="support-card p-2">
+              <form className="relative" onSubmit={submitSearch}>
+                <Input
+                  aria-label="Search for help"
+                  className="h-12 rounded-xl border-0 bg-muted/70 pl-3.5 pr-11 font-semibold shadow-none placeholder:text-foreground/80 focus-visible:ring-1"
+                  maxLength={500}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search for help"
+                  value={search}
+                />
+                <button
+                  aria-label="Search"
+                  className="absolute inset-y-0 right-1 grid w-10 place-items-center text-primary"
+                  type="submit"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              </form>
+              <div className="mt-1">
+                {suggestions.map((article) => (
+                  <button
+                    className="flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-3 text-left text-[0.95rem] transition hover:bg-muted/60"
+                    key={article.id}
+                    onClick={() => answerWith(article, article.title)}
+                    type="button"
+                  >
+                    <span>{article.title}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-primary" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <p className="flex items-center justify-center gap-1.5 pt-1 text-center text-[0.7rem] text-muted-foreground">
+              <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+              SwiftPay will never ask for your seed phrase, PIN or private key.
+            </p>
           </div>
         </div>
-        <div className="flex min-w-0 items-center gap-2 text-xs">
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-400">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            </span>
-            Online
-          </span>
-          <span className="truncate text-muted-foreground">Replies in about 1 business day</span>
-        </div>
-        {tabs}
+      </div>
+    );
+  }
+
+  // Inner views: a compact purple bar with back and close.
+  const titles: Partial<Record<View["name"], string>> = {
+    category:
+      view.name === "category"
+        ? supportCategories.find((category) => category.id === view.category)?.label
+        : undefined,
+    chat: "Help",
+    requests: "Messages",
+    sent: "Message sent",
+    topics: "Help topics",
+  };
+  // The message form and a thread carry their own back links.
+  const showBack = view.name !== "handoff" && view.name !== "thread";
+
+  return (
+    <div className={shellClass}>
+      <div className="support-bar flex items-center gap-2 px-3 py-3 text-white">
+        {showBack ? (
+          <button
+            aria-label="Back"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full transition hover:bg-white/15"
+            onClick={() => setView(view.name === "category" ? { name: "topics" } : { name: "home" })}
+            type="button"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        ) : (
+          <span className="w-2" />
+        )}
+        <p className="min-w-0 flex-1 truncate font-heading text-lg font-semibold">
+          {titles[view.name] ?? "Support"}
+        </p>
+        {closeButton}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-4" ref={scrollRef}>
-        {view.name === "help" ? (
-          <>
-            {entries.length === 0 ? (
-              <>
-                <p className="font-heading text-xl font-semibold">How can we help?</p>
-                <section className="space-y-2">
-                  <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                    Suggested for this page
-                  </p>
-                  <ArticleList articles={suggestions} onOpen={(article) => answerWith(article, article.title)} />
-                </section>
-                <section className="space-y-2">
-                  <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                    Browse topics
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {supportCategories.map((category) => (
-                      <button
-                        className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold transition hover:border-primary/40 hover:text-primary"
-                        key={category.id}
-                        onClick={() => setView({ category: category.id, name: "category" })}
-                        type="button"
-                      >
-                        {category.label}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              </>
-            ) : null}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4" ref={scrollRef}>
+        {view.name === "topics" ? (
+          <div className="support-card divide-y divide-border">
+            {supportCategories.map((category) => (
+              <button
+                className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left font-medium transition hover:bg-muted/60"
+                key={category.id}
+                onClick={() => setView({ category: category.id, name: "category" })}
+                type="button"
+              >
+                {category.label}
+                <ChevronRight className="h-4 w-4 shrink-0 text-primary" />
+              </button>
+            ))}
+          </div>
+        ) : null}
 
-            {entries.map((entry) =>
+        {view.name === "category" ? (
+          <ArticleList
+            articles={supportArticles.filter((article) => article.category === view.category)}
+            onOpen={(article) => answerWith(article, article.title)}
+          />
+        ) : null}
+
+        {view.name === "chat"
+          ? entries.map((entry) =>
               entry.from === "customer" ? (
                 <div className="flex justify-end" key={entry.id}>
                   <p className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm text-primary-foreground">
@@ -450,35 +652,14 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
                   </Button>
                 </div>
               ),
-            )}
-          </>
-        ) : null}
-
-        {view.name === "category" ? (
-          <>
-            <button
-              className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-              onClick={() => setView({ name: "help" })}
-              type="button"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              All topics
-            </button>
-            <p className="font-heading text-xl font-semibold">
-              {supportCategories.find((category) => category.id === view.category)?.label}
-            </p>
-            <ArticleList
-              articles={supportArticles.filter((article) => article.category === view.category)}
-              onOpen={(article) => answerWith(article, article.title)}
-            />
-          </>
-        ) : null}
+            )
+          : null}
 
         {view.name === "handoff" ? (
           <HandoffForm
             defaultMessage={lastQuestion?.text ?? ""}
             identity={identity}
-            onBack={() => setView({ name: "help" })}
+            onBack={() => setView(entries.length > 0 ? { name: "chat" } : { name: "home" })}
             onSent={(reference, urgent) => {
               void loadTickets();
               setView({ name: "sent", reference, urgent });
@@ -501,23 +682,27 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
                 Your reference is <span className="font-mono font-semibold text-foreground">{view.reference}</span>.{" "}
                 {view.urgent ? "It's marked urgent and will be answered first." : "We usually reply within one business day."}
               </p>
-              <p className="mt-2 text-xs text-muted-foreground">Replies appear under My requests.</p>
+              <p className="mt-2 text-xs text-muted-foreground">Replies appear under Messages.</p>
             </div>
             <Button onClick={() => setView({ name: "requests" })} variant="outline">
               <Inbox className="h-4 w-4" />
-              View my requests
+              View messages
             </Button>
           </div>
         ) : null}
 
         {view.name === "requests" ? (
           tickets.length === 0 ? (
-            <div className="space-y-2 pt-8 text-center text-sm text-muted-foreground">
+            <div className="space-y-3 pt-8 text-center text-sm text-muted-foreground">
               <Inbox className="mx-auto h-8 w-8" />
-              <p>No requests yet. Ask a question on the Help tab — if it needs a person, we&rsquo;ll take it from there.</p>
+              <p>No messages yet. Ask a question, and if it needs a person we&rsquo;ll take it from there.</p>
+              <Button onClick={() => setView({ name: "handoff", urgent: false })} variant="outline">
+                <MessageSquareText className="h-4 w-4" />
+                Send us a message
+              </Button>
             </div>
           ) : (
-            <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="support-card divide-y divide-border">
               {tickets.map((ticket) => (
                 <button
                   className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition hover:bg-muted/60"
@@ -527,7 +712,7 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
                 >
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-sm font-medium">
-                      {ticket.unread ? <span className="h-2 w-2 shrink-0 rounded-full bg-primary" /> : null}
+                      {ticket.unread ? <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" /> : null}
                       <span className="truncate">{ticket.subject}</span>
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -557,8 +742,8 @@ export function SupportCenter({ onNavigate, variant = "panel" }: { onNavigate?: 
         ) : null}
       </div>
 
-      {view.name === "help" ? (
-        <form className="border-t border-border bg-background/80 p-3" onSubmit={ask}>
+      {view.name === "chat" ? (
+        <form className="border-t border-border bg-background/80 p-3" onSubmit={submitDraft}>
           <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-1.5 focus-within:border-primary/50">
             <Input
               aria-label="Ask a question"

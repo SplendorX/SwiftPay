@@ -70,6 +70,7 @@ export const fr: Messages = {
     batchPay: "BatchPay",
     recurePay: "RecurePay",
     activity: "Activité",
+    insights: "Analyses",
     settings: "Réglages",
   },
   pages: {

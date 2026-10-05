@@ -1,6 +1,7 @@
 import type { Hash } from "viem";
 
 import { fetchArcScanTransfers } from "@/lib/arcscan-history";
+import { isArcMainnet } from "@/lib/network";
 import {
   evaluateReferralProgressAndQualify,
   loadReferralVolumes,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/referral/qualification-service";
 import type { ReferralRecord } from "@/lib/referral/types";
 import { verifyWalletOutflow } from "@/lib/referral/verify-activity";
+import { walletHistoryFromRpc } from "@/lib/wallet-history";
 
 /** A referral is re-read from the chain at most this often. */
 const syncCooldownMs = 60_000;
@@ -19,6 +21,28 @@ const maxVerificationsPerSync = 25;
 function toTime(value: string | null | undefined) {
   const parsed = value ? new Date(value).getTime() : Number.NaN;
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * The invitee's outgoing transfers since sign-up, fee legs included (the
+ * receipt check below decides what counts). Mainnet reads the Arc RPC store,
+ * because the explorer API blocks servers there; testnet keeps the explorer
+ * and falls back to the store.
+ */
+async function outgoingTransfersSince(wallet: string, since: number) {
+  const fromStore = () =>
+    walletHistoryFromRpc(wallet, {
+      direction: "out",
+      from: new Date(since),
+      includePlatformFees: true,
+      limit: 1_000,
+    });
+  if (isArcMainnet()) return fromStore();
+  try {
+    return await fetchArcScanTransfers(wallet, { hidePlatformFees: false });
+  } catch {
+    return fromStore();
+  }
 }
 
 export function needsReferralSync(referral: ReferralRecord, now = Date.now()) {
@@ -50,7 +74,7 @@ export async function syncReferralProgressFromChain(referral: ReferralRecord) {
   const since = toTime(referral.created_at);
   const [volumes, transfers] = await Promise.all([
     loadReferralVolumes([referral.id]),
-    fetchArcScanTransfers(wallet, { hidePlatformFees: false }),
+    outgoingTransfersSince(wallet, since),
   ]);
   const counted = volumes.get(referral.id)?.hashes ?? new Set<string>();
   const sinceSignUp = transfers.filter((transfer) => toTime(transfer.timestamp) >= since);

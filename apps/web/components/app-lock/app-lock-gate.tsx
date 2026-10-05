@@ -37,8 +37,9 @@ export function AppLockGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AppLockStatus | null>(null);
   const [mounted, setMounted] = useState(false);
   const hiddenAtRef = useRef<number | null>(null);
+  const refreshingRef = useRef<Promise<void> | null>(null);
 
-  const refresh = useCallback(async () => {
+  const check = useCallback(async () => {
     if (!hasSignedInCookie()) {
       setStatus(null);
       setState("open");
@@ -59,6 +60,14 @@ export function AppLockGate({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /** One status check at a time; callers arriving meanwhile share it. */
+  const refresh = useCallback(() => {
+    refreshingRef.current ??= check().finally(() => {
+      refreshingRef.current = null;
+    });
+    return refreshingRef.current;
+  }, [check]);
+
   useEffect(() => {
     void refresh();
     window.addEventListener(appLockChangedEvent, refresh);
@@ -71,7 +80,11 @@ export function AppLockGate({ children }: { children: ReactNode }) {
     if (state === "open") setMounted(true);
   }, [state]);
 
-  // Any API call refused as locked brings the lock screen up.
+  // Any API call refused as locked re-checks the lock with the server, which
+  // decides whether to show it. Showing it straight from the 423 put up a
+  // second, stale lock: requests sent just before an unlock come back 423
+  // after it, and a session flag left over from a lock turned off elsewhere
+  // refuses every call while no PIN exists to check.
   useEffect(() => {
     const original = window.fetch;
     window.fetch = async (...args) => {
@@ -83,9 +96,11 @@ export function AppLockGate({ children }: { children: ReactNode }) {
             .clone()
             .json()
             .then(
-              (body: { reason?: string }) =>
-                setState(body?.reason === "two-factor" ? "two-factor" : "locked"),
-              () => setState("locked"),
+              (body: { reason?: string }) => {
+                if (body?.reason === "two-factor") setState("two-factor");
+                else void refresh();
+              },
+              () => void refresh(),
             );
         }
       }
@@ -94,7 +109,7 @@ export function AppLockGate({ children }: { children: ReactNode }) {
     return () => {
       window.fetch = original;
     };
-  }, []);
+  }, [refresh]);
 
   // Renew the pass while the unlocked app is on screen.
   useEffect(() => {
@@ -144,6 +159,7 @@ export function AppLockGate({ children }: { children: ReactNode }) {
           hasPasskey={(status?.passkeys ?? 0) > 0}
           onUnlocked={onUnlocked}
           pausedUntil={status?.pausedUntil}
+          profile={status?.profile}
         />
       ) : null}
     </>

@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 
 import { listAccountActivity, recordAccountActivity } from "@/lib/activity/service";
 import { swiftBatchMaxRecipients } from "@/lib/contracts";
-import { isActivitySource } from "@/lib/activity/types";
+import { activityWindowStart, isActivitySource } from "@/lib/activity/types";
 import { jsonError, jsonOk, readJsonRecord } from "@/lib/http";
 import { assertRecurringAccess, normalizeOwnerWallet } from "@/lib/recurring-auth";
 
@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    return jsonOk({ entries: await listAccountActivity(ownerWallet) });
+    // Activity shows the last 30 days; older entries are in statements.
+    return jsonOk({
+      entries: await listAccountActivity(ownerWallet, { from: activityWindowStart() }),
+    });
   } catch (error) {
     return jsonError(
       error instanceof Error ? error.message : "Activity could not be loaded.",

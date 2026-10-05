@@ -12,6 +12,7 @@ export type AppLockStatus = {
   locked: boolean;
   passkeys?: number;
   pausedUntil?: string | null;
+  profile?: { avatarUrl: string | null; displayName: string | null; username: string | null } | null;
   signedIn: boolean;
   timeoutMinutes?: number;
 };

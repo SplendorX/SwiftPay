@@ -70,6 +70,7 @@ export const ko: Messages = {
     batchPay: "BatchPay",
     recurePay: "RecurePay",
     activity: "활동",
+    insights: "인사이트",
     settings: "설정",
   },
   pages: {

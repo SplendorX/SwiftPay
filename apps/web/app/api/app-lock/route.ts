@@ -34,6 +34,7 @@ import { readJsonRecord } from "@/lib/http";
 import { platformAccessCookieName } from "@/lib/platform-access";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { secureCookieFor } from "@/lib/secure-cookie";
+import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   createSignedToken,
   createWalletToken,
@@ -142,6 +143,28 @@ function pinFailure(response: Awaited<ReturnType<typeof checkPin>>) {
   return jsonError("That PIN isn't right.", 401, { attemptsLeft: response.attemptsLeft });
 }
 
+/**
+ * Who the lock screen greets: the signed-in profile's name and picture. The
+ * device already holds this session, so it reveals nothing new. Never fatal.
+ */
+async function lockProfile(wallet: string) {
+  try {
+    const { data } = await createSupabaseAdminClient()
+      .from(process.env.SUPABASE_PROFILES_TABLE ?? "profiles")
+      .select("display_name, username, avatar_url")
+      .eq("wallet_address", wallet.toLowerCase())
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      avatarUrl: (data.avatar_url as string | null) ?? null,
+      displayName: (data.display_name as string | null) ?? null,
+      username: (data.username as string | null) ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** The lock's state for this browser. Also re-syncs the session's flag. */
 export async function GET() {
   const { locked, session, wallets } = await readContext();
@@ -157,7 +180,10 @@ export async function GET() {
     return json({ enabled: Boolean(session.appLock), locked, signedIn: true });
   }
 
-  const passkeys = lock ? await listPasskeys(lock.owner_wallet).catch(() => []) : [];
+  const [passkeys, profile] = await Promise.all([
+    lock ? listPasskeys(lock.owner_wallet).catch(() => []) : Promise.resolve([]),
+    lock ? lockProfile(session.ownerWallet) : Promise.resolve(null),
+  ]);
   const response = json({
     enabled: Boolean(lock),
     // Turned off on another device: open this one too.
@@ -165,6 +191,7 @@ export async function GET() {
     passkeys: passkeys.length,
     pausedUntil:
       lock?.locked_until && Date.parse(lock.locked_until) > Date.now() ? lock.locked_until : null,
+    profile,
     signedIn: true,
     timeoutMinutes: lock?.timeout_minutes ?? 1,
   });
@@ -198,7 +225,14 @@ export async function POST(request: NextRequest) {
 
   // Things that open the app.
   if (action === "unlock") {
-    if (!lock) return json({ unlocked: true });
+    if (!lock) {
+      // No lock for this session's wallets: the session flag is stale (the
+      // lock was turned off elsewhere, or the session moved wallets). Clear
+      // it, and say so, instead of "accepting" whatever PIN was typed.
+      const response = json({ enabled: false, unlocked: true });
+      if (session.appLock) await setSessionLockFlag(response, session, false);
+      return response;
+    }
     if (!isValidPin(body.pin)) return jsonError("Enter your 6-digit PIN.", 400);
     const result = await checkPin(lock, body.pin);
     const failure = pinFailure(result);

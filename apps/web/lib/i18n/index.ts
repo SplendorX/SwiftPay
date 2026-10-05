@@ -154,6 +154,6 @@ export const navLabelKeys = {
   "/earn": "nav.earn",
   "/batchpay": "nav.batchPay",
   "/recurepay": "nav.recurePay",
-  "/activity": "nav.activity",
+  "/insights": "nav.insights",
   "/settings": "nav.settings",
 } as const satisfies Record<string, MessageKey>;

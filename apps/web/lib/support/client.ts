@@ -32,6 +32,12 @@ export type SupportIdentity = { ownerWallet?: string | null; circleSocialUuid?: 
 // ticket token means nothing on mainnet.
 const storageKey = `swiftpay:support-tickets:${arcNetworkTarget()}`;
 export const supportChangedEvent = "swiftpay:support-changed";
+/** Fired to open the Support panel from anywhere (the mobile menu, links). */
+export const openSupportEvent = "swiftpay:open-support";
+
+export function openSupport() {
+  window.dispatchEvent(new Event(openSupportEvent));
+}
 
 type StoredTicket = { id: string; token: string; reference: string };
 

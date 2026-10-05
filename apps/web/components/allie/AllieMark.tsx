@@ -3,14 +3,11 @@
 import { cn } from "@/lib/utils";
 
 /**
- * ALLIE's mark — the supplied artwork with its ground keyed out.
+ * ALLIE's mark: her round portrait (public/brand/allie-avatar-256.webp).
  *
- * Painted as a CSS mask rather than an <img>: the geometry stays exactly as
- * drawn, but the ink follows `currentColor`. The artwork's own dark teal all
- * but vanishes against the purple launcher pill and in dark mode, and a mask
- * lets each surface pick a legible colour without touching the shape. The
- * negative space between the arm and the stroke is genuinely transparent, so
- * the mark sits on any background without a tile behind it.
+ * Drawn as a CSS background rather than an <img> so the call sites that size
+ * it in CSS (the landing lockup scales with type) keep working. It's
+ * decorative next to the "ALLIE" name, so screen readers skip it.
  *
  * It never animates: a logo that spins reads as a loading state, and this one
  * sits on screens where nothing is loading.

@@ -13,6 +13,18 @@ async function readMessage(response: Response, fallback: string) {
   return payload?.message ?? fallback;
 }
 
+/** The owner's saved contacts, by name. */
+export async function fetchBeneficiaries(auth: BeneficiaryAuth): Promise<BeneficiaryRecord[]> {
+  const params = new URLSearchParams({ ownerWallet: auth.ownerWallet });
+  if (auth.circleSocialUuid) params.set("circleSocialUuid", auth.circleSocialUuid);
+  const response = await fetch(`/api/beneficiaries?${params.toString()}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readMessage(response, "Contacts could not be loaded."));
+  }
+  const payload = (await response.json()) as { beneficiaries?: BeneficiaryRecord[] };
+  return payload.beneficiaries ?? [];
+}
+
 /** Rename a contact and/or move it to another wallet. */
 export async function updateBeneficiary(
   auth: BeneficiaryAuth,

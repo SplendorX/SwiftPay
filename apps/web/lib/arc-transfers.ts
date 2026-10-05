@@ -80,16 +80,18 @@ function isRangeError(error: unknown) {
   return /exceeded max allowed range|max results|range too large/i.test(message);
 }
 
+type TransferFilter = { to: Address } | { from: Address };
+
 function getTransferLogs(
   client: ArcRpcClient,
   addresses: Address[],
-  to: Address,
+  filter: TransferFilter,
   fromBlock: bigint,
   toBlock: bigint,
 ) {
   return client.getLogs({
     address: addresses,
-    args: { to },
+    args: filter,
     event: transferEvent,
     fromBlock,
     toBlock,
@@ -99,12 +101,12 @@ function getTransferLogs(
 async function transferLogs(
   client: ArcRpcClient,
   addresses: Address[],
-  to: Address,
+  filter: TransferFilter,
   fromBlock: bigint,
   toBlock: bigint,
 ): Promise<Awaited<ReturnType<typeof getTransferLogs>>> {
   try {
-    return await getTransferLogs(client, addresses, to, fromBlock, toBlock);
+    return await getTransferLogs(client, addresses, filter, fromBlock, toBlock);
   } catch (error) {
     // Split the range when the RPC says it is too wide or returns too much.
     const span = toBlock - fromBlock + 1n;
@@ -112,27 +114,49 @@ async function transferLogs(
       throw error;
     }
     const middle = fromBlock + span / 2n;
-    const first = await transferLogs(client, addresses, to, fromBlock, middle - 1n);
-    const second = await transferLogs(client, addresses, to, middle, toBlock);
+    const first = await transferLogs(client, addresses, filter, fromBlock, middle - 1n);
+    const second = await transferLogs(client, addresses, filter, middle, toBlock);
     return [...first, ...second];
   }
 }
 
 /**
- * USDC/EURC received by `wallet` between two blocks (inclusive), newest
- * first. Queries run one at a time to stay under the RPC's rate limit. Throws
- * if any part of the range could not be read, so a caller that keeps a cursor
- * never skips blocks.
+ * Where outgoing transfers are read: the token contracts' own (ERC-20)
+ * events, like the explorer's list. The native USDC event also fires for
+ * every gas payment, which would fill the history with fee rows, and a
+ * SwiftPay send always goes through the ERC-20 interface.
  */
-export async function fetchIncomingTransfersFromRpc(
+function outgoingSources() {
+  const sources = new Map<string, TransferSource>();
+  for (const symbol of ["USDC", "EURC"] as const) {
+    const token = arcTokens[symbol];
+    if (token.address !== ZERO_ADDRESS) {
+      sources.set(token.address.toLowerCase(), { decimals: token.decimals, symbol });
+    }
+  }
+  return sources;
+}
+
+/**
+ * USDC/EURC moving into (`in`) or out of (`out`) `wallet` between two blocks
+ * (inclusive), newest first. Incoming USDC is read from the native event
+ * (counts each payment once, catches plain native sends); outgoing from the
+ * token contracts (see `outgoingSources`). Queries run one at a time to stay
+ * under the RPC's rate limit. Throws if any part of the range could not be
+ * read, so a caller that keeps a cursor never skips blocks.
+ */
+export async function fetchWalletTransfersFromRpc(
   wallet: string,
   range: { fromBlock: bigint; toBlock: bigint },
+  direction: "in" | "out",
   client: ArcRpcClient = createArcRpcClient(),
 ): Promise<WalletTransfer[]> {
-  const to = wallet.toLowerCase() as Address;
-  const sources = transferSources();
+  const self = wallet.toLowerCase() as Address;
+  const sources = direction === "in" ? transferSources() : outgoingSources();
   const addresses = [...sources.keys()] as Address[];
+  const filter: TransferFilter = direction === "in" ? { to: self } : { from: self };
   const transfers: WalletTransfer[] = [];
+  if (addresses.length === 0) return transfers;
 
   for (
     let start = range.fromBlock;
@@ -143,20 +167,22 @@ export async function fetchIncomingTransfersFromRpc(
       start + MAX_BLOCK_RANGE - 1n < range.toBlock
         ? start + MAX_BLOCK_RANGE - 1n
         : range.toBlock;
-    const logs = await transferLogs(client, addresses, to, start, end);
+    const logs = await transferLogs(client, addresses, filter, start, end);
     for (const log of logs) {
       const source = sources.get(log.address.toLowerCase());
-      const from = log.args.from;
+      const counterparty = direction === "in" ? log.args.from : log.args.to;
       const value = log.args.value;
-      if (!source || !from || value == null || !log.transactionHash) {
+      if (!source || !counterparty || value == null || !log.transactionHash) {
         continue;
       }
+      // Moving money between your own addresses isn't history.
+      if (counterparty.toLowerCase() === self) continue;
       transfers.push({
         amount: formatUnits(value, source.decimals),
         blockNumber: Number(log.blockNumber ?? 0n),
-        counterparty: from,
+        counterparty,
         counterpartyIsContract: false,
-        direction: "in",
+        direction,
         hash: log.transactionHash as Hash,
         logIndex: log.logIndex ?? 0,
         method: null,
@@ -171,6 +197,15 @@ export async function fetchIncomingTransfersFromRpc(
       ? right.logIndex - left.logIndex
       : right.blockNumber - left.blockNumber,
   );
+}
+
+/** USDC/EURC received by `wallet` between two blocks (inclusive), newest first. */
+export function fetchIncomingTransfersFromRpc(
+  wallet: string,
+  range: { fromBlock: bigint; toBlock: bigint },
+  client: ArcRpcClient = createArcRpcClient(),
+): Promise<WalletTransfer[]> {
+  return fetchWalletTransfersFromRpc(wallet, range, "in", client);
 }
 
 /** Fill in each transfer's block time. Best-effort: misses stay null. */
