@@ -1,0 +1,1143 @@
+"use client";
+
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardPaste,
+  Coins,
+  Delete,
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  QrCode,
+  Search,
+  Send,
+  UserPlus,
+  Users,
+  Wallet,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { isAddress } from "viem";
+
+import { BeneficiaryContacts } from "@/components/dashboard/beneficiary-contacts";
+import type { SendPaymentWizardProps } from "@/components/dashboard/send-payment-wizard";
+import { RecipientStatus } from "@/components/recipient-status";
+import { RecurringScheduleFields, RecurringToggle } from "@/components/recurring-schedule-fields";
+import { useTransactionReceipts } from "@/components/transactions/transaction-parts";
+import { TokenIcon } from "@/components/token-icon";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
+import type { AccountActivityItem } from "@/lib/activity/merge";
+import { transactionHistoryDays } from "@/lib/activity/types";
+import { useAccountTransactions } from "@/lib/activity/use-account-transactions";
+import type { BeneficiaryRecord } from "@/lib/beneficiaries";
+import { searchPeople } from "@/lib/business/client";
+import type { DirectoryHit } from "@/lib/business/types";
+import { formatUsernameLabel } from "@/lib/profile-utils";
+import { calculateTransactionCashback } from "@/lib/referral/cashback-service";
+import { arcTokenSymbols } from "@/lib/tokens";
+import { useConversionRates, usdPerUnit } from "@/lib/use-conversion-rates";
+import { bottomSheetClassName, useSheetSide } from "@/lib/use-media-query";
+import { cn } from "@/lib/utils";
+
+import "./send.css";
+
+type ContactEdit = Parameters<React.ComponentProps<typeof BeneficiaryContacts>["onUpdate"]>[1];
+
+export type SendHubProps = SendPaymentWizardProps & {
+  isBeneficiariesLoading: boolean;
+  onDeleteBeneficiary: (beneficiary: BeneficiaryRecord) => Promise<void>;
+  onUpdateBeneficiary: (beneficiary: BeneficiaryRecord, edit: ContactEdit) => Promise<void>;
+  /** Change to refetch history, e.g. when a payment settles. */
+  refreshKey?: string;
+  savedBeneficiaries: BeneficiaryRecord[];
+};
+
+type View = "home" | "to" | "chat";
+
+type Person = {
+  /** What goes in the recipient field: @username or a wallet. */
+  value: string;
+  wallet: string | null;
+  name: string;
+  avatarUrl?: string | null;
+  sub?: string;
+};
+
+function initialOf(name: string) {
+  return name.replace(/^@/, "").trim().charAt(0).toUpperCase() || "?";
+}
+
+function timeAgo(value: string | null) {
+  if (!value) return "just now";
+  const seconds = Math.max(0, (Date.now() - Date.parse(value)) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${Math.floor(minutes)}m ago`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.floor(hours)}h ago`;
+  const days = hours / 24;
+  if (days < 30) return `${Math.floor(days)}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
+function formatAmount(value: string | null | undefined) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return value ?? "0";
+  return parsed.toLocaleString(undefined, { maximumFractionDigits: 6, minimumFractionDigits: 2 });
+}
+
+function counterpartyOf(item: AccountActivityItem) {
+  return (item.transfer?.counterparty ?? item.counterparty ?? "").toLowerCase();
+}
+
+/** A round avatar: a photo when there is one, else the first letter. */
+function Avatar({ name, size = "md", url }: { name: string; size?: "md" | "lg" | "sm"; url?: string | null }) {
+  return (
+    <span aria-hidden className={cn("sx-avatar", `is-${size}`)}>
+      {url ? <img alt="" src={url} /> : initialOf(name)}
+    </span>
+  );
+}
+
+/**
+ * Send, in the Kuda pattern: a home with search, beneficiaries, the ways to
+ * pay and recents; a "Pay to" step; then a chat-style screen with everything
+ * already sent to that person and the amount at the bottom; a confirm sheet
+ * sends. All payment state and logic stays with the dashboard.
+ */
+export function SendHub(props: SendHubProps) {
+  const {
+    address,
+    authWallet,
+    availableBalances,
+    beneficiaryError,
+    beneficiaryName,
+    beneficiaryStatus,
+    canSaveBeneficiary,
+    canSubmitPayment,
+    hideBalance = false,
+    isAuthenticatingWallet,
+    isBeneficiariesLoading,
+    isBeneficiarySaving,
+    isConnected,
+    isEmbeddedWalletMode,
+    isRecipientResolving,
+    isRecipientValid,
+    isSubmitting,
+    isSwitchingChain,
+    isTreasuryMismatch = false,
+    isWalletAuthenticated,
+    onBeneficiaryNameChange,
+    onDeleteBeneficiary,
+    onPaymentAmountChange,
+    onPaymentNarrationChange,
+    onRecipientChange,
+    onRecurringChange,
+    onRecurringEnabledChange,
+    onSaveBeneficiary,
+    onSelectToken,
+    onSubmit,
+    onSwitchToTreasury,
+    onUpdateBeneficiary,
+    onWalletSignIn,
+    paymentAmount,
+    paymentAmountUnits,
+    paymentError,
+    paymentNarration,
+    primaryButtonText,
+    receiveHref,
+    recipientAddress,
+    recipientResolveError,
+    recurring,
+    recurringEnabled,
+    recurringNotice,
+    refreshKey,
+    resolvedRecipientUsername,
+    savedBeneficiaries,
+    selectedToken,
+    settlementQuote,
+    shortenAddress,
+    spendSaveNotice,
+    transactionConfirmed,
+    transactionExplorerUrl,
+    treasuryAddress,
+    trimmedRecipientAddress,
+    walletAddress,
+  } = props;
+
+  const [view, setView] = useState<View>("home");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [beneficiariesOpen, setBeneficiariesOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [directory, setDirectory] = useState<DirectoryHit[]>([]);
+  const navigated = useRef(false);
+
+  const { items, titleFor } = useAccountTransactions(walletAddress || null, transactionHistoryDays, refreshKey);
+
+  // A link that already names who to pay (?to=…, an invoice, ALLIE) opens the chat.
+  useEffect(() => {
+    if (!navigated.current && recipientAddress.trim()) {
+      navigated.current = true;
+      setView("chat");
+    }
+  }, [recipientAddress]);
+
+  const beneficiaryByWallet = useMemo(() => {
+    const map = new Map<string, BeneficiaryRecord>();
+    savedBeneficiaries.forEach((entry) => map.set(entry.beneficiary_wallet.toLowerCase(), entry));
+    return map;
+  }, [savedBeneficiaries]);
+
+  // People you've paid, newest first, once each.
+  const recents = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Array<Person & { lastAmount: string; when: string | null }> = [];
+    for (const item of items) {
+      if (item.direction !== "out") continue;
+      if (!["send", "wallet", "agent"].includes(item.source)) continue;
+      const wallet = counterpartyOf(item);
+      if (!wallet || !isAddress(wallet) || seen.has(wallet)) continue;
+      seen.add(wallet);
+      const saved = beneficiaryByWallet.get(wallet);
+      const titled = (titleFor(item) ?? "").replace(/^Sent to /, "");
+      const handle = titled.startsWith("@") ? titled : null;
+      out.push({
+        lastAmount: `${formatAmount(item.amount)} ${item.token ?? ""}`.trim(),
+        name: saved?.name ?? handle ?? shortenAddress(wallet),
+        value: saved?.username ? `@${saved.username}` : handle ?? wallet,
+        wallet,
+        when: item.occurredAt,
+      });
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [beneficiaryByWallet, items, shortenAddress, titleFor]);
+
+  const beneficiaryPeople: Person[] = savedBeneficiaries.map((entry) => ({
+    name: entry.name,
+    sub: entry.username ? `@${entry.username}` : shortenAddress(entry.beneficiary_wallet),
+    value: entry.username ? `@${entry.username}` : entry.beneficiary_wallet,
+    wallet: entry.beneficiary_wallet,
+  }));
+
+  // Search: your people first, then anyone on SwiftPay.
+  const needle = query.trim().replace(/^@+/, "").toLowerCase();
+  useEffect(() => {
+    if (!needle || isAddress(needle)) {
+      setDirectory([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void searchPeople(needle)
+        .then((payload) => {
+          if (!cancelled) setDirectory(payload.results.slice(0, 6));
+        })
+        .catch(() => {
+          if (!cancelled) setDirectory([]);
+        });
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [needle]);
+
+  const localMatches = needle
+    ? [...beneficiaryPeople, ...recents].filter(
+        (person, index, all) =>
+          [person.name, person.value, person.wallet ?? ""].some((field) => field.toLowerCase().includes(needle)) &&
+          all.findIndex((other) => other.value === person.value) === index,
+      )
+    : [];
+
+  function openChat(person: Person) {
+    navigated.current = true;
+    onRecipientChange(person.value);
+    const saved = person.wallet ? beneficiaryByWallet.get(person.wallet.toLowerCase()) : undefined;
+    onBeneficiaryNameChange(saved?.name ?? "");
+    setQuery("");
+    setView("chat");
+  }
+
+  function startNew() {
+    navigated.current = true;
+    onRecipientChange("");
+    onBeneficiaryNameChange("");
+    setView("to");
+  }
+
+  const savedHere = trimmedRecipientAddress ? beneficiaryByWallet.get(trimmedRecipientAddress.toLowerCase()) : undefined;
+  const recipientName =
+    savedHere?.name ??
+    (resolvedRecipientUsername
+      ? formatUsernameLabel(resolvedRecipientUsername)
+      : isRecipientValid
+        ? shortenAddress(trimmedRecipientAddress)
+        : recipientAddress.trim() || "Recipient");
+
+  const treasuryBanner =
+    isTreasuryMismatch && treasuryAddress ? (
+      <div className="sx-warn">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Signing with your personal wallet</p>
+          <p className="mt-0.5 opacity-90">
+            Connected {shortenAddress(address)} isn&apos;t this workspace&apos;s treasury (
+            {shortenAddress(treasuryAddress)}). Sending now uses personal funds.
+          </p>
+        </div>
+        {onSwitchToTreasury ? (
+          <button className="sx-warn-action" onClick={onSwitchToTreasury} type="button">
+            Switch
+          </button>
+        ) : null}
+      </div>
+    ) : null;
+
+  // ── Home ────────────────────────────────────────────────────────────────
+  if (view === "home") {
+    return (
+      <div className="sx-page">
+        <header className="sx-bar">
+          <Link aria-label="Back to the dashboard" className="sx-round" href="/dashboard">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="sx-title">Send money</h1>
+          <Link aria-label="Receive" className="sx-round" href={receiveHref} title="Receive">
+            <QrCode className="h-5 w-5" />
+          </Link>
+        </header>
+
+        {treasuryBanner}
+
+        <label className="sx-search">
+          <Search className="h-4 w-4 shrink-0" />
+          <input
+            aria-label="Search people"
+            autoComplete="off"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search a name, @username or 0x wallet"
+            spellCheck={false}
+            value={query}
+          />
+        </label>
+
+        {needle ? (
+          <section className="sx-card">
+            <ul className="sx-list">
+              {isAddress(needle) ? (
+                <li>
+                  <PersonRow
+                    onClick={() => openChat({ name: shortenAddress(needle), value: needle, wallet: needle })}
+                    person={{ name: shortenAddress(needle), sub: "Pay this Arc wallet", value: needle, wallet: needle }}
+                  />
+                </li>
+              ) : null}
+              {localMatches.map((person) => (
+                <li key={`local-${person.value}`}>
+                  <PersonRow onClick={() => openChat(person)} person={person} />
+                </li>
+              ))}
+              {directory
+                .filter((hit) => !localMatches.some((person) => person.value === `@${hit.username}`))
+                .map((hit) => {
+                  const person: Person = {
+                    avatarUrl: hit.avatarUrl,
+                    name: hit.displayName || formatUsernameLabel(hit.username),
+                    sub: `${formatUsernameLabel(hit.username)}${hit.kind === "business" ? " · Business" : ""}`,
+                    value: `@${hit.username}`,
+                    wallet: null,
+                  };
+                  return (
+                    <li key={`dir-${hit.username}`}>
+                      <PersonRow onClick={() => openChat(person)} person={person} />
+                    </li>
+                  );
+                })}
+              {!isAddress(needle) && localMatches.length === 0 && directory.length === 0 ? (
+                <li className="sx-empty">No one found for &ldquo;{query.trim()}&rdquo;.</li>
+              ) : null}
+            </ul>
+          </section>
+        ) : (
+          <>
+            <section className="sx-section">
+              <div className="sx-section-head">
+                <h2>Beneficiaries</h2>
+                {savedBeneficiaries.length > 0 ? (
+                  <button onClick={() => setBeneficiariesOpen(true)} type="button">
+                    View all
+                  </button>
+                ) : null}
+              </div>
+              {isBeneficiariesLoading && savedBeneficiaries.length === 0 ? (
+                <p className="sx-muted">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading
+                </p>
+              ) : savedBeneficiaries.length === 0 ? (
+                <p className="sx-muted">People you save while sending appear here.</p>
+              ) : (
+                <div className="sx-people-row">
+                  {beneficiaryPeople.map((person) => (
+                    <button className="sx-person" key={person.value} onClick={() => openChat(person)} type="button">
+                      <Avatar name={person.name} />
+                      <span>{person.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="sx-card">
+              <ul className="sx-list">
+                <li>
+                  <OptionRow
+                    badge="Instant"
+                    body="Anyone on SwiftPay or any wallet on Arc."
+                    icon={<Send className="h-5 w-5" />}
+                    onClick={startNew}
+                    title="Pay to @username or Arc address"
+                  />
+                </li>
+                <li>
+                  <OptionRow
+                    body="Pay many people in one transaction."
+                    href="/bulkpay"
+                    icon={<Users className="h-5 w-5" />}
+                    title="BulkPay"
+                  />
+                </li>
+                <li>
+                  <OptionRow
+                    body="Schedule one-time and recurring payments."
+                    href="/recurepay"
+                    icon={<CalendarClock className="h-5 w-5" />}
+                    title="Scheduled transfers"
+                  />
+                </li>
+              </ul>
+            </section>
+
+            <section className="sx-section">
+              <div className="sx-section-head">
+                <h2>Recents</h2>
+                {recents.length > 0 ? <Link href="/transactions">View all</Link> : null}
+              </div>
+              {recents.length === 0 ? (
+                <p className="sx-muted">People you pay show up here.</p>
+              ) : (
+                <section className="sx-card">
+                  <ul className="sx-list">
+                    {recents.slice(0, 5).map((person) => (
+                      <li key={person.value}>
+                        <PersonRow
+                          onClick={() => openChat(person)}
+                          person={{ ...person, sub: `You sent ${person.lastAmount} • ${timeAgo(person.when)}` }}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </section>
+          </>
+        )}
+
+        <BeneficiariesSheet
+          onClose={() => setBeneficiariesOpen(false)}
+          open={beneficiariesOpen}
+        >
+          <BeneficiaryContacts
+            isLoading={isBeneficiariesLoading}
+            onDelete={onDeleteBeneficiary}
+            onSelect={(beneficiary) => {
+              setBeneficiariesOpen(false);
+              openChat({
+                name: beneficiary.name,
+                value: beneficiary.username ? `@${beneficiary.username}` : beneficiary.beneficiary_wallet,
+                wallet: beneficiary.beneficiary_wallet,
+              });
+            }}
+            onUpdate={onUpdateBeneficiary}
+            savedBeneficiaries={savedBeneficiaries}
+            selectedWallet={trimmedRecipientAddress}
+            shortenAddress={shortenAddress}
+          />
+        </BeneficiariesSheet>
+      </div>
+    );
+  }
+
+  // ── Pay to ──────────────────────────────────────────────────────────────
+  if (view === "to") {
+    return (
+      <div className="sx-page">
+        <header className="sx-bar">
+          <button aria-label="Back" className="sx-round" onClick={() => setView("home")} type="button">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="sx-title">Pay to</h1>
+          <button
+            className="sx-next"
+            disabled={!isRecipientValid}
+            onClick={() => setView("chat")}
+            type="button"
+          >
+            Next
+          </button>
+        </header>
+
+        {[...beneficiaryPeople, ...recents].length > 0 ? (
+          <section className="sx-section">
+            <div className="sx-section-head">
+              <h2>Recent</h2>
+            </div>
+            <div className="sx-people-row">
+              {[...recents, ...beneficiaryPeople]
+                .filter((person, index, all) => all.findIndex((other) => other.value === person.value) === index)
+                .slice(0, 12)
+                .map((person) => (
+                  <button className="sx-person" key={person.value} onClick={() => openChat(person)} type="button">
+                    <Avatar name={person.name} />
+                    <span>{person.name}</span>
+                  </button>
+                ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="sx-section">
+          <label className="sx-label" htmlFor="send-to">
+            @username or Arc wallet
+          </label>
+          <div className="sx-to">
+            <div className="sx-to-field">
+              <input
+                aria-describedby="send-recipient-status"
+                autoCapitalize="off"
+                autoComplete="off"
+                autoFocus
+                id="send-to"
+                onChange={(event) => onRecipientChange(event.target.value.replace(/\s/g, ""))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && isRecipientValid) setView("chat");
+                }}
+                placeholder="@username or 0x…"
+                spellCheck={false}
+                value={recipientAddress}
+              />
+              {isRecipientResolving ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" /> : null}
+              <button
+                className="sx-paste"
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.readText()
+                    .then((text) => onRecipientChange(text.trim()))
+                    .catch(() => undefined);
+                }}
+                type="button"
+              >
+                Paste
+                <ClipboardPaste className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          {recipientAddress.trim() ? (
+            <RecipientStatus
+              className="mt-2"
+              id="send-recipient-status"
+              resolution={{
+                error: recipientResolveError,
+                isResolving: isRecipientResolving,
+                isValid: isRecipientValid,
+                resolvedAddress: isRecipientValid ? trimmedRecipientAddress : null,
+                resolvedUsername: resolvedRecipientUsername,
+              }}
+            />
+          ) : (
+            <p className="sx-muted mt-2">Payments on SwiftPay settle on Arc in seconds.</p>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  // ── Chat send ───────────────────────────────────────────────────────────
+  return (
+    <ChatView
+      {...props}
+      authWallet={authWallet}
+      availableBalances={availableBalances}
+      beneficiaryError={beneficiaryError}
+      beneficiaryName={beneficiaryName}
+      beneficiaryStatus={beneficiaryStatus}
+      canSaveBeneficiary={canSaveBeneficiary}
+      canSubmitPayment={canSubmitPayment}
+      confirmOpen={confirmOpen}
+      hideBalance={hideBalance}
+      history={items.filter((item) => trimmedRecipientAddress && counterpartyOf(item) === trimmedRecipientAddress.toLowerCase())}
+      isAuthenticatingWallet={isAuthenticatingWallet}
+      isBeneficiarySaving={isBeneficiarySaving}
+      isConnected={isConnected}
+      isEmbeddedWalletMode={isEmbeddedWalletMode}
+      isSaved={Boolean(savedHere)}
+      isSubmitting={isSubmitting}
+      isSwitchingChain={isSwitchingChain}
+      isWalletAuthenticated={isWalletAuthenticated}
+      onBack={() => setView(recipientAddress.trim() && !isRecipientValid ? "to" : "home")}
+      onConfirmOpenChange={setConfirmOpen}
+      onSaveOpenChange={setSaveOpen}
+      paymentAmount={paymentAmount}
+      paymentAmountUnits={paymentAmountUnits}
+      paymentError={paymentError}
+      paymentNarration={paymentNarration}
+      primaryButtonText={primaryButtonText}
+      recipientName={recipientName}
+      recurring={recurring}
+      recurringEnabled={recurringEnabled}
+      recurringNotice={recurringNotice}
+      saveOpen={saveOpen}
+      selectedToken={selectedToken}
+      settlementQuote={settlementQuote}
+      spendSaveNotice={spendSaveNotice}
+      transactionConfirmed={transactionConfirmed}
+      transactionExplorerUrl={transactionExplorerUrl}
+      treasuryBanner={treasuryBanner}
+      onBeneficiaryNameChange={onBeneficiaryNameChange}
+      onPaymentAmountChange={onPaymentAmountChange}
+      onPaymentNarrationChange={onPaymentNarrationChange}
+      onRecurringChange={onRecurringChange}
+      onRecurringEnabledChange={onRecurringEnabledChange}
+      onSaveBeneficiary={onSaveBeneficiary}
+      onSelectToken={onSelectToken}
+      onSubmit={onSubmit}
+      onSwitchToTreasury={onSwitchToTreasury}
+      onWalletSignIn={onWalletSignIn}
+    />
+  );
+}
+
+function PersonRow({ onClick, person }: { onClick: () => void; person: Person }) {
+  return (
+    <button className="sx-row" onClick={onClick} type="button">
+      <Avatar name={person.name} url={person.avatarUrl} />
+      <span className="sx-row-main">
+        <span className="sx-row-title">{person.name}</span>
+        {person.sub ? <span className="sx-row-sub">{person.sub}</span> : null}
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
+
+function OptionRow({
+  badge,
+  body,
+  href,
+  icon,
+  onClick,
+  title,
+}: {
+  badge?: string;
+  body: string;
+  href?: string;
+  icon: ReactNode;
+  onClick?: () => void;
+  title: string;
+}) {
+  const inner = (
+    <>
+      <span className="sx-option-icon">{icon}</span>
+      <span className="sx-row-main">
+        <span className="sx-row-title">
+          {title}
+          {badge ? <em className="sx-badge">{badge}</em> : null}
+        </span>
+        <span className="sx-row-sub">{body}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </>
+  );
+  return href ? (
+    <Link className="sx-row" href={href}>
+      {inner}
+    </Link>
+  ) : (
+    <button className="sx-row" onClick={onClick} type="button">
+      {inner}
+    </button>
+  );
+}
+
+function BeneficiariesSheet({ children, onClose, open }: { children: ReactNode; onClose: () => void; open: boolean }) {
+  const side = useSheetSide();
+  return (
+    <Sheet onOpenChange={(next) => !next && onClose()} open={open}>
+      <SheetContent
+        className={cn("gap-0 p-0", side === "bottom" ? bottomSheetClassName : "w-full sm:max-w-md")}
+        showCloseButton={false}
+        side={side}
+      >
+        {side === "bottom" ? <SheetGrabber /> : null}
+        <div className="sx-sheet">
+          <SheetTitle className="text-center text-lg font-bold">Beneficiaries</SheetTitle>
+          <SheetDescription className="sr-only">Your saved people</SheetDescription>
+          {children}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** The person's history as chat bubbles, the amount at the bottom, and the confirm sheet. */
+function ChatView(
+  props: SendHubProps & {
+    confirmOpen: boolean;
+    history: AccountActivityItem[];
+    isSaved: boolean;
+    onBack: () => void;
+    onConfirmOpenChange: (open: boolean) => void;
+    onSaveOpenChange: (open: boolean) => void;
+    recipientName: string;
+    saveOpen: boolean;
+    treasuryBanner: ReactNode;
+  },
+) {
+  const {
+    availableBalances,
+    beneficiaryError,
+    beneficiaryName,
+    beneficiaryStatus,
+    canSaveBeneficiary,
+    canSubmitPayment,
+    confirmOpen,
+    hideBalance = false,
+    history,
+    isAuthenticatingWallet,
+    isBeneficiarySaving,
+    isConnected,
+    isEmbeddedWalletMode,
+    isRecipientResolving,
+    isRecipientValid,
+    isSaved,
+    isSubmitting,
+    isSwitchingChain,
+    isTreasuryMismatch = false,
+    isWalletAuthenticated,
+    onBack,
+    onBeneficiaryNameChange,
+    onConfirmOpenChange,
+    onPaymentAmountChange,
+    onPaymentNarrationChange,
+    onRecurringChange,
+    onRecurringEnabledChange,
+    onSaveBeneficiary,
+    onSaveOpenChange,
+    onSelectToken,
+    onSubmit,
+    onSwitchToTreasury,
+    onWalletSignIn,
+    paymentAmount,
+    paymentAmountUnits,
+    paymentError,
+    paymentNarration,
+    primaryButtonText,
+    recipientName,
+    recipientResolveError,
+    recurring,
+    recurringEnabled,
+    recurringNotice,
+    saveOpen,
+    selectedToken,
+    settlementQuote,
+    shortenAddress,
+    spendSaveNotice,
+    transactionConfirmed,
+    transactionExplorerUrl,
+    treasuryAddress,
+    treasuryBanner,
+    trimmedRecipientAddress,
+    walletAddress,
+  } = props;
+  const side = useSheetSide();
+  const logRef = useRef<HTMLDivElement>(null);
+  // Every bubble, sent or received, opens its receipt.
+  const { modals: receiptModals, openerFor } = useTransactionReceipts(walletAddress || null);
+  const [touch, setTouch] = useState(false);
+  useEffect(() => {
+    setTouch(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
+  // Oldest first, like a chat; the newest sits just above the composer.
+  const bubbles = useMemo(() => [...history].reverse(), [history]);
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
+  }, [bubbles.length]);
+
+  const { rates } = useConversionRates();
+  const usdPerToken = selectedToken === "EURC" ? (usdPerUnit("EUR", rates) ?? 1) : 1;
+  const cashback = useMemo(() => calculateTransactionCashback(paymentAmount, usdPerToken), [paymentAmount, usdPerToken]);
+
+  const hasAmount = paymentAmountUnits !== null && paymentAmountUnits > BigInt(0);
+  const balance = availableBalances?.find((entry) => entry.symbol === selectedToken)?.amount;
+  const busy = isSubmitting || isSwitchingChain;
+  const needsSignIn = isConnected && !isWalletAuthenticated && !isEmbeddedWalletMode;
+
+  function press(key: string) {
+    const current = paymentAmount;
+    if (key === "del") {
+      onPaymentAmountChange(current.slice(0, -1));
+      return;
+    }
+    if (key === "." && current.includes(".")) return;
+    const next = current === "0" && key !== "." ? key : `${current}${key}`;
+    const [, decimals] = next.split(".");
+    if (decimals && decimals.length > 6) return;
+    onPaymentAmountChange(next === "." ? "0." : next);
+  }
+
+  function finish() {
+    onConfirmOpenChange(false);
+    onPaymentAmountChange("");
+    onPaymentNarrationChange("");
+  }
+
+  let lastDay = "";
+
+  return (
+    <div className="sx-chat">
+      <header className="sx-chat-head">
+        <button aria-label="Back" className="sx-round" onClick={onBack} type="button">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div className="sx-chat-who">
+          <Avatar name={recipientName} size="sm" />
+          <span className="sx-chat-name">{recipientName}</span>
+          {isRecipientValid ? (
+            <span className="sx-chat-wallet">{shortenAddress(trimmedRecipientAddress)}</span>
+          ) : null}
+        </div>
+        <button
+          aria-label={isSaved ? "Saved as a beneficiary" : "Save as a beneficiary"}
+          className={cn("sx-round", isSaved && "is-done")}
+          disabled={isSaved || !isRecipientValid}
+          onClick={() => onSaveOpenChange(true)}
+          title={isSaved ? "Saved as a beneficiary" : "Save as a beneficiary"}
+          type="button"
+        >
+          {isSaved ? <Check className="h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
+        </button>
+      </header>
+
+      {treasuryBanner}
+
+      <div className="sx-log" ref={logRef}>
+        {isRecipientResolving ? (
+          <p className="sx-muted sx-center">
+            <Loader2 className="h-4 w-4 animate-spin" /> Finding {recipientName}…
+          </p>
+        ) : !isRecipientValid ? (
+          <div className="sx-center sx-log-empty">
+            <AlertCircle className="h-6 w-6" />
+            <p>{recipientResolveError ?? "Choose who to pay."}</p>
+            <Button onClick={onBack} variant="outline">
+              Change recipient
+            </Button>
+          </div>
+        ) : bubbles.length === 0 ? (
+          <div className="sx-center sx-log-empty">
+            <Avatar name={recipientName} size="lg" />
+            <p>
+              Your first payment to <strong>{recipientName}</strong>. Enter an amount below.
+            </p>
+          </div>
+        ) : (
+          bubbles.map((item) => {
+            const date = item.occurredAt ? new Date(item.occurredAt) : null;
+            const day = date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Pending";
+            const showDay = day !== lastDay;
+            lastDay = day;
+            const outgoing = item.direction !== "in";
+            return (
+              <div key={item.id}>
+                {showDay ? <p className="sx-day">{day}</p> : null}
+                <div className={cn("sx-bubble-row", outgoing ? "is-out" : "is-in")}>
+                  {outgoing ? <CheckCircle2 className="sx-bubble-check h-5 w-5" /> : null}
+                  <button
+                    className="sx-bubble"
+                    disabled={!openerFor(item)}
+                    onClick={() => openerFor(item)?.()}
+                    title="View receipt"
+                    type="button"
+                  >
+                    <span className="sx-bubble-amount">
+                      {formatAmount(item.amount)} {item.token}
+                    </span>
+                    <span className="sx-bubble-note">{outgoing ? "Sent" : "Received"}</span>
+                  </button>
+                </div>
+                <p className={cn("sx-bubble-time", outgoing ? "is-out" : "is-in")}>
+                  {date ? date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : ""}
+                </p>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Composer */}
+      <div className="sx-composer">
+        <div className="sx-balance">
+          {selectedToken} balance: {hideBalance ? "••••" : balance !== undefined ? formatAmount(balance) : "—"}
+        </div>
+        <div className="sx-amount-row">
+          <input
+            aria-label="Amount"
+            className="sx-amount"
+            inputMode={touch ? "none" : "decimal"}
+            onChange={(event) => onPaymentAmountChange(event.target.value.replace(/[^\d.]/g, ""))}
+            placeholder="0.00"
+            readOnly={touch}
+            value={paymentAmount}
+          />
+          <div aria-label="Token" className="sx-tokens" role="radiogroup">
+            {arcTokenSymbols.map((symbol) => (
+              <button
+                aria-checked={symbol === selectedToken}
+                className="sx-token"
+                key={symbol}
+                onClick={() => onSelectToken(symbol)}
+                role="radio"
+                type="button"
+              >
+                <TokenIcon className="h-4 w-4" symbol={symbol} />
+                {symbol}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sx-note-row">
+          <input
+            aria-label="Narration"
+            className="sx-note"
+            maxLength={140}
+            onChange={(event) => onPaymentNarrationChange(event.target.value)}
+            placeholder="Narration (e.g. rent, lunch)"
+            value={paymentNarration}
+          />
+          <button
+            aria-label="Review payment"
+            className="sx-send"
+            disabled={!isRecipientValid || !hasAmount}
+            onClick={() => onConfirmOpenChange(true)}
+            type="button"
+          >
+            <Send className="h-5 w-5" />
+          </button>
+        </div>
+        {touch ? (
+          <div className="sx-keypad">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"].map((key) => (
+              <button
+                aria-label={key === "del" ? "Delete" : key}
+                key={key}
+                onClick={() => press(key)}
+                type="button"
+              >
+                {key === "del" ? <Delete className="h-5 w-5" /> : key}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {receiptModals}
+
+      {/* Save as a beneficiary */}
+      <Sheet onOpenChange={onSaveOpenChange} open={saveOpen}>
+        <SheetContent
+          className={cn("gap-0 p-0", side === "bottom" ? "rounded-t-[1.75rem] border-t-0" : "w-full sm:max-w-sm")}
+          showCloseButton={false}
+          side={side}
+        >
+          {side === "bottom" ? <SheetGrabber /> : null}
+          <div className="sx-sheet">
+            <SheetTitle className="text-center text-lg font-bold">Save beneficiary</SheetTitle>
+            <SheetDescription className="text-center text-sm text-muted-foreground">
+              Save {shortenAddress(trimmedRecipientAddress)} to pay them again in one tap.
+            </SheetDescription>
+            <Input
+              autoFocus
+              className="h-12"
+              maxLength={80}
+              onChange={(event) => onBeneficiaryNameChange(event.target.value)}
+              placeholder="Name"
+              value={beneficiaryName}
+            />
+            {beneficiaryError ? <p className="text-sm text-destructive">{beneficiaryError}</p> : null}
+            {beneficiaryStatus ? <p className="text-sm text-emerald-600 dark:text-emerald-400">{beneficiaryStatus}</p> : null}
+            {needsSignIn ? (
+              <Button className="h-12" disabled={isAuthenticatingWallet} onClick={onWalletSignIn} variant="outline">
+                <KeyRound className="h-4 w-4" /> Sign in to save
+              </Button>
+            ) : null}
+            <Button className="h-12 font-bold" disabled={!canSaveBeneficiary} onClick={onSaveBeneficiary}>
+              {isBeneficiarySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+              Save
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Confirm and send */}
+      <Sheet
+        onOpenChange={(next) => {
+          if (busy) return;
+          if (!next && transactionConfirmed) finish();
+          else onConfirmOpenChange(next);
+        }}
+        open={confirmOpen}
+      >
+        <SheetContent
+          className={cn("gap-0 p-0", side === "bottom" ? "max-h-[92dvh] rounded-t-[1.75rem] border-t-0" : "w-full sm:max-w-md")}
+          showCloseButton={false}
+          side={side}
+        >
+          {side === "bottom" ? <SheetGrabber /> : null}
+          <div className="sx-sheet">
+            {transactionConfirmed ? (
+              <div className="sx-done">
+                <span className="sx-done-icon">
+                  <CheckCircle2 className="h-9 w-9" />
+                </span>
+                <SheetTitle className="text-xl font-bold">Sent</SheetTitle>
+                <SheetDescription className="text-sm text-muted-foreground">
+                  {formatAmount(paymentAmount)} {selectedToken} to {recipientName}
+                </SheetDescription>
+                {spendSaveNotice ? <p className="text-sm text-muted-foreground">{spendSaveNotice}</p> : null}
+                {recurringNotice ? (
+                  <Link className="sx-link" href="/recurepay">
+                    Your schedule is set. Authorize Autopay in RecurePay
+                  </Link>
+                ) : null}
+                {transactionExplorerUrl ? (
+                  <a className="sx-link" href={transactionExplorerUrl} rel="noreferrer" target="_blank">
+                    View on ArcScan <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : null}
+                <Button className="h-12 w-full font-bold" onClick={finish}>
+                  Done
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="sx-confirm-head">
+                  <Avatar name={recipientName} />
+                  <div className="min-w-0">
+                    <SheetTitle className="truncate text-base font-bold">{recipientName}</SheetTitle>
+                    <SheetDescription className="truncate font-mono text-xs text-muted-foreground">
+                      {shortenAddress(trimmedRecipientAddress)}
+                    </SheetDescription>
+                  </div>
+                </div>
+                <p className="sx-confirm-amount">
+                  {formatAmount(paymentAmount)} <span>{selectedToken}</span>
+                </p>
+                {paymentNarration.trim() ? <p className="sx-confirm-note">{paymentNarration.trim()}</p> : null}
+
+                <dl className="sx-confirm-rows">
+                  <div>
+                    <dt>From</dt>
+                    <dd>
+                      <Wallet className="h-3.5 w-3.5" />
+                      {isEmbeddedWalletMode ? "Circle wallet" : "External wallet"} · {shortenAddress(walletAddress)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{settlementQuote?.feeLabel ?? "Service fee"}</dt>
+                    <dd>{settlementQuote ? `${settlementQuote.feeAmount} ${selectedToken}` : "0.1%"}</dd>
+                  </div>
+                  {settlementQuote?.saveAmount ? (
+                    <div>
+                      <dt>Spend&amp;Save</dt>
+                      <dd>
+                        {settlementQuote.saveAmount} {selectedToken}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {settlementQuote?.totalRequired ? (
+                    <div className="is-total">
+                      <dt>Total debit</dt>
+                      <dd>
+                        {settlementQuote.totalRequired} {selectedToken}
+                      </dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt>Cashback</dt>
+                    <dd className={cashback.eligible ? "is-good" : undefined}>
+                      <Coins className="h-3.5 w-3.5" />
+                      {cashback.eligible ? `+${cashback.points} SwiftPoints` : "On sends of $20 or more"}
+                    </dd>
+                  </div>
+                </dl>
+                {settlementQuote?.saveLabel ? <p className="sx-muted">{settlementQuote.saveLabel}</p> : null}
+
+                {isTreasuryMismatch && treasuryAddress ? (
+                  <p className="sx-warn">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    This uses your personal wallet, not the workspace treasury ({shortenAddress(treasuryAddress)}).
+                  </p>
+                ) : null}
+
+                <RecurringToggle checked={recurringEnabled} onCheckedChange={onRecurringEnabledChange} />
+                {recurringEnabled ? (
+                  <RecurringScheduleFields onChange={onRecurringChange} showAutopay={false} value={recurring} />
+                ) : null}
+
+                {paymentError ? (
+                  <p className="sx-error">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    {paymentError}
+                  </p>
+                ) : null}
+
+                {!isConnected ? (
+                  <p className="sx-muted sx-center">Connect a wallet to send.</p>
+                ) : needsSignIn ? (
+                  <Button className="sx-confirm-cta" disabled={isAuthenticatingWallet} onClick={onWalletSignIn}>
+                    {isAuthenticatingWallet ? <Loader2 className="h-5 w-5 animate-spin" /> : <KeyRound className="h-5 w-5" />}
+                    Sign in to send
+                  </Button>
+                ) : isTreasuryMismatch && onSwitchToTreasury ? (
+                  <Button className="sx-confirm-cta" onClick={onSwitchToTreasury}>
+                    <Wallet className="h-5 w-5" />
+                    Switch to treasury
+                  </Button>
+                ) : (
+                  <Button
+                    className="sx-confirm-cta"
+                    disabled={busy || !canSubmitPayment}
+                    onClick={() => onSubmit()}
+                  >
+                    {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                    {busy ? "Sending…" : recurringEnabled ? primaryButtonText : `Send ${formatAmount(paymentAmount)} ${selectedToken}`}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}

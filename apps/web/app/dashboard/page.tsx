@@ -50,14 +50,13 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { FeaturePromos } from "@/components/dashboard/feature-promos";
 import { DashboardTransactions } from "@/components/dashboard/dashboard-transactions";
 import { DashboardCircleInvites } from "@/components/swift-circle/circle-invite-inbox";
-import { BeneficiaryContacts } from "@/components/dashboard/beneficiary-contacts";
 import { useWalletTransfers } from "@/lib/use-wallet-transfers";
 import {
   formatDisplayAmount,
   formatTransferTime,
   shortenAddress,
 } from "@/lib/wallet-receipt";
-import { SendPaymentWizard } from "@/components/dashboard/send-payment-wizard";
+import { SendHub } from "@/components/send/send-hub";
 import {
   createRecurringDraft,
   datetimeLocalToIso,
@@ -3245,11 +3244,8 @@ export function DashboardContent({
 
   // Send lives on its own page, paired with the contacts list.
   const sendWorkspace = (
-    <section
-      className="dashboard-pay-row"
-      id="send"
-    >
-      <div className="glass-panel min-w-0 self-start overflow-x-hidden p-3 sm:p-5">
+    <section className="send-hub-shell" id="send">
+      <div className="min-w-0">
         {invoicePublicId && linkedInvoice ? (
           <div
             className={cn(
@@ -3326,7 +3322,7 @@ export function DashboardContent({
             )}
           </div>
         ) : null}
-        <SendPaymentWizard
+        <SendHub
           address={address}
           treasuryAddress={treasuryAddress}
           isTreasuryMismatch={isTreasuryMismatch}
@@ -3435,12 +3431,8 @@ export function DashboardContent({
           trimmedPaymentNarration={trimmedPaymentNarration}
           trimmedRecipientAddress={trimmedRecipientAddress}
           walletAddress={walletAddress}
-        />
-      </div>
-      <div className="dashboard-pay-side">
-        <BeneficiaryContacts
-          isLoading={isBeneficiariesLoading}
-          onDelete={async (beneficiary) => {
+          isBeneficiariesLoading={isBeneficiariesLoading}
+          onDeleteBeneficiary={async (beneficiary) => {
             await deleteBeneficiary(beneficiaryAuth(), beneficiary.beneficiary_wallet);
             setSavedBeneficiaries((current) =>
               current.filter(
@@ -3450,7 +3442,7 @@ export function DashboardContent({
               ),
             );
           }}
-          onUpdate={async (beneficiary, edit) => {
+          onUpdateBeneficiary={async (beneficiary, edit) => {
             const saved = await updateBeneficiary(beneficiaryAuth(), {
               beneficiaryWallet: beneficiary.beneficiary_wallet,
               name: edit.name,
@@ -3467,19 +3459,8 @@ export function DashboardContent({
                 .sort((first, second) => first.name.localeCompare(second.name)),
             );
           }}
-          onSelect={(beneficiary) => {
-            setBeneficiaryName(beneficiary.name);
-            setRecipientAddress(
-              beneficiary.username
-                ? `@${beneficiary.username}`
-                : beneficiary.beneficiary_wallet,
-            );
-            setBeneficiaryError(null);
-            setBeneficiaryStatus(null);
-          }}
+          refreshKey={[swapExplorerUrl, transactionHash, transactionReceipt?.status, circleSendSettled].join("|")}
           savedBeneficiaries={savedBeneficiaries}
-          selectedWallet={trimmedRecipientAddress}
-          shortenAddress={shortenAddress}
         />
       </div>
     </section>
@@ -3609,8 +3590,8 @@ export function DashboardContent({
         />
       }
       backHref={view === "send" ? "/dashboard" : undefined}
-      // The dashboard opens straight on the balance; Send keeps its title.
-      hideHeader={view !== "send"}
+      // Both draw their own top: the dashboard its balance, Send its own bar.
+      hideHeader
       subtitle={
         view === "send"
           ? "Pay anyone on Arc, and reuse a saved contact"

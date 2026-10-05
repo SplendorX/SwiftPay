@@ -3,6 +3,7 @@
 import { switchToArc } from "@/lib/arc-network";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import { RefreshCw } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
 import {
@@ -1032,6 +1033,19 @@ export default function BulkPayPage() {
      token={selectedToken}
     />
    </BulkpayPeopleCard>
+   {recipients.length === 1 ? (
+    <p className="bulkpay-hint">
+     Paying just one person? A normal send is simpler and costs less (a 0.1% fee instead of{" "}
+     {swiftBatchFeeBasisPoints / 100}%).{" "}
+     <Link
+      href={`/send?to=${encodeURIComponent(
+       recipients[0].username ? `@${recipients[0].username}` : recipients[0].address,
+      )}&amount=${encodeURIComponent(recipients[0].amount)}&token=${selectedToken}`}
+     >
+      Send instead
+     </Link>
+    </p>
+   ) : null}
    {status !== "Ready" && !error ? <p className="bulkpay-note">{status}</p> : null}
    <BulkpayContinueBar
     canContinue={canContinue}

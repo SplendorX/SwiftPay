@@ -730,3 +730,22 @@
       "amount amount amount";
   }
 }
+
+/* One person in a batch: point to a plain send. */
+.bulkpay-hint {
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, var(--primary) 7%, var(--card));
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.bulkpay-hint a {
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.dark .bulkpay-hint a {
+  color: var(--link);
+}
