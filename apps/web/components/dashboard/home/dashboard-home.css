@@ -435,9 +435,55 @@
   background-image: linear-gradient(100deg, #4338ca 0%, #6366f1 50%, #0ea5e9 100%);
 }
 
-/* Dark: lavender into aqua, bright against the night. */
+/* Dark: warm gold, the colour the dark balance card wears too. */
 .dark .dh-hello-name {
-  background-image: linear-gradient(100deg, #c4b5fd 0%, #a78bfa 45%, #67e8f9 100%);
+  background-image: linear-gradient(100deg, #fde68a 0%, #f5c451 45%, #d4a017 100%);
+}
+
+/* ── Dark mode: a black-and-gold balance card ───────────────────────────── */
+.dark .dh-card {
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgb(245 196 81 / 0.28), transparent 55%),
+    radial-gradient(90% 80% at 0% 100%, rgb(212 160 23 / 0.16), transparent 60%),
+    linear-gradient(160deg, #1c1608 0%, #110d05 60%, #0a0803 100%);
+  box-shadow:
+    0 1px 0 rgb(253 230 138 / 0.12) inset,
+    0 0 0 1px rgb(245 196 81 / 0.14),
+    0 30px 60px -30px rgb(120 90 10 / 0.7);
+}
+
+.dark .dh-card-glow {
+  background: radial-gradient(circle, rgb(253 230 138 / 0.22), transparent 65%);
+}
+
+.dark .dh-card-label,
+.dark .dh-wheel-label {
+  color: rgb(253 230 138 / 0.65);
+}
+
+.dark .dh-wheel-row[data-offset="0"] .dh-wheel-label,
+.dark .dh-action:first-child .dh-action-icon {
+  background: linear-gradient(140deg, #fde68a, #f5c451);
+  color: #1c1608;
+}
+
+.dark .dh-split span {
+  background: #f5c451;
+}
+
+.dark .dh-split span[data-symbol="EURC"] {
+  background: #fde68a;
+  opacity: 0.6;
+}
+
+.dark .dh-action-icon {
+  border-color: rgb(245 196 81 / 0.22);
+  background: rgb(245 196 81 / 0.08);
+}
+
+.dark .dh-eye {
+  border-color: rgb(245 196 81 / 0.25);
+  color: #fde68a;
 }
 
 /* ── The balance wheel ───────────────────────────────────────────────────── */
@@ -445,8 +491,10 @@
   display: grid;
   gap: 0.15rem;
   margin-top: 0.5rem;
-  touch-action: pan-x;
+  /* The wheel owns vertical drags; the page scrolls everywhere else. */
+  touch-action: none;
   user-select: none;
+  cursor: grab;
   outline: none;
 }
 

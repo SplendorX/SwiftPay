@@ -229,6 +229,9 @@ export function DashboardHome({
   );
 }
 
+/** How far a finger travels to roll one row. */
+const wheelStep = 34;
+
 type WheelRow = { amount: string; key: string; label: string; unit: string };
 
 /**
@@ -238,6 +241,8 @@ type WheelRow = { amount: string; key: string; label: string; unit: string };
 function BalanceWheel({ hidden, rows }: { hidden: boolean; rows: WheelRow[] }) {
   const [index, setIndex] = useState(1);
   const startY = useRef<number | null>(null);
+  // A roll shouldn't also count as a tap on the row it ends over.
+  const rolled = useRef(false);
   const move = (step: number) => setIndex((current) => Math.min(rows.length - 1, Math.max(0, current + step)));
 
   return (
@@ -253,14 +258,25 @@ function BalanceWheel({ hidden, rows }: { hidden: boolean; rows: WheelRow[] }) {
           move(1);
         }
       }}
+      // Hold and roll: the wheel follows the finger, one row per step.
+      onPointerCancel={() => {
+        startY.current = null;
+      }}
       onPointerDown={(event) => {
         startY.current = event.clientY;
+        event.currentTarget.setPointerCapture(event.pointerId);
       }}
-      onPointerUp={(event) => {
+      onPointerMove={(event) => {
         if (startY.current === null) return;
         const delta = event.clientY - startY.current;
+        if (Math.abs(delta) >= wheelStep) {
+          move(delta < 0 ? 1 : -1);
+          startY.current = event.clientY;
+          rolled.current = true;
+        }
+      }}
+      onPointerUp={() => {
         startY.current = null;
-        if (Math.abs(delta) > 24) move(delta < 0 ? 1 : -1);
       }}
       role="listbox"
       tabIndex={0}
@@ -275,7 +291,13 @@ function BalanceWheel({ hidden, rows }: { hidden: boolean; rows: WheelRow[] }) {
             data-offset={Math.max(-1, Math.min(1, offset))}
             hidden={Math.abs(offset) > 1}
             key={row.key}
-            onClick={() => setIndex(rowIndex)}
+            onClick={() => {
+              if (rolled.current) {
+                rolled.current = false;
+                return;
+              }
+              setIndex(rowIndex);
+            }}
             role="option"
             tabIndex={-1}
             type="button"
