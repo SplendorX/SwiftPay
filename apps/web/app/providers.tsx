@@ -1,5 +1,6 @@
 "use client";
 
+import { InAppNavigationTracker } from "@/components/in-app-navigation";
 import { ServiceWorkerRegistrar } from "@/components/pwa/install-app";
 import { StaleCircleSessionGuard } from "@/components/stale-circle-session-guard";
 import { WalletChainSync } from "@/components/wallet-chain-sync";
@@ -54,6 +55,7 @@ export function Providers({
                 <AccountProvider>
                   <SingleWalletGuard />
                   <StaleCircleSessionGuard />
+                  <InAppNavigationTracker />
                   <WalletSessionBootstrap />
                   <WalletDisconnectRedirect />
                   {children}

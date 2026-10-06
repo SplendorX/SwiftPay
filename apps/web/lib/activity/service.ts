@@ -294,6 +294,38 @@ async function loadInvoicesReceived(db: Supabase, wallet: string, limit = source
   });
 }
 
+async function loadCheckout(db: Supabase, wallet: string, limit = sourceLimit) {
+  const { data, error } = await db
+    .from("business_charges")
+    .select("id,public_id,kind,note,business_charge_payments(id,tx_hash,amount,asset,status,payer_wallet,paid_at)")
+    .eq("wallet_address", wallet)
+    .neq("amount_received", "0")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  return (data ?? []).flatMap((charge: Row) => {
+    const payments = (charge.business_charge_payments as Row[] | null) ?? [];
+    const storefront = String(charge.kind) === "STOREFRONT";
+    const note = str(charge.note);
+    return payments
+      .filter((payment) => String(payment.status) === "CONFIRMED")
+      .map(
+        (payment): AccountActivityEntry => ({
+          id: `checkout:${payment.id}`,
+          source: "checkout",
+          direction: "in",
+          title: note ?? (storefront ? "Storefront payment" : "Checkout payment"),
+          counterparty: str(payment.payer_wallet)?.toLowerCase() ?? null,
+          amount: str(payment.amount),
+          token: str(payment.asset),
+          txHashes: hashes(payment.tx_hash),
+          occurredAt: str(payment.paid_at),
+        }),
+      );
+  });
+}
+
 async function loadPayroll(db: Supabase, wallet: string, limit = sourceLimit) {
   const [runs, received] = await Promise.all([
     db
@@ -487,6 +519,7 @@ const loaders: Array<[string, (db: Supabase, wallet: string, limit?: number) => 
   ["earn", loadEarn],
   ["recurepay", loadRecurePay],
   ["invoice", loadInvoicesReceived],
+  ["checkout", loadCheckout],
   ["payroll", loadPayroll],
   ["agent", loadAllie],
   ["circle", loadCircle],

@@ -1,22 +1,31 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { readPreviousInAppPath } from "@/components/in-app-navigation";
 
 /**
- * Back from a payment page: to wherever the payer came from (the Send
- * scanner, a chat), or home when the link was opened fresh from a camera.
+ * Back from a payment page, shown only when the payer got here from inside
+ * SwiftPay (the Send scanner, a chat). A link opened fresh from a camera has
+ * nowhere to go back to, so it shows nothing.
  */
 export function PayerBackButton() {
   const router = useRouter();
+  const pathname = usePathname();
+  const [fromApp, setFromApp] = useState(false);
+
+  useEffect(() => {
+    setFromApp(Boolean(readPreviousInAppPath(pathname)));
+  }, [pathname]);
+
+  if (!fromApp) return null;
   return (
     <button
       aria-label="Back"
       className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-muted"
-      onClick={() => {
-        if (window.history.length > 1) router.back();
-        else router.push("/");
-      }}
+      onClick={() => router.back()}
       type="button"
     >
       <ArrowLeft className="h-5 w-5" />
