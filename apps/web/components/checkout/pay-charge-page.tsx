@@ -4,6 +4,7 @@ import { CreditCard, Link2, Loader2, Lock, Store, Wallet } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
+import { PayerBackButton } from "@/components/checkout/payer-back-button";
 import { ChargeReceiptCard } from "@/components/checkout/charge-receipt-card";
 import { PayWithBridge } from "@/components/checkout/pay-with-bridge";
 import { PayWithOnramp } from "@/components/checkout/pay-with-onramp";
@@ -104,7 +105,10 @@ export function PayChargePage({ code }: { code: string }) {
   if (loadError) {
     return (
       <main className="mx-auto max-w-lg px-6 py-16">
-        <PlatformBrand />
+        <div className="flex items-center gap-3">
+          <PayerBackButton />
+          <PlatformBrand />
+        </div>
         <h1 className="mt-6 font-heading text-3xl">Charge not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
       </main>
@@ -144,7 +148,10 @@ export function PayChargePage({ code }: { code: string }) {
     <main className="min-h-screen bg-background">
       <header className="border-b border-border/70">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-4 px-4 py-4">
-          <PlatformBrand />
+          <div className="flex min-w-0 items-center gap-3">
+            <PayerBackButton />
+            <PlatformBrand />
+          </div>
           <p className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
             Secure payment

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { PlatformBrand } from "@/components/brand/platform-brand";
+import { PayerBackButton } from "@/components/checkout/payer-back-button";
 import { AmountKeypad } from "@/components/checkout/amount-keypad";
 import { TipPicker } from "@/components/checkout/tip-picker";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,10 @@ export function StorefrontPage({ username }: { username: string }) {
   if (loadError) {
     return (
       <main className="mx-auto max-w-lg px-6 py-16">
-        <PlatformBrand />
+        <div className="flex items-center gap-3">
+          <PayerBackButton />
+          <PlatformBrand />
+        </div>
         <h1 className="mt-6 font-heading text-3xl">Business not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
       </main>
@@ -81,7 +85,10 @@ export function StorefrontPage({ username }: { username: string }) {
     <main className="min-h-screen bg-background">
       <header className="border-b border-border/70">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-4 px-4 py-4">
-          <PlatformBrand />
+          <div className="flex min-w-0 items-center gap-3">
+            <PayerBackButton />
+            <PlatformBrand />
+          </div>
           <p className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Lock className="h-3.5 w-3.5" />
             Secure payment
