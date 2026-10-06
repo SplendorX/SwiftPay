@@ -506,14 +506,18 @@ export function ProfileMenu({
 
   // The copy button sits on whichever line shows the @username: the second
   // line when a display name sits above it, otherwise the first.
+  // A business shows its name first and the @username under it.
+  const menuUsername = isBusinessAccount ? accountRecord?.username || profile?.username : profile?.username;
   const usernameOnSecondLine = Boolean(
-    !isBusinessAccount && profile?.username && profile.display_name,
+    isBusinessAccount
+      ? accountRecord?.username && businessProfile?.business_name
+      : profile?.username && profile.display_name,
   );
-  const copyUsernameButton = profile?.username ? (
+  const copyUsernameButton = menuUsername ? (
     <button
       aria-label={t("profile.copyUsername")}
       className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:border-primary/30 hover:text-primary"
-      onClick={() => void copyUsername(profile.username)}
+      onClick={() => void copyUsername(menuUsername)}
       type="button"
     >
       {copiedUsername ? (
@@ -579,7 +583,7 @@ export function ProfileMenu({
                   <p className="truncate text-sm font-bold text-foreground">
                     {profilePrimaryLabel}
                   </p>
-                  {profile?.username && !usernameOnSecondLine ? copyUsernameButton : null}
+                  {!usernameOnSecondLine ? copyUsernameButton : null}
                 </div>
                 {profileSecondaryLabel ? (
                   <div className="mt-1 flex min-w-0 items-center gap-2">
