@@ -2,7 +2,9 @@ import { type NextRequest } from "next/server";
 
 import { loadAccount } from "@/lib/account/auth";
 import { loadBusinessProfile } from "@/lib/account/service";
+import type { AccountActivityItem } from "@/lib/activity/merge";
 import { loadActivityItems } from "@/lib/activity/report";
+import { usernamesForWallets } from "@/lib/business/service";
 import { jsonError, jsonOk } from "@/lib/http";
 import { isArcMainnet } from "@/lib/network";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -27,6 +29,48 @@ function readDay(value: string | null) {
  *
  * `from` and `to` are calendar days (YYYY-MM-DD, UTC), both inclusive.
  */
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Money to or from a SwiftPay account reads as its @username, not the
+ * wallet: each row's counterparty, full or shortened in the title, is
+ * swapped for the name. Wallets without an account keep the address.
+ */
+async function withUsernames(items: AccountActivityItem[]) {
+  const wallets = [
+    ...new Set(
+      items
+        .map((item) => (item.transfer?.counterparty ?? item.counterparty ?? "").toLowerCase())
+        .filter((wallet) => /^0x[0-9a-f]{40}$/.test(wallet)),
+    ),
+  ];
+  const usernames: Record<string, string> = {};
+  // The lookup takes up to 100 wallets at a time.
+  for (let index = 0; index < wallets.length; index += 100) {
+    Object.assign(usernames, await usernamesForWallets(wallets.slice(index, index + 100)).catch(() => ({})));
+  }
+  if (Object.keys(usernames).length === 0) return items;
+
+  return items.map((item) => {
+    const wallet = (item.transfer?.counterparty ?? item.counterparty ?? "").toLowerCase();
+    const username = usernames[wallet];
+    if (!username) return item;
+    const handle = `@${username}`;
+    const short = `${wallet.slice(0, 6)}…${wallet.slice(-4)}`;
+    const title = item.title
+      ? item.title
+          .replace(new RegExp(escapeRegExp(wallet), "gi"), handle)
+          .replace(new RegExp(escapeRegExp(short), "gi"), handle)
+      : null;
+    return {
+      ...item,
+      title: title ?? (item.direction === "in" ? `Received from ${handle}` : `Sent to ${handle}`),
+    };
+  });
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const ownerWallet = normalizeOwnerWallet(params.get("ownerWallet"));
@@ -69,7 +113,7 @@ export async function GET(request: NextRequest) {
       // this time; SwiftPay's own records cover the whole range.
       onchainCoverageFrom: coverage,
       generatedAt: new Date().toISOString(),
-      items,
+      items: await withUsernames(items),
       period: { from: from.toISOString(), to: to.toISOString() },
     });
   } catch (error) {
