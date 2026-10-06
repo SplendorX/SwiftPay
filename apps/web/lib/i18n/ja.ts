@@ -424,8 +424,8 @@ export const ja: Messages = {
     pockets: "ポケット",
   },
   earn: {
-    eyebrow: "SwiftPay Earn",
-    heading: "Earn",
+    eyebrow: "SwiftPay Invest",
+    heading: "Invest",
     body: "使っていない USDC を働かせつつ、これから先の支払いに使える状態を保ちます。",
     production: "本番",
     convertBalances: "残高を変換",

@@ -56,7 +56,7 @@ type Promo = {
   title: string;
 };
 
-/** Slim boards that point people at Earn, Save and Invite & Earn. */
+/** Slim boards that point people at Invest, Save and Invite & Earn. */
 export function FeaturePromos() {
   const apy = useEarnApy();
 
@@ -71,7 +71,7 @@ export function FeaturePromos() {
       href: "/earn",
       icon: TrendingUp,
       id: "earn",
-      title: "Earn",
+      title: "Invest",
     },
     {
       body: "Set money aside in pockets, or save a little each time you spend.",

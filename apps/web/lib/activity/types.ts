@@ -106,7 +106,7 @@ export const activityFeatureMeta: Record<
   swap: { label: "Swap", href: "/swap" },
   invoice: { label: "Invoices", href: "/business/invoices" },
   save: { label: "Save", href: "/save" },
-  earn: { label: "Earn", href: "/earn" },
+  earn: { label: "Invest", href: "/earn" },
   batch: { label: "BulkPay", href: "/bulkpay" },
   recurepay: { label: "RecurePay", href: "/recurepay" },
   // ALLIE lives in the Pay with ALLIE bubble, opened from Activity directly.

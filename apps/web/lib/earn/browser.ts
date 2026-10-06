@@ -74,7 +74,7 @@ function describeCause(cause: unknown): string {
   if (cause instanceof Error) {
     const kit = cause as Error & { code?: unknown };
     const first = (cause.message.split(/\r?\n/)[0] ?? "").trim();
-    const base = first || cause.name || "Earn request failed.";
+    const base = first || cause.name || "Invest request failed.";
     const trimmed = base.length > 300 ? base.slice(0, 300) + "…" : base;
     return kit.code === undefined || kit.code === null
       ? trimmed
@@ -97,7 +97,7 @@ function describeCause(cause: unknown): string {
     }
   }
 
-  return "Earn request failed.";
+  return "Invest request failed.";
 }
 
 function rethrow(cause: unknown): never {
@@ -129,7 +129,7 @@ function assertVaultAddress(vaultAddress: string) {
 async function earnFrom(context: EarnWalletContext) {
   if (!context.resolveProvider) {
     throw new EarnWalletError(
-      "Sign in with Google or connect a wallet to use Earn.",
+      "Sign in with Google or connect a wallet to use Invest.",
     );
   }
 
@@ -143,7 +143,7 @@ async function earnFrom(context: EarnWalletContext) {
     } catch (cause) {
       if (isRejection(cause)) throw new EarnRejectedError();
       throw new EarnWalletError(
-        `Switch your wallet to ${onchainFacts.chain.name} to use Earn.`,
+        `Switch your wallet to ${onchainFacts.chain.name} to use Invest.`,
       );
     }
   }

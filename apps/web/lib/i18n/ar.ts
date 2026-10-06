@@ -472,8 +472,8 @@ export const ar: Messages = {
     pockets: "الجيوب",
   },
   earn: {
-    eyebrow: "SwiftPay Earn",
-    heading: "Earn",
+    eyebrow: "SwiftPay Invest",
+    heading: "Invest",
     body: "شغّل الـ USDC غير المستخدم مع إبقائه متاحاً لمدفوعاتك القادمة.",
     production: "إنتاج",
     convertBalances: "تحويل الأرصدة",

@@ -44,7 +44,7 @@ function splitAmount(label: string) {
 
 const services: Array<{ business?: boolean; href: string; icon: LucideIcon; label: string }> = [
   { href: "/save", icon: PiggyBank, label: "Save" },
-  { href: "/earn", icon: TrendingUp, label: "Earn" },
+  { href: "/earn", icon: TrendingUp, label: "Invest" },
   { href: "/circle", icon: UsersRound, label: "Circle" },
   { href: "/insights", icon: ChartNoAxesColumn, label: "Insights" },
   { href: "/referral", icon: Gift, label: "Invite" },

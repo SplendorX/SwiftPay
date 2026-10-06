@@ -473,8 +473,8 @@ export const es: Messages = {
     pockets: "Bolsillos",
   },
   earn: {
-    eyebrow: "SwiftPay Earn",
-    heading: "Earn",
+    eyebrow: "SwiftPay Invest",
+    heading: "Invest",
     body: "Pon tu USDC inactivo a trabajar y manténlo disponible para tus próximos pagos.",
     production: "Producción",
     convertBalances: "Convertir saldos",

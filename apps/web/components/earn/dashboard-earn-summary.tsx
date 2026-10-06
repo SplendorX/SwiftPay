@@ -107,7 +107,7 @@ export function DashboardEarnSummary({
       : undefined;
 
   return (
-    <section className="earn-dashboard-summary" aria-label="Available and Earn balances">
+    <section className="earn-dashboard-summary" aria-label="Available and Invest balances">
       <div className="earn-dashboard-summary-header">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-swift-600" />
@@ -125,7 +125,7 @@ export function DashboardEarnSummary({
           </dd>
         </div>
         <div className="earn-dashboard-row">
-          <dt>Earn</dt>
+          <dt>Invest</dt>
           <dd>
             {earnLabel}
             {yieldLabel ? (
@@ -144,7 +144,7 @@ export function DashboardEarnSummary({
       <div className="earn-actions earn-dashboard-actions">
         <Link className="earn-btn earn-btn-primary" href="/earn?action=deposit">
           <ArrowDownToLine className="h-4 w-4" />
-          Move to Earn
+          Move to Invest
         </Link>
         <Link className="earn-btn earn-btn-secondary" href="/earn?action=withdraw">
           <ArrowUpFromLine className="h-4 w-4" />
@@ -153,7 +153,7 @@ export function DashboardEarnSummary({
       </div>
 
       <p className="earn-footnote">
-        Spendable wallet USDC stays in your wallet. Earn is a separate vault
+        Spendable wallet USDC stays in your wallet. Invest is a separate vault
         position and is not moved automatically to fund payments.
       </p>
     </section>

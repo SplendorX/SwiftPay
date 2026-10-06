@@ -107,7 +107,7 @@ export function earnAutoSaveExecutorAddress(vaultAddress?: string | null): Addre
 }
 
 export const AUTO_SAVE_AUTHORIZATION_TEXT =
-  "You authorize SwiftPay to move USDC into Earn according to your Auto-Save settings, only when your available balance stays at or above your minimum. SwiftPay never takes performance fees on principal.";
+  "You authorize SwiftPay to move USDC into Invest according to your Auto-Save settings, only when your available balance stays at or above your minimum. SwiftPay never takes performance fees on principal.";
 
 /**
  * Operator keys only — never PRIVATE_KEY.
@@ -322,7 +322,7 @@ export async function processDueAutoSaveRules(): Promise<{
 
         if (allowance < amountToSave) {
           const skipReason =
-            "Auto-save awaiting USDC allowance to Earn Auto-Save executor.";
+            "Auto-save awaiting USDC allowance to Invest Auto-Save executor.";
           await supabase
             .from(rulesTable)
             .update({
@@ -387,7 +387,7 @@ export async function processDueAutoSaveRules(): Promise<{
           amount_units: amountToSave.toString(),
           status: "awaiting_wallet",
           skip_reason:
-            "Confirm Auto-Save in the Earn app. Funds move only with your wallet signature or allowance.",
+            "Confirm Auto-Save in Invest. Funds move only with your wallet signature or allowance.",
           idempotency_key: executionId,
           due_at: nowIso,
         });

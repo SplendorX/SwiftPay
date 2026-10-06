@@ -142,7 +142,7 @@ export function EarnWithdraw({
   if (!vaultAddress) {
     return (
       <p className="earn-footnote">
-        Select a vault first. Your choice is kept while you move between Earn
+        Select a vault first. Your choice is kept while you move between Invest
         tabs.
       </p>
     );

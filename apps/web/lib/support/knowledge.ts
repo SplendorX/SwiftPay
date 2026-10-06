@@ -41,7 +41,7 @@ export const supportCategories: { id: SupportCategory; label: string }[] = [
   { id: "invoices", label: "Invoices" },
   { id: "payroll", label: "Payroll" },
   { id: "recurring", label: "RecurePay" },
-  { id: "savings", label: "Save & Earn" },
+  { id: "savings", label: "Save & Invest" },
   { id: "allie", label: "ALLIE" },
   { id: "rewards", label: "SwiftPoints & referrals" },
   { id: "account", label: "Account & settings" },
@@ -293,11 +293,11 @@ export const supportArticles: SupportArticle[] = [
   {
     id: "earn",
     category: "savings",
-    title: "How does Earn work?",
+    title: "How does Invest work?",
     keywords: ["earn", "yield", "interest", "vault", "apy", "returns", "deposit to earn"],
     answer:
-      "Earn deposits your stablecoins into a yield vault. The APY moves with the market and isn't guaranteed; you can withdraw your position from Earn.",
-    links: [{ label: "Open Earn", href: "/earn" }],
+      "Invest deposits your stablecoins into a yield vault. The APY moves with the market and isn't guaranteed; you can withdraw your position from Invest.",
+    links: [{ label: "Open Invest", href: "/earn" }],
     paths: ["/earn"],
   },
   {

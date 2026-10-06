@@ -47,7 +47,7 @@ const actions: Array<{
     : []),
   { href: "/circle", icon: UsersRound, label: "Circle" },
   { href: "/save", icon: PiggyBank, label: "Save" },
-  { href: "/earn", icon: TrendingUp, label: "Earn" },
+  { href: "/earn", icon: TrendingUp, label: "Invest" },
 ];
 
 export function QuickActions({

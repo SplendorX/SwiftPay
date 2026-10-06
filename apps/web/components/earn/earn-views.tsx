@@ -146,7 +146,7 @@ export function EarnHero({
         <HeroArt />
         <div className="earn-hero-body">
           <p className="earn-hero-eyebrow">
-            <TrendingUp className="h-4 w-4" /> Earn on idle USDC
+            <TrendingUp className="h-4 w-4" /> Invest your idle USDC
           </p>
           <p className="earn-hero-headline">
             {bestApy !== null ? (
@@ -167,7 +167,7 @@ export function EarnHero({
               </button>
             ) : (
               <button className="earn-hero-button is-primary" onClick={onPickVault} type="button">
-                Start earning <ChevronRight className="h-4 w-4" />
+                Start investing <ChevronRight className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -182,7 +182,7 @@ export function EarnHero({
       <HeroArt />
       <div className="earn-hero-body">
         <p className="earn-hero-eyebrow">
-          <TrendingUp className="h-4 w-4" /> Your Earn balance
+          <TrendingUp className="h-4 w-4" /> Your investment
         </p>
         <p className="earn-hero-amount">
           {loadingPosition && !balance ? <span className="earn-hero-skeleton" /> : (balance ?? "$0.00")}

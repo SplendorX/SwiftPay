@@ -48,7 +48,7 @@ export const platformNavItems = [
   },
   { href: "/circle", label: "Circle", icon: UsersRound },
   { href: "/save", label: "Save", icon: PiggyBank },
-  { href: "/earn", label: "Earn", icon: TrendingUp },
+  { href: "/earn", label: "Invest", icon: TrendingUp },
   { href: "/insights", label: "Insights", icon: ChartNoAxesColumn },
   { href: "/referral", label: "Invite & Earn", icon: Gift },
   { href: "/settings", label: "Settings", icon: Settings },

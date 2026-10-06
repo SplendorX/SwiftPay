@@ -329,7 +329,7 @@ export async function fetchEarnTransactions(options: {
   if (!vault) {
     return {
       transactions: [],
-      error: "Earn vault is not configured.",
+      error: "Invest vault is not configured.",
       source: "none",
     };
   }

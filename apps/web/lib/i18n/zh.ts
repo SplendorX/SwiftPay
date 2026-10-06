@@ -424,8 +424,8 @@ export const zh: Messages = {
     pockets: "口袋",
   },
   earn: {
-    eyebrow: "SwiftPay Earn",
-    heading: "Earn",
+    eyebrow: "SwiftPay Invest",
+    heading: "Invest",
     body: "让闲置的 USDC 开始工作，同时保持资金可用于后续支付。",
     production: "生产",
     convertBalances: "转换余额",

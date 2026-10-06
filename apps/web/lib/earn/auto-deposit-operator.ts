@@ -119,7 +119,7 @@ async function runRule(
 
   if (allowance < amountUnits) {
     return {
-      reason: "The allowance for the Earn executor is too low. Re-approve it.",
+      reason: "The allowance for the Invest executor is too low. Re-approve it.",
       status: "SKIPPED",
       wallet: owner,
     };

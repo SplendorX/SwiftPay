@@ -20,7 +20,7 @@ export function EarnExternalWalletNotice({
     <div className="earn-form earn-panel-form">
       <p className="earn-error">
         <AlertCircle className="h-4 w-4 shrink-0" />
-        <span>{reason || "Earn needs a signed-in wallet."}</span>
+        <span>{reason || "Invest needs a signed-in wallet."}</span>
       </p>
       <p className="earn-footnote mt-2">
         Vault deposits and withdrawals are signed by your own wallet, so the

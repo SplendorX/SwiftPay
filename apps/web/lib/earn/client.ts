@@ -9,7 +9,7 @@ async function readEarnResponse<T>(response: Response): Promise<T> {
     const message =
       json && typeof json === "object" && "error" in json && json.error
         ? String(json.error)
-        : "Earn request failed.";
+        : "Invest request failed.";
     throw new Error(message);
   }
   return json as T;

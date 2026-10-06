@@ -424,8 +424,8 @@ export const ko: Messages = {
     pockets: "포켓",
   },
   earn: {
-    eyebrow: "SwiftPay Earn",
-    heading: "Earn",
+    eyebrow: "SwiftPay Invest",
+    heading: "Invest",
     body: "놀고 있는 USDC를 일하게 하면서 앞으로의 결제에도 사용할 수 있게 하세요.",
     production: "프로덕션",
     convertBalances: "잔액 변환",

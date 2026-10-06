@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Choose a vault.", 400);
     }
     if (!(await isListedEarnVault(body.vaultAddress))) {
-      return jsonError("That vault is not offered on Earn.", 400);
+      return jsonError("That vault is not offered on Invest.", 400);
     }
 
     // Unattended mode is inert without the executor: accepting the rule would

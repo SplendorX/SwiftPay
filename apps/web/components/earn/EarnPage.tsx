@@ -89,14 +89,14 @@ export function EarnPage() {
         // The hero leads; skip the frame's title.
         hideHeader
         subtitle="Put your idle USDC to work while keeping your funds accessible."
-        title="Earn"
+        title="Invest"
       >
         <div className="earn-shell">
           <header className="pocket-bar">
             <Link aria-label="Back to the dashboard" className="pocket-round" href="/dashboard">
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <h1 className="pocket-bar-title">Earn</h1>
+            <h1 className="pocket-bar-title">Invest</h1>
             <span />
           </header>
 
@@ -147,7 +147,7 @@ export function EarnPage() {
             ) : error ? (
               <p className="earn-error">{error}</p>
             ) : vaults.length === 0 ? (
-              <div className="earn-card earn-quiet">No Earn vaults are available on Arc right now.</div>
+              <div className="earn-card earn-quiet">No Invest vaults are available on Arc right now.</div>
             ) : (
               <VaultGrid onSelect={handleSelectVault} selected={vaultAddress} vaults={vaults} />
             )}

@@ -388,19 +388,19 @@ export async function resolveAllieAction(
     case "EarnStatus":
       return {
         kind: "panel",
-        title: "Swift+Earn",
-        summary: "Your Earn vault positions live on the Earn page.",
+        title: "Swift+Invest",
+        summary: "Your Invest vault positions live on the Invest page.",
         rows: [{ label: "Vaults", value: "Circle Earn (Morpho) on Arc" }],
-        cta: "Open Earn",
+        cta: "Open Invest",
         href: "/earn",
       };
 
     case "Earn":
       return {
         kind: "prepare",
-        title: action.action === "deposit" ? "Deposit into Earn" : "Withdraw from Earn",
+        title: action.action === "deposit" ? "Invest" : "Withdraw from Invest",
         summary:
-          "Earn deposits mint vault shares against your primary wallet's balance.",
+          "Invest deposits mint vault shares against your primary wallet's balance.",
         rows: [
           { label: "Action", value: action.action === "deposit" ? "Deposit" : "Withdraw" },
           {
@@ -409,7 +409,7 @@ export async function resolveAllieAction(
           },
         ],
         href: `/earn${query({ amount: action.amountUsdc, intent: action.action })}`,
-        cta: "Open Earn",
+        cta: "Open Invest",
         handoff:
           "The vault takes funds from your primary wallet, so this one needs your signature.",
       };
