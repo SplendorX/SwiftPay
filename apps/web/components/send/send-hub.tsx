@@ -495,16 +495,6 @@ export function SendHub(props: SendHubProps) {
           </>
         )}
 
-        <QrScanSheet
-          onClose={() => setScanOpen(false)}
-          onResult={(text) => {
-            setScanOpen(false);
-            const scanned = readScannedRecipient(text);
-            if (scanned.link) router.push(scanned.link);
-            else if (scanned.recipient) onRecipientChange(scanned.recipient);
-          }}
-          open={scanOpen}
-        />
         <BeneficiariesSheet
           onClose={() => setBeneficiariesOpen(false)}
           open={beneficiariesOpen}
@@ -623,6 +613,17 @@ export function SendHub(props: SendHubProps) {
             <p className="sx-muted mt-2">Payments on SwiftPay settle on Arc in seconds.</p>
           )}
         </section>
+
+        <QrScanSheet
+          onClose={() => setScanOpen(false)}
+          onResult={(text) => {
+            setScanOpen(false);
+            const scanned = readScannedRecipient(text);
+            if (scanned.link) router.push(scanned.link);
+            else if (scanned.recipient) onRecipientChange(scanned.recipient);
+          }}
+          open={scanOpen}
+        />
       </div>
     );
   }

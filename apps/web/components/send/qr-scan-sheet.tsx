@@ -23,6 +23,11 @@ export function QrScanSheet({
   const side = useSheetSide();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState<"starting" | "scanning" | "blocked">("starting");
+  // Read through a ref so a new callback each render doesn't restart the camera.
+  const onResultRef = useRef(onResult);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -38,9 +43,11 @@ export function QrScanSheet({
           navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: "environment" } }),
         ]);
         stream = media;
-        if (stopped) return;
         const video = videoRef.current;
-        if (!video) return;
+        if (stopped || !video) {
+          media.getTracks().forEach((track) => track.stop());
+          return;
+        }
         video.srcObject = media;
         await video.play();
         setStatus("scanning");
@@ -58,7 +65,7 @@ export function QrScanSheet({
             const code = jsQR(image.data, image.width, image.height, { inversionAttempts: "dontInvert" });
             if (code?.data) {
               stopped = true;
-              onResult(code.data);
+              onResultRef.current(code.data);
               return;
             }
           }
@@ -76,7 +83,7 @@ export function QrScanSheet({
       cancelAnimationFrame(frame);
       stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [onResult, open]);
+  }, [open]);
 
   return (
     <Sheet onOpenChange={(next) => !next && onClose()} open={open}>
