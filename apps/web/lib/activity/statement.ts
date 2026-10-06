@@ -165,6 +165,23 @@ function right(content: string) {
   return { content, styles: { halign: "right" as const } };
 }
 
+/** A brand image from /public as a data URL, or null when it can't load. */
+async function brandImage(src: string) {
+  try {
+    const response = await fetch(src, { cache: "force-cache" });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** The statement as a PDF (exported for checks; the UI calls downloadStatement). */
 export async function statementPdf(data: StatementData) {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
@@ -180,10 +197,24 @@ export async function statementPdf(data: StatementData) {
   // Header band.
   doc.setFillColor(...purple);
   doc.rect(0, 0, width, 8, "F");
+  // The brand: the S mark and the two-tone wordmark, as on the app. Plain
+  // text stands in if the images can't load.
+  const [mark, wordmark] = await Promise.all([
+    brandImage("/brand/swiftpay-mark.png"),
+    brandImage("/brand/swiftpay-wordmark.png"),
+  ]);
+  if (mark) doc.addImage(mark, "PNG", margin, 28, 30, 30);
+  const wordmarkX = mark ? margin + 38 : margin;
+  if (wordmark) {
+    // 317×77 source, drawn 20pt tall.
+    doc.addImage(wordmark, "PNG", wordmarkX, 33, (317 / 77) * 20, 20);
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(...purple);
+    doc.text("SwiftPay", wordmarkX, 50);
+  }
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.setTextColor(...purple);
-  doc.text("SwiftPay", margin, 50);
   doc.setTextColor(...ink);
   doc.setFontSize(14);
   doc.text("Statement of account", width - margin, 50, { align: "right" });
