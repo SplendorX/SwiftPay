@@ -1,0 +1,629 @@
+/* Checkout, the merchant's counter. Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.ck-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+}
+
+.ck-bar {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.ck-title {
+  text-align: center;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.ck-round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--foreground);
+  transition: background-color 150ms ease;
+}
+
+.ck-round:hover {
+  background: var(--muted);
+}
+
+.ck-muted {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Mode switch */
+.ck-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+}
+
+.ck-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.6rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.ck-tab[aria-selected="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Amount hero */
+.ck-hero {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  overflow: hidden;
+  padding: 1.15rem 1.25rem 1.1rem;
+  border-radius: 1.4rem;
+  color: #ffffff;
+  background: linear-gradient(140deg, #3b1478 0%, #5b21b6 45%, #6366f1 100%);
+  box-shadow: 0 18px 40px -22px rgb(59 20 120 / 0.8);
+}
+
+.ck-hero-glow {
+  position: absolute;
+  right: -3.5rem;
+  top: -3.5rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.ck-hero-label {
+  position: relative;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.ck-hero-amount {
+  position: relative;
+  margin-top: 0.35rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2.3rem, 11vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.ck-hero-amount.is-empty {
+  opacity: 0.5;
+}
+
+.ck-hero-sub {
+  position: relative;
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+/* Cards */
+.ck-card {
+  display: grid;
+  min-width: 0;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+}
+
+.ck-card.ck-center {
+  justify-items: center;
+  text-align: center;
+  padding: 1.25rem 1.1rem;
+}
+
+.ck-card.ck-center > .ck-row,
+.ck-card.ck-center > .ck-primary,
+.ck-card.ck-center > .ck-reconcile {
+  justify-self: stretch;
+}
+
+.ck-card-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ck-primary {
+  width: 100%;
+  height: 3.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ck-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.ck-row > * {
+  height: 3rem;
+}
+
+/* Keypad */
+.ck-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.ck-key {
+  display: grid;
+  place-items: center;
+  height: 3.6rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--muted) 70%, var(--card));
+  color: var(--foreground);
+  font-size: 1.35rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 120ms ease, transform 120ms ease;
+  touch-action: manipulation;
+}
+
+.ck-key:hover {
+  background: var(--muted);
+}
+
+.ck-key:active {
+  transform: scale(0.96);
+  background: color-mix(in oklch, var(--primary) 14%, var(--muted));
+}
+
+.ck-key:disabled {
+  opacity: 0.5;
+}
+
+.ck-field {
+  display: flex;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--background);
+}
+
+.ck-field:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.ck-field input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: var(--foreground);
+  font-size: 0.95rem;
+}
+
+/* A live charge */
+.ck-charge-amount {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.ck-qr {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: #ffffff;
+  color: #000000;
+  box-shadow: 0 16px 36px -24px rgb(59 20 120 / 0.55);
+}
+
+.ck-qr svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.ck-waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ck-pulse {
+  position: relative;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 9999px;
+  background: #f59e0b;
+}
+
+.ck-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: ck-pulse 1.6s ease-out infinite;
+}
+
+@keyframes ck-pulse {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-pulse::after {
+    animation: none;
+  }
+}
+
+.ck-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.25em;
+  color: var(--muted-foreground);
+}
+
+.ck-link {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ck-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.ck-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--background);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: background-color 150ms ease;
+}
+
+.ck-pill:hover {
+  background: var(--muted);
+}
+
+.ck-quiet-link {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-underline-offset: 2px;
+}
+
+.ck-quiet-link:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+.ck-reconcile {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  text-align: left;
+}
+
+/* Paid */
+.ck-paid {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 1.5rem 1rem;
+  border-radius: 1.25rem;
+  background: color-mix(in oklch, #10b981 12%, var(--card));
+}
+
+.ck-paid-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 0.4rem;
+  border-radius: 9999px;
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 12px 28px -14px #10b981;
+}
+
+.ck-paid-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #047857;
+}
+
+.dark .ck-paid-label,
+.dark .ck-paid-tip {
+  color: #34d399;
+}
+
+.ck-paid-amount {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 2.4rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-paid-tip {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #047857;
+}
+
+/* Storefront */
+.ck-shop {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: 100%;
+}
+
+.ck-shop-logo {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  object-fit: cover;
+  background: color-mix(in oklch, var(--primary) 14%, var(--card));
+  color: var(--primary);
+}
+
+.ck-shop-name {
+  display: block;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Not a business yet */
+.ck-intro {
+  justify-items: center;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+.ck-intro-icon {
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 14%, var(--card));
+  color: var(--primary);
+}
+
+.ck-intro-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+/* Today */
+.ck-today {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.ck-stat {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.8rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  text-align: center;
+}
+
+.ck-stat-value {
+  overflow: hidden;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-stat-label {
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* Recent charges */
+.ck-list {
+  display: grid;
+}
+
+.ck-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.ck-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ck-item-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.7rem;
+  text-align: left;
+}
+
+.ck-item-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.ck-item-icon[data-status="PAID"] {
+  background: color-mix(in oklch, #10b981 16%, var(--card));
+  color: #047857;
+}
+
+.ck-item-icon[data-status="OPEN"] {
+  background: color-mix(in oklch, #f59e0b 16%, var(--card));
+  color: #b45309;
+}
+
+.dark .ck-item-icon[data-status="PAID"] {
+  color: #34d399;
+}
+
+.dark .ck-item-icon[data-status="OPEN"] {
+  color: #fbbf24;
+}
+
+.ck-item-amount {
+  display: block;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-item-tip {
+  margin-left: 0.4rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.ck-item-meta {
+  display: block;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-status {
+  flex-shrink: 0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.ck-status[data-status="PAID"] {
+  background: color-mix(in oklch, #10b981 15%, transparent);
+  color: #047857;
+}
+
+.ck-status[data-status="OPEN"] {
+  background: color-mix(in oklch, #f59e0b 15%, transparent);
+  color: #b45309;
+}
+
+.dark .ck-status[data-status="PAID"] {
+  color: #34d399;
+}
+
+.dark .ck-status[data-status="OPEN"] {
+  color: #fbbf24;
+}
+
+.ck-item-action {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+}
+
+.ck-item-action:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.ck-item-action.is-danger:hover {
+  color: var(--destructive);
+}
+
+.ck-item-action:disabled {
+  opacity: 0.5;
+}

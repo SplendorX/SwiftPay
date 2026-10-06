@@ -749,3 +749,25 @@
 .dark .bulkpay-hint a {
   color: var(--link);
 }
+
+/* Above each person's field: the label and "Choose beneficiary" */
+.bp-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.bp-choose {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.dark .bp-choose {
+  color: #34d399;
+}

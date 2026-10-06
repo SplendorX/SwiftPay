@@ -36,7 +36,6 @@ import {
   ScheduleSheet,
 } from "@/components/swift-recurepay/recurepay-views";
 import { Button } from "@/components/ui/button";
-import { fetchBeneficiaries, type BeneficiaryRecord } from "@/lib/beneficiaries";
 import {
   describeCadence,
   projectRuns,
@@ -249,7 +248,6 @@ export function SwiftRecurepayHub() {
   const [composeError, setComposeError] = useState<string | null>(null);
   const [openScheduleId, setOpenScheduleId] = useState<string | null>(null);
   const [detailBusy, setDetailBusy] = useState<string | null>(null);
-  const [beneficiaries, setBeneficiaries] = useState<BeneficiaryRecord[]>([]);
   const [approvingScheduleId, setApprovingScheduleId] = useState<string | null>(
     null,
   );
@@ -1333,20 +1331,6 @@ export function SwiftRecurepayHub() {
     }
   }
 
-  // Saved contacts for "Choose beneficiary".
-  useEffect(() => {
-    if (!canAccessRecurring || !requestContext) return;
-    let cancelled = false;
-    void fetchBeneficiaries(requestContext)
-      .then((list) => {
-        if (!cancelled) setBeneficiaries(list);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [canAccessRecurring, requestContext]);
-
   const openSchedule = openScheduleId ? scheduleMap.get(openScheduleId) ?? null : null;
   const reviewPlan = scheduleFromCompose(compose);
   const reviewRuns = reviewPlan.ok
@@ -1431,7 +1415,7 @@ export function SwiftRecurepayHub() {
         <RecurepayCompose
           amount={amount}
           autopay={autopay}
-          beneficiaries={beneficiaries}
+          beneficiaryAuth={canAccessRecurring ? requestContext : null}
           canAutopay={canUseAutopay}
           compose={compose}
           error={composeError}

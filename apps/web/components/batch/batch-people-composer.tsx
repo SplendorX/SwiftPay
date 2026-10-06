@@ -1,5 +1,6 @@
 "use client";
 
+import { BeneficiaryPickerSheet } from "@/components/beneficiary-picker-sheet";
 import { RecipientStatus } from "@/components/recipient-status";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -34,6 +35,7 @@ import {
   splitEvenAmounts,
   type ResolvedBatchPayee,
 } from "@/lib/batch/parse-payees";
+import type { BeneficiaryAuth } from "@/lib/beneficiaries";
 import { searchPeople } from "@/lib/business/client";
 import type { DirectoryHit } from "@/lib/business/types";
 import { formatUsernameLabel } from "@/lib/profile-utils";
@@ -89,12 +91,16 @@ export const BatchPeopleComposer = forwardRef<
   BatchPeopleComposerHandle,
   {
     actions?: ReactNode;
+    /** Whose saved contacts "Choose beneficiary" lists. */
+    beneficiaryAuth?: BeneficiaryAuth | null;
     maxRecipients: number;
     onResolvedChange: (result: BatchComposerResult) => void;
     token: ArcTokenSymbol;
   }
->(function BatchPeopleComposer({ actions, maxRecipients, onResolvedChange, token }, ref) {
+>(function BatchPeopleComposer({ actions, beneficiaryAuth = null, maxRecipients, onResolvedChange, token }, ref) {
   const [rows, setRows] = useState<PayeeDraft[]>(() => [createDraft()]);
+  // The row "Choose beneficiary" will fill.
+  const [pickingFor, setPickingFor] = useState<string | null>(null);
   const [splitTotal, setSplitTotal] = useState("");
   const [activeSuggestId, setActiveSuggestId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<DirectoryHit[]>([]);
@@ -377,6 +383,12 @@ export const BatchPeopleComposer = forwardRef<
                   )}
                 </div>
                 <div className="bp-person min-w-0 flex-1">
+                  <div className="bp-field-head">
+                    <span>Recipient</span>
+                    <button className="bp-choose" onClick={() => setPickingFor(row.id)} type="button">
+                      Choose beneficiary
+                    </button>
+                  </div>
                   <label className="bp-field">
                     <AtSign className="h-4 w-4 text-primary" />
                     <input
@@ -577,6 +589,22 @@ export const BatchPeopleComposer = forwardRef<
           Type @username or paste a 0x… wallet address to get started.
         </div>
       )}
+
+      <BeneficiaryPickerSheet
+        auth={beneficiaryAuth}
+        onClose={() => setPickingFor(null)}
+        onSelect={(contact) => {
+          if (!pickingFor) return;
+          updateRow(pickingFor, {
+            displayName: contact.name,
+            query: contact.username ?? contact.beneficiary_wallet,
+            resolvedAddress: null,
+            username: contact.username ?? null,
+          });
+          setActiveSuggestId(null);
+        }}
+        open={pickingFor !== null}
+      />
     </div>
   );
 });

@@ -21,13 +21,14 @@ import {
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 
+import { BeneficiaryPickerSheet } from "@/components/beneficiary-picker-sheet";
 import { RecurepayIllustration } from "@/components/swift-recurepay/recurepay-illustration";
 import { RecipientSpinner, RecipientStatus } from "@/components/recipient-status";
 import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
-import type { BeneficiaryRecord } from "@/lib/beneficiaries";
+import type { BeneficiaryAuth } from "@/lib/beneficiaries";
 import { arcChain } from "@/lib/chains";
 import {
   describeCadence,
@@ -638,7 +639,7 @@ function ClearableInput({
 export function RecurepayCompose({
   amount,
   autopay,
-  beneficiaries,
+  beneficiaryAuth,
   canAutopay,
   compose,
   error,
@@ -660,7 +661,7 @@ export function RecurepayCompose({
 }: {
   amount: string;
   autopay: boolean;
-  beneficiaries: BeneficiaryRecord[];
+  beneficiaryAuth: BeneficiaryAuth | null;
   canAutopay: boolean;
   compose: ComposeSchedule;
   error: string | null;
@@ -773,11 +774,9 @@ export function RecurepayCompose({
 
         <Field
           extra={
-            beneficiaries.length > 0 ? (
-              <button className="recurepay-link is-green" onClick={() => setPicker("beneficiary")} type="button">
-                Choose beneficiary
-              </button>
-            ) : null
+            <button className="recurepay-link is-green" onClick={() => setPicker("beneficiary")} type="button">
+              Choose beneficiary
+            </button>
           }
           label="Recipient"
         >
@@ -909,20 +908,14 @@ export function RecurepayCompose({
         title="Frequency"
         value={compose.frequency}
       />
-      <PickerSheet
+      <BeneficiaryPickerSheet
+        auth={beneficiaryAuth}
         onClose={() => setPicker(null)}
-        onPick={(wallet) => {
-          const contact = beneficiaries.find((item) => item.beneficiary_wallet === wallet);
-          onRecipient(contact?.username ? `@${contact.username}` : wallet);
-          if (contact && !label) onLabel(contact.name);
+        onSelect={(contact) => {
+          onRecipient(contact.username ? `@${contact.username}` : contact.beneficiary_wallet);
+          if (!label) onLabel(contact.name);
         }}
         open={picker === "beneficiary"}
-        options={beneficiaries.map((contact) => ({
-          hint: contact.username ? `@${contact.username}` : `${contact.beneficiary_wallet.slice(0, 6)}…${contact.beneficiary_wallet.slice(-4)}`,
-          label: contact.name,
-          value: contact.beneficiary_wallet,
-        }))}
-        title="Choose beneficiary"
       />
     </div>
   );

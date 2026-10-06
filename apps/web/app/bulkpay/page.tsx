@@ -43,6 +43,7 @@ import {
  circleStorageKeys,
  findCircleTokenBalance,
  userFacingErrorMessage,
+ getCircleLoginIdentity,
  readCircleLogin,
  readCircleSessionStorage,
  readCircleWallets,
@@ -1026,6 +1027,14 @@ export default function BulkPayPage() {
        onClear={() => composerRef.current?.clear()}
        onImport={() => fileInputRef.current?.click()}
       />
+     }
+     beneficiaryAuth={
+      walletAddress
+       ? {
+          circleSocialUuid: getCircleLoginIdentity(circleLogin).socialUserUUID ?? undefined,
+          ownerWallet: getAddress(walletAddress),
+         }
+       : null
      }
      maxRecipients={swiftBatchMaxRecipients}
      onResolvedChange={handleComposerChange}

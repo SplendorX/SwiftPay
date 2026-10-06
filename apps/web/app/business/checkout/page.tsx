@@ -10,7 +10,8 @@ export default function CheckoutPage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        backHref="/business"
+        // The hub draws its own bar with a back button.
+        hideHeader
         subtitle="Take in-person payments with a QR code"
         title="Checkout"
       >
