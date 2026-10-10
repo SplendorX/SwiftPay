@@ -13,7 +13,7 @@ export function buildWalletAuthMessage({
   ownerWallet,
 }: WalletAuthMessageInput) {
   return [
-    "Sign in to SwiftPay",
+    "Sign in to SaphraONE",
     `Wallet: ${ownerWallet}`,
     `Nonce: ${nonce}`,
     `Issued: ${issuedAt}`,

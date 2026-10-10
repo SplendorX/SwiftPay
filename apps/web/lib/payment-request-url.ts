@@ -58,7 +58,7 @@ export function buildPaymentRequestPath(
   input: Omit<BuildPaymentRequestUrlInput, "origin">,
 ) {
   const url = new URL(
-    buildPaymentRequestUrl({ ...input, origin: "https://swiftpay.local" }),
+    buildPaymentRequestUrl({ ...input, origin: "https://saphra.local" }),
   );
 
   return `${url.pathname}${url.search}`;
@@ -71,7 +71,7 @@ export function withPaymentRequestId(link: string, requestId: string) {
   }
 
   try {
-    const url = new URL(link, "https://swiftpay.local");
+    const url = new URL(link, "https://saphra.local");
     url.searchParams.set("requestId", id);
     if (link.startsWith("http://") || link.startsWith("https://")) {
       return url.toString();
@@ -84,7 +84,7 @@ export function withPaymentRequestId(link: string, requestId: string) {
 
 export function readPaymentRequestIdFromLink(link: string) {
   try {
-    return new URL(link, "https://swiftpay.local").searchParams.get("requestId");
+    return new URL(link, "https://saphra.local").searchParams.get("requestId");
   } catch {
     return null;
   }

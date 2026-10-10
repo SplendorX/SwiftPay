@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useT } from "@/components/locale-provider";
 
-export const lightSurfaceStorageKey = "swiftpay.light-surface";
+export const lightSurfaceStorageKey = "saphra.light-surface";
 export type LightSurface = "cream" | "glass";
 
 export function applyLightSurface(surface: LightSurface) {

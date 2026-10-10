@@ -5,7 +5,7 @@
  * fee on-chain in the same call. ALLIE's own fee is a separate transfer.
  * These tests pin the arithmetic and which fees need a leg of their own.
  *
- * Run: pnpm --filter @swiftpay/web test:allie
+ * Run: pnpm --filter @saphra/web test:allie
  */
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";

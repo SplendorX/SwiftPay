@@ -12,7 +12,7 @@ import {
  * so leaving the app for longer locks it. No database access here: the proxy
  * checks it on every API call.
  */
-export const appUnlockCookieName = "swiftpay_app_unlock";
+export const appUnlockCookieName = "saphra_app_unlock";
 
 export const appLockTimeouts = [1, 5, 15] as const;
 export type AppLockTimeout = (typeof appLockTimeouts)[number];

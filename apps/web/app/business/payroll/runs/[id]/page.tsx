@@ -27,13 +27,13 @@ import {
   encodeFunctionData,
   formatUnits,
   getAddress,
-  http,
   isAddress,
   parseUnits,
   type Address,
   type Hash,
   type Hex,
 } from "viem";
+import { confirmFlow } from "@/lib/tx-approval/client";
 import { useAccount, useChainId, useReadContract, useSwitchChain, useWriteContract } from "wagmi";
 
 import { useAccountContext } from "@/components/account/account-provider";
@@ -85,10 +85,10 @@ import {
   swiftBatchFeeBasisPoints,
   swiftBatchFeeRecipient,
 } from "@/lib/contracts";
-import { drawSwiftPayBrand } from "@/lib/brand-canvas";
+import { drawSaphraBrand } from "@/lib/brand-canvas";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
-import { arcChain, arcExplorerUrl } from "@/lib/chains";
+import { arcChain, arcExplorerUrl, arcTransport } from "@/lib/chains";
 
 type CircleContractChallenge = {
   challengeId?: string;
@@ -129,7 +129,7 @@ function getCircleTransactionHash(value: CircleContractChallenge | CircleChallen
 
 const arcPublicClient = createPublicClient({
   chain: arcChain,
-  transport: http(arcChain.rpcUrls.default.http[0]),
+  transport: arcTransport(),
 });
 
 const configuredBatchAddress =
@@ -415,6 +415,15 @@ export default function PayrollRunDetailPage({
     });
   }
 
+  /** The Circle wallet that pays this run. */
+  function payingCircleWallet() {
+    return (
+      circleWallet ??
+      circleWallets.find((w) => w.address?.toLowerCase() === payingWalletAddress?.toLowerCase()) ??
+      circleWallets[0]
+    );
+  }
+
   async function executeCircleContract({
     callData,
     contractAddress,
@@ -429,10 +438,7 @@ export default function PayrollRunDetailPage({
     if (!circleLogin) {
       throw new Error("Circle login session is not ready.");
     }
-    const activeCircle =
-      circleWallet ??
-      circleWallets.find((w) => w.address?.toLowerCase() === payingWalletAddress?.toLowerCase()) ??
-      circleWallets[0];
+    const activeCircle = payingCircleWallet();
 
     if (!activeCircle?.id) {
       throw new Error("Circle wallet not found.");
@@ -526,40 +532,58 @@ export default function PayrollRunDetailPage({
         if (!payingWalletAddress) {
           throw new Error("Business Circle wallet address not found.");
         }
-        setProcessingStatus(`Checking ${tokenSymbol} allowance for BulkPay…`);
-        const allowance = (await arcPublicClient.readContract({
-          address: tokenInfo.address,
-          abi: erc20Abi,
-          functionName: "allowance",
-          args: [payingWalletAddress, configuredBatchAddress],
-        })) as bigint;
-
-        if (allowance < requiredTotalUnits) {
-          setProcessingStatus(`Approving ${tokenSymbol} for BulkPay…`);
-          await executeCircleContract({
-            callData: encodeFunctionData({
+        const payingWallet = payingWalletAddress;
+        // One confirmation for approve + settlement: the server checks the
+        // batch pays only this run's recipients, and no more than its total.
+        const execResult = await confirmFlow(
+          payingCircleWallet()?.id,
+          {
+            amount: formatUnits(
+              amountsList.reduce((sum, units) => sum + units, BigInt(0)),
+              tokenInfo.decimals,
+            ),
+            maxUses: 3,
+            recipients: recipientsList,
+            title: `Pay ${recipientsList.length} ${recipientsList.length === 1 ? "person" : "people"}`,
+            token: tokenSymbol,
+          },
+          async () => {
+            setProcessingStatus(`Checking ${tokenSymbol} allowance for BulkPay…`);
+            const allowance = (await arcPublicClient.readContract({
+              address: tokenInfo.address,
               abi: erc20Abi,
-              functionName: "approve",
-              args: [configuredBatchAddress, requiredTotalUnits],
-            }),
-            contractAddress: tokenInfo.address,
-            label: `Approve ${tokenSymbol}`,
-            refId: `payroll-approve-${run.id}-${Date.now()}`,
-          });
-          await waitForAllowance(payingWalletAddress, tokenInfo.address, requiredTotalUnits);
-        }
+              functionName: "allowance",
+              args: [payingWallet, configuredBatchAddress],
+            })) as bigint;
 
-        setProcessingStatus("Executing BulkPay settlement via Circle…");
-        const execResult = await executeCircleContract({
-          callData: encodeFunctionData({
-            abi: swiftBatchAbi,
-            functionName: "sendBatch",
-            args: [tokenInfo.address, recipientsList, amountsList],
-          }),
-          contractAddress: configuredBatchAddress,
-          label: "Execute BulkPay Settlement",
-          refId: `payroll-batch-${run.id}-${Date.now()}`,
-        });
+            if (allowance < requiredTotalUnits) {
+              setProcessingStatus(`Approving ${tokenSymbol} for BulkPay…`);
+              await executeCircleContract({
+                callData: encodeFunctionData({
+                  abi: erc20Abi,
+                  functionName: "approve",
+                  args: [configuredBatchAddress, requiredTotalUnits],
+                }),
+                contractAddress: tokenInfo.address,
+                label: `Approve ${tokenSymbol}`,
+                refId: `payroll-approve-${run.id}-${Date.now()}`,
+              });
+              await waitForAllowance(payingWallet, tokenInfo.address, requiredTotalUnits);
+            }
+
+            setProcessingStatus("Executing BulkPay settlement via Circle…");
+            return executeCircleContract({
+              callData: encodeFunctionData({
+                abi: swiftBatchAbi,
+                functionName: "sendBatch",
+                args: [tokenInfo.address, recipientsList, amountsList],
+              }),
+              contractAddress: configuredBatchAddress,
+              label: "Execute BulkPay Settlement",
+              refId: `payroll-batch-${run.id}-${Date.now()}`,
+            });
+          },
+        );
 
         batchHash = execResult.txHash as Hash | undefined;
         settlementTxId = execResult.transactionId;
@@ -935,7 +959,7 @@ export default function PayrollRunDetailPage({
                     className="mt-0.5 rounded border-border"
                   />
                   <span className="text-xs font-semibold text-foreground leading-relaxed">
-                    "I confirm that I have reviewed this payroll and authorize SwiftPay to execute these payments."
+                    "I confirm that I have reviewed this payroll and authorize SaphraONE to execute these payments."
                   </span>
                 </label>
               </div>

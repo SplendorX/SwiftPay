@@ -59,7 +59,7 @@ function withWalletParams(
   return `${url.pathname}?${url.searchParams.toString()}`;
 }
 
-export const notificationsChangedEvent = "swiftpay:notifications-changed";
+export const notificationsChangedEvent = "saphra:notifications-changed";
 
 export function emitNotificationsChanged() {
   if (typeof window === "undefined") {

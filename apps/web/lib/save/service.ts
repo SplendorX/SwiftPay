@@ -1,4 +1,4 @@
-import { createPublicClient, http, type Hash, type Address } from "viem";
+import { createPublicClient, type Hash, type Address } from "viem";
 
 import { swiftSaveVaultAbi } from "@/lib/save/abis";
 import { swiftSaveVaultAddress } from "@/lib/save/config";
@@ -38,7 +38,7 @@ import {
 } from "@/lib/save/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 const reconciliationTable =
   process.env.SUPABASE_SAVINGS_RECONCILIATION_TABLE ??
@@ -551,7 +551,7 @@ export async function confirmSavingsTransaction(input: {
   // blows the API timeout and Spend&Save never credits the pocket.
   const publicClient = createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 
   let receipt: Awaited<
@@ -1569,7 +1569,7 @@ export async function reconcilePendingSavingsTransactions(limit = 40) {
   const rows = (data ?? []) as SavingsTransactionRecord[];
   const publicClient = createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 
   let confirmed = 0;

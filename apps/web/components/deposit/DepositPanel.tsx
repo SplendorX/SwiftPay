@@ -41,6 +41,7 @@ import {
   isValidUsdcAmount,
   tryParseUsdc,
 } from "@/lib/onchain-money";
+import { multichainEnabled } from "@/lib/multichain/flag";
 import { onchainFacts } from "@/lib/onchain-facts";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 
@@ -235,7 +236,7 @@ export function DepositPanel() {
       }
     } finally {
       setBusy(false);
-      // Land the wallet back on Arc, success or not, so the rest of SwiftPay
+      // Land the wallet back on Arc, success or not, so the rest of SaphraONE
       // keeps working. Only when this deposit moved it — otherwise a declined
       // switch would be answered with a second, pointless prompt.
       if (leftArc) {
@@ -262,7 +263,7 @@ export function DepositPanel() {
           Bridging is not available on a Google account
         </h2>
         <p className="section-copy">
-          Your SwiftPay wallet lives on {onchainFacts.chain.name} only. Bridging
+          Your SaphraONE wallet lives on {onchainFacts.chain.name} only. Bridging
           burns USDC on the network it is coming from, and that needs a wallet
           that holds it there — so this route is closed on a Google sign-in.
         </p>
@@ -274,9 +275,15 @@ export function DepositPanel() {
               Ways to fund {shortenAddress(platformAddress)}
             </p>
             <ul className="mt-2 grid gap-1.5 text-muted-foreground">
+              {multichainEnabled ? (
+                <li>
+                  Go back and pick <strong>Receive from another network</strong>: you get an
+                  address on Base, Polygon and more, and USDC sent there arrives here by itself.
+                </li>
+              ) : null}
               <li>
                 Ask anyone on {onchainFacts.chain.name} to send USDC straight to
-                your SwiftPay address — nothing to bridge.
+                your SaphraONE address — nothing to bridge.
               </li>
               <li>
                 Already hold USDC elsewhere? Switch to a self-custody wallet from
@@ -296,7 +303,7 @@ export function DepositPanel() {
       <p className="section-eyebrow">Deposit to Arc</p>
       <h2 className="section-title">Bring USDC onto {onchainFacts.chain.name}</h2>
       <p className="section-copy">
-        Bridge USDC from another network over Circle CCTP. SwiftPay switches the
+        Bridge USDC from another network over Circle CCTP. SaphraONE switches the
         wallet to the source chain to sign the burn, then returns it to Arc —
         Circle delivers the mint, so there is nothing to sign on Arc.
       </p>
@@ -344,10 +351,10 @@ export function DepositPanel() {
           <p className="mt-1.5 text-sm text-muted-foreground">
             {hasPlatformWallet ? (
               <>
-                Your SwiftPay wallet lives on {onchainFacts.chain.name} only, so
+                Your SaphraONE wallet lives on {onchainFacts.chain.name} only, so
                 it cannot hold or burn USDC on {source?.name ?? "another chain"}.
                 Connect a wallet that already holds USDC there — the bridged
-                USDC still arrives in your SwiftPay wallet
+                USDC still arrives in your SaphraONE wallet
                 {platformAddress ? ` (${shortenAddress(platformAddress)})` : ""}.
               </>
             ) : (
@@ -363,7 +370,7 @@ export function DepositPanel() {
           {hasPlatformWallet ? (
             <p className="mt-3 text-xs text-muted-foreground">
               Already have USDC on {onchainFacts.chain.name}? You do not need
-              this — it is already spendable from your SwiftPay wallet.
+              this — it is already spendable from your SaphraONE wallet.
             </p>
           ) : null}
         </div>
@@ -413,7 +420,7 @@ export function DepositPanel() {
               <span className="ml-1 font-sans text-[11px] font-semibold text-muted-foreground">
                 {recipient
                   ? recipientIsPlatform
-                    ? "(SwiftPay wallet)"
+                    ? "(SaphraONE wallet)"
                     : walletSource === "external"
                       ? "(connected wallet)"
                       : "(your wallet)"

@@ -15,7 +15,7 @@ export {
   validateUsername,
 } from "@/lib/profile-utils";
 
-export const profileUpdatedEventName = "swiftpay:profile-updated";
+export const profileUpdatedEventName = "saphra:profile-updated";
 
 export type ProfileRecord = {
   auth_provider: string;

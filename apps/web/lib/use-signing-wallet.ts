@@ -21,6 +21,8 @@ export type SigningWallet = {
   address: string | null;
   /** Ready to sign a vault transaction. */
   canSign: boolean;
+  /** The Circle wallet id, for one-tap confirmation of multi-step actions (lib/tx-approval). */
+  circleWalletId: string | null;
   currentChainId?: number;
   kind: SigningWalletKind;
   /** Why signing is unavailable, when it is. */
@@ -90,6 +92,7 @@ export function useSigningWallet(): SigningWallet {
         return {
           address: circleAddress,
           canSign: false,
+          circleWalletId: null,
           kind: "circle",
           reason:
             "Circle wallet confirmation is not configured on this deployment.",
@@ -100,6 +103,7 @@ export function useSigningWallet(): SigningWallet {
       return {
         address: circleAddress,
         canSign: true,
+        circleWalletId: circleWallet.id ?? null,
         // The shim is always on Arc, so no chain switch is ever needed.
         currentChainId: onchainFacts.chainId,
         kind: "circle",
@@ -126,6 +130,7 @@ export function useSigningWallet(): SigningWallet {
       return {
         address: externalAddress,
         canSign: true,
+        circleWalletId: null,
         currentChainId: chainId,
         kind: "external",
         reason: null,
@@ -147,6 +152,7 @@ export function useSigningWallet(): SigningWallet {
       return {
         address: externalAddress,
         canSign: false,
+        circleWalletId: null,
         currentChainId: chainId,
         kind: "external",
         reason: "Your wallet is still connecting.",
@@ -157,6 +163,7 @@ export function useSigningWallet(): SigningWallet {
     return {
       address: null,
       canSign: false,
+      circleWalletId: null,
       kind: null,
       reason: "Sign in with Google or connect a wallet to continue.",
       resolveProvider: null,

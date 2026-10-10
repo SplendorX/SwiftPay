@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       )
     ) {
       return jsonError(
-        `Auto-deposit is a premium feature. ${FEATURE_UNLOCK_COST.EARN_AUTO_DEPOSIT} SwiftPoints covers 6 months.`,
+        `Auto-deposit is a premium feature. ${FEATURE_UNLOCK_COST.EARN_AUTO_DEPOSIT} OnePoints covers 6 months.`,
         402,
       );
     }

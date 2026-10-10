@@ -1,4 +1,6 @@
-export const swiftPayMarkSrc = "/brand/swiftpay-mark.png?v=pay-bg";
+export const saphraMarkSrc = "/brand/saphra-mark.png";
+export const saphraWordmarkLightSrc = "/brand/saphra-wordmark-light.png";
+export const saphraWordmarkDarkSrc = "/brand/saphra-wordmark-dark.png";
 
 /** A rounded-rectangle path (drawn with arcTo, so older canvases work too). */
 export function roundRect(
@@ -36,53 +38,45 @@ export async function loadBrandImage(src: string) {
   }
 }
 
-export function drawSwiftPayWordmark(
+/** The wordmark is 792×350; `onDark` picks the white-lettered version. */
+const wordmarkAspect = 792 / 350;
+
+export async function drawSaphraWordmark(
   context: CanvasRenderingContext2D,
   x: number,
   y: number,
-  fontSize: number,
-  swiftFill = "#0a0a0a",
+  height: number,
+  onDark = false,
 ) {
-  context.font = `700 ${fontSize}px Sora, Arial, sans-serif`;
-  context.fillStyle = swiftFill;
-  context.fillText("Swift", x, y);
-  const swiftWidth = context.measureText("Swift").width;
-  const gradient = context.createLinearGradient(
-    x + swiftWidth,
-    y - fontSize,
-    x + swiftWidth + fontSize * 2.2,
-    y,
-  );
-  gradient.addColorStop(0, "#3b82f6");
-  gradient.addColorStop(0.48, "#6366f1");
-  gradient.addColorStop(1, "#8b5cf6");
-  context.fillStyle = gradient;
-  context.fillText("Pay", x + swiftWidth, y);
+  const wordmark = await loadBrandImage(onDark ? saphraWordmarkDarkSrc : saphraWordmarkLightSrc);
+  if (wordmark) {
+    context.drawImage(wordmark, x, y, height * wordmarkAspect, height);
+    wordmark.close();
+    return;
+  }
+  // Plain text if the image cannot load.
+  context.font = `700 ${Math.round(height * 0.4)}px Sora, Arial, sans-serif`;
+  context.fillStyle = onDark ? "#ffffff" : "#0a0a0a";
+  context.fillText("SaphraONE", x, y + height * 0.62);
 }
 
-export async function drawSwiftPayBrand(
+export async function drawSaphraBrand(
   context: CanvasRenderingContext2D,
   x: number,
   y: number,
   markSize: number,
-  options?: { swiftFill?: string },
+  options?: { onDark?: boolean },
 ) {
-  const mark = await loadBrandImage(swiftPayMarkSrc);
+  const mark = await loadBrandImage(saphraMarkSrc);
   if (mark) {
-    const radius = Math.round(markSize * 0.22);
-    context.beginPath();
-    context.roundRect(x, y, markSize, markSize, radius);
-    context.fillStyle = "#ffffff";
-    context.fill();
     context.drawImage(mark, x, y, markSize, markSize);
     mark.close();
   }
-  const fontSize = Math.round(markSize * 0.42);
-  drawSwiftPayWordmark(
+  await drawSaphraWordmark(
     context,
     x + markSize + Math.round(markSize * 0.16),
-    y + Math.round(markSize * 0.64),
-    fontSize,
-    options?.swiftFill,
+    y,
+    markSize,
+    options?.onDark,
   );
 }

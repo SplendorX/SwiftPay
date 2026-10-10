@@ -1,6 +1,6 @@
 import { referralDb, referralTables, readReferralDbError } from "@/lib/referral/db";
 import { getOrCreateReferralProfile } from "@/lib/referral/attribution-service";
-import { getSwiftPointsSummary } from "@/lib/referral/ledger-service";
+import { getOnePointsSummary } from "@/lib/referral/ledger-service";
 import { getTier, getTierProgress } from "@/lib/referral/tier-service";
 import { getReferralRewardPolicy } from "@/lib/referral/policy-service";
 import { needsReferralSync, syncReferralProgressFromChain } from "@/lib/referral/progress-sync";
@@ -20,7 +20,7 @@ const syncBudgetMs = 8_000;
  */
 export async function getReferralDashboard(
   walletAddress: string,
-  origin = "https://getswiftpay.xyz",
+  origin = "https://app.saphra.one",
 ): Promise<ReferralDashboardData> {
   const wallet = walletAddress.toLowerCase();
   const supabase = referralDb();
@@ -60,9 +60,9 @@ export async function getReferralDashboard(
   }
 
   // 3. Profile and points, read after the sync: a qualification it triggered moves the counters.
-  const [profile, swiftPoints] = await Promise.all([
+  const [profile, onePoints] = await Promise.all([
     getOrCreateReferralProfile(wallet),
-    getSwiftPointsSummary(wallet),
+    getOnePointsSummary(wallet),
   ]);
   const handle = userProfile.data?.username || profile.referral_token;
   const referralLink = `${origin.replace(/\/$/, "")}/r/${handle}`;
@@ -127,7 +127,7 @@ export async function getReferralDashboard(
       pending: pendingCount,
       qualified: qualifiedCount,
     },
-    swiftPoints,
+    onePoints,
     tierProgress,
     activity,
   };
@@ -161,8 +161,8 @@ export async function getAdminReferralOverview() {
 
   return {
     totalReferrals: referralsCount.count ?? 0,
-    totalSwiftPointsIssued: issuedPoints,
-    totalSwiftPointsRedeemed: redeemedPoints,
+    totalOnePointsIssued: issuedPoints,
+    totalOnePointsRedeemed: redeemedPoints,
     currentRewardLiabilityUsdc: currentLiabilityUsdc,
   };
 }
@@ -318,14 +318,14 @@ export async function getAdminDetailedAnalytics() {
       },
     },
     economics: {
-      totalSwiftPointsIssued: issuedPoints,
-      totalSwiftPointsRedeemed: redeemedPoints,
+      totalOnePointsIssued: issuedPoints,
+      totalOnePointsRedeemed: redeemedPoints,
       currentRewardLiabilityPoints: liabilityPoints,
       totalRewardsIssuedUsdc: issuedUsdc,
       totalRewardsRedeemedUsdc: redeemedUsdc,
       currentRewardLiabilityUsdc: liabilityUsdc,
       totalFacilitatedVolumeUsdc: totalVolumeUsdc,
-      cacSwiftPoints: cacPoints,
+      cacOnePoints: cacPoints,
       cacUsdc,
       volumeToRewardRatio,
     },

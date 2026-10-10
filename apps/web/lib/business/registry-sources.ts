@@ -1,5 +1,5 @@
 /**
- * Which business IDs SwiftPay can check, per country, and against what.
+ * Which business IDs SaphraONE can check, per country, and against what.
  * Client-safe: the settings panel uses it to offer the right ID types; the
  * server (registry-check.ts) does the actual lookups.
  *

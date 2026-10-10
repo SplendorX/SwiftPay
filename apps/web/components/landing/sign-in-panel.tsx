@@ -15,6 +15,7 @@ import { useAccount, useSignMessage } from "wagmi";
 
 import { CircleGoogleLogin } from "@/components/circle-google-login";
 import { EmailSignIn } from "@/components/email-sign-in";
+import { ReferralCodeField } from "@/components/landing/referral-code-field";
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
 import { WalletConnectButton } from "@/components/wallet-connect-button";
@@ -196,7 +197,7 @@ export function SignInPanel() {
     google: {
       eyebrow: "Google",
       title: "Continue with Google",
-      body: "Sign in with Google and get a SwiftPay wallet on Arc, powered by Circle.",
+      body: "Sign in with Google and get a SaphraONE wallet on Arc, powered by Circle.",
     },
     wallet: {
       eyebrow: "Wallet",
@@ -225,7 +226,7 @@ export function SignInPanel() {
       )}
 
       <h2 className="sign-in-title">
-        {step ? step.title : "Sign in to SwiftPay"}
+        {step ? step.title : "Sign in to SaphraONE"}
       </h2>
       <p className="sign-in-lede">
         {step
@@ -271,6 +272,8 @@ export function SignInPanel() {
             <span>Connect a wallet</span>
             <ArrowRight className="sign-in-method-arrow h-4 w-4" />
           </button>
+
+          <ReferralCodeField />
         </div>
       ) : null}
 

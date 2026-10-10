@@ -1,9 +1,11 @@
 /**
- * SwiftPay's help library: the curated answers the support assistant gives.
+ * SaphraONE's help library: the curated answers the support assistant gives.
  * Client-safe and free to run — no model calls. Figures here come from the
  * code (lib/fees.ts, lib/contracts.ts, referral cashback, ALLIE monetization);
  * change them together.
  */
+import { multichainEnabled } from "@/lib/multichain/flag";
+
 export type SupportCategory =
   | "getting-started"
   | "payments"
@@ -43,7 +45,7 @@ export const supportCategories: { id: SupportCategory; label: string }[] = [
   { id: "recurring", label: "RecurePay" },
   { id: "savings", label: "Save & Invest" },
   { id: "allie", label: "ALLIE" },
-  { id: "rewards", label: "SwiftPoints & referrals" },
+  { id: "rewards", label: "OnePoints & referrals" },
   { id: "account", label: "Account & settings" },
   { id: "security", label: "Security" },
 ];
@@ -51,12 +53,12 @@ export const supportCategories: { id: SupportCategory; label: string }[] = [
 export const supportArticles: SupportArticle[] = [
   // ── Getting started ────────────────────────────────────────────────────
   {
-    id: "what-is-swiftpay",
+    id: "what-is-saphra",
     category: "getting-started",
-    title: "What is SwiftPay?",
+    title: "What is SaphraONE?",
     keywords: ["about", "overview", "how does it work", "arc", "stablecoin", "usdc", "eurc"],
     answer:
-      "SwiftPay is a payments app for USDC and EURC on the Arc network. You can send and request money, swap between USDC and EURC, save in pockets, run payroll and send invoices — and payments settle in seconds.",
+      "SaphraONE is a payments app for USDC and EURC on the Arc network. You can send and request money, swap between USDC and EURC, save in pockets, run payroll and send invoices — and payments settle in seconds.",
     links: [{ label: "Open your dashboard", href: "/dashboard" }],
   },
   {
@@ -65,7 +67,7 @@ export const supportArticles: SupportArticle[] = [
     title: "How do I sign in?",
     keywords: ["login", "log in", "sign up", "register", "create account", "google", "email", "metamask", "wallet connect", "external wallet"],
     answer:
-      "Sign in with Google or email to get a SwiftPay wallet created for you, or connect your own wallet (like MetaMask). With your own wallet you sign a one-time message to prove it's yours — that signature never moves money.",
+      "Sign in with Google or email to get a SaphraONE wallet created for you, or connect your own wallet (like MetaMask). With your own wallet you sign a one-time message to prove it's yours — that signature never moves money.",
     steps: [
       "Go to the home page and choose Sign in.",
       "Pick Google, email, or Connect wallet.",
@@ -84,6 +86,29 @@ export const supportArticles: SupportArticle[] = [
     links: [{ label: "Open Deposit", href: "/deposit" }],
     paths: ["/dashboard", "/deposit"],
   },
+  ...(multichainEnabled
+    ? [
+        {
+          id: "receive-other-network",
+          category: "getting-started",
+          title: "How do I receive USDC from Base, Polygon or another network?",
+          keywords: [
+            "base", "polygon", "arbitrum", "optimism", "avalanche", "ethereum", "other network",
+            "other chain", "binance", "bybit", "exchange", "withdraw to saphra", "network address",
+          ],
+          answer:
+            "Open Add money and pick Receive from another network. Choose the network the sender uses and share that address. USDC sent there moves to your SaphraONE balance by itself, usually in a minute or two, minus Circle's network fee of about 2 cents. Send USDC only, and only on the network shown: other tokens and networks are not credited. Amounts below the minimum wait until the total reaches it.",
+          steps: [
+            "Open Add money.",
+            "Tap Receive from another network.",
+            "Pick the network and copy the address or show the QR code.",
+            "Watch it under Incoming; it lands in your balance on its own.",
+          ],
+          links: [{ label: "Open Add money", href: "/deposit" }],
+          paths: ["/deposit"],
+        } satisfies SupportArticle,
+      ]
+    : []),
 
   // ── Payments ───────────────────────────────────────────────────────────
   {
@@ -103,7 +128,7 @@ export const supportArticles: SupportArticle[] = [
     title: "How do I request money?",
     keywords: ["request", "get paid", "payment link", "ask for money", "collect", "bill a friend"],
     answer:
-      "Create a payment request to get a link anyone can pay — with or without a SwiftPay account. You'll see it in Activity when it's paid.",
+      "Create a payment request to get a link anyone can pay — with or without a SaphraONE account. You'll see it in Activity when it's paid.",
     links: [{ label: "Request a payment", href: "/pay" }],
   },
   {
@@ -126,7 +151,7 @@ export const supportArticles: SupportArticle[] = [
     title: "I sent money to the wrong address",
     keywords: ["wrong address", "wrong person", "mistake", "reverse", "refund", "undo", "cancel payment", "sent by mistake"],
     answer:
-      "Blockchain payments can't be reversed by SwiftPay. If you know the recipient, ask them to send it back. If you sent to a SwiftPay @username, our team can try to contact them for you.",
+      "Blockchain payments can't be reversed by SaphraONE. If you know the recipient, ask them to send it back. If you sent to a SaphraONE @username, our team can try to contact them for you.",
     links: [{ label: "Open Transactions", href: "/transactions" }],
     urgent: true,
   },
@@ -155,7 +180,7 @@ export const supportArticles: SupportArticle[] = [
   {
     id: "fees",
     category: "fees",
-    title: "What are SwiftPay's fees?",
+    title: "What are SaphraONE's fees?",
     keywords: ["fee", "fees", "cost", "charge", "pricing", "how much", "service fee", "commission", "percentage"],
     answer:
       "Sending: 0.1%. Swaps: 0.3%. BulkPay, RecurePay and Payroll: 1% of what's paid out. Receiving money, requests and invoices you're paid through are free. Every fee is shown before you confirm.",
@@ -204,7 +229,7 @@ export const supportArticles: SupportArticle[] = [
     title: "How do I create and send an invoice?",
     keywords: ["invoice", "create invoice", "bill customer", "send invoice", "billing", "line items", "due date"],
     answer:
-      "Business accounts can create invoices in Invoices: add the customer, line items and due date, then send it. Customers get a link they can pay from any wallet — no SwiftPay account needed.",
+      "Business accounts can create invoices in Invoices: add the customer, line items and due date, then send it. Customers get a link they can pay from any wallet — no SaphraONE account needed.",
     links: [{ label: "Open Invoices", href: "/business/invoices" }],
     paths: ["/business/invoices"],
   },
@@ -214,7 +239,7 @@ export const supportArticles: SupportArticle[] = [
     title: "How do I pay an invoice I received?",
     keywords: ["pay invoice", "invoice link", "customer", "pay without account", "guest", "external wallet", "pay a bill"],
     answer:
-      "Open the invoice link and connect any wallet holding the invoice's currency on Arc, then approve the payment. You don't need a SwiftPay account, and paying doesn't create one. If you have SwiftPay, choose Pay with my SwiftPay account instead.",
+      "Open the invoice link and connect any wallet holding the invoice's currency on Arc, then approve the payment. You don't need a SaphraONE account, and paying doesn't create one. If you have SaphraONE, choose Pay with my SaphraONE account instead.",
     paths: ["/invoice"],
   },
   {
@@ -318,7 +343,7 @@ export const supportArticles: SupportArticle[] = [
     title: "What is ALLIE and what does it cost?",
     keywords: ["allie", "assistant", "ai", "pay with allie", "agent", "chat payments", "allie pro"],
     answer:
-      "ALLIE is SwiftPay's payment assistant: tell it what to do (“send 20 usdc to @ada”) and it prepares the payment for you to confirm. It pays from a separate Agent Wallet you fund. Free tier: a 0.002 USDC fee per payment on top of the service fee. ALLIE Pro: 5 USDC (or 500 SwiftPoints) a month for understanding everyday language, with 50 requests a day included.",
+      "ALLIE is SaphraONE's payment assistant: tell it what to do (“send 20 usdc to @ada”) and it prepares the payment for you to confirm. It pays from a separate Agent Wallet you fund. Free tier: a 0.002 USDC fee per payment on top of the service fee. ALLIE Pro: 5 USDC (or 500 OnePoints) a month for understanding everyday language, with 50 requests a day included.",
     links: [{ label: "Agent Wallet & ALLIE", href: "/settings#agent-wallet" }],
   },
   {
@@ -335,10 +360,10 @@ export const supportArticles: SupportArticle[] = [
   {
     id: "swiftpoints",
     category: "rewards",
-    title: "How do SwiftPoints and cashback work?",
+    title: "How do OnePoints and cashback work?",
     keywords: ["swiftpoints", "points", "cashback", "rewards", "earn points", "redeem"],
     answer:
-      "Payments of $20 or more earn SwiftPoints: 1 point from $20, 5 from $100, 20 from $500 and 50 from $1,000. A point is worth $0.01 and can be spent on features like ALLIE Pro.",
+      "Payments of $20 or more earn OnePoints: 1 point from $20, 5 from $100, 20 from $500 and 50 from $1,000. A point is worth $0.01 and can be spent on features like ALLIE Pro.",
     links: [{ label: "Rewards", href: "/referral" }],
   },
   {
@@ -347,7 +372,7 @@ export const supportArticles: SupportArticle[] = [
     title: "How do referrals work?",
     keywords: ["referral", "invite", "refer a friend", "invite link", "referral bonus", "reward friends"],
     answer:
-      "Share your invite link from Rewards. When someone you invite joins and reaches the activity milestone, you both earn SwiftPoints — and you keep earning a little from their activity.",
+      "Share your invite link from Rewards. When someone you invite joins and reaches the activity milestone, you both earn OnePoints — and you keep earning a little from their activity.",
     links: [{ label: "Rewards", href: "/referral" }],
   },
 
@@ -385,7 +410,7 @@ export const supportArticles: SupportArticle[] = [
     title: "I think my account or wallet was compromised",
     keywords: ["hacked", "stolen", "compromised", "unauthorized", "didn't make this", "scam", "phishing", "drained", "lost funds", "someone accessed"],
     answer:
-      "Act now: sign out all other devices, pause ALLIE if you use it, and move remaining funds to a wallet you control. SwiftPay will never ask for your seed phrase or private key — anyone who does is a scammer. Our team is being notified.",
+      "Act now: sign out all other devices, pause ALLIE if you use it, and move remaining funds to a wallet you control. SaphraONE will never ask for your seed phrase or private key — anyone who does is a scammer. Our team is being notified.",
     steps: [
       "Settings → Sessions & devices → sign out everything else.",
       "Settings → Agent Wallet → Pause.",
@@ -397,10 +422,10 @@ export const supportArticles: SupportArticle[] = [
   {
     id: "seed-phrase",
     category: "security",
-    title: "Does SwiftPay ever ask for my seed phrase?",
+    title: "Does SaphraONE ever ask for my seed phrase?",
     keywords: ["seed phrase", "private key", "recovery phrase", "support asked", "dm", "impersonation", "is this legit"],
     answer:
-      "Never. SwiftPay staff will never ask for your seed phrase, private key or one-time codes, and won't message you first on social media. Treat anyone who asks as a scammer.",
+      "Never. SaphraONE staff will never ask for your seed phrase, private key or one-time codes, and won't message you first on social media. Treat anyone who asks as a scammer.",
   },
 ];
 

@@ -5,7 +5,7 @@ import { platformAccessCookieName, clearActivatedExternalProfile } from "@/lib/p
 import { endWalletSession } from "@/lib/wallet-auth-client";
 
 /** Settings fire this after turning the lock on or off, or changing it. */
-export const appLockChangedEvent = "swiftpay:app-lock-changed";
+export const appLockChangedEvent = "saphra:app-lock-changed";
 
 export type AppLockStatus = {
   enabled: boolean;
@@ -88,9 +88,9 @@ export async function signOutForAppLock(disconnect?: () => void) {
   clearCircleSession({ clearDevice: true });
   clearActivatedExternalProfile();
   try {
-    window.localStorage.removeItem("swiftpay.activeWorkspaceId");
-    window.localStorage.removeItem("swiftpay.preferredWalletMode");
-    window.localStorage.removeItem("swiftpay.greetingName");
+    window.localStorage.removeItem("saphra.activeWorkspaceId");
+    window.localStorage.removeItem("saphra.preferredWalletMode");
+    window.localStorage.removeItem("saphra.greetingName");
   } catch {}
   await endWalletSession().catch(() => undefined);
   try {

@@ -14,8 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { giftSwiftPointsRequest } from "@/lib/referral/points-client";
-import { emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { giftOnePointsRequest } from "@/lib/referral/points-client";
+import { emitOnePointsUpdated } from "@/lib/referral/use-one-points";
 import { useResolvedRecipient } from "@/lib/use-resolved-recipient";
 import { RecipientSpinner, RecipientStatus } from "@/components/recipient-status";
 
@@ -63,7 +63,7 @@ export function GiftPointsModal({
     if (!canSend || !resolved.resolvedAddress) return;
     setLoading(true);
     try {
-      await giftSwiftPointsRequest({
+      await giftOnePointsRequest({
         circleSocialUuid,
         note: note.trim() || undefined,
         points,
@@ -71,10 +71,10 @@ export function GiftPointsModal({
         walletAddress: userWallet,
       });
 
-      toast.success(`Sent ${points} SwiftPoints`, {
+      toast.success(`Sent ${points} OnePoints`, {
         description: `${resolved.displayLabel} received them.`,
       });
-      emitSwiftPointsUpdated();
+      emitOnePointsUpdated();
       setOpen(false);
       setRecipient("");
       setNote("");
@@ -100,9 +100,9 @@ export function GiftPointsModal({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Gift SwiftPoints</DialogTitle>
+          <DialogTitle>Gift OnePoints</DialogTitle>
           <DialogDescription>
-            Send points to another SwiftPay user by username or wallet. They
+            Send points to another SaphraONE user by username or wallet. They
             can redeem them for USDC or unlock premium features.
           </DialogDescription>
         </DialogHeader>

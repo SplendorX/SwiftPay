@@ -10,6 +10,7 @@ import type {
   EarnTxResult,
   EarnWithdrawQuote,
 } from "@/lib/earn/types";
+import { postArcRpc } from "@/lib/chains";
 import { earnAppKitChain, explorerTxUrl, onchainFacts } from "@/lib/onchain-facts";
 import { formatUsdc, parseUsdc } from "@/lib/onchain-money";
 
@@ -179,15 +180,11 @@ const SUPPORTED_SHARE_DECIMALS = 18;
 async function assertVaultShareDecimals(vaultAddress: string) {
   let decimals: number;
   try {
-    const response = await fetch(onchainFacts.rpcUrl, {
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_call",
-        params: [{ data: ERC4626_DECIMALS_SELECTOR, to: vaultAddress }, "latest"],
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
+    const response = await postArcRpc({
+      id: 1,
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [{ data: ERC4626_DECIMALS_SELECTOR, to: vaultAddress }, "latest"],
     });
     const payload = (await response.json()) as { result?: string };
     if (!payload.result || payload.result === "0x") return;

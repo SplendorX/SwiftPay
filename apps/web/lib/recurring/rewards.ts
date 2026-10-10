@@ -10,7 +10,7 @@ import {
 import { verifyWalletOutflow } from "@/lib/referral/verify-activity";
 
 /**
- * SwiftPoints for a finished RecurePay payment: the payer's transaction
+ * OnePoints for a finished RecurePay payment: the payer's transaction
  * cashback, their referral progress, and their referrer's activity cashback.
  *
  * Called from every path that completes a run (Autopay worker, provider

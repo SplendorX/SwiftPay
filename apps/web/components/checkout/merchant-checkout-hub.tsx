@@ -341,7 +341,7 @@ export function MerchantCheckoutHub() {
                 if (!svg) return;
                 setPosterBusy(true);
                 void downloadStorefrontPoster({
-                  businessName: profile?.business_name ?? account?.display_name ?? account?.username ?? "SwiftPay",
+                  businessName: profile?.business_name ?? account?.display_name ?? account?.username ?? "SaphraONE",
                   logoUrl: profile?.logo_url,
                   qrSvg: svg,
                   url: storefrontUrl,
@@ -401,7 +401,7 @@ export function MerchantCheckoutHub() {
                   <Copy className="h-4 w-4" />
                   Copy link
                 </button>
-                <button className="ck-pill" onClick={() => void shareLink(chargeUrl, "Pay with SwiftPay")} type="button">
+                <button className="ck-pill" onClick={() => void shareLink(chargeUrl, "Pay with SaphraONE")} type="button">
                   <Share2 className="h-4 w-4" />
                   Share
                 </button>
@@ -469,7 +469,7 @@ export function MerchantCheckoutHub() {
             <p aria-live="polite" className={cn("ck-hero-amount", !amount && "is-empty")}>
               {formatMoney(amount || "0", currency)}
             </p>
-            <p className="ck-hero-sub">Customers pay with SwiftPay or any wallet on Arc. No fee on what they send you.</p>
+            <p className="ck-hero-sub">Customers pay with SaphraONE or any wallet on Arc. No fee on what they send you.</p>
           </section>
 
           <section className="ck-card">

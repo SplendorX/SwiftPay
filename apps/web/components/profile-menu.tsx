@@ -452,8 +452,8 @@ export function ProfileMenu({
     clearCircleSession({ clearDevice: true });
     clearActivatedExternalProfile();
     try {
-      window.localStorage.removeItem("swiftpay.activeWorkspaceId");
-      window.localStorage.removeItem("swiftpay.preferredWalletMode");
+      window.localStorage.removeItem("saphra.activeWorkspaceId");
+      window.localStorage.removeItem("saphra.preferredWalletMode");
     } catch {}
     void endWalletSession().catch(() => undefined);
     try {

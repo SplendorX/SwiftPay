@@ -2,7 +2,6 @@ import {
   createPublicClient,
   decodeEventLog,
   formatUnits,
-  http,
   pad,
   parseAbiItem,
   toEventHash,
@@ -13,7 +12,7 @@ import {
 
 import { earnConfig } from "@/lib/earn/config";
 import { arcTokens } from "@/lib/tokens";
-import { arcChain, arcExplorerUrl } from "@/lib/chains";
+import { arcChain, arcExplorerUrl, arcTransport } from "@/lib/chains";
 
 const depositEvent = parseAbiItem(
   "event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)",
@@ -222,7 +221,7 @@ async function fetchFromRpcFallback(
 ): Promise<EarnTransaction[]> {
   const client = createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0], {
+    transport: arcTransport({
       timeout: 20_000,
       retryCount: 0,
     }),

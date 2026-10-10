@@ -453,7 +453,7 @@ export async function sumSpentUnitsSince(initiatorId: string, since: Date) {
   }
 
   return (data ?? []).reduce((total, row) => {
-    // Platform fees are SwiftPay's revenue, not the user's spend — counting
+    // Platform fees are SaphraONE's revenue, not the user's spend — counting
     // them here would quietly eat the policy budget and make "spent today"
     // disagree with what the person actually sent.
     if (row.metadata?.kind === "allie-per-payment-fee") {

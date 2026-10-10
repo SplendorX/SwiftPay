@@ -1,0 +1,388 @@
+/* The moving-money animation (components/send/transfer-progress.tsx). */
+.tp {
+  --tp-blue: #2775ca;
+  --tp-blue-light: #d6e8fb;
+  --tp-coin: 4.25rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 2rem 0 1rem;
+  text-align: center;
+}
+
+.tp-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 9rem;
+}
+
+/* Over the whole page (TransferProgressOverlay): under the confirmation
+   sheet (2147481000) and Circle's window (2147483647). */
+.tp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147480000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--background);
+  animation: tp-overlay-in 200ms ease both;
+}
+
+@keyframes tp-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The coin */
+.tp-coin {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #8ec5f5 0%, var(--tp-blue) 55%, #1d5fae 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgb(39 117 202 / 0.28);
+}
+
+.tp-coin svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* The two ends */
+.tp-end {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+}
+
+.tp-end img {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+/* 1. Intro: big coin between the ends, then it shrinks off to the start. */
+.tp-intro {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+
+.tp-end-from {
+  animation: tp-fade-out 1.3s ease forwards;
+}
+
+.tp-intro-coin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8rem;
+  height: 8rem;
+  transform: translate(-50%, -50%);
+  animation: tp-intro-coin 1.3s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+@keyframes tp-intro-coin {
+  0% {
+    left: 50%;
+    width: 8rem;
+    height: 8rem;
+  }
+  35% {
+    left: 50%;
+    width: 7.4rem;
+    height: 7.4rem;
+  }
+  100% {
+    left: calc(var(--tp-coin) / 2 + 0.3rem);
+    width: var(--tp-coin);
+    height: var(--tp-coin);
+  }
+}
+
+@keyframes tp-fade-out {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 2. The track: the fill grows from the left with the coin on its tip. */
+.tp-track {
+  position: relative;
+  width: 100%;
+  height: calc(var(--tp-coin) + 0.6rem);
+  padding: 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.06);
+  animation: tp-track-in 450ms ease both;
+}
+
+.tp-fill {
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  left: 0.3rem;
+  display: flex;
+  justify-content: flex-end;
+  /* From the coin's own width at 0 to the whole track at 1. */
+  width: calc(var(--tp-coin) + (100% - 0.6rem - var(--tp-coin)) * var(--tp-progress, 0));
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--tp-blue-light) 0%, #9fcbf3 45%, var(--tp-blue) 100%);
+  transition: width 900ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.tp-track-coin {
+  width: var(--tp-coin);
+  height: var(--tp-coin);
+  box-shadow: none;
+}
+
+.tp-track-to {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+}
+
+@keyframes tp-track-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* The step under the track */
+.tp-step {
+  display: grid;
+  gap: 0.2rem;
+  min-height: 2.6rem;
+  animation: tp-step-in 350ms ease both;
+}
+
+.tp-count {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+.tp-count strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.tp-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+@keyframes tp-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tp-title {
+  margin-top: 1.25rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.tp-eyebrow {
+  margin-top: 0.5rem;
+  margin-bottom: -1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* The receipt under the check (what the old success popup showed). */
+.tp-amount {
+  margin-top: 0.25rem;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.tp-rows {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 26rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.tp-rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tp-rows dt {
+  color: var(--muted-foreground);
+}
+
+.tp-rows dd {
+  min-width: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.tp-actions {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 26rem;
+  margin-top: 0.5rem;
+}
+
+.tp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.tp-done {
+  width: 100%;
+  height: 3.1rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tp-overlay {
+  overflow-y: auto;
+}
+
+.tp-sub {
+  max-width: 26rem;
+  margin-top: -0.4rem;
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+}
+
+/* 3. The end: a gradient circle with a drawn check (or a warning). */
+.tp-result {
+  display: grid;
+  place-items: center;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 9999px;
+  color: #ffffff;
+  animation: tp-pop 550ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.tp-result.is-done {
+  background: linear-gradient(90deg, var(--tp-blue-light) 0%, #8ec5f5 45%, var(--tp-blue) 100%);
+}
+
+.tp-result.is-hold {
+  background: linear-gradient(90deg, #fde7c4 0%, #f6b552 50%, #d97706 100%);
+}
+
+.tp-result svg {
+  width: 3.6rem;
+  height: 3.6rem;
+}
+
+.tp-check {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: tp-draw 450ms 300ms ease forwards;
+}
+
+.tp-bang {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 3.4rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+@keyframes tp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tp-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .tp {
+    --tp-coin: 3.5rem;
+  }
+
+  .tp-intro-coin {
+    width: 6.5rem;
+    height: 6.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp *,
+  .tp *::before,
+  .tp *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+}

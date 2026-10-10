@@ -1,5 +1,5 @@
 /*
- * SwiftPay service worker — what makes the installed app fast and graceful
+ * SaphraONE service worker — what makes the installed app fast and graceful
  * offline. Deliberately conservative for a payments app:
  *   - static, content-hashed files (scripts, styles, fonts, icons) are cached;
  *   - pages always come from the network, with an offline screen as fallback;
@@ -7,9 +7,9 @@
  * Bump VERSION to retire old caches after a change here.
  */
 const VERSION = "v1";
-const STATIC_CACHE = `swiftpay-static-${VERSION}`;
+const STATIC_CACHE = `saphra-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
-const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png", "/brand/swiftpay-mark.png"];
+const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png", "/brand/saphra-mark.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -26,7 +26,7 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((key) => key.startsWith("swiftpay-") && key !== STATIC_CACHE).map((key) => caches.delete(key)),
+          keys.filter((key) => key.startsWith("saphra-") && key !== STATIC_CACHE).map((key) => caches.delete(key)),
         ),
       )
       .then(() => self.clients.claim()),

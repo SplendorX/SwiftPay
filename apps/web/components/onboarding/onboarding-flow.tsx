@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Check, Coins, ShieldCheck, UserRound } from "lucide-react";
+import { Briefcase, Check, CheckCircle2, Coins, Loader2, ShieldCheck, UserRound, XCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 
@@ -9,6 +9,7 @@ import { useBusinessActor } from "@/components/business/use-business-actor";
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { Button } from "@/components/ui/button";
+import { CountrySelect } from "@/components/ui/country-select";
 import { Input } from "@/components/ui/input";
 import { AppLockSettings } from "@/components/settings/app-lock-settings";
 import { StyledSelect } from "@/components/ui/styled-select";
@@ -16,13 +17,60 @@ import { useLocale, useT } from "@/components/locale-provider";
 import { completeAccountOnboardingClient, fetchAccountState } from "@/lib/account/client";
 import { readSignInEmail } from "@/lib/circle-session";
 import { businessCategoryOptions } from "@/lib/business-categories";
+import { findCountry } from "@/lib/countries";
 import { APP_LOCALES } from "@/lib/locales";
 import { profileImageAccept, resizeProfileImageFile } from "@/lib/profile-image";
 import { ensureProfile, notifyProfileUpdated, validateUsername } from "@/lib/profile";
+import { normalizeUsername } from "@/lib/profile-utils";
 import { walletSessionChangedEventName } from "@/lib/wallet-auth-client";
 import { cn } from "@/lib/utils";
 
 type Step = "language" | "account" | "personal" | "business" | "security";
+
+/** The live "is this username free?" check, for the username being typed. */
+type UsernameCheck =
+  | { state: "idle" }
+  | { state: "checking"; username: string }
+  | { state: "available"; username: string }
+  | { state: "taken"; message: string; username: string }
+  | { state: "unknown"; username: string };
+
+function UsernameStatus({ check, formatError }: { check: UsernameCheck; formatError: string | null }) {
+  const t = useT();
+  let content: React.ReactNode = null;
+  let tone = "text-muted-foreground";
+  if (formatError) {
+    content = formatError;
+  } else if (check.state === "checking") {
+    content = (
+      <>
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {t("onboarding.usernameChecking")}
+      </>
+    );
+  } else if (check.state === "available") {
+    tone = "text-emerald-600 dark:text-emerald-400";
+    content = (
+      <>
+        <CheckCircle2 className="h-3.5 w-3.5" />
+        {t("onboarding.usernameAvailable", { name: check.username })}
+      </>
+    );
+  } else if (check.state === "taken") {
+    tone = "text-destructive";
+    content = (
+      <>
+        <XCircle className="h-3.5 w-3.5" />
+        {t("onboarding.usernameTaken")}
+      </>
+    );
+  }
+  return (
+    <p aria-live="polite" className={cn("mt-2 flex min-h-4 items-center gap-1.5 text-xs", tone)} id="onboarding-username-status">
+      {content}
+    </p>
+  );
+}
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -37,6 +85,8 @@ export function OnboardingFlow() {
   const workspaceContext = useOptionalWorkspace();
   const [step, setStep] = useState<Step>("language");
   const [username, setUsername] = useState("");
+  const [usernameCheck, setUsernameCheck] = useState<UsernameCheck>({ state: "idle" });
+  const [country, setCountry] = useState("");
   const [fullName, setFullName] = useState("");
   const [bio, setBio] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -95,6 +145,7 @@ export function OnboardingFlow() {
           return;
         }
         setUsername(state.account.username);
+        setCountry((state.account as { country?: string | null }).country ?? "");
         setFullName(state.account.display_name ?? "");
         setBio(state.account.bio ?? "");
       } catch (err) {
@@ -115,6 +166,44 @@ export function OnboardingFlow() {
     [t, username],
   );
 
+  // Check the username is free as the user types (debounced). A failed check
+  // doesn't block: the server checks again when the account is saved.
+  useEffect(() => {
+    const handle = normalizeUsername(username);
+    if (!handle || validateUsername(handle)) {
+      setUsernameCheck({ state: "idle" });
+      return;
+    }
+    setUsernameCheck({ state: "checking", username: handle });
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams({ username: handle });
+      if (ownerWallet) params.set("ownerWallet", ownerWallet);
+      fetch(`/api/account/username?${params}`, { cache: "no-store", signal: controller.signal })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("check failed");
+          const result = (await response.json()) as { available: boolean; message?: string };
+          setUsernameCheck(
+            result.available
+              ? { state: "available", username: handle }
+              : { message: result.message ?? "", state: "taken", username: handle },
+          );
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setUsernameCheck({ state: "unknown", username: handle });
+        });
+    }, 400);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [ownerWallet, username]);
+
+  // Continue waits for the check, and never goes ahead with a taken name.
+  const usernameBlocked =
+    Boolean(usernameError) || usernameCheck.state === "checking" || usernameCheck.state === "taken";
+  const countryMissing = !findCountry(country);
+
   async function finish(accountKind: "personal" | "business") {
     if (!ownerWallet) return;
     setBusy(true);
@@ -131,6 +220,7 @@ export function OnboardingFlow() {
           businessName,
           // A Google / email sign-in starts the business's contact email.
           contactEmail: readSignInEmail(),
+          country,
           locale,
           logoUrl: logoUrl || null,
           username,
@@ -258,7 +348,7 @@ export function OnboardingFlow() {
           <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3.5 flex items-start sm:items-center gap-3 text-xs text-foreground">
             <Coins className="h-5 w-5 text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
             <span>
-              <strong>Everyday Transaction Cashback:</strong> All SwiftPay accounts earn automatic SwiftPoints on platform transactions from 20 USDC/EURC up — <strong>1 pt (20+)</strong>, <strong>5 pts (100+)</strong>, <strong>20 pts (500+)</strong>, and <strong>50 pts (1,000+)</strong>.
+              <strong>Everyday Transaction Cashback:</strong> All SaphraONE accounts earn automatic OnePoints on platform transactions from 20 USDC/EURC up — <strong>1 pt (20+)</strong>, <strong>5 pts (100+)</strong>, <strong>20 pts (500+)</strong>, and <strong>50 pts (1,000+)</strong>.
             </span>
           </div>
 
@@ -326,15 +416,26 @@ export function OnboardingFlow() {
           <label className="mt-5 block text-sm font-medium">
             {t("onboarding.username")}
             <Input
+              aria-describedby="onboarding-username-status"
               className="mt-2 h-11"
               onChange={(event) => setUsername(event.target.value)}
               placeholder="yourname"
               value={username}
             />
           </label>
-          {usernameError ? (
-            <p className="mt-2 text-xs text-muted-foreground">{usernameError}</p>
-          ) : null}
+          <UsernameStatus check={usernameCheck} formatError={usernameError} />
+          <div className="mt-5 block text-sm font-medium">
+            {t("common.country")}
+            <CountrySelect
+              ariaLabel={t("common.country")}
+              className="mt-2"
+              onChange={(next) => setCountry(next.name)}
+              value={findCountry(country)}
+            />
+            <p className="mt-2 text-xs font-normal text-muted-foreground">
+              {t("onboarding.countryHint")}
+            </p>
+          </div>
           <label className="mt-5 block text-sm font-medium">
             {t("onboarding.bio")}
             <textarea
@@ -350,7 +451,7 @@ export function OnboardingFlow() {
               {t("common.back")}
             </Button>
             <Button
-              disabled={busy || Boolean(usernameError)}
+              disabled={busy || usernameBlocked || countryMissing}
               onClick={() => void finish("personal")}
             >
               {t("onboarding.continuePersonal")}
@@ -368,15 +469,26 @@ export function OnboardingFlow() {
           <label className="mt-8 block text-sm font-medium">
             {t("common.username")}
             <Input
+              aria-describedby="onboarding-username-status"
               className="mt-2 h-11"
               onChange={(event) => setUsername(event.target.value)}
               placeholder="acme"
               value={username}
             />
           </label>
-          {usernameError ? (
-            <p className="mt-2 text-xs text-muted-foreground">{usernameError}</p>
-          ) : null}
+          <UsernameStatus check={usernameCheck} formatError={usernameError} />
+          <div className="mt-5 block text-sm font-medium">
+            {t("common.country")}
+            <CountrySelect
+              ariaLabel={t("common.country")}
+              className="mt-2"
+              onChange={(next) => setCountry(next.name)}
+              value={findCountry(country)}
+            />
+            <p className="mt-2 text-xs font-normal text-muted-foreground">
+              {t("onboarding.countryHint")}
+            </p>
+          </div>
           <label className="mt-5 block text-sm font-medium">
             {t("common.businessName")}
             <Input
@@ -447,7 +559,7 @@ export function OnboardingFlow() {
               {t("common.back")}
             </Button>
             <Button
-              disabled={busy || Boolean(usernameError) || !businessName.trim()}
+              disabled={busy || usernameBlocked || countryMissing || !businessName.trim()}
               onClick={() => void finish("business")}
             >
               {t("onboarding.createBusinessCta")}
@@ -463,7 +575,7 @@ export function OnboardingFlow() {
           </span>
           <h1 className="mt-4 font-heading text-3xl">Protect your account</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Set a PIN, and Face ID or fingerprint where your device has it, so SwiftPay asks for
+            Set a PIN, and Face ID or fingerprint where your device has it, so SaphraONE asks for
             it whenever you come back. You can set this up later in Settings → App lock.
           </p>
           <div className="mt-8">

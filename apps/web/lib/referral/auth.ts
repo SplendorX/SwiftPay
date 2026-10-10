@@ -23,7 +23,7 @@ export function normalizeReferralWallet(value: unknown): string | null {
   return getAddress(trimmed).toLowerCase();
 }
 
-/** Auth failure for referral & SwiftPoints routes, carrying its HTTP status. */
+/** Auth failure for referral & OnePoints routes, carrying its HTTP status. */
 export class ReferralAuthError extends Error {
   status: number;
 
@@ -35,7 +35,7 @@ export class ReferralAuthError extends Error {
 }
 
 /**
- * Resolves the wallet a referral / SwiftPoints request acts for. A wallet
+ * Resolves the wallet a referral / OnePoints request acts for. A wallet
  * named in the request is never trusted on its own: the caller must control
  * it (signed session), because these
  * routes spend, gift and redeem that wallet's points.
@@ -55,7 +55,7 @@ export async function requireReferralActorWallet(input: {
     });
     if (!allowed) {
       throw new ReferralAuthError(
-        "Unauthorized: sign in with this wallet to use its SwiftPoints.",
+        "Unauthorized: sign in with this wallet to use its OnePoints.",
       );
     }
     return requestedWallet;
@@ -66,5 +66,5 @@ export async function requireReferralActorWallet(input: {
     return sessionWallet;
   }
 
-  throw new ReferralAuthError("Unauthorized: sign in to use SwiftPoints.");
+  throw new ReferralAuthError("Unauthorized: sign in to use OnePoints.");
 }

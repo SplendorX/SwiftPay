@@ -96,6 +96,16 @@ const nextConfig = {
             value:
               "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
           },
+          {
+            // Report-only for now: logs (via /api/csp-report) every script
+            // loaded from another origin, without blocking it. Once the logs
+            // list what the Circle and WalletConnect SDKs need, add those
+            // origins here and switch this header to enforce, so a script
+            // injected into the page can't load code from elsewhere.
+            key: "Content-Security-Policy-Report-Only",
+            value:
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; report-uri /api/csp-report",
+          },
           { key: "X-Frame-Options", value: "DENY" },
           {
             key: "Strict-Transport-Security",
@@ -132,6 +142,14 @@ const nextConfig = {
   // notifications and ALLIE history keep working.
   async redirects() {
     return [
+      // The old domain (SwiftPay) moves to app.saphra.one. API routes stay
+      // put so webhooks and callbacks still registered on it keep landing.
+      {
+        source: "/:path((?!api/).*)",
+        has: [{ type: "host", value: "(?:www\\.)?getswiftpay\\.xyz" }],
+        destination: "https://app.saphra.one/:path",
+        permanent: true,
+      },
       { source: "/swiftCircle", destination: "/circle", permanent: true },
       { source: "/swiftCircle/:path*", destination: "/circle/:path*", permanent: true },
       { source: "/batchpay", destination: "/bulkpay", permanent: true },

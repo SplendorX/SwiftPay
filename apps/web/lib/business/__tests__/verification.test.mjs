@@ -2,7 +2,7 @@
  * Business verification: who's eligible, what each country can submit, and
  * how a register's answer becomes approved / rejected / sent to a person.
  *
- * Run: pnpm --filter @swiftpay/web test:business-verification
+ * Run: pnpm --filter @saphra/web test:business-verification
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

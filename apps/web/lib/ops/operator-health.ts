@@ -1,8 +1,8 @@
+import "@/lib/env-compat";
 import {
   createPublicClient,
   formatEther,
   getAddress,
-  http,
   isAddress,
   type Address,
   type Chain,
@@ -10,9 +10,10 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 
 import { onchainFacts } from "@/lib/onchain-facts";
+import { arcTransport } from "@/lib/chains";
 
 /**
- * Health of the wallets that run SwiftPay's scheduled jobs.
+ * Health of the wallets that run SaphraONE's scheduled jobs.
  *
  * Two things silently stop automation, and neither surfaces anywhere until a
  * job is due:
@@ -45,23 +46,23 @@ type RoleDefinition = {
 const ROLES: RoleDefinition[] = [
   {
     executorEnv: "NEXT_PUBLIC_SWIFTPAY_PAYROLL_EXECUTOR_ADDRESS",
-    keyEnv: "SWIFTPAY_PAYROLL_OPERATOR_PRIVATE_KEY",
+    keyEnv: "SAPHRA_PAYROLL_OPERATOR_PRIVATE_KEY",
     role: "payroll",
   },
   {
     executorEnv: "NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS",
-    keyEnv: "SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY",
+    keyEnv: "SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY",
     role: "recurring",
   },
   {
     executorEnv: "NEXT_PUBLIC_EARN_AUTOSAVE_EXECUTOR_ADDRESS",
-    keyEnv: "SWIFTPAY_EARN_OPERATOR_PRIVATE_KEY",
+    keyEnv: "SAPHRA_EARN_OPERATOR_PRIVATE_KEY",
     role: "earn",
   },
 ];
 
-/** The SwiftPoints treasury pays redemptions, so an empty one fails users. */
-const TREASURY_KEY_ENV = "SWIFTPOINTS_TREASURY_PRIVATE_KEY";
+/** The OnePoints treasury pays redemptions, so an empty one fails users. */
+const TREASURY_KEY_ENV = "ONE_POINTS_TREASURY_PRIVATE_KEY";
 
 export type OperatorStatus =
   | "OK"
@@ -102,7 +103,7 @@ function addressForKey(keyEnv: string): Address | null {
 function client() {
   return createPublicClient({
     chain: onchainFacts.chain as Chain,
-    transport: http(onchainFacts.rpcUrl),
+    transport: arcTransport(),
   });
 }
 
@@ -239,9 +240,9 @@ export async function checkOperatorHealth(): Promise<OperatorHealthReport> {
       gas: held,
       message:
         Number(held) <= 0
-          ? "The SwiftPoints treasury holds no USDC — redemptions will fail and refund."
+          ? "The OnePoints treasury holds no USDC — redemptions will fail and refund."
           : undefined,
-      role: "swiftpoints-treasury",
+      role: "one-points-treasury",
       status: Number(held) <= 0 ? "NO_GAS" : "OK",
     });
   }
@@ -275,7 +276,7 @@ export async function reportOperatorHealth(report: OperatorHealthReport) {
   try {
     await fetch(url, {
       body: JSON.stringify({
-        text: `SwiftPay operator health on ${onchainFacts.chain.name}:\n${lines.join("\n")}`,
+        text: `SaphraONE operator health on ${onchainFacts.chain.name}:\n${lines.join("\n")}`,
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST",

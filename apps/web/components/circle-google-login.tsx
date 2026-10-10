@@ -62,7 +62,7 @@ type GoogleOAuthDiagnostic = {
 };
 
 const googleOAuthDiagnosticStorageKey =
-  "swiftpay.circle.googleOAuthDiagnostic";
+  "saphra.circle.googleOAuthDiagnostic";
 
 function isValidRedirectUri(value: string) {
   try {
@@ -1063,7 +1063,7 @@ export function CircleGoogleLogin({
         blockchain: arcCircleBlockchain,
         refId: `swiftpay-arc-${Date.now()}`,
         userToken: auth.userToken,
-        walletName: "SwiftPay",
+        walletName: "SaphraONE",
       },
     );
 
@@ -1288,7 +1288,7 @@ export function CircleGoogleLogin({
 
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
             Continue with Google to create or load a Circle user-controlled wallet
-            for SwiftPay transactions.
+            for SaphraONE transactions.
           </p>
         </>
       )}

@@ -5,13 +5,13 @@ import {
   decodeEventLog,
   formatUnits,
   getAddress,
-  http,
   parseAbi,
   type Chain,
   type Hash,
 } from "viem";
 
 import { onchainFacts } from "@/lib/onchain-facts";
+import { arcTransport } from "@/lib/chains";
 
 const transferEventAbi = parseAbi([
   "event Transfer(address indexed from, address indexed to, uint256 value)",
@@ -23,7 +23,7 @@ type TransferLog = { address: string; data: `0x${string}`; topics: readonly `0x$
  * How much of `token` a confirmed transaction delivered to `destination`,
  * as a decimal, or null when it failed, isn't mined yet, or paid nothing
  * there. Counts every Transfer into the wallet, so a payment routed through
- * SwiftPay's send router (fee split off on the way) credits what arrived.
+ * SaphraONE's send router (fee split off on the way) credits what arrived.
  */
 export async function verifyInvoiceTransfer(input: {
   txHash: Hash;
@@ -32,7 +32,7 @@ export async function verifyInvoiceTransfer(input: {
 }): Promise<number | null> {
   const client = createPublicClient({
     chain: onchainFacts.chain as Chain,
-    transport: http(onchainFacts.rpcUrl),
+    transport: arcTransport(),
   });
 
   let receipt;

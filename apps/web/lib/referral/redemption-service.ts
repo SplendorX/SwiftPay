@@ -1,20 +1,20 @@
 import { referralDb, referralTables, readReferralDbError } from "@/lib/referral/db";
 import {
-  getSwiftPointsSummary,
+  getOnePointsSummary,
   pointsToInternalUnits,
   recordLedgerEntry,
 } from "@/lib/referral/ledger-service";
-import type { SwiftPointsRedemptionRecord } from "@/lib/referral/types";
+import type { OnePointsRedemptionRecord } from "@/lib/referral/types";
 import { payUsdcFromTreasury } from "@/lib/referral/treasury";
 import {
-  MINIMUM_REDEMPTION_SWIFTPOINTS,
+  MINIMUM_REDEMPTION_ONE_POINTS,
   MINIMUM_REDEMPTION_UNITS,
-  SWIFTPOINTS_USD_PER_POINT,
+  ONE_POINTS_USD_PER_POINT,
 } from "@/lib/referral/types";
 
 /**
- * Request redemption of SwiftPoints to on-chain USDC.
- * Enforces minimum 100 SwiftPoints ($1.00 USDC).
+ * Request redemption of OnePoints to on-chain USDC.
+ * Enforces minimum 100 OnePoints ($1.00 USDC).
  */
 /**
  * Undo a redemption's debit when the payout could not be made.
@@ -29,7 +29,7 @@ async function refundRedemptionDebit(input: {
   walletAddress: string;
 }) {
   await recordLedgerEntry({
-    description: `Refunded ${input.points} SwiftPoints: ${input.reason}`,
+    description: `Refunded ${input.points} OnePoints: ${input.reason}`,
     entryType: "REVERSAL",
     idempotencyKey: `redemption-reversal:${input.ledgerEntryId}`,
     originalLedgerEntryId: input.ledgerEntryId,
@@ -38,32 +38,32 @@ async function refundRedemptionDebit(input: {
   });
 }
 
-export async function redeemSwiftPoints(input: {
+export async function redeemOnePoints(input: {
   walletAddress: string;
   points: number;
   destinationWallet?: string;
   idempotencyKey?: string;
-}): Promise<SwiftPointsRedemptionRecord> {
+}): Promise<OnePointsRedemptionRecord> {
   const wallet = input.walletAddress.toLowerCase();
   const destination = (input.destinationWallet ?? wallet).toLowerCase();
 
-  // 1. Enforce minimum 100 SwiftPoints
-  if (input.points < MINIMUM_REDEMPTION_SWIFTPOINTS) {
+  // 1. Enforce minimum 100 OnePoints
+  if (input.points < MINIMUM_REDEMPTION_ONE_POINTS) {
     throw new Error(
-      `Minimum redemption is ${MINIMUM_REDEMPTION_SWIFTPOINTS} SwiftPoints (1 USDC).`,
+      `Minimum redemption is ${MINIMUM_REDEMPTION_ONE_POINTS} OnePoints (1 USDC).`,
     );
   }
 
   // 2. Validate available balance
-  const summary = await getSwiftPointsSummary(wallet);
+  const summary = await getOnePointsSummary(wallet);
   if (summary.available < input.points) {
     throw new Error(
-      `Insufficient points. You have ${summary.available} SwiftPoints available, but tried to redeem ${input.points}.`,
+      `Insufficient points. You have ${summary.available} OnePoints available, but tried to redeem ${input.points}.`,
     );
   }
 
   const amountUnits = pointsToInternalUnits(input.points);
-  const usdcAmount = Number((input.points * SWIFTPOINTS_USD_PER_POINT).toFixed(2));
+  const usdcAmount = Number((input.points * ONE_POINTS_USD_PER_POINT).toFixed(2));
   const idempotencyKey = input.idempotencyKey ?? `redemption:${wallet}:${Date.now()}`;
   const supabase = referralDb();
 
@@ -89,12 +89,12 @@ export async function redeemSwiftPoints(input: {
         .select("*")
         .eq("idempotency_key", idempotencyKey)
         .single();
-      return existing.data as SwiftPointsRedemptionRecord;
+      return existing.data as OnePointsRedemptionRecord;
     }
     throw new Error(readReferralDbError(redemptionInsert.error, "Could not create redemption request."));
   }
 
-  const redemption = redemptionInsert.data as SwiftPointsRedemptionRecord;
+  const redemption = redemptionInsert.data as OnePointsRedemptionRecord;
 
   let debitEntryId: string | null = null;
 
@@ -105,7 +105,7 @@ export async function redeemSwiftPoints(input: {
       entryType: "REDEMPTION",
       points: -input.points,
       idempotencyKey: `redemption:${redemption.id}:debit`,
-      description: `Redeemed ${input.points} SwiftPoints for ${usdcAmount} USDC`,
+      description: `Redeemed ${input.points} OnePoints for ${usdcAmount} USDC`,
       metadata: {
         redemptionId: redemption.id,
         destinationWallet: destination,
@@ -135,7 +135,7 @@ export async function redeemSwiftPoints(input: {
       .select("*")
       .single();
 
-    return updated.data as SwiftPointsRedemptionRecord;
+    return updated.data as OnePointsRedemptionRecord;
   } catch (error) {
     const reason =
       error instanceof Error ? error.message : "Redemption failed";
@@ -186,5 +186,5 @@ export async function listUserRedemptions(walletAddress: string) {
     throw new Error(readReferralDbError(error, "Could not load redemptions."));
   }
 
-  return (data ?? []) as SwiftPointsRedemptionRecord[];
+  return (data ?? []) as OnePointsRedemptionRecord[];
 }

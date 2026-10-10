@@ -1,7 +1,7 @@
-export const platformAccessEventName = "swiftpay:platform-access";
-export const platformAccessCookieName = "swiftpay_platform_access";
+export const platformAccessEventName = "saphra:platform-access";
+export const platformAccessCookieName = "saphra_platform_access";
 
-const activatedExternalProfileKey = "swiftpay.platform.externalProfile";
+const activatedExternalProfileKey = "saphra.platform.externalProfile";
 const platformAccessCookieMaxAge = 60 * 60 * 24 * 30;
 
 function getSecureCookieAttribute() {

@@ -107,8 +107,23 @@ const recoveryWindowMs = 5 * 60 * 1_000;
  * on the wallet" once labelled someone else's incoming BulkPay as this
  * wallet's send.
  */
+/**
+ * Hashes already handed out, per wallet. The "newest transaction" fallback
+ * can otherwise return the previous call (an approve) before Circle lists the
+ * new one (the batch, the burn), so a hash is never returned twice.
+ */
+const returnedHashes = new Map<string, Set<string>>();
+
+function remember(walletId: string, hash: string) {
+  const seen = returnedHashes.get(walletId) ?? new Set<string>();
+  seen.add(hash.toLowerCase());
+  returnedHashes.set(walletId, seen);
+}
+
 export async function recoverCircleTxDetails(input: {
   attempts?: number;
+  /** The confirmation challenge, when Circle gave no transaction id: it names the transaction it made. */
+  challengeId?: string;
   skipHashes?: string[];
   transactionId?: string;
   userToken: string;
@@ -116,9 +131,10 @@ export async function recoverCircleTxDetails(input: {
   /** When the transaction was submitted (ms). Defaults to now. */
   since?: number;
 }): Promise<{ failure?: CircleTxFailure; txHash?: string; transactionId?: string }> {
-  const skip = new Set(
-    (input.skipHashes ?? []).map((hash) => hash.toLowerCase()),
-  );
+  const skip = new Set([
+    ...(input.skipHashes ?? []).map((hash) => hash.toLowerCase()),
+    ...(returnedHashes.get(input.walletId) ?? []),
+  ]);
   const attempts = input.attempts ?? 8;
   const earliest = (input.since ?? Date.now()) - recoveryWindowMs;
   let resolvedTxId = input.transactionId;
@@ -140,6 +156,7 @@ export async function recoverCircleTxDetails(input: {
         });
         const hash = extractCircleTxHash(tx);
         if (accept(hash)) {
+          remember(input.walletId, hash);
           return { txHash: hash, transactionId: resolvedTxId };
         }
         // Failed for good: stop waiting for a hash that will never come.
@@ -151,16 +168,18 @@ export async function recoverCircleTxDetails(input: {
     }
 
     try {
-      if (input.transactionId) {
+      const challengeId = input.challengeId ?? input.transactionId;
+      if (challengeId) {
         const challengeRes = await callCircleWalletApi<unknown>("getChallenge", {
-          challengeId: input.transactionId,
+          challengeId,
           userToken: input.userToken,
         });
         const hash = extractCircleTxHash(challengeRes);
         // A challenge names the transaction it created; follow that id.
         const txId = extractCircleTransactionId(challengeRes);
-        if (txId && txId !== input.transactionId) resolvedTxId = txId;
+        if (txId && txId !== challengeId) resolvedTxId = txId;
         if (accept(hash)) {
+          remember(input.walletId, hash);
           return { txHash: hash, transactionId: resolvedTxId };
         }
       }
@@ -188,7 +207,10 @@ export async function recoverCircleTxDetails(input: {
       const exact = resolvedTxId ? rows.find((row) => row.id === resolvedTxId) : undefined;
       if (exact) {
         const hash = hashOf(exact);
-        if (accept(hash)) return { txHash: hash, transactionId: exact.id };
+        if (accept(hash)) {
+          remember(input.walletId, hash);
+          return { txHash: hash, transactionId: exact.id };
+        }
         const failure = extractCircleTxFailure(exact);
         if (failure) return { failure, transactionId: exact.id };
       } else if (!resolvedTxId) {
@@ -197,7 +219,11 @@ export async function recoverCircleTxDetails(input: {
           const created = row.createDate ? Date.parse(row.createDate) : NaN;
           return Number.isFinite(created) && created >= earliest && accept(hashOf(row));
         });
-        if (recent) return { txHash: hashOf(recent) as string, transactionId: recent.id };
+        if (recent) {
+          const hash = hashOf(recent) as string;
+          remember(input.walletId, hash);
+          return { txHash: hash, transactionId: recent.id };
+        }
       }
     } catch {
       // keep polling
@@ -209,6 +235,7 @@ export async function recoverCircleTxDetails(input: {
 
 export async function recoverCircleTxHash(input: {
   attempts?: number;
+  challengeId?: string;
   skipHashes?: string[];
   transactionId?: string;
   userToken: string;

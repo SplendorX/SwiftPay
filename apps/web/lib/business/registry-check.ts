@@ -115,7 +115,7 @@ async function checkVies(countryCode: string, vat: string): Promise<RegistryResu
     const name = data.name && data.name.trim() !== "---" ? data.name.trim() : null;
     return { kind: "found", source, active: true, name, country: countryCode };
   } catch (error) {
-    // Server log only: an outage should be visible to whoever runs SwiftPay.
+    // Server log only: an outage should be visible to whoever runs SaphraONE.
     console.warn("[registry]", source, error instanceof Error ? error.message : error);
     return { kind: "unavailable", source, note: "The EU VIES service couldn't be reached; a reviewer will check it." };
   }
@@ -144,7 +144,7 @@ async function checkFrance(id: string): Promise<RegistryResult> {
       status: match.etat_administratif === "C" ? "closed" : "active",
     };
   } catch (error) {
-    // Server log only: an outage should be visible to whoever runs SwiftPay.
+    // Server log only: an outage should be visible to whoever runs SaphraONE.
     console.warn("[registry]", source, error instanceof Error ? error.message : error);
     return { kind: "unavailable", source, note: "The French register couldn't be reached; a reviewer will check it." };
   }
@@ -178,7 +178,7 @@ async function checkNorway(id: string): Promise<RegistryResult> {
       status: closed ? "bankrupt, winding up or deleted" : "active",
     };
   } catch (error) {
-    // Server log only: an outage should be visible to whoever runs SwiftPay.
+    // Server log only: an outage should be visible to whoever runs SaphraONE.
     console.warn("[registry]", source, error instanceof Error ? error.message : error);
     return { kind: "unavailable", source, note: "The Norwegian register couldn't be reached; a reviewer will check it." };
   }
@@ -208,7 +208,7 @@ async function checkCompaniesHouse(id: string): Promise<RegistryResult> {
       status: data.company_status ?? null,
     };
   } catch (error) {
-    // Server log only: an outage should be visible to whoever runs SwiftPay.
+    // Server log only: an outage should be visible to whoever runs SaphraONE.
     console.warn("[registry]", source, error instanceof Error ? error.message : error);
     return { kind: "unavailable", source, note: "Companies House couldn't be reached; a reviewer will check it." };
   }
@@ -242,7 +242,7 @@ async function checkAbn(id: string): Promise<RegistryResult> {
       status: data.AbnStatus ?? null,
     };
   } catch (error) {
-    // Server log only: an outage should be visible to whoever runs SwiftPay.
+    // Server log only: an outage should be visible to whoever runs SaphraONE.
     console.warn("[registry]", source, error instanceof Error ? error.message : error);
     return { kind: "unavailable", source, note: "The ABN register couldn't be reached; a reviewer will check it." };
   }
@@ -280,7 +280,7 @@ async function checkLei(id: string): Promise<RegistryResult> {
       status: data.data?.attributes?.registration?.status ?? entity.status ?? null,
     };
   } catch (error) {
-    // Server log only: an outage should be visible to whoever runs SwiftPay.
+    // Server log only: an outage should be visible to whoever runs SaphraONE.
     console.warn("[registry]", source, error instanceof Error ? error.message : error);
     return { kind: "unavailable", source, note: "The GLEIF register couldn't be reached; a reviewer will check it." };
   }

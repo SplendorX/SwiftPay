@@ -10,7 +10,7 @@ import {
 import { verifyWalletOutflow } from "@/lib/referral/verify-activity";
 
 /**
- * SwiftPoints for a settled payroll transaction, matching what every other
+ * OnePoints for a settled payroll transaction, matching what every other
  * payment flow earns through /api/referrals/activity:
  * - the paying business's transaction cashback,
  * - its referral qualification volume, if it was referred,

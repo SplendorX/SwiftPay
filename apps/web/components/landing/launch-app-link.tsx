@@ -17,7 +17,7 @@ import {
   readActivatedExternalProfile,
 } from "@/lib/platform-access";
 
-export const signInModalEventName = "swiftpay:open-sign-in";
+export const signInModalEventName = "saphra:open-sign-in";
 
 function hasLiveSignedInAccount(input?: {
   address?: string;
@@ -114,7 +114,7 @@ export function LaunchAppLink({
         window.location.assign("/#sign-in");
       }}
     >
-      {children ?? "Open SwiftPay"}
+      {children ?? "Open SaphraONE"}
     </Link>
   );
 }

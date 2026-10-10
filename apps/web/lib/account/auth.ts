@@ -56,7 +56,7 @@ export async function requireAuthenticatedAccount(input: {
   const actorWallet = await requireActorWallet(input);
   const account = await loadAccount(actorWallet);
   if (!account) {
-    throw accountErrors.invalid("Create your SwiftPay profile before continuing.");
+    throw accountErrors.invalid("Create your SaphraONE profile before continuing.");
   }
   return { account, actorWallet };
 }

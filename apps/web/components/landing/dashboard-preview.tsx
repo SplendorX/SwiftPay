@@ -17,7 +17,7 @@ export function DashboardPreview() {
         <span className="preview-dot preview-dot-amber" />
         <span className="preview-dot preview-dot-green" />
         <span className="ml-2 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-          SwiftPay · Dashboard
+          SaphraONE · Dashboard
         </span>
         <Badge className="ml-auto text-[10px]" variant="secondary">
           Live
@@ -86,7 +86,7 @@ export function DashboardPreview() {
       </div>
 
       <Link
-        aria-label="Open the SwiftPay dashboard"
+        aria-label="Open the SaphraONE dashboard"
         className="dashboard-live-preview-hit"
         href="/dashboard"
       />

@@ -62,7 +62,7 @@ export function AmountConfirmDialog({
       };
     }
     return {
-      headline: `Move ${formatMoneyShort(amount)} back to your available SwiftPay balance?`,
+      headline: `Move ${formatMoneyShort(amount)} back to your available SaphraONE balance?`,
       newPocket: formatMoneyShort(Math.max(0, pocket - n).toFixed(6).replace(/\.?0+$/, "")),
     };
   }, [amount, mode, pocketBalance, pocketName]);

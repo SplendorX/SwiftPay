@@ -5,7 +5,7 @@
  * only for an account that is already set up (new accounts onboard first).
  */
 
-const storageKey = "swiftpay:sign-in-next";
+const storageKey = "saphra:sign-in-next";
 
 /**
  * `value` if it is a same-site path, else null. Rejects anything a browser

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { PlatformBrand } from "@/components/brand/platform-brand";
+import { PlatformWordmark } from "@/components/brand/platform-wordmark";
 import { cn } from "@/lib/utils";
 
 type SidebarBrandProps = {
@@ -14,11 +14,11 @@ export function SidebarBrand({
 }: SidebarBrandProps) {
   return (
     <Link
-      aria-label="SwiftPay home"
+      aria-label="SaphraONE home"
       className={cn("app-sidebar-brand-link", className)}
       href={href}
     >
-      <PlatformBrand showName="desktop" />
+      <PlatformWordmark />
     </Link>
   );
 }

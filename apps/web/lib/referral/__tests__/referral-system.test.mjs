@@ -1,5 +1,5 @@
 /**
- * SwiftPay Referral & SwiftPoints System Comprehensive Test Suite
+ * SaphraONE Referral & OnePoints System Comprehensive Test Suite
  *
  * Verifies all financial, economic, state machine, and anti-fraud invariants:
  * 1. Universal Tier Engine & Boundary Transitions (Starter, Builder, Architect, Ambassador)
@@ -14,10 +14,10 @@
  * 4. Ongoing Referrer-Only Activity Cashback:
  *    - Threshold: transaction amount must be > $10 USDC
  *    - Points per transaction > $10:
- *      * Starter: 0.2 SwiftPoints
- *      * Builder: 0.3 SwiftPoints
- *      * Architect (Champion): 0.5 SwiftPoints
- *      * Ambassador: 1.0 SwiftPoint
+ *      * Starter: 0.2 OnePoints
+ *      * Builder: 0.3 OnePoints
+ *      * Architect (Champion): 0.5 OnePoints
+ *      * Ambassador: 1.0 ONE Point
  *    - Invariant: Referred account receives strictly 0 cashback on transactions
  * 5. Minimum 100-Point Redemption Threshold & USDC Conversion
  * 6. First-Valid-Attribution & Anti-Self-Referral Enforcement
@@ -99,7 +99,7 @@ const TIERS = {
   },
 };
 
-const REFERRED_WELCOME_REWARD_POINTS = 20; // 20 SwiftPoints ($0.20 USDC) across all tiers
+const REFERRED_WELCOME_REWARD_POINTS = 20; // 20 OnePoints ($0.20 USDC) across all tiers
 
 function getTier(successfulReferrals) {
   if (successfulReferrals >= 501) return "AMBASSADOR";
@@ -153,7 +153,7 @@ function getTierProgress(totalSuccessful) {
 }
 
 // Fixed-precision conversion
-const UNITS_PER_POINT = 100n; // 100 units = 1 SwiftPoint = $0.01 USDC
+const UNITS_PER_POINT = 100n; // 100 units = 1 ONE Point = $0.01 USDC
 
 function pointsToUnits(points) {
   return BigInt(Math.round(points * 100));
@@ -308,7 +308,7 @@ describe("1. Universal Tier Engine & Boundary Transitions", () => {
 });
 
 describe("2. Exact Fixed-Precision Integer Accounting", () => {
-  it("should enforce 100 internal units = 1 SwiftPoint = $0.01 USDC", () => {
+  it("should enforce 100 internal units = 1 ONE Point = $0.01 USDC", () => {
     const points = 100;
     const units = pointsToUnits(points);
     assert.equal(units, 10000n);
@@ -436,7 +436,7 @@ describe("4. Ongoing Referrer-Only Activity Cashback Invariants", () => {
   });
 
   it("should award exact tier cashback on transactions > $10 USDC strictly to the Referrer", () => {
-    // Starter: 0.2 SwiftPoints per tx > $10
+    // Starter: 0.2 OnePoints per tx > $10
     const starterCb = calculateReferralActivityCashback({
       referrerTier: "STARTER",
       transactionAmountUsdc: 50,
@@ -446,7 +446,7 @@ describe("4. Ongoing Referrer-Only Activity Cashback Invariants", () => {
     assert.equal(starterCb.referrerPoints, 0.2);
     assert.equal(starterCb.referredPoints, 0, "Referred account receives 0 cashback");
 
-    // Builder: 0.3 SwiftPoints per tx > $10
+    // Builder: 0.3 OnePoints per tx > $10
     const builderCb = calculateReferralActivityCashback({
       referrerTier: "BUILDER",
       transactionAmountUsdc: 50,
@@ -456,7 +456,7 @@ describe("4. Ongoing Referrer-Only Activity Cashback Invariants", () => {
     assert.equal(builderCb.referrerPoints, 0.3);
     assert.equal(builderCb.referredPoints, 0);
 
-    // Architect: 0.5 SwiftPoints per tx > $10
+    // Architect: 0.5 OnePoints per tx > $10
     const architectCb = calculateReferralActivityCashback({
       referrerTier: "ARCHITECT",
       transactionAmountUsdc: 50,
@@ -466,7 +466,7 @@ describe("4. Ongoing Referrer-Only Activity Cashback Invariants", () => {
     assert.equal(architectCb.referrerPoints, 0.5);
     assert.equal(architectCb.referredPoints, 0);
 
-    // Ambassador: 1.0 SwiftPoint per tx > $10
+    // Ambassador: 1.0 ONE Point per tx > $10
     const ambassadorCb = calculateReferralActivityCashback({
       referrerTier: "AMBASSADOR",
       transactionAmountUsdc: 50,
@@ -478,7 +478,7 @@ describe("4. Ongoing Referrer-Only Activity Cashback Invariants", () => {
   });
 });
 
-describe("5. SwiftPoints Redemption Thresholds & Invariants", () => {
+describe("5. OnePoints Redemption Thresholds & Invariants", () => {
   const MIN_REDEMPTION_POINTS = 100;
 
   function validateRedemption(requestedPoints, availablePoints) {
@@ -488,7 +488,7 @@ describe("5. SwiftPoints Redemption Thresholds & Invariants", () => {
     if (requestedPoints < MIN_REDEMPTION_POINTS) {
       return {
         valid: false,
-        error: `Minimum redemption threshold is ${MIN_REDEMPTION_POINTS} SwiftPoints ($1.00 USDC).`,
+        error: `Minimum redemption threshold is ${MIN_REDEMPTION_POINTS} OnePoints ($1.00 USDC).`,
       };
     }
     if (requestedPoints > availablePoints) {
@@ -612,7 +612,7 @@ describe("7. Universal Platform Cashback Tiers (Inclusive From Numbers Up)", () 
     assert.equal(res19.nextTier.needed, 0.01);
   });
 
-  it("should award 1 SwiftPoint starting at exactly 20 USDC and up to under 100 USDC", () => {
+  it("should award 1 ONE Point starting at exactly 20 USDC and up to under 100 USDC", () => {
     const res20 = calculateTransactionCashback(20);
     assert.equal(res20.eligible, true);
     assert.equal(res20.points, 1);
@@ -631,7 +631,7 @@ describe("7. Universal Platform Cashback Tiers (Inclusive From Numbers Up)", () 
     assert.equal(res99.nextTier.needed, 0.01);
   });
 
-  it("should award 5 SwiftPoints starting at exactly 100 USDC up to under 500 USDC", () => {
+  it("should award 5 OnePoints starting at exactly 100 USDC up to under 500 USDC", () => {
     const res100 = calculateTransactionCashback(100);
     assert.equal(res100.eligible, true);
     assert.equal(res100.points, 5);
@@ -644,7 +644,7 @@ describe("7. Universal Platform Cashback Tiers (Inclusive From Numbers Up)", () 
     assert.equal(res499.points, 5);
   });
 
-  it("should award 20 SwiftPoints starting at exactly 500 USDC up to under 1000 USDC", () => {
+  it("should award 20 OnePoints starting at exactly 500 USDC up to under 1000 USDC", () => {
     const res500 = calculateTransactionCashback(500);
     assert.equal(res500.eligible, true);
     assert.equal(res500.points, 20);
@@ -657,7 +657,7 @@ describe("7. Universal Platform Cashback Tiers (Inclusive From Numbers Up)", () 
     assert.equal(res999.points, 20);
   });
 
-  it("should award 50 SwiftPoints starting at exactly 1000 USDC and higher", () => {
+  it("should award 50 OnePoints starting at exactly 1000 USDC and higher", () => {
     const res1000 = calculateTransactionCashback(1000);
     assert.equal(res1000.eligible, true);
     assert.equal(res1000.points, 50);

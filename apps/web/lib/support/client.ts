@@ -3,7 +3,7 @@
 import { arcNetworkTarget } from "@/lib/network";
 
 /**
- * Browser side of SwiftPay Support. Signed-in customers are recognised by
+ * Browser side of SaphraONE Support. Signed-in customers are recognised by
  * their wallet session; a guest's requests are reachable only through the
  * private tokens kept here, in their own browser.
  */
@@ -30,10 +30,10 @@ export type SupportIdentity = { ownerWallet?: string | null; circleSocialUuid?: 
 
 // Per network: guest tickets live in that network's database, so a testnet
 // ticket token means nothing on mainnet.
-const storageKey = `swiftpay:support-tickets:${arcNetworkTarget()}`;
-export const supportChangedEvent = "swiftpay:support-changed";
+const storageKey = `saphra:support-tickets:${arcNetworkTarget()}`;
+export const supportChangedEvent = "saphra:support-changed";
 /** Fired to open the Support panel from anywhere (the mobile menu, links). */
-export const openSupportEvent = "swiftpay:open-support";
+export const openSupportEvent = "saphra:open-support";
 
 export function openSupport() {
   window.dispatchEvent(new Event(openSupportEvent));

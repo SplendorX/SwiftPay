@@ -1,6 +1,5 @@
 import {
   createPublicClient,
-  http,
   parseAbiItem,
   type Address,
   type Hash,
@@ -10,7 +9,7 @@ import {
 import { earnConfig } from "@/lib/earn/config";
 import { formatUnitsToDecimal } from "@/lib/earn/decimal";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 import { arcTokens } from "@/lib/tokens";
 
 const depositEvent = parseAbiItem(
@@ -47,7 +46,7 @@ export type IndexResult = {
 function createClient() {
   return createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 }
 

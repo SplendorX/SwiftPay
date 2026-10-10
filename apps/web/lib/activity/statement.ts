@@ -117,7 +117,7 @@ function accountName(data: StatementData) {
 function fileBase(data: StatementData) {
   const from = data.period.from.slice(0, 10);
   const to = data.period.to.slice(0, 10);
-  return `SwiftPay-statement-${from}-to-${to}`;
+  return `SaphraONE-statement-${from}-to-${to}`;
 }
 
 function save(blob: Blob, filename: string) {
@@ -133,7 +133,7 @@ function save(blob: Blob, filename: string) {
 function coverageNote(data: StatementData) {
   const coverage = data.onchainCoverageFrom ? new Date(data.onchainCoverageFrom) : null;
   if (!coverage || coverage.getTime() <= new Date(data.period.from).getTime()) return null;
-  return `Payments made through SwiftPay are listed for the whole period. Other on-chain transfers to or from this wallet are listed from ${formatDay(coverage)}.`;
+  return `Payments made through SaphraONE are listed for the whole period. Other on-chain transfers to or from this wallet are listed from ${formatDay(coverage)}.`;
 }
 
 // ── CSV ─────────────────────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ export async function statementPdf(data: StatementData) {
   const doc = new jsPDF({ format: "a4", orientation: "portrait", unit: "pt" });
   const width = doc.internal.pageSize.getWidth();
   const margin = 40;
-  const purple: [number, number, number] = [91, 33, 182];
+  const purple: [number, number, number] = [95, 21, 244];
   const ink: [number, number, number] = [23, 17, 28];
   const muted: [number, number, number] = [110, 104, 118];
   const rows = rowsFrom(data);
@@ -197,22 +197,22 @@ export async function statementPdf(data: StatementData) {
   // Header band.
   doc.setFillColor(...purple);
   doc.rect(0, 0, width, 8, "F");
-  // The brand: the S mark and the two-tone wordmark, as on the app. Plain
+  // The brand: the ONE mark and the SaphraONE wordmark, as on the app. Plain
   // text stands in if the images can't load.
   const [mark, wordmark] = await Promise.all([
-    brandImage("/brand/swiftpay-mark.png"),
-    brandImage("/brand/swiftpay-wordmark.png"),
+    brandImage("/brand/saphra-mark.png"),
+    brandImage("/brand/saphra-wordmark-light.png"),
   ]);
   if (mark) doc.addImage(mark, "PNG", margin, 28, 30, 30);
   const wordmarkX = mark ? margin + 38 : margin;
   if (wordmark) {
-    // 317×77 source, drawn 20pt tall.
-    doc.addImage(wordmark, "PNG", wordmarkX, 33, (317 / 77) * 20, 20);
+    // 792×350 source, drawn as tall as the mark.
+    doc.addImage(wordmark, "PNG", wordmarkX, 28, (792 / 350) * 30, 30);
   } else {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
     doc.setTextColor(...purple);
-    doc.text("SwiftPay", wordmarkX, 50);
+    doc.text("SaphraONE", wordmarkX, 50);
   }
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...ink);
@@ -301,7 +301,7 @@ export async function statementPdf(data: StatementData) {
     if (note) {
       doc.text(doc.splitTextToSize(note, width - margin * 2 - 60), margin, height - 34);
     }
-    doc.text("Issued by SwiftPay. Transactions settle on the Arc network; references are Arc transaction hashes.", margin, height - 18);
+    doc.text("Issued by SaphraONE. Transactions settle on the Arc network; references are Arc transaction hashes.", margin, height - 18);
     doc.text(`Page ${page} of ${pages}`, width - margin, height - 18, { align: "right" });
   }
 

@@ -1,6 +1,6 @@
 /**
  * Invite & Earn's intro artwork: you and a friend, linked by an invite, with
- * SwiftPoints coming to both. Same cream disc as RecurePay's and BulkPay's;
+ * OnePoints coming to both. Same cream disc as RecurePay's and BulkPay's;
  * the coins rise in once (skipped with reduced motion).
  */
 export function ReferralIllustration({ className }: { className?: string }) {
@@ -37,7 +37,7 @@ export function ReferralIllustration({ className }: { className?: string }) {
       <path d="M160 96 c-10 -22 -34 -16 -26 -2 c4 6 16 4 26 2 Z" fill="#f6c94c" />
       <path d="M160 96 c10 -22 34 -16 26 -2 c-4 6 -16 4 -26 2 Z" fill="#f6c94c" />
 
-      {/* SwiftPoints for both */}
+      {/* OnePoints for both */}
       <g className="referral-coin" style={{ animationDelay: "250ms" }}>
         <circle cx="104" cy="160" fill="#f6c94c" r="17" stroke="#e0a82e" strokeWidth="2" />
         <text fill="#5b21b6" fontFamily="ui-sans-serif, system-ui" fontSize="11" fontWeight="800" textAnchor="middle" x="104" y="164">
@@ -51,7 +51,7 @@ export function ReferralIllustration({ className }: { className?: string }) {
         </text>
       </g>
 
-      {/* Loose coins: SwiftPoints on their way */}
+      {/* Loose coins: OnePoints on their way */}
       <circle cx="254" cy="82" fill="#f6c94c" r="9" stroke="#e0a82e" strokeWidth="2" />
       <circle cx="270" cy="66" fill="#f6c94c" opacity="0.7" r="5.5" stroke="#e0a82e" strokeWidth="1.5" />
       <circle cx="72" cy="96" fill="#5b21b6" r="7" />

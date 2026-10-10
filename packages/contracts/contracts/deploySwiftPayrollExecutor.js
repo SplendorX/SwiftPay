@@ -6,7 +6,7 @@
  *
  *   ARC_TESTNET_RPC_URL              RPC to deploy through
  *   PRIVATE_KEY                      deployer (becomes owner)
- *   SWIFTPAY_PAYROLL_OPERATOR_ADDRESS  address allowed to call executePayroll
+ *   SAPHRA_PAYROLL_OPERATOR_ADDRESS  address allowed to call executePayroll
  *   PLATFORM_FEE_RECIPIENT           receives the 1% platform fee
  */
 import dotenv from "dotenv";
@@ -28,8 +28,8 @@ async function main() {
   const rpcUrl = arcRpcUrl();
   const privateKey = process.env.PRIVATE_KEY;
   const operator =
-    process.env.SWIFTPAY_PAYROLL_OPERATOR_ADDRESS?.trim() ||
-    process.env.SWIFTPAY_RECURRING_OPERATOR_ADDRESS?.trim();
+    process.env.SAPHRA_PAYROLL_OPERATOR_ADDRESS?.trim() ||
+    process.env.SAPHRA_RECURRING_OPERATOR_ADDRESS?.trim();
   const feeRecipient =
     process.env.PLATFORM_FEE_RECIPIENT?.trim() ||
     process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim();
@@ -39,7 +39,7 @@ async function main() {
   }
   if (!operator || !ethers.isAddress(operator)) {
     throw new Error(
-      "Set SWIFTPAY_PAYROLL_OPERATOR_ADDRESS to the address that will run the cron.",
+      "Set SAPHRA_PAYROLL_OPERATOR_ADDRESS to the address that will run the cron.",
     );
   }
   if (!feeRecipient || !ethers.isAddress(feeRecipient)) {
@@ -78,7 +78,7 @@ async function main() {
   console.log("\nAdd to your .env:");
   console.log(`NEXT_PUBLIC_SWIFTPAY_PAYROLL_EXECUTOR_ADDRESS=${address}`);
   console.log(
-    "SWIFTPAY_PAYROLL_OPERATOR_PRIVATE_KEY=<key for the operator address above>",
+    "SAPHRA_PAYROLL_OPERATOR_PRIVATE_KEY=<key for the operator address above>",
   );
   console.log(
     "\nEach business must then approve this address to spend its USDC before its schedule can pay unattended.",

@@ -1,17 +1,18 @@
 import { getAddress, isAddress } from "viem";
 import { stablecoinUsdValue } from "@/lib/referral/fx";
-import { recordLedgerEntry, getOrCreateSwiftPointsAccount } from "@/lib/referral/ledger-service";
-import { SWIFTPOINTS_USD_PER_POINT } from "@/lib/referral/types";
+import { recordLedgerEntry, getOrCreateOnePointsAccount } from "@/lib/referral/ledger-service";
+import { ONE_POINTS_USD_PER_POINT } from "@/lib/referral/types";
+import { rewardsV2Enabled } from "@/lib/rewards/config";
 
 /**
- * General Platform Cashback Tier Structure for all SwiftPay accounts.
+ * General Platform Cashback Tier Structure for all SaphraONE accounts.
  *
  * Tier thresholds are in USD value (USDC 1:1, EURC at the live EUR→USD rate):
- * - $1000+ -> 50 SwiftPoints
- * - $500+  -> 20 SwiftPoints
- * - $100+  -> 5 SwiftPoints
- * - $20+   -> 1 SwiftPoint
- * - Below $20 -> 0 SwiftPoints
+ * - $1000+ -> 50 OnePoints
+ * - $500+  -> 20 OnePoints
+ * - $100+  -> 5 OnePoints
+ * - $20+   -> 1 ONE Point
+ * - Below $20 -> 0 OnePoints
  */
 export const GENERAL_CASHBACK_BRACKETS = [
   { minAmount: 1000, points: 50, label: "1,000+" },
@@ -66,7 +67,7 @@ export function calculateTransactionCashback(
       return {
         eligible: true,
         points: bracket.points,
-        usdcValue: Number((bracket.points * SWIFTPOINTS_USD_PER_POINT).toFixed(2)),
+        usdcValue: Number((bracket.points * ONE_POINTS_USD_PER_POINT).toFixed(2)),
         tierLabel: bracket.label,
         nextTier: prevBracket
           ? {
@@ -95,13 +96,13 @@ export type ProcessCashbackParams = {
   /**
    * Platform fee the transaction paid, in `token`. When given, cashback is
    * capped at the fee's value (1 point = $0.01), so no transaction can earn
-   * more in points than SwiftPay earned from it and moving money between
+   * more in points than SaphraONE earned from it and moving money between
    * one's own wallets is never profitable.
    */
   feePaid?: number;
 };
 
-/** What one SwiftPoint redeems for, in USD. */
+/** What one ONE Point redeems for, in USD. */
 const usdPerPoint = 0.01;
 
 export type ProcessCashbackResult = {
@@ -114,7 +115,7 @@ export type ProcessCashbackResult = {
 };
 
 /**
- * Executes and credits general transaction cashback to a user's SwiftPoints ledger.
+ * Executes and credits general transaction cashback to a user's OnePoints ledger.
  * Fully atomic, immutable, and idempotent.
  */
 export async function processTransactionCashback(
@@ -133,6 +134,42 @@ export async function processTransactionCashback(
   const usdValue = Number.isFinite(tokenAmount)
     ? await stablecoinUsdValue(tokenAmount, normalizedToken)
     : 0;
+
+  // Rewards v2: monthly tiers, the $5 cap and streaks (REWARDS-PLAN.md).
+  if (rewardsV2Enabled()) {
+    // The on-chain hash first: every path that reports this payment then
+    // shares one key, so it is counted once. Without either, nothing makes a
+    // retry harmless, so nothing is paid.
+    const txKey = txHash || transactionId;
+    if (!txKey || !Number.isFinite(usdValue) || usdValue <= 0) {
+      return { eligible: false, pointsAwarded: 0, token: normalizedToken, usdcValue: 0 };
+    }
+    const feeUsd =
+      feePaid === undefined
+        ? undefined
+        : Number.isFinite(feePaid) && feePaid > 0
+          ? await stablecoinUsdValue(feePaid, normalizedToken)
+          : 0;
+    const amountText = typeof amount === "number" ? amount.toString() : amount;
+    // Loaded here so the browser bundle (this file is also imported for
+    // calculateTransactionCashback) never pulls in the server-side earning code.
+    const { awardTransactionRewards } = await import("@/lib/rewards/earning");
+    const award = await awardTransactionRewards({
+      description: `Cashback on a ${amountText} ${normalizedToken} transaction`,
+      feeUsd,
+      metadata: { amount: amountText, token: normalizedToken, txHash: txHash ?? null, usdValue },
+      txKey: `${normalizedWallet}:${txKey.toLowerCase()}`,
+      volumeUsd: usdValue,
+      walletAddress: normalizedWallet,
+    });
+    return {
+      eligible: award.points > 0,
+      pointsAwarded: award.points,
+      token: normalizedToken,
+      usdcValue: Number((award.points * usdPerPoint).toFixed(2)),
+    };
+  }
+
   const tierCalculation = calculateTransactionCashback(usdValue);
   let calculation = tierCalculation;
   if (feePaid !== undefined && tierCalculation.eligible) {
@@ -159,15 +196,15 @@ export async function processTransactionCashback(
     };
   }
 
-  // Ensure SwiftPoints account exists
-  await getOrCreateSwiftPointsAccount(normalizedWallet);
+  // Ensure OnePoints account exists
+  await getOrCreateOnePointsAccount(normalizedWallet);
 
   const identifier = transactionId || txHash || `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const idempotencyKey = `tx_cashback_${normalizedWallet}_${identifier}`;
   const amountStr = typeof amount === "number" ? amount.toString() : amount;
 
   try {
-    const pointsText = calculation.points === 1 ? "1 SwiftPoint" : `${calculation.points} SwiftPoints`;
+    const pointsText = calculation.points === 1 ? "1 ONE Point" : `${calculation.points} OnePoints`;
     const ledgerResult = await recordLedgerEntry({
       walletAddress: normalizedWallet,
       entryType: "REFERRER_PERSONAL_ACTIVITY_CASHBACK",

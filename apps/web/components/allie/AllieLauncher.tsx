@@ -10,8 +10,8 @@ import { openAllieEventName } from "@/lib/allie/open";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { cn } from "@/lib/utils";
 
-const openStateKey = "swiftpay.allie.launcherOpen";
-const expandedStateKey = "swiftpay.allie.launcherExpanded";
+const openStateKey = "saphra.allie.launcherOpen";
+const expandedStateKey = "saphra.allie.launcherExpanded";
 const phraseIntervalMs = 3_200;
 
 /**

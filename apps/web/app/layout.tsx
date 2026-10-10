@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 
 import { Providers } from "@/app/providers";
 import { AppLockGate } from "@/components/app-lock/app-lock-gate";
+import { TxApprovalSheet } from "@/components/tx-approval/tx-approval-sheet";
 import { SplashScreen } from "@/components/splash-screen";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -36,10 +37,10 @@ const instrumentSerif = localFont({
   variable: "--font-display",
 });
 
-const siteTitle = "SwiftPay | Do more with USDC";
+const siteTitle = "SaphraONE | Do more with USDC";
 const siteDescription =
   `Money movement infrastructure for the internet. Send, batch, request, swap, and settle stablecoins on ${arcChain.name}.`;
-const brandMark = "/brand/swiftpay-mark.png";
+const brandMark = "/brand/saphra-mark.png";
 
 function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -59,13 +60,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: siteTitle,
   description: siteDescription,
-  applicationName: "SwiftPay",
-  // iPhone and iPad: "Add to Home Screen" opens SwiftPay as its own app.
+  applicationName: "SaphraONE",
+  // iPhone and iPad: "Add to Home Screen" opens SaphraONE as its own app.
   // The home-screen icon is /icons/apple-touch-icon.png, set in icons below.
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SwiftPay",
+    title: "SaphraONE",
   },
   formatDetection: { telephone: false },
   icons: {
@@ -78,7 +79,7 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: [
       {
-        alt: "SwiftPay",
+        alt: "SaphraONE",
         height: 1024,
         url: brandMark,
         width: 1024,
@@ -103,7 +104,7 @@ export const viewport: Viewport = {
   ],
 };
 
-const themeInitScript = `(function(){try{var pref=localStorage.getItem("swiftpay.theme")||"dark";var resolved=pref;if(pref==="system"){resolved=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var dark=resolved==="dark";document.documentElement.dataset.theme=dark?"dark":"light";document.documentElement.dataset.themePref=pref;document.documentElement.style.colorScheme=dark?"dark":"light";document.documentElement.classList.toggle("dark",dark);var surface=localStorage.getItem("swiftpay.light-surface");document.documentElement.dataset.lightSurface=surface==="glass"?"glass":"cream";var loc=localStorage.getItem("swiftpay.locale");var locales=["en","es","fr","de","pt","ar","zh","ja","ko"];if(loc&&locales.indexOf(loc)!==-1){document.documentElement.lang=loc;document.documentElement.dir=loc==="ar"?"rtl":"ltr";}}catch(error){document.documentElement.classList.add("dark");document.documentElement.dataset.theme="dark";document.documentElement.style.colorScheme="dark";document.documentElement.dataset.lightSurface="cream";}})();`;
+const themeInitScript = `(function(){try{var pref=localStorage.getItem("saphra.theme")||"dark";var resolved=pref;if(pref==="system"){resolved=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var dark=resolved==="dark";document.documentElement.dataset.theme=dark?"dark":"light";document.documentElement.dataset.themePref=pref;document.documentElement.style.colorScheme=dark?"dark":"light";document.documentElement.classList.toggle("dark",dark);var surface=localStorage.getItem("saphra.light-surface");document.documentElement.dataset.lightSurface=surface==="glass"?"glass":"cream";var loc=localStorage.getItem("saphra.locale");var locales=["en","es","fr","de","pt","ar","zh","ja","ko"];if(loc&&locales.indexOf(loc)!==-1){document.documentElement.lang=loc;document.documentElement.dir=loc==="ar"?"rtl":"ltr";}}catch(error){document.documentElement.classList.add("dark");document.documentElement.dataset.theme="dark";document.documentElement.style.colorScheme="dark";document.documentElement.dataset.lightSurface="cream";}})();`;
 
 export default async function RootLayout({
   children,
@@ -124,12 +125,13 @@ export default async function RootLayout({
       <body>
         <script
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
-          id="swiftpay-theme-init"
+          id="saphra-theme-init"
         />
         <SplashScreen />
         <TooltipProvider>
           <Providers cookies={cookies}>
             <AppLockGate>{children}</AppLockGate>
+            <TxApprovalSheet />
           </Providers>
           <Toaster position="top-right" richColors />
         </TooltipProvider>

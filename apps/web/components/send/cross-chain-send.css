@@ -1,0 +1,227 @@
+/* Pay to another network. Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+/* Who pays the fee */
+.xc-feemode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+}
+
+.xc-feemode-option {
+  padding: 0.5rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.xc-feemode-option.is-active {
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
+  color: var(--primary);
+}
+
+.dark .xc-feemode-option.is-active {
+  color: var(--link);
+}
+
+.xc-feemode-option:disabled {
+  opacity: 0.6;
+}
+
+.xc-hint {
+  margin-top: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.xc-hint.is-error {
+  color: var(--destructive);
+}
+
+.xc-warn {
+  display: flex;
+  gap: 0.55rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid color-mix(in oklch, #d97706 35%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in oklch, #d97706 9%, transparent);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.xc-warn svg {
+  margin-top: 0.1rem;
+  color: #d97706;
+}
+
+.xc-recipient {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--card);
+}
+
+.xc-recipient-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.xc-recipient-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.xc-recipient-value em {
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  font-style: normal;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.xc-amount {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+}
+
+.xc-amount:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.xc-amount input {
+  min-width: 0;
+  flex: 1;
+  padding: 0.45rem 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.6rem;
+  font-weight: 700;
+  outline: none;
+}
+
+.xc-max {
+  padding: 0.4rem 0.75rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.xc-quote {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+}
+
+.xc-quote .sx-muted {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.xc-quote-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.86rem;
+}
+
+.xc-quote-row > span:first-child {
+  color: var(--muted-foreground);
+}
+
+.xc-quote-row > :last-child {
+  text-align: right;
+}
+
+.sx-send.xc-cta {
+  display: inline-flex;
+  width: 100%;
+  height: 3.2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+
+.xc-done {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding-top: 3rem;
+  text-align: center;
+}
+
+.xc-done-icon {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+}
+
+.xc-done-icon.is-delivered {
+  background: color-mix(in oklch, #16a34a 14%, var(--muted));
+  color: #16a34a;
+}
+
+.xc-done-icon.is-hold {
+  background: color-mix(in oklch, #d97706 14%, var(--muted));
+  color: #d97706;
+}
+
+.xc-progress-note {
+  justify-content: center;
+  text-align: center;
+}
+
+.xc-done-title {
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.xc-done-sub {
+  max-width: 24rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.xc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.xc-done .xc-cta {
+  max-width: 20rem;
+  margin-top: 1rem;
+}

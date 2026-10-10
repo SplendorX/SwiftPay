@@ -1,7 +1,7 @@
 import { readCircleLogin } from "@/lib/circle-session";
 
 /**
- * Authorization contexts SwiftPay can execute under. "agent" is ALLIE's
+ * Authorization contexts SaphraONE can execute under. "agent" is ALLIE's
  * Agent Wallet — a separate context, never a primary wallet the user picks.
  */
 export type WalletMode = "circle" | "external" | "agent";
@@ -9,10 +9,10 @@ export type WalletMode = "circle" | "external" | "agent";
 /** The subset a person can select as their own primary wallet. */
 export type PlatformWalletMode = Exclude<WalletMode, "agent">;
 
-export const agentWalletModeKey = "swiftpay.wallet.agentActive";
+export const agentWalletModeKey = "saphra.wallet.agentActive";
 
-export const walletModeEventName = "swiftpay:wallet-mode";
-export const preferredWalletModeKey = "swiftpay.wallet.preferredMode";
+export const walletModeEventName = "saphra:wallet-mode";
+export const preferredWalletModeKey = "saphra.wallet.preferredMode";
 
 function notifyWalletModeChanged() {
   if (typeof window === "undefined") {

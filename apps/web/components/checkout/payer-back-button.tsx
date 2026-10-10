@@ -8,7 +8,7 @@ import { readPreviousInAppPath } from "@/components/in-app-navigation";
 
 /**
  * Back from a payment page, shown only when the payer got here from inside
- * SwiftPay (the Send scanner, a chat). A link opened fresh from a camera has
+ * SaphraONE (the Send scanner, a chat). A link opened fresh from a camera has
  * nowhere to go back to, so it shows nothing.
  */
 export function PayerBackButton() {

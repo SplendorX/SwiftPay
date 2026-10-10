@@ -20,7 +20,7 @@ const reservedUsernames = new Set([
   "swap",
   "official",
   "security",
-  "swiftpay",
+  "saphra",
   "system",
   "team",
   "wallet",
@@ -48,7 +48,7 @@ export function validateRecipientHandle(value: string) {
   const username = normalizeHandle(value);
 
   if (!recipientUsernamePattern.test(username)) {
-    return "Enter a SwiftPay username or a valid wallet address.";
+    return "Enter a SaphraONE username or a valid wallet address.";
   }
 
   if (reservedUsernames.has(username)) {

@@ -161,7 +161,7 @@ export async function createTicket(input: {
     {
       body: urgent
         ? "Marked urgent: money or account access may be at risk. We prioritise these."
-        : "Thanks — a member of the SwiftPay team will reply here, usually within one business day.",
+        : "Thanks — a member of the SaphraONE team will reply here, usually within one business day.",
       sender: "system",
       ticket_id: created.id,
     },

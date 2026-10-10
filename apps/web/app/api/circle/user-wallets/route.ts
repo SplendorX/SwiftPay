@@ -7,6 +7,7 @@ import {
 } from "@/lib/circle-wallet-session";
 import { request as httpsRequest } from "node:https";
 import { allowInsecureLocalTls } from "@/lib/insecure-local-tls";
+import { txApprovalGate } from "@/lib/tx-approval/enforce";
 
 const circleBaseUrl =
   process.env.CIRCLE_BASE_URL?.trim() ||
@@ -682,6 +683,15 @@ export async function POST(request: Request) {
     // handleCircleAction reports the malformed body.
   }
 
+  // SaphraONE's own confirmation, now that Circle's popup is off: money-moving
+  // calls need a live approval (Face ID, PIN or 2FA). See lib/tx-approval.
+  const gate = peek
+    ? await txApprovalGate(peek as Record<string, unknown>)
+    : null;
+  if (gate && !gate.ok) {
+    return gate.response;
+  }
+
   const userToken =
     peek?.action && sessionRenewingActions.has(peek.action) && typeof peek.userToken === "string"
       ? peek.userToken.trim()
@@ -698,6 +708,9 @@ export async function POST(request: Request) {
     : null;
 
   const response = await handleCircleAction(request);
+  if (gate?.ok && !response.ok) {
+    await gate.release();
+  }
   const issued = renewal ? await renewal : null;
   if (issued && response.ok) {
     await setWalletSessionCookies(response, issued.token);

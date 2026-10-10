@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       role: typeof body.role === "string" ? body.role : null,
       paymentDestinationType:
         body.paymentDestinationType === "EXTERNAL_WALLET" ? "EXTERNAL_WALLET" : "SWIFTPAY_USER",
-      swiftpayUsername: typeof body.swiftpayUsername === "string" ? body.swiftpayUsername : null,
+      saphraUsername: typeof body.saphraUsername === "string" ? body.saphraUsername : null,
       walletAddress: typeof body.walletAddress === "string" ? body.walletAddress : null,
       preferredAsset: typeof body.preferredAsset === "string" ? body.preferredAsset : "USDC",
       defaultPaymentAmount: typeof body.defaultPaymentAmount === "string" ? body.defaultPaymentAmount : "0",

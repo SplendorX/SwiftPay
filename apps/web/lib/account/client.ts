@@ -27,7 +27,7 @@ async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Pro
     return await parseJson<T>(await fetch(input, init));
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error("Could not reach SwiftPay. Refresh and try again.");
+      throw new Error("Could not reach SaphraONE. Refresh and try again.");
     }
     throw error;
   }

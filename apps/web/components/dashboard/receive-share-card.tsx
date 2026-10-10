@@ -43,7 +43,7 @@ export function ReceiveShareCard({
     }
 
     // With Checkout on, a scan opens a pay page for the payer (any wallet
-    // or SwiftPay) rather than the signed-in Request screen.
+    // or SaphraONE) rather than the signed-in Request screen.
     if (checkoutEnabled && isBusiness && username) {
       return `${origin}/p/${encodeURIComponent(username)}`;
     }
@@ -141,7 +141,7 @@ export function ReceiveShareCard({
                 fgColor="#160f24"
                 marginSize={1}
                 size={80}
-                title="SwiftPay receive QR"
+                title="SaphraONE receive QR"
                 value={qrValue}
               />
             ) : (

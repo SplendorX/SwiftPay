@@ -15,7 +15,7 @@ type SidebarContextValue = {
   toggleCollapsed: () => void;
 };
 
-const collapsedKey = "swiftpay.sidebar.collapsed";
+const collapsedKey = "saphra.sidebar.collapsed";
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 

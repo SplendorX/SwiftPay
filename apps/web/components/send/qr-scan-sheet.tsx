@@ -96,7 +96,7 @@ export function QrScanSheet({
         <div className="sx-sheet">
           <SheetTitle className="text-center text-lg font-bold">Scan to pay</SheetTitle>
           <SheetDescription className="text-center text-sm text-muted-foreground">
-            Point the camera at a SwiftPay QR code or an Arc wallet address.
+            Point the camera at a SaphraONE QR code or an Arc wallet address.
           </SheetDescription>
           <div className="sx-scan">
             <video muted playsInline ref={videoRef} />

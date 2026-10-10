@@ -40,7 +40,7 @@ export type CreateTeamMemberInput = {
   email?: string | null;
   role?: string | null;
   paymentDestinationType: PaymentDestinationType;
-  swiftpayUsername?: string | null;
+  saphraUsername?: string | null;
   walletAddress?: string | null;
   preferredAsset?: string;
   defaultPaymentAmount?: string;
@@ -53,7 +53,7 @@ export type UpdateTeamMemberInput = Partial<{
   email: string | null;
   role: string | null;
   paymentDestinationType: PaymentDestinationType;
-  swiftpayUsername: string | null;
+  saphraUsername: string | null;
   walletAddress: string;
   preferredAsset: string;
   defaultPaymentAmount: string;
@@ -62,20 +62,20 @@ export type UpdateTeamMemberInput = Partial<{
 
 export async function resolveDestination(input: {
   paymentDestinationType: PaymentDestinationType;
-  swiftpayUsername?: string | null;
+  saphraUsername?: string | null;
   walletAddress?: string | null;
-}): Promise<{ swiftpayUsername: string | null; walletAddress: string }> {
+}): Promise<{ saphraUsername: string | null; walletAddress: string }> {
   if (input.paymentDestinationType === "SWIFTPAY_USER") {
-    const raw = (input.swiftpayUsername ?? "").trim().replace(/^@+/, "");
+    const raw = (input.saphraUsername ?? "").trim().replace(/^@+/, "");
     if (!raw) {
-      throw payrollErrors.invalidDestination("Enter a SwiftPay username.");
+      throw payrollErrors.invalidDestination("Enter a SaphraONE username.");
     }
     const profile = await findProfileByUsernameServer(raw);
     if (!profile || !isAddress(profile.wallet_address)) {
-      throw payrollErrors.invalidDestination(`SwiftPay user @${raw} was not found.`);
+      throw payrollErrors.invalidDestination(`SaphraONE user @${raw} was not found.`);
     }
     return {
-      swiftpayUsername: profile.username,
+      saphraUsername: profile.username,
       walletAddress: getAddress(profile.wallet_address).toLowerCase(),
     };
   }
@@ -85,7 +85,7 @@ export async function resolveDestination(input: {
     throw payrollErrors.invalidDestination("Enter a valid EVM wallet address (0x…).");
   }
   return {
-    swiftpayUsername: null,
+    saphraUsername: null,
     walletAddress: getAddress(rawAddr).toLowerCase(),
   };
 }
@@ -98,7 +98,7 @@ export async function createTeamMember(input: CreateTeamMemberInput): Promise<Te
 
   const resolved = await resolveDestination({
     paymentDestinationType: input.paymentDestinationType,
-    swiftpayUsername: input.swiftpayUsername,
+    saphraUsername: input.saphraUsername,
     walletAddress: input.walletAddress,
   });
 
@@ -110,7 +110,7 @@ export async function createTeamMember(input: CreateTeamMemberInput): Promise<Te
     email: input.email?.trim() || null,
     role: input.role?.trim() || null,
     payment_destination_type: input.paymentDestinationType,
-    swiftpay_username: resolved.swiftpayUsername,
+    swiftpay_username: resolved.saphraUsername,
     wallet_address: resolved.walletAddress,
     preferred_asset: input.preferredAsset || "USDC",
     default_payment_amount: input.defaultPaymentAmount || "0",
@@ -219,16 +219,16 @@ export async function updateTeamMember(
 
   if (
     patch.paymentDestinationType !== undefined ||
-    patch.swiftpayUsername !== undefined ||
+    patch.saphraUsername !== undefined ||
     patch.walletAddress !== undefined
   ) {
     const resolved = await resolveDestination({
       paymentDestinationType: patch.paymentDestinationType ?? existing.payment_destination_type,
-      swiftpayUsername: patch.swiftpayUsername !== undefined ? patch.swiftpayUsername : existing.swiftpay_username,
+      saphraUsername: patch.saphraUsername !== undefined ? patch.saphraUsername : existing.swiftpay_username,
       walletAddress: patch.walletAddress !== undefined ? patch.walletAddress : existing.wallet_address,
     });
     updates.payment_destination_type = patch.paymentDestinationType ?? existing.payment_destination_type;
-    updates.swiftpay_username = resolved.swiftpayUsername;
+    updates.swiftpay_username = resolved.saphraUsername;
     updates.wallet_address = resolved.walletAddress;
   }
 

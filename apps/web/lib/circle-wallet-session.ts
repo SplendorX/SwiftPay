@@ -18,7 +18,7 @@ import {
 
 
 /**
- * Exchange a Circle user token for SwiftPay's signed wallet session.
+ * Exchange a Circle user token for SaphraONE's signed wallet session.
  *
  * Only wallets Circle itself reports for the token are added, never an
  * address the browser names, so the session proves control of each wallet.

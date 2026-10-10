@@ -2,7 +2,7 @@
  * The support assistant's matching: the ways people actually ask, and the
  * cases that must reach a person.
  *
- * Run: pnpm --filter @swiftpay/web test:support
+ * Run: pnpm --filter @saphra/web test:support
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -32,7 +32,7 @@ describe("answers the common questions", () => {
     ["cancel my subscription payment", "delete-schedule"],
     ["how do i swap usdc to eurc", "swap"],
     ["what is allie", "allie"],
-    ["how do swiftpoints work", "swiftpoints"],
+    ["how do one-points work", "swiftpoints"],
     ["how do i deposit money", "add-funds"],
     ["pay many people at once", "batchpay"],
     ["how do I log in with metamask", "sign-in-options"],

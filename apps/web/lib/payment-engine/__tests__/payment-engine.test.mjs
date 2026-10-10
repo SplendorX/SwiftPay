@@ -2,7 +2,7 @@
  * Payment engine unit tests — exercises the real modules (no Supabase, no
  * Circle, no Anthropic).
  *
- * Run: pnpm --filter @swiftpay/web test:payment-engine
+ * Run: pnpm --filter @saphra/web test:payment-engine
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

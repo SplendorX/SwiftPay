@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { AllieMark } from "@/components/allie/AllieMark";
+import { AllieProcessing, AllieSettledCheck } from "@/components/allie/AllieProcessing";
 import { ProTierBadge, isProTier } from "@/components/allie/ProTierBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,15 @@ export function ActionCard({
   // "1 of 2 submitted".
   const paymentLegCount =
     execution?.batch?.legs.filter((leg) => leg.kind === "payment").length ?? 0;
+  const amountLabel = `${
+    response.amountUnits ? unitsToDisplay(response.amountUnits) : "—"
+  } ${action.asset}`;
+  const recipientLabel = isBatch
+    ? `${legs.length} recipients`
+    : response.recipientLabel ??
+      (response.resolvedRecipient
+        ? shortenAddress(response.resolvedRecipient)
+        : action.recipient);
 
   return (
     <div
@@ -212,7 +222,8 @@ export function ActionCard({
 
       {state === "settled" && execution ? (
         <div className="mt-3 min-w-0 overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2.5">
-          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+          <p className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            <AllieSettledCheck />
             {execution.batch && paymentLegCount > 1
               ? `${execution.batch.submitted} of ${paymentLegCount} payments submitted to Arc`
               : "Submitted to Arc"}
@@ -253,7 +264,11 @@ export function ActionCard({
         </p>
       ) : null}
 
-      {blocked || state === "settled" || state === "cancelled" ? null : (
+      {state === "executing" ? (
+        <AllieProcessing amountLabel={amountLabel} recipientLabel={recipientLabel} />
+      ) : null}
+
+      {blocked || state === "settled" || state === "cancelled" || state === "executing" ? null : (
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             className="flex-1"

@@ -116,7 +116,7 @@ export function SettingsHub() {
         group: "Preferences",
         icon: Smartphone,
         title: "Install the app",
-        blurb: "Add SwiftPay to your home screen or desktop and open it like any other app.",
+        blurb: "Add SaphraONE to your home screen or desktop and open it like any other app.",
         render: () => <InstallAppSettingsCard />,
       },
       {
@@ -124,7 +124,7 @@ export function SettingsHub() {
         group: "Security & ALLIE",
         icon: Lock,
         title: "App lock",
-        blurb: "Ask for a PIN, Face ID or fingerprint whenever you come back to SwiftPay.",
+        blurb: "Ask for a PIN, Face ID or fingerprint whenever you come back to SaphraONE.",
         render: () => <AppLockSettings />,
       },
       {

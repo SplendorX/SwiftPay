@@ -24,6 +24,8 @@ import {
 } from "@/lib/earn/auto-deposit-approval";
 import { useAutoDeposit } from "@/lib/earn/use-auto-deposit";
 import { useSigningWallet } from "@/lib/use-signing-wallet";
+import { rewardsV2Enabled, USD_PER_POINT } from "@/lib/rewards/config";
+import { usePremiumPayment } from "@/lib/rewards/use-premium-payment";
 import { cn } from "@/lib/utils";
 
 const FREQUENCIES: Array<{ id: AutoDepositFrequency; label: string }> = [
@@ -45,6 +47,17 @@ export function AutoDepositPanel({
 }: AutoDepositPanelProps) {
   const state = useAutoDeposit({ circleSocialUuid, walletAddress });
   const signingWallet = useSigningWallet();
+  const premium = usePremiumPayment();
+  // Rewards v2: paid in USDC at the points' value (100 points = $1).
+  const usdcPrice = rewardsV2Enabled() ? state.unlockCost * USD_PER_POINT : null;
+  const priceLabel = usdcPrice !== null ? `${usdcPrice.toFixed(2)} USDC` : `${state.unlockCost} points`;
+  async function payAndUnlock() {
+    const txHash =
+      usdcPrice !== null
+        ? await premium.pay({ amountUsdc: usdcPrice, title: "Automatic deposits, 6 months" })
+        : undefined;
+    await state.unlock(txHash);
+  }
   const [approving, setApproving] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [mode, setMode] = useState<AutoDepositMode>("SWEEP");
@@ -130,8 +143,8 @@ export function AutoDepositPanel({
             : "Move a set amount into a vault on a schedule, while keeping a reserve you choose untouched."}
         </p>
         <div className="earn-auto-lock-price">
-          <span className="earn-auto-lock-points">{state.unlockCost}</span>
-          <span className="earn-auto-lock-unit">SwiftPoints / 6 months</span>
+          <span className="earn-auto-lock-points">{usdcPrice !== null ? usdcPrice.toFixed(2) : state.unlockCost}</span>
+          <span className="earn-auto-lock-unit">{usdcPrice !== null ? "USDC" : "OnePoints"} / 6 months</span>
         </div>
         {approvalError ? (
         <p className="earn-error mt-3">
@@ -149,7 +162,7 @@ export function AutoDepositPanel({
         <Button
           className="h-11 w-full"
           disabled={state.saving}
-          onClick={() => void state.unlock().catch(() => undefined)}
+          onClick={() => void payAndUnlock().catch(() => undefined)}
           type="button"
         >
           {state.saving || approving ? (
@@ -157,7 +170,7 @@ export function AutoDepositPanel({
           ) : (
             <Lock className="h-4 w-4" />
           )}
-          {state.expired ? "Renew" : "Unlock"} for {state.unlockCost} points
+          {state.expired ? "Renew" : "Unlock"} for {priceLabel}
         </Button>
       </div>
     );
@@ -176,10 +189,10 @@ export function AutoDepositPanel({
             <button
               className="earn-auto-term-renew"
               disabled={state.saving}
-              onClick={() => void state.unlock().catch(() => undefined)}
+              onClick={() => void payAndUnlock().catch(() => undefined)}
               type="button"
             >
-              Renew for {state.unlockCost} points
+              Renew for {priceLabel}
             </button>
           ) : null}
         </div>
@@ -194,7 +207,7 @@ export function AutoDepositPanel({
           <CalendarClock className="h-4 w-4" />
           <span className="earn-auto-mode-title">Sweep on visit</span>
           <span className="earn-auto-mode-copy">
-            Offered as one tap next time you open SwiftPay. You sign each
+            Offered as one tap next time you open SaphraONE. You sign each
             deposit.
           </span>
         </button>
@@ -272,7 +285,7 @@ export function AutoDepositPanel({
       <p className="earn-footnote mt-3">
         {mode === "SWEEP" ? (
           <>
-            {cadence} you open SwiftPay, you will be offered a{" "}
+            {cadence} you open SaphraONE, you will be offered a{" "}
             {amountLabel} USDC deposit, as long as {floorLabel} USDC stays
             liquid. It waits for your visit, so the schedule is a minimum, not
             a guarantee.

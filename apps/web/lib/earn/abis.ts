@@ -1,5 +1,5 @@
 /**
- * Minimal ABIs for SwiftPay Earn (ERC-4626 vault + strategy).
+ * Minimal ABIs for SaphraONE Earn (ERC-4626 vault + strategy).
  * Full artifacts live under packages/contracts after compile.
  */
 

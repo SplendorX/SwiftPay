@@ -1,0 +1,81 @@
+/* Network picker: a row that opens a sheet of networks. Shared by send and receive; its own file so the build cache can't serve a stale copy. */
+
+.xc-picker,
+.xc-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  text-align: left;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.xc-picker:hover,
+.xc-option:hover {
+  background: var(--muted);
+}
+
+.xc-option.is-active {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 8%, var(--card));
+}
+
+.xc-options {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.xc-logo {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+
+.xc-logo.is-empty {
+  background: var(--muted);
+}
+
+.xc-picker-text {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.1rem;
+}
+
+.xc-picker-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.xc-picker-fee {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+
+.xc-fee-skeleton {
+  display: inline-block;
+  width: 4.5rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  background: var(--muted);
+  animation: xc-fee-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes xc-fee-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xc-fee-skeleton {
+    animation: none;
+  }
+}
+

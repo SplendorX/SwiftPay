@@ -14,7 +14,7 @@ export type TractionEventInput = {
   walletAddress?: Address | string | null;
 };
 
-const tractionSessionKey = "swiftpay.traction.sessionId";
+const tractionSessionKey = "saphra.traction.sessionId";
 
 function getSessionId() {
   if (typeof window === "undefined") {

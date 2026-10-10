@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       businessName: typeof body.businessName === "string" ? body.businessName : "",
       circleSocialUuid,
       contactEmail: body.contactEmail,
+      country: typeof body.country === "string" ? body.country : null,
       locale: typeof body.locale === "string" ? body.locale : "en",
       logoUrl: typeof body.logoUrl === "string" ? body.logoUrl : null,
       ownerWallet: actorWallet,

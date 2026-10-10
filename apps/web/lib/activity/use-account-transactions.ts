@@ -11,7 +11,7 @@ import { allieSenderLabel, useWalletUsernames } from "@/lib/activity/usernames";
 import { useWalletTransfers } from "@/lib/use-wallet-transfers";
 
 /**
- * Everything the account did in the last `days` days: SwiftPay's own records
+ * Everything the account did in the last `days` days: SaphraONE's own records
  * (which feature made each payment) merged with the wallet's on-chain
  * transfers, newest first. Shared by the dashboard's Transactions card,
  * Transaction History and Insights, so they always agree.
@@ -108,7 +108,7 @@ export function useAccountTransactions(ownerWallet: string | null | undefined, d
     ...items.flatMap((item) => item.batch?.recipients.map((recipient) => recipient.wallet) ?? []),
   ]);
 
-  /** A row's title, naming SwiftPay counterparties by @username. */
+  /** A row's title, naming SaphraONE counterparties by @username. */
   const titleFor = useCallback(
     (item: AccountActivityItem) => {
       // BulkPay names who was paid; a payroll run keeps its own title.

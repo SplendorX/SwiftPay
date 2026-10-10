@@ -2,7 +2,7 @@ const TICK_MS = 60_000;
 
 declare global {
   // eslint-disable-next-line no-var
-  var __swiftpayRecurringDevScheduler: ReturnType<typeof setInterval> | undefined;
+  var __saphraRecurringDevScheduler: ReturnType<typeof setInterval> | undefined;
 }
 
 /**
@@ -14,7 +14,7 @@ export function startRecurringDevScheduler() {
     return;
   }
 
-  if (globalThis.__swiftpayRecurringDevScheduler) {
+  if (globalThis.__saphraRecurringDevScheduler) {
     return;
   }
 
@@ -30,7 +30,7 @@ export function startRecurringDevScheduler() {
   };
 
   void tick();
-  globalThis.__swiftpayRecurringDevScheduler = setInterval(() => {
+  globalThis.__saphraRecurringDevScheduler = setInterval(() => {
     void tick();
   }, TICK_MS);
 }

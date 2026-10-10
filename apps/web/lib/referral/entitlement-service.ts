@@ -1,15 +1,15 @@
-import { recordLedgerEntry, getSwiftPointsSummary } from "@/lib/referral/ledger-service";
+import { recordLedgerEntry, getOnePointsSummary } from "@/lib/referral/ledger-service";
 import { readReferralDbError, referralDb, referralTables } from "@/lib/referral/db";
 import {
   FEATURE_UNLOCK_COST,
   FEATURE_UNLOCK_TERM_LABEL,
   FEATURE_UNLOCK_TERM_MONTHS,
-  type SwiftPointsEntitlementRecord,
-  type SwiftPointsFeature,
+  type OnePointsEntitlementRecord,
+  type OnePointsFeature,
 } from "@/lib/referral/types";
 
 /**
- * Features unlocked by spending SwiftPoints, one term at a time.
+ * Features unlocked by spending OnePoints, one term at a time.
  *
  * Distinct from redemption: redeeming cashes points out to USDC, unlocking
  * burns them for access and pays nothing out. Both debit the same ledger, so a
@@ -36,7 +36,7 @@ function addTerm(from: Date) {
 }
 
 export function isEntitlementActive(
-  entitlement: Pick<SwiftPointsEntitlementRecord, "expires_at"> | null,
+  entitlement: Pick<OnePointsEntitlementRecord, "expires_at"> | null,
 ): boolean {
   if (!entitlement?.expires_at) return false;
   const expiry = new Date(entitlement.expires_at).getTime();
@@ -45,7 +45,7 @@ export function isEntitlementActive(
 
 export async function listEntitlements(
   walletAddress: string,
-): Promise<SwiftPointsEntitlementRecord[]> {
+): Promise<OnePointsEntitlementRecord[]> {
   const wallet = walletAddress.toLowerCase();
   const supabase = referralDb();
   const { data, error } = await supabase
@@ -57,13 +57,13 @@ export async function listEntitlements(
     throw new Error(readReferralDbError(error, "Failed to load entitlements."));
   }
 
-  return (data ?? []) as SwiftPointsEntitlementRecord[];
+  return (data ?? []) as OnePointsEntitlementRecord[];
 }
 
 export async function getEntitlement(
   walletAddress: string,
-  feature: SwiftPointsFeature,
-): Promise<SwiftPointsEntitlementRecord | null> {
+  feature: OnePointsFeature,
+): Promise<OnePointsEntitlementRecord | null> {
   const supabase = referralDb();
   const { data, error } = await supabase
     .from(referralTables.entitlements)
@@ -76,13 +76,13 @@ export async function getEntitlement(
     throw new Error(readReferralDbError(error, "Failed checking entitlement."));
   }
 
-  return (data as SwiftPointsEntitlementRecord | null) ?? null;
+  return (data as OnePointsEntitlementRecord | null) ?? null;
 }
 
 /** True only while the paid term is still running. */
 export async function hasEntitlement(
   walletAddress: string,
-  feature: SwiftPointsFeature,
+  feature: OnePointsFeature,
 ): Promise<boolean> {
   return isEntitlementActive(await getEntitlement(walletAddress, feature));
 }
@@ -96,7 +96,7 @@ export async function hasEntitlement(
  * back-paid into a term that already elapsed.
  */
 export async function unlockFeature(input: {
-  feature: SwiftPointsFeature;
+  feature: OnePointsFeature;
   /**
    * Deliberately extend a term that is still running.
    *
@@ -108,7 +108,7 @@ export async function unlockFeature(input: {
   walletAddress: string;
 }): Promise<{
   alreadyUnlocked: boolean;
-  entitlement: SwiftPointsEntitlementRecord;
+  entitlement: OnePointsEntitlementRecord;
 }> {
   const wallet = input.walletAddress.toLowerCase();
   const cost = FEATURE_UNLOCK_COST[input.feature];
@@ -121,10 +121,10 @@ export async function unlockFeature(input: {
     return { alreadyUnlocked: true, entitlement: existing };
   }
 
-  const summary = await getSwiftPointsSummary(wallet);
+  const summary = await getOnePointsSummary(wallet);
   if (summary.available < cost) {
     throw new Error(
-      `${FEATURE_UNLOCK_TERM_LABEL} of this feature costs ${cost} SwiftPoints. You have ${summary.available}.`,
+      `${FEATURE_UNLOCK_TERM_LABEL} of this feature costs ${cost} OnePoints. You have ${summary.available}.`,
     );
   }
 
@@ -177,6 +177,43 @@ export async function unlockFeature(input: {
 
   return {
     alreadyUnlocked: false,
-    entitlement: saved.data as SwiftPointsEntitlementRecord,
+    entitlement: saved.data as OnePointsEntitlementRecord,
   };
+}
+
+/**
+ * Grant one term of a feature that was paid for in USDC (Rewards v2). The
+ * payment was verified and recorded as a premium purchase first; a term still
+ * running is extended, so nothing paid for is lost.
+ */
+export async function grantPaidEntitlement(input: {
+  feature: OnePointsFeature;
+  purchaseId: string;
+  walletAddress: string;
+}): Promise<OnePointsEntitlementRecord> {
+  const wallet = input.walletAddress.toLowerCase();
+  const existing = await getEntitlement(wallet, input.feature);
+  const now = new Date();
+  const previousExpiry = existing?.expires_at ? new Date(existing.expires_at) : null;
+  const termStart = previousExpiry && previousExpiry.getTime() > now.getTime() ? previousExpiry : now;
+
+  const saved = await referralDb()
+    .from(referralTables.entitlements)
+    .upsert(
+      {
+        expires_at: addTerm(termStart).toISOString(),
+        feature: input.feature,
+        ledger_entry_id: null,
+        points_spent: 0,
+        wallet_address: wallet,
+        ...(existing ? { renewed_at: now.toISOString() } : {}),
+      },
+      { onConflict: "wallet_address,feature" },
+    )
+    .select("*")
+    .single();
+  if (saved.error) {
+    throw new Error(readReferralDbError(saved.error, "Failed to grant the unlock."));
+  }
+  return saved.data as OnePointsEntitlementRecord;
 }

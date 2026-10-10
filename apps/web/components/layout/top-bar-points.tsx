@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Check,
-  Coins,
   Copy,
   ExternalLink,
   Gift,
@@ -16,11 +15,13 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useSwiftPoints, emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { useOnePoints, emitOnePointsUpdated } from "@/lib/referral/use-one-points";
+import { rewardsV2Enabled } from "@/lib/rewards/config";
 import { TierBadge } from "@/components/referral/tier-badge";
 import { RedeemModal } from "@/components/referral/redeem-modal";
 import { BuyPointsModal } from "@/components/referral/buy-points-modal";
 import { GiftPointsModal } from "@/components/referral/gift-points-modal";
+import { OnePointsMark } from "@/components/brand/one-points-mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +41,7 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
     isConnected,
     isLoading,
     refresh,
-  } = useSwiftPoints();
+  } = useOnePoints();
 
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -99,22 +100,22 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label={`SwiftPoints: ${formattedPoints} points (${usdcValue.toFixed(2)} USDC)`}
+        aria-label={`OnePoints: ${formattedPoints} points (${usdcValue.toFixed(2)} USDC)`}
         className={cn(
           "group relative inline-flex h-11 shrink-0 items-center gap-1.5 sm:gap-2 rounded-lg border px-2.5 sm:px-3 text-xs font-semibold shadow-sm transition-all duration-200 outline-none select-none",
           open
-            ? "border-amber-500/50 bg-amber-500/15 text-amber-900 dark:text-amber-100 ring-2 ring-amber-500/20"
-            : "border-amber-500/30 bg-amber-500/10 text-amber-800 hover:border-amber-500/50 hover:bg-amber-500/15 hover:shadow dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20",
+            ? "border-indigo-500/50 bg-indigo-500/15 text-indigo-950 dark:text-indigo-100 ring-2 ring-indigo-500/20"
+            : "border-indigo-500/30 bg-indigo-500/10 text-indigo-900 hover:border-indigo-500/50 hover:bg-indigo-500/15 hover:shadow dark:bg-indigo-500/10 dark:text-indigo-200 dark:hover:bg-indigo-500/20",
         )}
         onClick={() => setOpen((prev) => !prev)}
         type="button"
       >
         <span className="relative flex items-center justify-center">
-          <Coins className="h-4 w-4 text-amber-500 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
+          <OnePointsMark className="h-4 w-4 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
           {points > 0 ? (
             <span className="absolute -top-1 -right-1 flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
             </span>
           ) : null}
         </span>
@@ -127,26 +128,26 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
         </span>
 
         {/* Subtag with USD equivalent on tablet/desktop */}
-        <span className="hidden md:inline-flex items-center rounded-full bg-amber-500/15 dark:bg-amber-500/25 px-1.5 py-0.2 text-[10px] font-semibold text-amber-700 dark:text-amber-300 border border-amber-500/25">
+        <span className="hidden md:inline-flex items-center rounded-full bg-indigo-500/15 dark:bg-indigo-500/25 px-1.5 py-0.2 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 border border-indigo-500/25">
           ${usdcValue.toFixed(2)}
         </span>
       </button>
 
-      {/* Interactive SwiftPoints Popover Dropdown */}
+      {/* Interactive OnePoints Popover Dropdown */}
       {open ? (
         <div
-          aria-label="SwiftPoints Rewards"
+          aria-label="OnePoints Rewards"
           className="points-popover rounded-xl border border-border/80 bg-card p-4 text-card-foreground shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 duration-150"
           role="dialog"
         >
           {/* Header */}
           <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-500">
-                <Coins className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-500">
+                <OnePointsMark className="h-4 w-4" />
               </div>
               <div>
-                <h4 className="text-sm font-bold tracking-tight">SwiftPoints</h4>
+                <h4 className="text-sm font-bold tracking-tight">OnePoints</h4>
                 <p className="text-[11px] text-muted-foreground">Universal Rewards Balance</p>
               </div>
             </div>
@@ -158,13 +159,13 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
           </div>
 
           {/* Main Points Card */}
-          <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3.5 dark:bg-amber-500/10">
+          <div className="mt-3 rounded-lg border border-indigo-500/25 bg-indigo-500/5 p-3.5 dark:bg-indigo-500/10">
             <div className="flex items-baseline justify-between">
               <div>
                 <span className="text-2xl font-black tracking-tight text-foreground sm:text-3xl tabular-nums">
                   {formattedPoints}
                 </span>
-                <span className="ml-1.5 text-xs font-semibold text-muted-foreground">SwiftPoints</span>
+                <span className="ml-1.5 text-xs font-semibold text-muted-foreground">OnePoints</span>
               </div>
               <div className="text-right">
                 <span className="inline-block font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">
@@ -175,7 +176,7 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
             </div>
 
             {/* Quick Metrics */}
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-amber-500/20 pt-2.5 text-[11px]">
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-indigo-500/20 pt-2.5 text-[11px]">
               <div>
                 <span className="text-muted-foreground">Lifetime Earned:</span>
                 <p className="font-semibold text-foreground tabular-nums">+{lifetimeEarned.toLocaleString()} pts</p>
@@ -189,20 +190,29 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
 
           {/* Everyday Cashback Info Tip */}
           <div className="mt-3 rounded-lg border border-border/70 bg-muted/40 p-2.5 text-[11px] leading-relaxed text-muted-foreground flex items-start gap-2">
-            <Coins className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+            <OnePointsMark className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             <span>
-              Earn <strong>1 to 50 SwiftPoints</strong> cashback on every platform transaction from 20 USDC/EURC up.
+              {rewardsV2Enabled() ? (
+                <>
+                  Earn <strong>1 point per $10</strong> you pay (up to 500 a month), plus streak bonuses.
+                </>
+              ) : (
+                <>
+                  Earn <strong>1 to 50 OnePoints</strong> cashback on every platform transaction from 20 USDC/EURC up.
+                </>
+              )}
             </span>
           </div>
 
           {/* Actions */}
           <div className="mt-3.5 flex flex-col gap-2">
-            {isConnected && activeWallet ? (
+            {/* Rewards v2: points are spent on discounts, never redeemed or bought. */}
+            {isConnected && activeWallet && !rewardsV2Enabled() ? (
               <RedeemModal
                 availablePoints={points}
                 onSuccess={() => {
                   void refresh();
-                  emitSwiftPointsUpdated();
+                  emitOnePointsUpdated();
                 }}
                 trigger={
                   <Button
@@ -211,7 +221,7 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
                     size="sm"
                     variant={canRedeem ? "default" : "secondary"}
                   >
-                    <Coins className="mr-1.5 h-3.5 w-3.5" />
+                    <OnePointsMark className="mr-1.5 h-3.5 w-3.5" />
                     {canRedeem
                       ? `Redeem for USDC (Min 100 pts)`
                       : `Redeem for USDC (Need ${Math.max(0, 100 - points)} more pts)`}
@@ -222,11 +232,12 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
             ) : null}
 
             {isConnected && activeWallet ? (
-              <div className="grid grid-cols-2 gap-2">
+              <div className={rewardsV2Enabled() ? "grid gap-2" : "grid grid-cols-2 gap-2"}>
+                {rewardsV2Enabled() ? null : (
                 <BuyPointsModal
                   onSuccess={() => {
                     void refresh();
-                    emitSwiftPointsUpdated();
+                    emitOnePointsUpdated();
                   }}
                   trigger={
                     <Button
@@ -241,11 +252,12 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
                   }
                   userWallet={activeWallet}
                 />
+                )}
                 <GiftPointsModal
                   availablePoints={points}
                   onSuccess={() => {
                     void refresh();
-                    emitSwiftPointsUpdated();
+                    emitOnePointsUpdated();
                   }}
                   trigger={
                     <Button
@@ -271,10 +283,10 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
               size="sm"
               variant="outline"
             >
-              <Link href="/referral">
+              <Link href={rewardsV2Enabled() ? "/rewards" : "/referral"}>
                 <span className="flex items-center gap-1.5">
                   <Gift className="h-3.5 w-3.5 text-primary" />
-                  <span>Invite Friends &amp; Rewards Hub</span>
+                  <span>{rewardsV2Enabled() ? "Rewards" : "Invite Friends & Rewards Hub"}</span>
                 </span>
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
               </Link>
@@ -286,7 +298,7 @@ export function TopBarPoints({ className }: TopBarPointsProps) {
             <div className="mt-3 border-t border-border/60 pt-3">
               <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
                 <span>Your Referral Link</span>
-                <span className="text-[10px] text-primary font-medium">Earn 20-100 pts per referral</span>
+                <span className="text-[10px] text-primary font-medium">{rewardsV2Enabled() ? "Earn USDC from their fees" : "Earn 20-100 pts per referral"}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <input

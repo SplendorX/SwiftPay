@@ -1,0 +1,323 @@
+/* ALLIE processing a confirmed payment (AllieProcessing.tsx).
+   Colours come from ALLIE's palette in globals.css (--allie-*). */
+.allie-proc {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--allie-blue) 22%, var(--border));
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 120% at 0% 0%, color-mix(in oklch, var(--allie-violet) 12%, transparent), transparent 60%),
+    color-mix(in oklch, var(--allie-blue) 5%, var(--card));
+  animation: allie-proc-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes allie-proc-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.allie-proc-stage {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+/* The portrait stays still; the ring around it turns. */
+.allie-proc-avatar {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+}
+
+.allie-proc-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, var(--allie-violet), var(--allie-blue), #38bdf8, transparent 70%, var(--allie-violet));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  animation: allie-proc-spin 1.1s linear infinite;
+}
+
+.allie-proc-avatar::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 0 color-mix(in oklch, var(--allie-blue) 45%, transparent);
+  animation: allie-proc-pulse 1.8s ease-out infinite;
+}
+
+.allie-proc-mark {
+  width: 2.45rem !important;
+  height: 2.45rem !important;
+}
+
+@keyframes allie-proc-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes allie-proc-pulse {
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+/* Agent Wallet → track → recipient */
+.allie-proc-flow {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.allie-proc-end {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 40%;
+  padding: 0.3rem 0.6rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.allie-proc-end.is-to {
+  display: block;
+  color: var(--allie-blue);
+}
+
+.dark .allie-proc-end.is-to {
+  color: #a5b4fc;
+}
+
+.allie-proc-track {
+  position: relative;
+  flex: 1;
+  min-width: 1.5rem;
+  height: 2px;
+  border-radius: 9999px;
+  background: repeating-linear-gradient(90deg, color-mix(in oklch, var(--allie-blue) 35%, transparent) 0 5px, transparent 5px 9px);
+}
+
+.allie-proc-packet {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  background: var(--allie-pill-paint, var(--allie-blue));
+  box-shadow: 0 0 10px 2px color-mix(in oklch, var(--allie-blue) 55%, transparent);
+  transform: translate(-50%, -50%);
+  animation: allie-proc-travel 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes allie-proc-travel {
+  0% {
+    left: 0;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+.allie-proc-title {
+  font-size: 0.88rem;
+  color: var(--muted-foreground);
+}
+
+.allie-proc-title strong {
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.allie-proc-dots {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 3px;
+}
+
+.allie-proc-dots span {
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: allie-proc-dot 1.2s ease-in-out infinite;
+}
+
+.allie-proc-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.allie-proc-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes allie-proc-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+/* Steps */
+.allie-proc-steps {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.allie-proc-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+  transition: opacity 220ms ease, color 220ms ease;
+}
+
+.allie-proc-steps li.is-current,
+.allie-proc-steps li.is-done {
+  opacity: 1;
+}
+
+.allie-proc-steps li.is-current {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.allie-proc-step-icon {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+  color: #ffffff;
+}
+
+.allie-proc-steps li.is-done .allie-proc-step-icon {
+  background: var(--allie-pill-paint, var(--allie-blue));
+  box-shadow: none;
+  animation: allie-proc-pop 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The open step: a small turning arc. */
+.allie-proc-steps li.is-current .allie-proc-step-icon {
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--allie-blue) 25%, transparent);
+}
+
+.allie-proc-steps li.is-current .allie-proc-step-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid transparent;
+  border-top-color: var(--allie-blue);
+  border-radius: 9999px;
+  animation: allie-proc-spin 0.8s linear infinite;
+}
+
+.dark .allie-proc-steps li.is-current .allie-proc-step-icon::after {
+  border-top-color: #a5b4fc;
+}
+
+@keyframes allie-proc-pop {
+  from {
+    transform: scale(0.6);
+  }
+}
+
+/* Success: the circle and tick draw in. */
+.allie-settled-check {
+  display: inline-grid;
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.allie-settled-check svg {
+  width: 100%;
+  height: 100%;
+}
+
+.allie-settled-circle {
+  stroke: #10b981;
+  stroke-width: 2;
+  stroke-dasharray: 66;
+  stroke-dashoffset: 66;
+  animation: allie-settled-draw 420ms ease-out forwards;
+}
+
+.allie-settled-tick {
+  stroke: #10b981;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  animation: allie-settled-draw 300ms ease-out 360ms forwards;
+}
+
+@keyframes allie-settled-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .allie-proc,
+  .allie-proc-ring,
+  .allie-proc-avatar::after,
+  .allie-proc-packet,
+  .allie-proc-dots span,
+  .allie-proc-steps li.is-current .allie-proc-step-icon::after,
+  .allie-proc-steps li.is-done .allie-proc-step-icon {
+    animation: none;
+  }
+
+  .allie-proc-packet {
+    left: 50%;
+  }
+
+  .allie-settled-circle,
+  .allie-settled-tick {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

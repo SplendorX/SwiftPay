@@ -73,7 +73,7 @@ async function readShareDecimals(vaultAddress: string): Promise<number | null> {
 }
 
 /**
- * The Arc mainnet vaults SwiftPay offers. App Kit's discovery also returns test
+ * The Arc mainnet vaults SaphraONE offers. App Kit's discovery also returns test
  * vaults and look-alikes that reuse a curator's name at another address (four
  * vaults are called "Steakhouse Prime USDC"), so on mainnet only these are
  * listed. Testnet lists whatever App Kit returns.

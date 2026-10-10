@@ -3,7 +3,7 @@
  * business issues. Each table is the many ways owners actually phrase the
  * same task; every one must land on the same action, with no LLM call.
  *
- * Run: pnpm --filter @swiftpay/web test:allie
+ * Run: pnpm --filter @saphra/web test:allie
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

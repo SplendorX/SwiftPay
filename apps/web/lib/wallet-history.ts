@@ -233,7 +233,7 @@ async function backfillStep(
   }
 }
 
-/** Known SwiftPay contracts, labelled "App action" on receipts like the explorer did. */
+/** Known SaphraONE contracts, labelled "App action" on receipts like the explorer did. */
 function platformContracts() {
   return new Set(
     [
@@ -300,7 +300,7 @@ export async function readWalletHistory(
 /**
  * From when the stored history is complete: the time of the oldest block
  * read so far. Null before the first read. Statements say so when their range
- * starts earlier, since only SwiftPay's own records reach back further.
+ * starts earlier, since only SaphraONE's own records reach back further.
  */
 export async function walletHistoryCoverage(walletInput: string) {
   const cursor = await readCursor(walletInput.toLowerCase()).catch(() => null);

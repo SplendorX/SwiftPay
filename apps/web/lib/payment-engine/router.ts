@@ -39,7 +39,8 @@ export const railEstimatedSeconds: Record<RouteRail, number> = {
   "agent-direct": 5,
   batch: 15,
   recurring: 5,
-  cctp: 900,
+  // FAST CCTP with the Forwarding Service: burn on Arc, delivered in about 30s.
+  cctp: 30,
   "not-yet-available": 0,
 };
 
@@ -63,13 +64,13 @@ function routeFutureRail(requestedRail: NonNullable<RouterContext["requestedRail
   switch (requestedRail) {
     // PHASE F: Circle Gateway unified balance routing.
     case "gateway":
-      return "Gateway rail is not yet available on SwiftPay.";
+      return "Gateway rail is not yet available on SaphraONE.";
     // PHASE G: x402 payment gate / Gateway Nanopayments.
     case "x402":
     case "nanopayment":
-      return "x402 nanopayment rail is not yet available on SwiftPay.";
+      return "x402 nanopayment rail is not yet available on SaphraONE.";
     default:
-      return "Requested rail is not yet available on SwiftPay.";
+      return "Requested rail is not yet available on SaphraONE.";
   }
 }
 

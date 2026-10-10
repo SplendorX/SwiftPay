@@ -13,7 +13,7 @@ import { arcTokens } from "@/lib/tokens";
 import { arcChain } from "@/lib/chains";
 
 /**
- * SwiftPay onchain source of truth.
+ * SaphraONE onchain source of truth.
  *
  * Chain IDs, RPC URLs, explorer URLs, and token addresses come from the
  * existing network configuration. Do not hardcode those values at call sites.

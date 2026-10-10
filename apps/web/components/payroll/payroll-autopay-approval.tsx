@@ -20,7 +20,6 @@ import {
   encodeFunctionData,
   formatUnits,
   getAddress,
-  http,
   isAddress,
   parseUnits,
   type Address,
@@ -32,11 +31,14 @@ import { Button } from "@/components/ui/button";
 import { erc20Abi } from "@/lib/contracts";
 import { onchainFacts } from "@/lib/onchain-facts";
 import { useSigningWallet } from "@/lib/use-signing-wallet";
+import { rewardsV2Enabled, USD_PER_POINT } from "@/lib/rewards/config";
+import { usePremiumPayment } from "@/lib/rewards/use-premium-payment";
 import {
   FEATURE_UNLOCK_COST,
   FEATURE_UNLOCK_TERM_LABEL,
 } from "@/lib/referral/types";
-import { emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { emitOnePointsUpdated } from "@/lib/referral/use-one-points";
+import { arcTransport } from "@/lib/chains";
 
 /**
  * Lets a business authorise unattended payroll.
@@ -66,6 +68,7 @@ export function PayrollAutopayApproval({
   workspaceId?: string;
 }) {
   const wallet = useSigningWallet();
+  const premium = usePremiumPayment();
   const executor = executorAddress();
   const token = onchainFacts.usdcAddress;
 
@@ -93,7 +96,7 @@ export function PayrollAutopayApproval({
     try {
       const client = createPublicClient({
         chain: onchainFacts.chain as Chain,
-        transport: http(onchainFacts.rpcUrl),
+        transport: arcTransport(),
       });
       const value = (await client.readContract({
         abi: erc20Abi,
@@ -119,7 +122,7 @@ export function PayrollAutopayApproval({
     if (circleSocialUuid) params.set("circleSocialUuid", circleSocialUuid);
     try {
       const response = await fetch(
-        `/api/swiftpoints/entitlements?${params.toString()}`,
+        `/api/one-points/entitlements?${params.toString()}`,
         { cache: "no-store" },
       );
       if (!response.ok) return setEntitled(false);
@@ -158,15 +161,23 @@ export function PayrollAutopayApproval({
   // the wording and tells the business its settings survived.
   const lapsed = entitled === false && expiryLabel !== null;
   const unlockCost = FEATURE_UNLOCK_COST.PAYROLL_AUTO_SCHEDULE;
+  // Rewards v2: paid in USDC at the points' value (100 points = $1).
+  const usdcPrice = rewardsV2Enabled() ? unlockCost * USD_PER_POINT : null;
+  const priceLabel = usdcPrice !== null ? `${usdcPrice.toFixed(2)} USDC` : `${unlockCost.toLocaleString()} points`;
 
   async function unlock(renew = false) {
     setUnlocking(true);
     setUnlockError(null);
     try {
-      const response = await fetch("/api/swiftpoints/entitlements", {
+      const txHash =
+        usdcPrice !== null
+          ? await premium.pay({ amountUsdc: usdcPrice, title: "Automatic payroll, 6 months" })
+          : undefined;
+      const response = await fetch("/api/one-points/entitlements", {
         body: JSON.stringify({
           circleSocialUuid,
           feature: "PAYROLL_AUTO_SCHEDULE",
+          txHash,
           // Renewing before the term ends has to be explicit, otherwise the
           // server sees an active entitlement and extends nothing.
           renew,
@@ -190,7 +201,7 @@ export function PayrollAutopayApproval({
             : `Active for the next ${FEATURE_UNLOCK_TERM_LABEL}.`,
         },
       );
-      emitSwiftPointsUpdated();
+      emitOnePointsUpdated();
       await readEntitlement();
     } catch (cause) {
       setUnlockError(
@@ -231,7 +242,7 @@ export function PayrollAutopayApproval({
 
       const client = createPublicClient({
         chain: onchainFacts.chain as Chain,
-        transport: http(onchainFacts.rpcUrl),
+        transport: arcTransport(),
       });
       await client.waitForTransactionReceipt({ hash });
 
@@ -315,10 +326,10 @@ export function PayrollAutopayApproval({
 
           <div className="shrink-0 text-right">
             <p className="font-heading text-xl font-bold tabular-nums">
-              {unlockCost.toLocaleString()}
+              {usdcPrice !== null ? usdcPrice.toFixed(2) : unlockCost.toLocaleString()}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              SwiftPoints / {FEATURE_UNLOCK_TERM_LABEL}
+              {usdcPrice !== null ? "USDC" : "OnePoints"} / {FEATURE_UNLOCK_TERM_LABEL}
             </p>
             <Button
               className="mt-2 h-9"
@@ -365,7 +376,7 @@ export function PayrollAutopayApproval({
             <p className="mt-1 text-xs text-muted-foreground">
               {isApproved ? (
                 <>
-                  SwiftPay may pay approved scheduled runs from this wallet, up
+                  SaphraONE may pay approved scheduled runs from this wallet, up
                   to{" "}
                   <strong className="text-foreground">
                     {Number(approvedLabel).toLocaleString()} USDC
@@ -411,7 +422,7 @@ export function PayrollAutopayApproval({
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              Renew for {unlockCost.toLocaleString()} points
+              Renew for {priceLabel}
             </button>
           ) : null}
         </div>
@@ -471,7 +482,7 @@ export function PayrollAutopayApproval({
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
-        A cap rather than unlimited: SwiftPay can never pull more than this, and
+        A cap rather than unlimited: SaphraONE can never pull more than this, and
         each run still has to be approved before it is paid.
       </p>
 

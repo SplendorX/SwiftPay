@@ -141,7 +141,7 @@ export default function TractionAdminPage() {
         <header className="grid gap-4 border-b border-border pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-muted-foreground">
-              SwiftPay admin
+              SaphraONE admin
             </p>
             <h1 className="mt-2 font-heading text-4xl font-semibold tracking-normal">
               Real traction dashboard

@@ -1,4 +1,4 @@
-import { downloadCanvas, drawSwiftPayBrand, loadBrandImage, roundRect } from "@/lib/brand-canvas";
+import { downloadCanvas, drawSaphraBrand, loadBrandImage, roundRect } from "@/lib/brand-canvas";
 import { svgToCanvas } from "@/lib/qr-image";
 
 /**
@@ -57,7 +57,7 @@ export async function downloadStorefrontPoster(input: {
 
   context.fillStyle = purple;
   context.font = "700 64px Sora, Arial, sans-serif";
-  context.fillText("Scan to pay with SwiftPay", width / 2, y);
+  context.fillText("Scan to pay with SaphraONE", width / 2, y);
   y += 60;
 
   const qrSize = 820;
@@ -73,14 +73,14 @@ export async function downloadStorefrontPoster(input: {
 
   context.fillStyle = muted;
   context.font = "500 40px Manrope, Arial, sans-serif";
-  context.fillText("SwiftPay or any wallet on Arc", width / 2, y);
+  context.fillText("SaphraONE or any wallet on Arc", width / 2, y);
   y += 70;
   context.fillStyle = ink;
   context.font = "600 38px Manrope, Arial, sans-serif";
   context.fillText(input.url.replace(/^https?:\/\//, ""), width / 2, y);
 
   context.textAlign = "left";
-  await drawSwiftPayBrand(context, (width - 330) / 2, height - 170, 88);
+  await drawSaphraBrand(context, (width - 330) / 2, height - 170, 88);
 
-  downloadCanvas(canvas, `SwiftPay-poster-${input.businessName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`);
+  downloadCanvas(canvas, `SaphraONE-poster-${input.businessName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`);
 }

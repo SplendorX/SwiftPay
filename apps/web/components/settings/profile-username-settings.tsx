@@ -688,7 +688,7 @@ export function ProfileUsernameSettings({
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold">Wallet profile</h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Choose how other SwiftPay users see you. New wallet and Google
+            Choose how other SaphraONE users see you. New wallet and Google
             profiles start with defaults you can change here.
           </p>
           {content}

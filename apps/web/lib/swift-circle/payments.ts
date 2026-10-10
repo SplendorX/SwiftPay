@@ -566,7 +566,7 @@ export async function submitPaymentExecution(input: {
     extra: { executionMethod: rail, recipientCount: recipients.length },
   });
 
-  // Credit general transaction cashback server-side (>= 20 USDC/EURC earns SwiftPoints)
+  // Credit general transaction cashback server-side (>= 20 USDC/EURC earns OnePoints)
   try {
     const totalAmount = intent.total_amount ?? "0";
     await processTransactionCashback({

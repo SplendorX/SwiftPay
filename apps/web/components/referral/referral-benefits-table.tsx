@@ -124,7 +124,7 @@ export function ReferralBenefitsTable({ currentTier }: BenefitsTableProps) {
             1. Qualified Activation
           </div>
           <p className="text-muted-foreground leading-relaxed text-[11px]">
-            Triggered <strong>only once</strong> when your invitee signs up and their payments add up to the qualifying volume for your tier (e.g. <strong>250+ USDC</strong> for Starter). Referrer earns tier reward (20 to 100 pts) and referred friend receives <strong>20 SwiftPoints</strong> across all tiers.
+            Triggered <strong>only once</strong> when your invitee signs up and their payments add up to the qualifying volume for your tier (e.g. <strong>250+ USDC</strong> for Starter). Referrer earns tier reward (20 to 100 pts) and referred friend receives <strong>20 OnePoints</strong> across all tiers.
           </p>
         </div>
 
@@ -134,7 +134,7 @@ export function ReferralBenefitsTable({ currentTier }: BenefitsTableProps) {
             2. Referral Activity Cashback
           </div>
           <p className="text-muted-foreground leading-relaxed text-[11px]">
-            Awarded to you on <strong>every subsequent transaction &gt; 10 USDC</strong> made by your qualified referrals. You earn <strong>0.2 to 1.0 SwiftPoint</strong> per transaction depending on your current tier.
+            Awarded to you on <strong>every subsequent transaction &gt; 10 USDC</strong> made by your qualified referrals. You earn <strong>0.2 to 1.0 ONE Point</strong> per transaction depending on your current tier.
           </p>
         </div>
 
@@ -144,7 +144,7 @@ export function ReferralBenefitsTable({ currentTier }: BenefitsTableProps) {
             3. General Platform Cashback
           </div>
           <p className="text-muted-foreground leading-relaxed text-[11px]">
-            Awarded directly to <strong>all SwiftPay accounts</strong> on your own platform transactions: <strong>1 pt (&gt; 20)</strong>, <strong>5 pts (&gt; 100)</strong>, <strong>20 pts (&gt; 500)</strong>, and <strong>50 pts (&gt; 1,000 USDC/EURC)</strong>.
+            Awarded directly to <strong>all SaphraONE accounts</strong> on your own platform transactions: <strong>1 pt (&gt; 20)</strong>, <strong>5 pts (&gt; 100)</strong>, <strong>20 pts (&gt; 500)</strong>, and <strong>50 pts (&gt; 1,000 USDC/EURC)</strong>.
           </p>
         </div>
       </div>

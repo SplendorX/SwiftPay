@@ -2,16 +2,16 @@ import { randomUUID } from "node:crypto";
 
 import { readReferralDbError, referralDb, referralTables } from "@/lib/referral/db";
 import {
-  getSwiftPointsSummary,
+  getOnePointsSummary,
   recordLedgerEntry,
 } from "@/lib/referral/ledger-service";
-import type { SwiftPointsGiftRecord } from "@/lib/referral/types";
+import type { OnePointsGiftRecord } from "@/lib/referral/types";
 
 /** Smallest gift. Below this the ledger noise outweighs the value moved. */
 export const MINIMUM_GIFT_POINTS = 10;
 
 /**
- * Move SwiftPoints from one wallet to another.
+ * Move OnePoints from one wallet to another.
  *
  * Two ledger entries, debit then credit, sharing one idempotency root so a
  * retry cannot double-spend the sender or double-credit the recipient. The
@@ -19,23 +19,23 @@ export const MINIMUM_GIFT_POINTS = 10;
  * reconcile from the gift row, which is recoverable — the reverse would mint
  * points out of nothing.
  */
-export async function giftSwiftPoints(input: {
+export async function giftOnePoints(input: {
   idempotencyKey?: string;
   note?: string;
   points: number;
   recipientWallet: string;
   senderWallet: string;
-}): Promise<SwiftPointsGiftRecord> {
+}): Promise<OnePointsGiftRecord> {
   const sender = input.senderWallet.toLowerCase();
   const recipient = input.recipientWallet.toLowerCase();
   const points = Math.floor(input.points);
 
   if (!Number.isFinite(points) || points < MINIMUM_GIFT_POINTS) {
-    throw new Error(`The smallest gift is ${MINIMUM_GIFT_POINTS} SwiftPoints.`);
+    throw new Error(`The smallest gift is ${MINIMUM_GIFT_POINTS} OnePoints.`);
   }
 
   if (sender === recipient) {
-    throw new Error("You cannot gift SwiftPoints to yourself.");
+    throw new Error("You cannot gift OnePoints to yourself.");
   }
 
   const supabase = referralDb();
@@ -56,14 +56,14 @@ export async function giftSwiftPoints(input: {
 
   if (!recipientProfile.data) {
     throw new Error(
-      "That wallet does not have a SwiftPay profile yet, so it cannot receive points.",
+      "That wallet does not have a SaphraONE profile yet, so it cannot receive points.",
     );
   }
 
-  const summary = await getSwiftPointsSummary(sender);
+  const summary = await getOnePointsSummary(sender);
   if (summary.available < points) {
     throw new Error(
-      `You have ${summary.available} SwiftPoints available, but tried to gift ${points}.`,
+      `You have ${summary.available} OnePoints available, but tried to gift ${points}.`,
     );
   }
 
@@ -77,11 +77,11 @@ export async function giftSwiftPoints(input: {
     .maybeSingle();
 
   if (existing.data) {
-    return existing.data as SwiftPointsGiftRecord;
+    return existing.data as OnePointsGiftRecord;
   }
 
   const debit = await recordLedgerEntry({
-    description: `Gifted ${points} SwiftPoints`,
+    description: `Gifted ${points} OnePoints`,
     entryType: "GIFT_SENT",
     idempotencyKey: `gift:${root}:sent`,
     metadata: { note, recipient },
@@ -90,7 +90,7 @@ export async function giftSwiftPoints(input: {
   });
 
   const credit = await recordLedgerEntry({
-    description: `Received ${points} SwiftPoints`,
+    description: `Received ${points} OnePoints`,
     entryType: "GIFT_RECEIVED",
     idempotencyKey: `gift:${root}:received`,
     metadata: { note, sender },
@@ -118,7 +118,7 @@ export async function giftSwiftPoints(input: {
     );
   }
 
-  return inserted.data as SwiftPointsGiftRecord;
+  return inserted.data as OnePointsGiftRecord;
 }
 
 export async function listGifts(walletAddress: string, limit = 50) {
@@ -135,5 +135,5 @@ export async function listGifts(walletAddress: string, limit = 50) {
     throw new Error(readReferralDbError(error, "Failed to load gifts."));
   }
 
-  return (data ?? []) as SwiftPointsGiftRecord[];
+  return (data ?? []) as OnePointsGiftRecord[];
 }

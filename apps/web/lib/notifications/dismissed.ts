@@ -1,4 +1,4 @@
-const storagePrefix = "swiftpay.alert.dismissed.";
+const storagePrefix = "saphra.alert.dismissed.";
 
 function storageKey(ownerWallet: string) {
   return `${storagePrefix}${ownerWallet.toLowerCase()}`;

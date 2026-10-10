@@ -1,5 +1,5 @@
-export const alertPreferenceStorageKey = "swiftpay.alert.preferences.v1";
-export const alertPreferencesChangedEvent = "swiftpay:alert-preferences";
+export const alertPreferenceStorageKey = "saphra.alert.preferences.v1";
+export const alertPreferencesChangedEvent = "saphra:alert-preferences";
 
 export const alertCategories = [
   "payments",

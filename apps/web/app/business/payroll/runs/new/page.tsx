@@ -46,7 +46,7 @@ type ItemDraft = {
   fullName: string;
   role: string | null;
   paymentDestinationType: string;
-  swiftpayUsername: string | null;
+  saphraUsername: string | null;
   walletAddress: string;
   baseAmount: string;
   adjustments: Array<{
@@ -122,7 +122,7 @@ export default function NewPayrollRunPage() {
         fullName: m.full_name,
         role: m.role,
         paymentDestinationType: m.payment_destination_type,
-        swiftpayUsername: m.swiftpay_username,
+        saphraUsername: m.swiftpay_username,
         walletAddress: m.wallet_address,
         baseAmount: m.default_payment_amount || "0",
         adjustments: [],
@@ -216,7 +216,7 @@ export default function NewPayrollRunPage() {
             teamMemberId: it.teamMemberId,
             recipientName: it.fullName,
             recipientDestination: it.walletAddress,
-            recipientUsername: it.swiftpayUsername,
+            recipientUsername: it.saphraUsername,
             baseAmount: it.baseAmount,
             adjustments: it.adjustments,
           })),
@@ -360,7 +360,7 @@ export default function NewPayrollRunPage() {
                           <span className="pr-run-sub">
                             {item.role ? `${item.role} · ` : ""}
                             {item.paymentDestinationType === "SWIFTPAY_USER"
-                              ? `@${item.swiftpayUsername}`
+                              ? `@${item.saphraUsername}`
                               : `${item.walletAddress.slice(0, 6)}…${item.walletAddress.slice(-4)}`}
                           </span>
                         </span>

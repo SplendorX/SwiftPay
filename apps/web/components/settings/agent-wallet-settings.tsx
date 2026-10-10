@@ -56,7 +56,8 @@ import {
   type PolicyRecord,
 } from "@/lib/allie/client";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
-import { emitSwiftPointsUpdated, useSwiftPoints } from "@/lib/referral/use-swiftpoints";
+import { emitOnePointsUpdated, useOnePoints } from "@/lib/referral/use-one-points";
+import { rewardsV2Enabled } from "@/lib/rewards/config";
 import { markAgentWalletActive } from "@/lib/wallet-mode";
 import { cn } from "@/lib/utils";
 import { userFacingErrorMessage } from "@/lib/circle-session";
@@ -181,7 +182,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function AgentWalletSettings({ embedded = false }: { embedded?: boolean } = {}) {
   const { address, circleSocialUuid } = usePlatformWallet();
   const signingWallet = useSigningWallet();
-  const swiftPoints = useSwiftPoints();
+  const onePoints = useOnePoints();
 
   const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState<AgentWalletRecord | null>(null);
@@ -421,18 +422,18 @@ export function AgentWalletSettings({ embedded = false }: { embedded?: boolean }
       return "ALLIE Pro is active. She can handle free-form instructions now.";
     });
 
-  // The same Pro term, paid from SwiftPoints: no wallet signature needed.
+  // The same Pro term, paid from OnePoints: no wallet signature needed.
   // While Pro is active this adds another term after the current one.
   const handlePayWithPoints = () =>
     runTask("points", async () => {
       if (!context || !plan) throw new Error("Connect a wallet first.");
       const extending = plan.tier === "pro";
       const paid = await activateAllieProWithPoints(context);
-      emitSwiftPointsUpdated();
+      emitOnePointsUpdated();
       await refresh();
       return extending
-        ? `ALLIE Pro extended by ${plan.plan.termDays} days for ${paid.paidPoints} SwiftPoints.`
-        : `ALLIE Pro is active, paid with ${paid.paidPoints} SwiftPoints.`;
+        ? `ALLIE Pro extended by ${plan.plan.termDays} days for ${paid.paidPoints} OnePoints.`
+        : `ALLIE Pro is active, paid with ${paid.paidPoints} OnePoints.`;
     });
 
   const handleRevoke = () =>
@@ -619,7 +620,7 @@ export function AgentWalletSettings({ embedded = false }: { embedded?: boolean }
       {/* ── 2. Fund ──────────────────────────────────────────────────────── */}
       {wallet ? (
         <Section
-          description="Moves USDC from your primary wallet into ALLIE's. You sign it — SwiftPay never holds those keys. On Arc, USDC is the native gas token, so this also covers ALLIE's gas."
+          description="Moves USDC from your primary wallet into ALLIE's. You sign it — SaphraONE never holds those keys. On Arc, USDC is the native gas token, so this also covers ALLIE's gas."
           title="Add funds"
         >
           <div className="grid gap-3">
@@ -747,8 +748,8 @@ export function AgentWalletSettings({ embedded = false }: { embedded?: boolean }
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
               Keep going past {plan.plan.dailyCallBudget}: each extra request is{" "}
-              {plan.plan.overageFeePoints} SwiftPoints ({plan.plan.overageFeeUsdc} USDC),
-              taken from your SwiftPoints balance
+              {plan.plan.overageFeePoints} OnePoints, taken from your OnePoints
+              balance. With no points left, ALLIE pauses until tomorrow
             </li>
             <li className="flex items-start gap-2">
               <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
@@ -762,16 +763,29 @@ export function AgentWalletSettings({ embedded = false }: { embedded?: boolean }
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {/* Pro is a prepaid term that never renews, so there is nothing
                   to cancel: switching to Free early would only forfeit it. */}
-              <Button
-                disabled={busy === "points" || swiftPoints.points < plan.plan.monthlyFeePoints}
-                onClick={() => void handlePayWithPoints()}
-                title={`Your balance: ${swiftPoints.points.toLocaleString()} SwiftPoints`}
-                type="button"
-                variant="outline"
-              >
-                {busy === "points" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Add {plan.plan.termDays} days · {plan.plan.monthlyFeePoints.toLocaleString()} SwiftPoints
-              </Button>
+              {rewardsV2Enabled() ? (
+                // Rewards v2: Pro is paid in USDC only.
+                <Button
+                  disabled={busy === "upgrade" || !signingWallet.canSign}
+                  onClick={() => void handleUpgrade()}
+                  type="button"
+                  variant="outline"
+                >
+                  {busy === "upgrade" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Add {plan.plan.termDays} days · ${plan.plan.monthlyFeeUsdc.toFixed(2)}
+                </Button>
+              ) : (
+                <Button
+                  disabled={busy === "points" || onePoints.points < plan.plan.monthlyFeePoints}
+                  onClick={() => void handlePayWithPoints()}
+                  title={`Your balance: ${onePoints.points.toLocaleString()} OnePoints`}
+                  type="button"
+                  variant="outline"
+                >
+                  {busy === "points" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Add {plan.plan.termDays} days · {plan.plan.monthlyFeePoints.toLocaleString()} OnePoints
+                </Button>
+              )}
               <span className="text-[0.75rem] text-muted-foreground">
                 {plan.usageToday.calls} of {plan.plan.dailyCallBudget} requests
                 used today
@@ -794,19 +808,27 @@ export function AgentWalletSettings({ embedded = false }: { embedded?: boolean }
                   ? "Confirm in wallet…"
                   : `Upgrade — $${plan.plan.monthlyFeeUsdc.toFixed(2)}/mo`}
               </Button>
-              <Button
-                disabled={busy === "points" || swiftPoints.points < plan.plan.monthlyFeePoints}
-                onClick={() => void handlePayWithPoints()}
-                type="button"
-                variant="outline"
-              >
-                {busy === "points" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Pay with {plan.plan.monthlyFeePoints.toLocaleString()} SwiftPoints
-              </Button>
-              <span className="text-[0.75rem] text-muted-foreground">
-                {plan.plan.termDays} days, in USDC from your primary wallet or from
-                SwiftPoints (you have {swiftPoints.points.toLocaleString()}).
-              </span>
+              {rewardsV2Enabled() ? (
+                <span className="text-[0.75rem] text-muted-foreground">
+                  {plan.plan.termDays} days, in USDC from your primary wallet.
+                </span>
+              ) : (
+                <>
+                  <Button
+                    disabled={busy === "points" || onePoints.points < plan.plan.monthlyFeePoints}
+                    onClick={() => void handlePayWithPoints()}
+                    type="button"
+                    variant="outline"
+                  >
+                    {busy === "points" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Pay with {plan.plan.monthlyFeePoints.toLocaleString()} OnePoints
+                  </Button>
+                  <span className="text-[0.75rem] text-muted-foreground">
+                    {plan.plan.termDays} days, in USDC from your primary wallet or from
+                    OnePoints (you have {onePoints.points.toLocaleString()}).
+                  </span>
+                </>
+              )}
             </div>
           )}
         </section>

@@ -12,10 +12,10 @@ interface TierProgressCardProps {
 }
 
 const tierCashbackDescriptions: Record<ReferralTier, string> = {
-  STARTER: "0.2 SwiftPoints / tx > 10 USDC",
-  BUILDER: "0.3 SwiftPoints / tx > 10 USDC",
-  ARCHITECT: "0.5 SwiftPoints / tx > 10 USDC",
-  AMBASSADOR: "1.0 SwiftPoint / tx > 10 USDC",
+  STARTER: "0.2 OnePoints / tx > 10 USDC",
+  BUILDER: "0.3 OnePoints / tx > 10 USDC",
+  ARCHITECT: "0.5 OnePoints / tx > 10 USDC",
+  AMBASSADOR: "1.0 ONE Point / tx > 10 USDC",
 };
 
 const tierDirectPersonal: Record<ReferralTier, number> = {

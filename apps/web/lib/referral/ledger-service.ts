@@ -1,16 +1,16 @@
 import { referralDb, referralTables, readReferralDbError } from "@/lib/referral/db";
 import type {
-  SwiftPointsAccountRecord,
-  SwiftPointsEntryType,
-  SwiftPointsLedgerEntryRecord,
+  OnePointsAccountRecord,
+  OnePointsEntryType,
+  OnePointsLedgerEntryRecord,
 } from "@/lib/referral/types";
 import {
-  SWIFTPOINTS_UNITS_PER_POINT,
-  SWIFTPOINTS_USD_PER_POINT,
+  ONE_POINTS_UNITS_PER_POINT,
+  ONE_POINTS_USD_PER_POINT,
 } from "@/lib/referral/types";
 
 /**
- * Convert SwiftPoints display amount (e.g. 20, 0.3) to integer internal units.
+ * Convert OnePoints display amount (e.g. 20, 0.3) to integer internal units.
  * Uses string arithmetic to avoid IEEE 754 floating point inaccuracies.
  */
 export function pointsToInternalUnits(points: number | string): bigint {
@@ -21,33 +21,33 @@ export function pointsToInternalUnits(points: number | string): bigint {
   const magnitude = negative || str.startsWith("+") ? str.slice(1) : str;
   const [whole, fraction = ""] = magnitude.split(".");
   const paddedFrac = (fraction + "00").slice(0, 2);
-  const units = BigInt(whole || "0") * SWIFTPOINTS_UNITS_PER_POINT + BigInt(paddedFrac);
+  const units = BigInt(whole || "0") * ONE_POINTS_UNITS_PER_POINT + BigInt(paddedFrac);
   return negative ? -units : units;
 }
 
 /**
- * Convert internal integer units to human-readable SwiftPoints.
+ * Convert internal integer units to human-readable OnePoints.
  */
 export function internalUnitsToPoints(units: bigint | number | string): number {
   const b = BigInt(units);
-  return Number(b) / Number(SWIFTPOINTS_UNITS_PER_POINT);
+  return Number(b) / Number(ONE_POINTS_UNITS_PER_POINT);
 }
 
 /**
  * Convert internal integer units to USDC equivalent amount.
- * 1 SwiftPoint = 0.01 USDC -> 100 internal units = 0.01 USDC -> 1 unit = 0.0001 USDC
+ * 1 ONE Point = 0.01 USDC -> 100 internal units = 0.01 USDC -> 1 unit = 0.0001 USDC
  */
 export function internalUnitsToUsdc(units: bigint | number | string): number {
   const pts = internalUnitsToPoints(units);
-  return Number((pts * SWIFTPOINTS_USD_PER_POINT).toFixed(4));
+  return Number((pts * ONE_POINTS_USD_PER_POINT).toFixed(4));
 }
 
 /**
- * Ensure a SwiftPoints account exists for a wallet.
+ * Ensure a OnePoints account exists for a wallet.
  */
-export async function getOrCreateSwiftPointsAccount(
+export async function getOrCreateOnePointsAccount(
   walletAddress: string,
-): Promise<SwiftPointsAccountRecord> {
+): Promise<OnePointsAccountRecord> {
   const wallet = walletAddress.toLowerCase();
   const supabase = referralDb();
 
@@ -58,11 +58,11 @@ export async function getOrCreateSwiftPointsAccount(
     .maybeSingle();
 
   if (existing.error) {
-    throw new Error(readReferralDbError(existing.error, "Could not load SwiftPoints account."));
+    throw new Error(readReferralDbError(existing.error, "Could not load OnePoints account."));
   }
 
   if (existing.data) {
-    return existing.data as SwiftPointsAccountRecord;
+    return existing.data as OnePointsAccountRecord;
   }
 
   const created = await supabase
@@ -84,12 +84,12 @@ export async function getOrCreateSwiftPointsAccount(
         .select("*")
         .eq("wallet_address", wallet)
         .single();
-      if (retry.data) return retry.data as SwiftPointsAccountRecord;
+      if (retry.data) return retry.data as OnePointsAccountRecord;
     }
-    throw new Error(readReferralDbError(created.error, "Could not initialize SwiftPoints account."));
+    throw new Error(readReferralDbError(created.error, "Could not initialize OnePoints account."));
   }
 
-  return created.data as SwiftPointsAccountRecord;
+  return created.data as OnePointsAccountRecord;
 }
 
 /**
@@ -98,7 +98,7 @@ export async function getOrCreateSwiftPointsAccount(
  */
 export async function recordLedgerEntry(input: {
   walletAddress: string;
-  entryType: SwiftPointsEntryType;
+  entryType: OnePointsEntryType;
   points: number | string;
   idempotencyKey: string;
   description: string;
@@ -110,8 +110,8 @@ export async function recordLedgerEntry(input: {
   policyVersion?: string;
   createdBy?: string;
 }): Promise<{
-  entry: SwiftPointsLedgerEntryRecord;
-  account: SwiftPointsAccountRecord;
+  entry: OnePointsLedgerEntryRecord;
+  account: OnePointsAccountRecord;
   alreadyProcessed: boolean;
 }> {
   const wallet = input.walletAddress.toLowerCase();
@@ -129,23 +129,23 @@ export async function recordLedgerEntry(input: {
   }
 
   if (existingEntry.data) {
-    const account = await getOrCreateSwiftPointsAccount(wallet);
+    const account = await getOrCreateOnePointsAccount(wallet);
     return {
-      entry: existingEntry.data as SwiftPointsLedgerEntryRecord,
+      entry: existingEntry.data as OnePointsLedgerEntryRecord,
       account,
       alreadyProcessed: true,
     };
   }
 
   // 2. Fetch or create account
-  const account = await getOrCreateSwiftPointsAccount(wallet);
+  const account = await getOrCreateOnePointsAccount(wallet);
 
   const deltaUnits = pointsToInternalUnits(input.points);
   const isDebit = deltaUnits < 0n;
   const currentAvailableUnits = BigInt(account.available_balance_units);
 
   if (isDebit && currentAvailableUnits + deltaUnits < 0n) {
-    throw new Error("Insufficient SwiftPoints balance.");
+    throw new Error("Insufficient ONE Points balance.");
   }
 
   const displayAmount = internalUnitsToPoints(deltaUnits);
@@ -183,7 +183,7 @@ export async function recordLedgerEntry(input: {
         .eq("idempotency_key", input.idempotencyKey)
         .single();
       return {
-        entry: duplicate.data as SwiftPointsLedgerEntryRecord,
+        entry: duplicate.data as OnePointsLedgerEntryRecord,
         account,
         alreadyProcessed: true,
       };
@@ -213,12 +213,12 @@ export async function recordLedgerEntry(input: {
     .single();
 
   if (accountUpdate.error) {
-    throw new Error(readReferralDbError(accountUpdate.error, "Could not update SwiftPoints account."));
+    throw new Error(readReferralDbError(accountUpdate.error, "Could not update OnePoints account."));
   }
 
   return {
-    entry: entryInsert.data as SwiftPointsLedgerEntryRecord,
-    account: accountUpdate.data as SwiftPointsAccountRecord,
+    entry: entryInsert.data as OnePointsLedgerEntryRecord,
+    account: accountUpdate.data as OnePointsAccountRecord,
     alreadyProcessed: false,
   };
 }
@@ -226,8 +226,8 @@ export async function recordLedgerEntry(input: {
 /**
  * Get account points breakdown.
  */
-export async function getSwiftPointsSummary(walletAddress: string) {
-  const account = await getOrCreateSwiftPointsAccount(walletAddress);
+export async function getOnePointsSummary(walletAddress: string) {
+  const account = await getOrCreateOnePointsAccount(walletAddress);
   const availableUnits = BigInt(account.available_balance_units);
   const pendingUnits = BigInt(account.pending_balance_units);
   const lifetimeEarnedUnits = BigInt(account.lifetime_earned_units);
@@ -245,7 +245,7 @@ export async function getSwiftPointsSummary(walletAddress: string) {
 /**
  * List ledger history for a wallet.
  */
-export async function listSwiftPointsLedger(walletAddress: string, limit = 50) {
+export async function listOnePointsLedger(walletAddress: string, limit = 50) {
   const wallet = walletAddress.toLowerCase();
   const supabase = referralDb();
 
@@ -260,5 +260,5 @@ export async function listSwiftPointsLedger(walletAddress: string, limit = 50) {
     throw new Error(readReferralDbError(error, "Could not list points ledger entries."));
   }
 
-  return (data ?? []) as SwiftPointsLedgerEntryRecord[];
+  return (data ?? []) as OnePointsLedgerEntryRecord[];
 }

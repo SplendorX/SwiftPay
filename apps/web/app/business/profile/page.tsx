@@ -18,7 +18,7 @@ export default function BusinessProfilePage() {
     <PlatformAccessGate>
       <PlatformChrome
         actions={<PlatformProfileControls />}
-        subtitle="Public business branding on SwiftPay"
+        subtitle="Public business branding on SaphraONE"
         title="Business profile"
       >
         <ProfileEditor />

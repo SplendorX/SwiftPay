@@ -3,12 +3,12 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-const lastPathKey = "swiftpay.lastPath";
-const previousPathKey = "swiftpay.previousPath";
+const lastPathKey = "saphra.lastPath";
+const previousPathKey = "saphra.previousPath";
 
 /**
  * Remembers the page this tab is on, so a page can tell whether it was
- * reached from inside SwiftPay or opened fresh (say, from a phone camera).
+ * reached from inside SaphraONE or opened fresh (say, from a phone camera).
  */
 export function InAppNavigationTracker() {
   const pathname = usePathname();
@@ -27,7 +27,7 @@ export function InAppNavigationTracker() {
 }
 
 /**
- * The SwiftPay page this tab was on before `pathname`, or null when the tab
+ * The SaphraONE page this tab was on before `pathname`, or null when the tab
  * opened straight onto it. Works before or after the tracker has run.
  */
 export function readPreviousInAppPath(pathname: string) {

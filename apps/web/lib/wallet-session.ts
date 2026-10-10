@@ -1,3 +1,4 @@
+import "@/lib/env-compat";
 import crypto from "node:crypto";
 
 import {
@@ -5,8 +6,8 @@ import {
   walletAuthSessionTtlMs,
 } from "@/lib/wallet-auth";
 
-export const walletChallengeCookieName = "swiftpay_wallet_challenge";
-export const walletSessionCookieName = "swiftpay_wallet_session";
+export const walletChallengeCookieName = "saphra_wallet_challenge";
+export const walletSessionCookieName = "saphra_wallet_session";
 
 type WalletTokenType = "challenge" | "session";
 
@@ -48,7 +49,7 @@ const maxSessionWallets = 12;
  * fall back so a fresh checkout runs; every other build refuses.
  */
 function getSessionSecret() {
-  const secret = process.env.SWIFTPAY_SESSION_SECRET?.trim();
+  const secret = process.env.SAPHRA_SESSION_SECRET?.trim();
   if (secret && secret.length >= 32) {
     return secret;
   }
@@ -59,7 +60,7 @@ function getSessionSecret() {
   }
 
   throw new Error(
-    "Set SWIFTPAY_SESSION_SECRET (at least 32 characters, e.g. `openssl rand -hex 32`) for wallet sessions.",
+    "Set SAPHRA_SESSION_SECRET (at least 32 characters, e.g. `openssl rand -hex 32`) for wallet sessions.",
   );
 }
 

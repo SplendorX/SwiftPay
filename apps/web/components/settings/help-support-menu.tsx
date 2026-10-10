@@ -12,7 +12,7 @@ type Panel = "chat" | "requests" | "topics";
 
 const rows: Array<{ body: string; icon: ReactNode; id: Panel; title: string; tone: string }> = [
   {
-    body: "Ask a question; ALLIE answers, and the SwiftPay team takes over when needed.",
+    body: "Ask a question; ALLIE answers, and the SaphraONE team takes over when needed.",
     icon: <MessagesSquare className="h-5 w-5" />,
     id: "chat",
     title: "Chat with us",

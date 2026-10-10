@@ -1,5 +1,5 @@
 /**
- * Core Types and Constants for SwiftPay Referral & SwiftPoints System.
+ * Core Types and Constants for SaphraONE Referral & OnePoints System.
  * Enforces all fintech rules from the build specification.
  */
 
@@ -31,7 +31,7 @@ export type QualificationMethod =
   | "TRANSACTION_VOLUME"
   | "BUSINESS_VOLUME";
 
-export type SwiftPointsEntryType =
+export type OnePointsEntryType =
   | "REFERRER_PERSONAL_QUALIFICATION_REWARD"
   | "REFERRER_BUSINESS_QUALIFICATION_REWARD"
   | "REFERRED_PERSONAL_QUALIFICATION_REWARD"
@@ -39,6 +39,9 @@ export type SwiftPointsEntryType =
   | "REFERRER_PERSONAL_ACTIVITY_CASHBACK"
   | "REFERRER_BUSINESS_ACTIVITY_CASHBACK"
   | "TRANSACTION_CASHBACK"
+  | "STREAK_REWARD"
+  | "QUEST_REWARD"
+  | "DISCOUNT_CLAIM"
   | "REDEMPTION"
   | "PURCHASE"
   | "GIFT_SENT"
@@ -47,19 +50,19 @@ export type SwiftPointsEntryType =
   | "ADMIN_ADJUSTMENT"
   | "REVERSAL";
 
-/** Features that can be unlocked by spending SwiftPoints. */
-export type SwiftPointsFeature =
+/** Features that can be unlocked by spending OnePoints. */
+export type OnePointsFeature =
   | "EARN_AUTO_DEPOSIT"
   | "PAYROLL_AUTO_SCHEDULE";
 
-/** Unlock prices, in SwiftPoints. Each purchase covers one term. */
-export const FEATURE_UNLOCK_COST: Record<SwiftPointsFeature, number> = {
+/** Unlock prices, in OnePoints. Each purchase covers one term. */
+export const FEATURE_UNLOCK_COST: Record<OnePointsFeature, number> = {
   EARN_AUTO_DEPOSIT: 500,
   PAYROLL_AUTO_SCHEDULE: 1_500,
 };
 
 /** Human labels for the unlock UI. */
-export const FEATURE_LABELS: Record<SwiftPointsFeature, string> = {
+export const FEATURE_LABELS: Record<OnePointsFeature, string> = {
   EARN_AUTO_DEPOSIT: "Automatic deposits",
   PAYROLL_AUTO_SCHEDULE: "Automatic payroll",
 };
@@ -68,10 +71,10 @@ export const FEATURE_LABELS: Record<SwiftPointsFeature, string> = {
 export const FEATURE_UNLOCK_TERM_MONTHS = 6;
 export const FEATURE_UNLOCK_TERM_LABEL = "6 months";
 
-export type SwiftPointsEntitlementRecord = {
+export type OnePointsEntitlementRecord = {
   id: string;
   wallet_address: string;
-  feature: SwiftPointsFeature;
+  feature: OnePointsFeature;
   points_spent: number;
   ledger_entry_id: string | null;
   granted_at: string;
@@ -80,7 +83,7 @@ export type SwiftPointsEntitlementRecord = {
   expires_at: string;
 };
 
-export type SwiftPointsGiftRecord = {
+export type OnePointsGiftRecord = {
   id: string;
   sender_wallet: string;
   recipient_wallet: string;
@@ -90,7 +93,7 @@ export type SwiftPointsGiftRecord = {
   created_at: string;
 };
 
-export type SwiftPointsPurchaseRecord = {
+export type OnePointsPurchaseRecord = {
   id: string;
   wallet_address: string;
   points: number;
@@ -108,13 +111,13 @@ export type RedemptionStatus =
   | "FAILED"
   | "REVERSED";
 
-export const SWIFTPOINTS_UNITS_PER_POINT = 100n; // 100 internal units = 1 SwiftPoint
-export const SWIFTPOINTS_USD_PER_POINT = 0.01; // 1 SwiftPoint = 0.01 USDC
-export const MINIMUM_REDEMPTION_SWIFTPOINTS = 100; // 100 SwiftPoints = 1 USDC
+export const ONE_POINTS_UNITS_PER_POINT = 100n; // 100 internal units = 1 ONE Point
+export const ONE_POINTS_USD_PER_POINT = 0.01; // 1 ONE Point = 0.01 USDC
+export const MINIMUM_REDEMPTION_ONE_POINTS = 100; // 100 OnePoints = 1 USDC
 export const MINIMUM_REDEMPTION_UNITS = 10_000n;
 
 // Double-sided Welcome Reward for referred account upon qualification
-export const REFERRED_QUALIFICATION_REWARD_POINTS = 20; // 20 SwiftPoints
+export const REFERRED_QUALIFICATION_REWARD_POINTS = 20; // 20 OnePoints
 export const REFERRED_QUALIFICATION_REWARD_UNITS = 2_000n;
 
 export type ReferralProfileRecord = {
@@ -172,7 +175,7 @@ export type ReferralQualificationRecord = {
   created_at: string;
 };
 
-export type SwiftPointsAccountRecord = {
+export type OnePointsAccountRecord = {
   id: string;
   wallet_address: string;
   available_balance_units: string | number | bigint;
@@ -183,11 +186,11 @@ export type SwiftPointsAccountRecord = {
   updated_at: string;
 };
 
-export type SwiftPointsLedgerEntryRecord = {
+export type OnePointsLedgerEntryRecord = {
   id: string;
   account_id: string;
   wallet_address: string;
-  entry_type: SwiftPointsEntryType;
+  entry_type: OnePointsEntryType;
   amount_units: string | number | bigint;
   display_amount: number;
   usdc_equivalent: number;
@@ -204,7 +207,7 @@ export type SwiftPointsLedgerEntryRecord = {
   created_by: string;
 };
 
-export type SwiftPointsRedemptionRecord = {
+export type OnePointsRedemptionRecord = {
   id: string;
   wallet_address: string;
   points_redeemed: number;
@@ -251,7 +254,7 @@ export type ReferralDashboardData = {
     pending: number;
     qualified: number;
   };
-  swiftPoints: {
+  onePoints: {
     available: number;
     pending: number;
     lifetimeEarned: number;
@@ -288,7 +291,7 @@ export type ReferralDashboardData = {
 };
 
 export type TierProgress = ReferralDashboardData["tierProgress"];
-export type SwiftPointsLedgerEntry = SwiftPointsLedgerEntryRecord;
+export type OnePointsLedgerEntry = OnePointsLedgerEntryRecord;
 export type ReferralActivityType =
   | "TRANSFER"
   | "INVOICE_PAYMENT"

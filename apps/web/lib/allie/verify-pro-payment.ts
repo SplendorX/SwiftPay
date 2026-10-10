@@ -3,7 +3,6 @@ import {
   createPublicClient,
   erc20Abi,
   getAddress,
-  http,
   type Chain,
   isAddress,
   parseEventLogs,
@@ -13,6 +12,7 @@ import {
 
 import { onchainFacts } from "@/lib/onchain-facts";
 import { arcTokens } from "@/lib/tokens";
+import { arcTransport } from "@/lib/chains";
 
 /** A Pro payment must be this recent to activate Pro. */
 const maxPaymentAgeMs = 2 * 60 * 60 * 1000;
@@ -21,7 +21,7 @@ let client: ReturnType<typeof createPublicClient> | null = null;
 function arcClient() {
   client ??= createPublicClient({
     chain: onchainFacts.chain as Chain,
-    transport: http(onchainFacts.rpcUrl),
+    transport: arcTransport(),
   });
   return client;
 }

@@ -8,7 +8,7 @@ import {
 } from "@/lib/circle-user-server";
 import { createSignedToken, readSignedToken } from "@/lib/wallet-session";
 
-export const emailSessionCookieName = "swiftpay_email_session";
+export const emailSessionCookieName = "saphra_email_session";
 /** Long enough to finish PIN setup; the wallet session takes over after. */
 export const emailSessionTtlMs = 30 * 60 * 1000;
 
@@ -87,7 +87,7 @@ export function circleUserIdForSupabaseUser(supabaseUserId: string) {
 
 /**
  * Create the Circle user if needed and issue a fresh user token. The PIN the
- * user sets in Circle's own screen protects every transaction; SwiftPay never
+ * user sets in Circle's own screen protects every transaction; SaphraONE never
  * sees it.
  */
 export async function issueCircleUserToken(circleUserId: string) {
@@ -113,7 +113,7 @@ export async function issueCircleUserToken(circleUserId: string) {
   return { encryptionKey: data.encryptionKey, userToken: data.userToken };
 }
 
-/** Wallet addresses owned by a Circle user, checked with a token SwiftPay issued itself. */
+/** Wallet addresses owned by a Circle user, checked with a token SaphraONE issued itself. */
 export async function listCircleUserWalletAddresses(circleUserId: string) {
   const { userToken } = await issueCircleUserToken(circleUserId);
   return listWalletAddressesForUserToken(userToken);

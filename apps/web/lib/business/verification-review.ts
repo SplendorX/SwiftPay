@@ -87,7 +87,7 @@ async function latestSubmission(wallet: string) {
     .limit(1)
     .maybeSingle();
   if (missingTable(error)) {
-    // Say which half is missing, so whoever runs SwiftPay can fix it.
+    // Say which half is missing, so whoever runs SaphraONE can fix it.
     console.warn(
       "[business-verification]",
       error?.code === "42501"
@@ -215,7 +215,7 @@ export async function submitVerification(
   if ((taken.data ?? []).length > 0) {
     decision = {
       method: "MANUAL",
-      note: "This number already verifies another SwiftPay business.",
+      note: "This number already verifies another SaphraONE business.",
       reason: null,
       registryName: null,
       registryStatus: null,
@@ -254,7 +254,7 @@ export async function submitVerification(
       .insert({
         ...row,
         method: "MANUAL",
-        note: "This number already verifies another SwiftPay business.",
+        note: "This number already verifies another SaphraONE business.",
         reviewed_at: null,
         reviewed_by: null,
         status: "PENDING",

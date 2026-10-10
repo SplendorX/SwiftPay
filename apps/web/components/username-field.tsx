@@ -21,7 +21,7 @@ export type ResolvedPerson = {
 };
 
 /**
- * A SwiftPay @username field that works like BulkPay's: people are suggested
+ * A SaphraONE @username field that works like BulkPay's: people are suggested
  * as you type, the username is looked up, and the line underneath says
  * exactly who (and which wallet) it is. `allowAddress` also accepts a pasted
  * 0x wallet.
@@ -69,7 +69,7 @@ export function UsernameField({
     }
     if (looksLikeAddress && !allowAddress) {
       setResolving(false);
-      setResolveError("Enter a SwiftPay username, not a wallet address.");
+      setResolveError("Enter a SaphraONE username, not a wallet address.");
       return;
     }
     let cancelled = false;

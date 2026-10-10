@@ -1,6 +1,6 @@
 /**
  * The RecurePay empty-state artwork: a month calendar with one column of
- * payments ticked off, on SwiftPay's cream disc. Drawn as SVG so it stays
+ * payments ticked off, on SaphraONE's cream disc. Drawn as SVG so it stays
  * crisp at any size; the ticks draw in once (skipped with reduced motion).
  */
 export function RecurepayIllustration({ className }: { className?: string }) {

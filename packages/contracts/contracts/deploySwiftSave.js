@@ -2,7 +2,7 @@
  * Deploy SwiftSaveVault (non-interest savings custody).
  *
  * Usage:
- *   pnpm --filter @swiftpay/contracts deploy:swiftsave
+ *   pnpm --filter @saphra/contracts deploy:swiftsave
  *
  * Env:
  *   PRIVATE_KEY

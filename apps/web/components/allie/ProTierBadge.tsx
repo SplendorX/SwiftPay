@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /**
  * Marks a reply ALLIE Pro's language model produced (Tier 2 or 3), so a Pro
  * user can tell it apart from the free, rule-based Tier 1 — and see when it
- * cost SwiftPoints past the day's included requests.
+ * cost OnePoints past the day's included requests.
  */
 export function ProTierBadge({
   className,
@@ -24,7 +24,7 @@ export function ProTierBadge({
       )}
       title={
         overagePoints
-          ? `Handled by ALLIE Pro's language model. Past today's included requests, so it cost ${overagePoints} SwiftPoints.`
+          ? `Handled by ALLIE Pro's language model. Past today's included requests, so it cost ${overagePoints} OnePoints.`
           : "Handled by ALLIE Pro's language model, not the free tier."
       }
     >

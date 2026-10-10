@@ -2,7 +2,7 @@
 
 import { switchToArc } from "@/lib/arc-network";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
@@ -11,7 +11,6 @@ import {
  encodeFunctionData,
  formatUnits,
  getAddress,
- http,
  isAddress,
  maxUint256,
  parseUnits,
@@ -19,6 +18,7 @@ import {
  type Hash,
  type Hex,
 } from "viem";
+import { confirmFlow } from "@/lib/tx-approval/client";
 import {
  useAccount,
  useChainId,
@@ -63,12 +63,13 @@ import {
  swiftBatchMaxRecipients,
 } from "@/lib/contracts";
 import { BatchReceiptModal } from "@/components/batch/batch-receipt-modal";
+import { TransferProgressOverlay } from "@/components/send/transfer-progress";
+import { TokenIcon } from "@/components/token-icon";
 import {
   BulkpayBar,
   BulkpayComposerTools,
   BulkpayContinueBar,
   BulkpayIntro,
-  BulkpayLastReceipt,
   BulkpayPeopleCard,
   BulkpaySteps,
   BulkpaySummary,
@@ -87,7 +88,7 @@ import {
   personalCircleWallet,
 } from "@/lib/business/provision-wallet";
 import { usePreferredWalletMode } from "@/lib/use-preferred-wallet-mode";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 type BulkpayStep = "intro" | "people" | "summary";
 
@@ -153,7 +154,7 @@ const allowancePollAttempts = 30;
 const allowancePollDelayMs = 2_000;
 const arcPublicClient = createPublicClient({
  chain: arcChain,
- transport: http(arcChain.rpcUrls.default.http[0]),
+ transport: arcTransport(),
 });
 const configuredSwiftBatchAddress =
  swiftBatchAddress && isAddress(swiftBatchAddress)
@@ -235,6 +236,9 @@ export default function BulkPayPage() {
  const pendingCircleBatchTxIdRef = useRef<string | null>(null);
  const closeSuccess = useCallback(() => setSuccessOpen(false), []);
  const [successOpen, setSuccessOpen] = useState(false);
+ // The moving-coin animation for a batch; it ends on the batch summary, with
+ // the full receipt (download, share) one tap away.
+ const [batchDone, setBatchDone] = useState(false);
  // intro → people → summary, like RecurePay.
  const [step, setStep] = useState<BulkpayStep>("intro");
  const [refreshing, setRefreshing] = useState(false);
@@ -537,12 +541,15 @@ export default function BulkPayPage() {
 
  const result = await executeCircleChallenge(challengeId, label);
  const immediateHash = getCircleTransactionHash(result) ?? getCircleTransactionHash(challenge);
- const transactionId =
+ // A real transaction id only: the challenge id goes to the lookup as its
+ // own field. Passed as a transaction id it switched off the lookup's
+ // fallback, so a batch could wait out every retry and end without a hash.
+ const realTransactionId =
  challenge.transactionId ??
  challenge.data?.transactionId ??
  (result as { transactionId?: string; data?: { transactionId?: string } })?.transactionId ??
- (result as { transactionId?: string; data?: { transactionId?: string } })?.data?.transactionId ??
- challengeId;
+ (result as { transactionId?: string; data?: { transactionId?: string } })?.data?.transactionId;
+ const transactionId = realTransactionId ?? challengeId;
 
  if (immediateHash) {
  return { txHash: immediateHash, transactionId };
@@ -551,7 +558,8 @@ export default function BulkPayPage() {
  setStatus("Waiting for Circle on-chain settlement…");
  const recovered = await recoverCircleTxHash({
  attempts: 12,
- transactionId,
+ challengeId,
+ transactionId: realTransactionId,
  userToken: circleLogin.userToken,
  walletId: circleWallet.id,
  });
@@ -634,6 +642,19 @@ export default function BulkPayPage() {
 
  const batchAddress = requireSwiftBatchAddress();
  const tokenAddress = selectedTokenInfo.address;
+
+ // One confirmation for approve + batch: the server checks the batch pays
+ // only these recipients, and no more than this total.
+ return confirmFlow(
+ circleWallet.id,
+ {
+ amount: formatUnits(totalAmountUnits, selectedTokenInfo.decimals),
+ maxUses: 3,
+ recipients: recipients.map((recipient) => recipient.address),
+ title: `Pay ${recipients.length} ${recipients.length === 1 ? "person" : "people"}`,
+ token: selectedToken,
+ },
+ async () => {
  const allowance = await readAllowance(circleAddress, tokenAddress);
 
  if (allowance < requiredAmountUnits) {
@@ -665,6 +686,8 @@ export default function BulkPayPage() {
 
  pendingCircleBatchTxIdRef.current = result.transactionId ?? null;
  return result.txHash as Hash | undefined;
+ },
+ );
  }
 
  function createBatchReceipt(txHash?: Hash): BatchReceipt {
@@ -818,7 +841,7 @@ export default function BulkPayPage() {
  // Paid: start over from the intro, where the receipt waits.
  composerRef.current?.clear();
  setStep("intro");
- setSuccessOpen(true);
+ setBatchDone(true);
 
  setStatus(`${recipients.length} recipient batch submitted`);
  await refreshBalances();
@@ -870,7 +893,7 @@ export default function BulkPayPage() {
  if (navigator.canShare?.({ files: [file] })) {
  await navigator.share({
  files: [file],
- title: "SwiftPay BulkPay receipt",
+ title: "SaphraONE BulkPay receipt",
  });
  setStatus("Batch receipt shared");
  return;
@@ -992,13 +1015,6 @@ export default function BulkPayPage() {
      maxRecipients={swiftBatchMaxRecipients}
      onStart={() => goTo("people")}
     />
-    {batchReceipt ? (
-     <BulkpayLastReceipt
-      onDownload={() => void downloadReceiptPng(batchReceipt)}
-      onShare={() => void shareBatchReceipt(batchReceipt)}
-      receipt={batchReceipt}
-     />
-    ) : null}
    </>
   ) : null}
 
@@ -1095,6 +1111,49 @@ export default function BulkPayPage() {
    </>
   ) : null}
  </div>
+
+ <TransferProgressOverlay
+  active={isPending || batchDone}
+  coin={batchReceipt?.token ?? selectedToken}
+  current={0}
+  details={
+   batchDone && batchReceipt
+    ? {
+       amount: batchReceipt.payoutTotal,
+       eyebrow: "BulkPay",
+       explorerUrl: batchReceipt.explorerUrl ?? undefined,
+       extra: (
+        <button
+         className="tp-link"
+         onClick={() => {
+          setBatchDone(false);
+          setSuccessOpen(true);
+         }}
+         type="button"
+        >
+         View receipt
+        </button>
+       ),
+       rows: [
+        { label: "Recipients", value: String(batchReceipt.recipientCount) },
+        { label: "Service fee", value: batchReceipt.feeAmount },
+       ],
+      }
+    : undefined
+  }
+  doneSubtitle={
+   batchReceipt
+    ? `Paid ${batchReceipt.recipientCount} ${batchReceipt.recipientCount === 1 ? "person" : "people"}.`
+    : undefined
+  }
+  doneTitle="Batch sent"
+  from={<TokenIcon className="h-8 w-8" symbol={batchReceipt?.token ?? selectedToken} />}
+  onDone={() => setBatchDone(false)}
+  state={batchDone ? "done" : "running"}
+  steps={["Paying everyone in one transaction"]}
+  title="Sending"
+  to={<Users className="h-6 w-6 text-primary" />}
+ />
 
  {successOpen && batchReceipt ? (
  <BatchReceiptModal

@@ -8,7 +8,6 @@ import {
   createPublicClient,
   encodeFunctionData,
   getAddress,
-  http,
   isAddress,
   type Address,
   type Hash,
@@ -88,11 +87,12 @@ import {
 import { ensureProfile, fetchProfile } from "@/lib/profile";
 import { recoverCircleTxHash as recoverCircleTxHashFor } from "@/lib/circle-tx";
 import { arcTokens, arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
+import { confirmFlow } from "@/lib/tx-approval/client";
 import {
   fetchWalletSession,
   signInWalletSession,
 } from "@/lib/wallet-auth-client";
-import { arcChain, arcCircleBlockchain } from "@/lib/chains";
+import { arcChain, arcCircleBlockchain, arcTransport } from "@/lib/chains";
 
 type CircleTransferChallenge = { challengeId?: string };
 type CircleChallengeResult = {
@@ -164,7 +164,7 @@ function computePlatformFeeUnits(amountUnits: bigint) {
  */
 const arcReader = createPublicClient({
   chain: arcChain,
-  transport: http(arcChain.rpcUrls.default.http[0]),
+  transport: arcTransport(),
 });
 
 /**
@@ -722,7 +722,7 @@ export function SwiftRecurepayHub() {
         ],
         subtitle:
           autopay && !autopayFailed
-            ? "Autopay is on: it pays on time, even with SwiftPay closed."
+            ? "Autopay is on: it pays on time, even with SaphraONE closed."
             : "We'll remind you here when it's due.",
         title: schedule.max_runs === 1 ? "Payment scheduled" : "Recurring payment scheduled",
       });
@@ -887,7 +887,36 @@ export function SwiftRecurepayHub() {
    *    period, which is all the operator can ever pay under.
    * Returns the mandate transaction's hash for the server to verify.
    */
-  async function createScheduleMandate(schedule: RecurringScheduleRecord) {
+  /** The spending limit Autopay asks for: up to 12 runs, fee included. */
+  function autopayBudget(schedule: RecurringScheduleRecord) {
+    const amountUnits = BigInt(schedule.amount_units);
+    const perRun = amountUnits + computePlatformFeeUnits(amountUnits);
+    const remainingRuns =
+      schedule.max_runs && schedule.max_runs > 0
+        ? Math.max(1, schedule.max_runs - schedule.run_count)
+        : 12;
+    return perRun * BigInt(Math.min(remainingRuns, 12));
+  }
+
+  /** One confirmation (lib/tx-approval) for the spending limit and the mandate. */
+  function createScheduleMandate(schedule: RecurringScheduleRecord) {
+    return confirmFlow(
+      isEmbeddedWalletMode ? circleWallet?.id : null,
+      {
+        amount: formatUnitsToDecimal(
+          autopayBudget(schedule),
+          arcTokens[schedule.token_symbol].decimals,
+        ),
+        maxUses: 3,
+        recipients: [schedule.beneficiary_wallet],
+        title: "Turn on Autopay",
+        token: schedule.token_symbol,
+      },
+      () => createScheduleMandateCalls(schedule),
+    );
+  }
+
+  async function createScheduleMandateCalls(schedule: RecurringScheduleRecord) {
     if (!ownerAddress || !swiftRecurepayExecutorAddress) {
       throw new Error("Autopay executor is not configured.");
     }
@@ -895,12 +924,7 @@ export function SwiftRecurepayHub() {
     const executor = swiftRecurepayExecutorAddress as Address;
     const token = arcTokens[schedule.token_symbol].address as Address;
     const amountUnits = BigInt(schedule.amount_units);
-    const perRun = amountUnits + computePlatformFeeUnits(amountUnits);
-    const remainingRuns =
-      schedule.max_runs && schedule.max_runs > 0
-        ? Math.max(1, schedule.max_runs - schedule.run_count)
-        : 12;
-    const budget = perRun * BigInt(Math.min(remainingRuns, 12));
+    const budget = autopayBudget(schedule);
 
     const currentAllowance = await arcReader
       .readContract({
@@ -1102,7 +1126,33 @@ export function SwiftRecurepayHub() {
     return { txHash };
   }
 
-  async function executePaymentForSchedule(
+  /** One confirmation (lib/tx-approval) for the platform fee and the payment. */
+  function executePaymentForSchedule(
+    schedule: RecurringScheduleRecord,
+    executionId: string,
+  ) {
+    const amountUnits = BigInt(schedule.amount_units);
+    const feeRecipient =
+      swiftBatchFeeRecipient && isAddress(swiftBatchFeeRecipient) ? swiftBatchFeeRecipient : null;
+    return confirmFlow(
+      isEmbeddedWalletMode ? circleWallet?.id : null,
+      {
+        amount: formatUnitsToDecimal(
+          amountUnits + (feeRecipient ? computePlatformFeeUnits(amountUnits) : 0n),
+          arcTokens[schedule.token_symbol].decimals,
+        ),
+        maxUses: 3,
+        recipients: feeRecipient
+          ? [schedule.beneficiary_wallet, feeRecipient]
+          : [schedule.beneficiary_wallet],
+        title: "Send recurring payment",
+        token: schedule.token_symbol,
+      },
+      () => runPaymentForSchedule(schedule, executionId),
+    );
+  }
+
+  async function runPaymentForSchedule(
     schedule: RecurringScheduleRecord,
     executionId: string,
   ) {
@@ -1379,7 +1429,7 @@ export function SwiftRecurepayHub() {
         <p className="text-sm text-muted-foreground">
           {isEmbeddedWalletMode
             ? "Your session is missing a linked profile. Return to Home, sign in again, then reopen RecurePay."
-            : "Sign a one-time message so SwiftPay can manage scheduled payments for this wallet."}
+            : "Sign a one-time message so SaphraONE can manage scheduled payments for this wallet."}
         </p>
       </div>
       {!isEmbeddedWalletMode ? (

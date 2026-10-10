@@ -12,6 +12,8 @@ import { assertRecurringAccess } from "@/lib/recurring-auth";
 import { stablecoinUsdValue } from "@/lib/referral/fx";
 import { verifyWalletOutflow } from "@/lib/referral/verify-activity";
 import type { ReferralActivityType } from "@/lib/referral/types";
+import { accrueReferralCommission } from "@/lib/referral/usdc-commission";
+import { rewardsV2Enabled } from "@/lib/rewards/config";
 
 export const runtime = "nodejs";
 
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     const effectiveId = txHash;
 
-    // Always process general transaction cashback for all SwiftPay accounts (>= 20 USDC/EURC)
+    // Always process general transaction cashback for all SaphraONE accounts (>= 20 USDC/EURC)
     const userGeneralCashback = await processTransactionCashback({
       walletAddress: wallet,
       amount: amountUsdc,
@@ -107,6 +109,26 @@ export async function POST(request: NextRequest) {
         isReferred: false,
         qualified: false,
         cashbackAwarded: false,
+        userCashback: userGeneralCashback,
+      });
+    }
+
+    // Invite & Earn v2: the referrer earns a USDC share of the fee this
+    // transaction actually paid; the old points milestones no longer apply.
+    if (rewardsV2Enabled()) {
+      const earning = await accrueReferralCommission({
+        feeUsd: await stablecoinUsdValue(verified.feePaid, token),
+        referredWallet: wallet,
+        source: activityType.toLowerCase(),
+        txHash,
+        volumeUsd: referralAmountUsd,
+      }).catch((cause) => {
+        console.error("[referral:commission]", cause instanceof Error ? cause.message : cause);
+        return null;
+      });
+      return jsonOk({
+        isReferred: true,
+        referrerCommissionUsdc: earning ? Number(earning.amount_usdc) : 0,
         userCashback: userGeneralCashback,
       });
     }

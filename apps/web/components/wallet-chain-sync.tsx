@@ -17,7 +17,7 @@ function toChainId(value: unknown) {
  * Keeps the app's idea of the wallet's network in step with the wallet.
  *
  * On phones, MetaMask and other WalletConnect wallets often switch networks
- * without sending the "network changed" event back — so SwiftPay kept
+ * without sending the "network changed" event back — so SaphraONE kept
  * showing "Switch network" (and a switch kept waiting) after the wallet had
  * already moved to Arc. When you come back from the wallet app, and every
  * few seconds while the app thinks you're on the wrong network, this asks the

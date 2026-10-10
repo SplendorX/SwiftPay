@@ -35,7 +35,7 @@ export const runtime = "nodejs";
 
 const noStore = { "Cache-Control": "no-store" };
 /** The secret being set up, until the first code confirms it. */
-const pendingCookieName = "swiftpay_2fa_setup";
+const pendingCookieName = "saphra_2fa_setup";
 const pendingTtlMs = 10 * 60_000;
 
 function json(body: unknown, status = 200) {

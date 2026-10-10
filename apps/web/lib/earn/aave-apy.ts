@@ -1,13 +1,12 @@
 import {
   createPublicClient,
-  http,
   type Address,
   type PublicClient,
 } from "viem";
 
 import { earnConfig } from "@/lib/earn/config";
 import { annualizeGrowthBps } from "@/lib/earn/decimal";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 /**
  * Minimal Aave V3 Pool view for reserve data.
@@ -80,7 +79,7 @@ export type ApySnapshotResult = {
 function createArcClient(): PublicClient {
   return createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 }
 

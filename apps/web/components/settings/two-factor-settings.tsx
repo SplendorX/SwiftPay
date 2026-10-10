@@ -148,9 +148,9 @@ export function TwoFactorSettings() {
   return (
     <div className="grid gap-5">
       <p className="text-sm text-muted-foreground">
-        After you sign in on a new device, SwiftPay also asks for a code from an authenticator app
+        After you sign in on a new device, SaphraONE also asks for a code from an authenticator app
         such as Google Authenticator, Microsoft Authenticator, Authy or 1Password. Someone who gets
-        into your Google account, email or wallet still can't open your SwiftPay account.
+        into your Google account, email or wallet still can't open your SaphraONE account.
       </p>
 
       {flow.kind === "scan" ? (

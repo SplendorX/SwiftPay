@@ -15,7 +15,7 @@ type BusinessActivityCardProps = {
 export function BusinessActivityCard({ activities }: BusinessActivityCardProps) {
   const usernameFor = useWalletUsernames(activities.map((item) => item.counterparty));
 
-  // Show a SwiftPay counterparty by @username rather than their address.
+  // Show a SaphraONE counterparty by @username rather than their address.
   function withUsername(item: BusinessActivityItem): BusinessActivityItem {
     const username = usernameFor(item.counterparty);
     if (!item.counterparty || !username) return item;

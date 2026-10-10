@@ -12,6 +12,7 @@ import {
 import type { WalletTransfer } from "@/lib/arcscan-history";
 import { usernamesForWallets } from "@/lib/business/service";
 import { arcChain } from "@/lib/chains";
+import { mintSenders, type MintSender } from "@/lib/multichain/senders";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   copyPaymentReceived,
@@ -137,9 +138,10 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
 
   try {
     const { head, transfers: incoming } = await fetchIncomingTransfers(wallet);
-    const [{ agentOwners, usernames }, batchHashes] = await Promise.all([
+    const [{ agentOwners, usernames }, batchHashes, senderByMint] = await Promise.all([
       identifySenders(incoming),
       findBatchTxHashes(incoming.map((t) => t.hash)).catch(() => new Set<string>()),
+      mintSenders(wallet, incoming.map((t) => t.hash)).catch(() => ({}) as Record<string, MintSender>),
     ]);
 
     for (const transfer of incoming) {
@@ -153,7 +155,7 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
 
       const [whole, frac = ""] = transfer.amount.split(".");
       const amountDisplay = `${whole}.${(frac + "00").slice(0, 2)}`;
-      // Name the sender: @username when they have a SwiftPay account, the
+      // Name the sender: @username when they have a SaphraONE account, the
       // owner "via ALLIE" when their Agent Wallet paid, and "via BulkPay"
       // when the sender recorded this transaction as a batch.
       const agentOwner = agentOwners[transfer.counterparty.toLowerCase()];
@@ -161,14 +163,19 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
       const username = usernames[senderWallet];
       const sender = username ? `@${username}` : shorten(senderWallet);
       const viaBatch = batchHashes.has(transfer.hash.toLowerCase());
+      // USDC that came in on another network was minted here by CCTP.
+      // Name the payer on that network, not the mint.
+      const fromNetwork = senderByMint[transfer.hash.toLowerCase()];
       const copy = copyPaymentReceived(
         amountDisplay,
         transfer.symbol,
-        agentOwner
-          ? `${sender} via ALLIE`
-          : viaBatch
-            ? `${sender} via BulkPay`
-            : sender,
+        fromNetwork
+          ? fromNetwork.label
+          : agentOwner
+            ? `${sender} via ALLIE`
+            : viaBatch
+              ? `${sender} via BulkPay`
+              : sender,
       );
 
       const row = await createIncomingPaymentNotification({
@@ -181,6 +188,8 @@ export async function syncIncomingPaymentNotifications(ownerWallet: string) {
           symbol: transfer.symbol,
           from: transfer.counterparty.toLowerCase(),
           fromUsername: username ?? null,
+          fromNetwork: fromNetwork?.networkName ?? null,
+          fromNetworkSender: fromNetwork?.sender ?? null,
           viaAllie: Boolean(agentOwner),
           fromOwner: agentOwner ?? null,
           viaBatch,

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Voice notes for ALLIE, through the browser's own speech recognition
- * (Chrome, Edge, Safari). Nothing is recorded or uploaded by SwiftPay: the
+ * (Chrome, Edge, Safari). Nothing is recorded or uploaded by SaphraONE: the
  * words land in the composer as text, and the person reads them before
  * sending. That review step matters here, since a misheard amount is a
  * payment for the wrong amount.

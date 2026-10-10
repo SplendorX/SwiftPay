@@ -570,6 +570,34 @@
   box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
 }
 
+/* 25% / 50% / 75% / MAX under the amount */
+.sx-chips {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.sx-chip {
+  height: 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
+.sx-chip:hover:not(:disabled),
+.sx-chip[aria-pressed="true"] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.sx-chip:disabled {
+  opacity: 0.5;
+}
+
 .sx-note-row {
   display: flex;
   align-items: center;

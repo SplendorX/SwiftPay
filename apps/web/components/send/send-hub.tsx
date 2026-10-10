@@ -11,9 +11,9 @@ import {
   ScanQrCode,
   Coins,
   Delete,
-  ExternalLink,
   KeyRound,
   Loader2,
+  Network,
   QrCode,
   Search,
   Send,
@@ -24,12 +24,14 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { isAddress } from "viem";
+import { formatUnits, isAddress, parseUnits } from "viem";
 
 import { BeneficiaryContacts } from "@/components/dashboard/beneficiary-contacts";
 import type { SendPaymentWizardProps } from "@/components/dashboard/send-payment-wizard";
 import { RecipientStatus } from "@/components/recipient-status";
+import { CrossChainSend } from "@/components/send/cross-chain-send";
 import { QrScanSheet } from "@/components/send/qr-scan-sheet";
+import { TransferProgressOverlay } from "@/components/send/transfer-progress";
 import { RecurringScheduleFields, RecurringToggle } from "@/components/recurring-schedule-fields";
 import { useTransactionReceipts } from "@/components/transactions/transaction-parts";
 import { TokenIcon } from "@/components/token-icon";
@@ -43,10 +45,13 @@ import type { BeneficiaryRecord } from "@/lib/beneficiaries";
 import { fetchDirectoryProfile, searchPeople } from "@/lib/business/client";
 import type { DirectoryHit } from "@/lib/business/types";
 import { useWalletUsernames } from "@/lib/activity/usernames";
+import { multichainEnabled } from "@/lib/multichain/flag";
 import { fetchProfile } from "@/lib/profile";
 import { formatUsernameLabel } from "@/lib/profile-utils";
 import { calculateTransactionCashback } from "@/lib/referral/cashback-service";
-import { arcTokenSymbols } from "@/lib/tokens";
+import { cashbackPointsFor, rewardsV2Enabled } from "@/lib/rewards/config";
+import { SEND_FEE_BPS } from "@/lib/fees";
+import { arcTokens, arcTokenSymbols } from "@/lib/tokens";
 import { useConversionRates, usdPerUnit } from "@/lib/use-conversion-rates";
 import { bottomSheetClassName, useSheetSide } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
@@ -64,7 +69,7 @@ export type SendHubProps = SendPaymentWizardProps & {
   savedBeneficiaries: BeneficiaryRecord[];
 };
 
-type View = "home" | "to" | "chat";
+type View = "home" | "to" | "chat" | "network";
 
 type Person = {
   /** What goes in the recipient field: @username or a wallet. */
@@ -74,6 +79,9 @@ type Person = {
   avatarUrl?: string | null;
   sub?: string;
 };
+
+/** Kept back on MAX when an external wallet pays in USDC, which is also Arc's gas. */
+const EXTERNAL_GAS_RESERVE_USDC = "0.02";
 
 function initialOf(name: string) {
   return name.replace(/^@/, "").trim().charAt(0).toUpperCase() || "?";
@@ -189,7 +197,7 @@ export function SendHub(props: SendHubProps) {
 
   const { items, titleFor } = useAccountTransactions(walletAddress || null, transactionHistoryDays, refreshKey);
 
-  // The recipient's profile photo, when they have a SwiftPay profile.
+  // The recipient's profile photo, when they have a SaphraONE profile.
   const [recipientAvatar, setRecipientAvatar] = useState<string | null>(null);
   // A username asks the directory, which knows a business's logo as well as
   // a person's photo; a bare wallet asks its profile.
@@ -271,7 +279,7 @@ export function SendHub(props: SendHubProps) {
     wallet: entry.beneficiary_wallet,
   }));
 
-  // Search: your people first, then anyone on SwiftPay.
+  // Search: your people first, then anyone on SaphraONE.
   const needle = query.trim().replace(/^@+/, "").toLowerCase();
   useEffect(() => {
     if (!needle || isAddress(needle)) {
@@ -445,12 +453,25 @@ export function SendHub(props: SendHubProps) {
                 <li>
                   <OptionRow
                     badge="Instant"
-                    body="Anyone on SwiftPay or any wallet on Arc."
+                    body="Anyone on SaphraONE or any wallet on Arc."
                     icon={<Send className="h-5 w-5" />}
                     onClick={startNew}
                     title="Pay to @username or Arc address"
                   />
                 </li>
+                {multichainEnabled ? (
+                  <li>
+                    <OptionRow
+                      body="Send USDC to an address on Base, Polygon, Arbitrum and more."
+                      icon={<Network className="h-5 w-5" />}
+                      onClick={() => {
+                        navigated.current = true;
+                        setView("network");
+                      }}
+                      title="Pay to other networks"
+                    />
+                  </li>
+                ) : null}
                 <li>
                   <OptionRow
                     body="Pay many people in one transaction."
@@ -517,6 +538,18 @@ export function SendHub(props: SendHubProps) {
           />
         </BeneficiariesSheet>
       </div>
+    );
+  }
+
+  // ── Pay to another network ──────────────────────────────────────────────
+  if (view === "network") {
+    return (
+      <CrossChainSend
+        hideBalance={hideBalance}
+        onBack={() => setView("home")}
+        ownerWallet={walletAddress}
+        usdcBalance={availableBalances?.find((balance) => balance.symbol === "USDC")?.amount}
+      />
     );
   }
 
@@ -610,7 +643,7 @@ export function SendHub(props: SendHubProps) {
               }}
             />
           ) : (
-            <p className="sx-muted mt-2">Payments on SwiftPay settle on Arc in seconds.</p>
+            <p className="sx-muted mt-2">Payments on SaphraONE settle on Arc in seconds.</p>
           )}
         </section>
 
@@ -737,7 +770,7 @@ function OptionRow({
 }
 
 /**
- * What a scanned code means: a SwiftPay payment link opens as itself so its
+ * What a scanned code means: a SaphraONE payment link opens as itself so its
  * amount and token come along; anything else is read for a username or address.
  */
 function readScannedRecipient(text: string): { link?: string; recipient?: string } {
@@ -804,6 +837,7 @@ function ChatView(
     isConnected,
     isEmbeddedWalletMode,
     isRecipientResolving,
+    isConfirming,
     isRecipientValid,
     isSaved,
     isSubmitting,
@@ -864,7 +898,16 @@ function ChatView(
 
   const { rates } = useConversionRates();
   const usdPerToken = selectedToken === "EURC" ? (usdPerUnit("EUR", rates) ?? 1) : 1;
-  const cashback = useMemo(() => calculateTransactionCashback(paymentAmount, usdPerToken), [paymentAmount, usdPerToken]);
+  const cashback = useMemo(() => {
+    // Rewards v2: about 1 point per $10; the month's tier and cap decide the
+    // exact amount, so this is the most it can be.
+    if (rewardsV2Enabled()) {
+      const usdValue = (Number(paymentAmount) || 0) * usdPerToken;
+      const points = cashbackPointsFor({ monthPoints: 0, monthVolumeUsd: 0, volumeUsd: usdValue });
+      return { eligible: points > 0, points, upTo: true };
+    }
+    return { ...calculateTransactionCashback(paymentAmount, usdPerToken), upTo: false };
+  }, [paymentAmount, usdPerToken]);
 
   const hasAmount = paymentAmountUnits !== null && paymentAmountUnits > BigInt(0);
   const balance = availableBalances?.find((entry) => entry.symbol === selectedToken)?.amount;
@@ -883,18 +926,80 @@ function ChatView(
     }
   }, [busy]);
   // The sheet closes while the wallet confirms (on a phone it would cover
-  // Circle's window); it comes back with the result.
+  // Circle's window). An error brings it back; success ends on the
+  // animation's receipt instead.
   useEffect(() => {
     if (!awaitingWallet) return;
-    if (transactionConfirmed || paymentError) {
+    if (paymentError) {
       setAwaitingWallet(false);
       onConfirmOpenChange(true);
+    } else if (transactionConfirmed) {
+      setAwaitingWallet(false);
     }
   }, [awaitingWallet, onConfirmOpenChange, paymentError, transactionConfirmed]);
   const walletLock = busy || awaitingWallet;
   const needsSignIn = isConnected && !isWalletAuthenticated && !isEmbeddedWalletMode;
 
+  // Percent chips. MAX leaves room for the service fee and Spend&Save (and,
+  // for an external wallet paying in USDC, a little gas), so the total debit
+  // never exceeds the balance.
+  const [maxMode, setMaxMode] = useState(false);
+  const savePercentRef = useRef(0);
+  useEffect(() => {
+    const percent = Number(settlementQuote?.savePercent);
+    if (Number.isFinite(percent) && percent > 0) savePercentRef.current = percent;
+  }, [settlementQuote?.savePercent]);
+  const decimals = arcTokens[selectedToken].decimals;
+
+  function balanceUnits() {
+    if (balance === undefined) return null;
+    try {
+      return parseUnits(balance, decimals);
+    } catch {
+      return null;
+    }
+  }
+
+  function maxUnits(savePercent: number) {
+    const units = balanceUnits();
+    if (units === null) return null;
+    const reserve =
+      !isEmbeddedWalletMode && selectedToken === "USDC" ? parseUnits(EXTERNAL_GAS_RESERVE_USDC, decimals) : BigInt(0);
+    const spendable = units > reserve ? units - reserve : BigInt(0);
+    const saveBps = BigInt(Math.ceil(savePercent * 100));
+    return (spendable * BigInt(10_000)) / (BigInt(10_000) + BigInt(SEND_FEE_BPS) + saveBps);
+  }
+
+  function fillPercent(percent: number) {
+    const units = balanceUnits();
+    if (units === null) return;
+    const next = percent === 100 ? maxUnits(savePercentRef.current) : (units * BigInt(percent)) / BigInt(100);
+    if (next === null) return;
+    setMaxMode(percent === 100);
+    onPaymentAmountChange(next > BigInt(0) ? formatUnits(next, decimals) : "");
+  }
+
+  // MAX before the first quote can't know the Spend&Save rate; once the quote
+  // shows the total going over the balance, shrink to fit.
+  useEffect(() => {
+    if (!maxMode || !settlementQuote?.totalRequired) return;
+    const units = balanceUnits();
+    let total: bigint;
+    try {
+      total = parseUnits(settlementQuote.totalRequired, decimals);
+    } catch {
+      return;
+    }
+    if (units === null || total <= units) return;
+    const next = maxUnits(Number(settlementQuote.savePercent) || savePercentRef.current);
+    if (next === null) return;
+    const value = next > BigInt(0) ? formatUnits(next, decimals) : "";
+    if (value !== paymentAmount) onPaymentAmountChange(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxMode, settlementQuote?.totalRequired, settlementQuote?.savePercent]);
+
   function press(key: string) {
+    setMaxMode(false);
     const current = paymentAmount;
     if (key === "del") {
       onPaymentAmountChange(current.slice(0, -1));
@@ -1033,7 +1138,10 @@ function ChatView(
             aria-label="Amount"
             className="sx-amount"
             inputMode={touch ? "none" : "decimal"}
-            onChange={(event) => onPaymentAmountChange(event.target.value.replace(/[^\d.]/g, ""))}
+            onChange={(event) => {
+              setMaxMode(false);
+              onPaymentAmountChange(event.target.value.replace(/[^\d.]/g, ""));
+            }}
             placeholder="0.00"
             readOnly={touch}
             value={paymentAmount}
@@ -1044,7 +1152,10 @@ function ChatView(
                 aria-checked={symbol === selectedToken}
                 className="sx-token"
                 key={symbol}
-                onClick={() => onSelectToken(symbol)}
+                onClick={() => {
+                  setMaxMode(false);
+                  onSelectToken(symbol);
+                }}
                 role="radio"
                 type="button"
               >
@@ -1053,6 +1164,20 @@ function ChatView(
               </button>
             ))}
           </div>
+        </div>
+        <div className="sx-chips">
+          {[25, 50, 75, 100].map((percent) => (
+            <button
+              aria-pressed={percent === 100 ? maxMode : undefined}
+              className="sx-chip"
+              disabled={balance === undefined || walletLock}
+              key={percent}
+              onClick={() => fillPercent(percent)}
+              type="button"
+            >
+              {percent === 100 ? "MAX" : `${percent}%`}
+            </button>
+          ))}
         </div>
         <div className="sx-note-row">
           <input
@@ -1095,6 +1220,51 @@ function ChatView(
       </Sheet>
 
       {receiptModals}
+
+      {/* The coin travels to the recipient while the payment runs. */}
+      <TransferProgressOverlay
+        active={(awaitingWallet || isConfirming) && !paymentError}
+        coin={selectedToken}
+        current={isConfirming ? 1 : 0}
+        details={{
+          amount: `${formatAmount(paymentAmount)} ${selectedToken}`,
+          explorerUrl: transactionExplorerUrl,
+          extra:
+            spendSaveNotice || recurringNotice ? (
+              <div className="grid gap-2 text-sm text-muted-foreground">
+                {spendSaveNotice ? <p>{spendSaveNotice}</p> : null}
+                {recurringNotice ? (
+                  <Link className="sx-link" href="/recurepay">
+                    Your schedule is set. Authorize Autopay in RecurePay
+                  </Link>
+                ) : null}
+              </div>
+            ) : undefined,
+          rows: [
+            { label: "To", value: recipientName },
+            ...(settlementQuote
+              ? [{ label: settlementQuote.feeLabel, value: `${settlementQuote.feeAmount} ${selectedToken}` }]
+              : []),
+            ...(settlementQuote?.saveAmount
+              ? [{ label: "Spend&Save", value: `${settlementQuote.saveAmount} ${selectedToken}` }]
+              : []),
+            ...(settlementQuote?.totalRequired
+              ? [{ label: "Total debit", value: `${settlementQuote.totalRequired} ${selectedToken}` }]
+              : []),
+            ...(cashback.eligible
+              ? [{ label: "Cashback", value: `${cashback.upTo ? "Up to " : ""}+${cashback.points} OnePoints` }]
+              : []),
+            { label: "Status", value: "Confirmed on Arc" },
+          ],
+        }}
+        doneSubtitle={`To ${recipientName}`}
+        doneTitle="Sent"
+        from={<TokenIcon className="h-8 w-8" symbol={selectedToken} />}
+        onDone={finish}
+        state={transactionConfirmed ? "done" : "running"}
+        steps={["Confirming the payment", "Sending on Arc"]}
+        to={<Avatar name={recipientName} size="sm" url={recipientAvatar} />}
+      />
 
       {/* Save as a beneficiary */}
       <Sheet onOpenChange={onSaveOpenChange} open={saveOpen}>
@@ -1155,31 +1325,7 @@ function ChatView(
         >
           {side === "bottom" ? <SheetGrabber /> : null}
           <div className="sx-sheet">
-            {transactionConfirmed ? (
-              <div className="sx-done">
-                <span className="sx-done-icon">
-                  <CheckCircle2 className="h-9 w-9" />
-                </span>
-                <SheetTitle className="text-xl font-bold">Sent</SheetTitle>
-                <SheetDescription className="text-sm text-muted-foreground">
-                  {formatAmount(paymentAmount)} {selectedToken} to {recipientName}
-                </SheetDescription>
-                {spendSaveNotice ? <p className="text-sm text-muted-foreground">{spendSaveNotice}</p> : null}
-                {recurringNotice ? (
-                  <Link className="sx-link" href="/recurepay">
-                    Your schedule is set. Authorize Autopay in RecurePay
-                  </Link>
-                ) : null}
-                {transactionExplorerUrl ? (
-                  <a className="sx-link" href={transactionExplorerUrl} rel="noreferrer" target="_blank">
-                    View on ArcScan <ExternalLink className="h-4 w-4" />
-                  </a>
-                ) : null}
-                <Button className="h-12 w-full font-bold" onClick={finish}>
-                  Done
-                </Button>
-              </div>
-            ) : (
+            {(
               <>
                 <div className="sx-confirm-head">
                   <Avatar name={recipientName} url={recipientAvatar} />
@@ -1227,7 +1373,11 @@ function ChatView(
                     <dt>Cashback</dt>
                     <dd className={cashback.eligible ? "is-good" : undefined}>
                       <Coins className="h-3.5 w-3.5" />
-                      {cashback.eligible ? `+${cashback.points} SwiftPoints` : "On sends of $20 or more"}
+                      {cashback.eligible
+                        ? `${cashback.upTo ? "Up to " : ""}+${cashback.points} OnePoints`
+                        : cashback.upTo
+                          ? "1 point per $10"
+                          : "On sends of $20 or more"}
                     </dd>
                   </div>
                 </dl>

@@ -10,13 +10,14 @@ import {
   describeCircleTxFailure,
   recoverCircleTxDetails,
 } from "@/lib/circle-tx";
+import { postArcRpc } from "@/lib/chains";
 import { onchainFacts } from "@/lib/onchain-facts";
 
 /**
  * An EIP-1193 provider backed by a Circle user-controlled wallet.
  *
  * Circle's own App Kit adapter is developer-controlled and server-side: it
- * signs with an entity secret. SwiftPay's Google users hold *user-controlled*
+ * signs with an entity secret. SaphraONE's Google users hold *user-controlled*
  * wallets that sign through a PIN challenge in the browser, which no shipped
  * adapter speaks.
  *
@@ -62,11 +63,7 @@ function toHexChainId(chainId: number) {
 
 /** Forward a read to the Arc RPC. Circle has no read surface of its own. */
 async function rpcCall(method: string, params: unknown[]) {
-  const response = await fetch(onchainFacts.rpcUrl, {
-    body: JSON.stringify({ id: Date.now(), jsonrpc: "2.0", method, params }),
-    headers: { "Content-Type": "application/json" },
-    method: "POST",
-  });
+  const response = await postArcRpc({ id: Date.now(), jsonrpc: "2.0", method, params });
 
   if (!response.ok) {
     throw new ProviderRpcError(-32603, `RPC ${method} failed (${response.status}).`);
@@ -129,6 +126,21 @@ function extractSignature(result: unknown): string | undefined {
     (value): value is string =>
       typeof value === "string" && /^0x[0-9a-fA-F]+$/.test(value),
   );
+}
+
+/**
+ * Hashes this tab already returned per wallet. Circle's SDK often answers
+ * without a transaction id, and the fallback lookup ("newest transaction")
+ * then finds the previous call (an approve) before the new one (its burn) is
+ * listed. Skipping hashes already handed out stops that mix-up.
+ */
+const returnedHashes = new Map<string, Set<string>>();
+
+function rememberHash(walletId: string, hash: string) {
+  const seen = returnedHashes.get(walletId) ?? new Set<string>();
+  seen.add(hash.toLowerCase());
+  returnedHashes.set(walletId, seen);
+  return hash;
 }
 
 export function createCircleWalletProvider(config: CircleProviderConfig) {
@@ -196,7 +208,7 @@ export function createCircleWalletProvider(config: CircleProviderConfig) {
     });
 
     if (executed.txHash) {
-      return executed.txHash;
+      return rememberHash(config.walletId, executed.txHash);
     }
 
     // Circle usually returns the id first and the hash once mined; the caller
@@ -204,6 +216,9 @@ export function createCircleWalletProvider(config: CircleProviderConfig) {
     // Circle can take a while to index the hash on a busy network: ~25s.
     const recovered = await recoverCircleTxDetails({
       attempts: 20,
+      skipHashes: [...(returnedHashes.get(config.walletId) ?? [])],
+      // Without a transaction id, the challenge names the transaction it made.
+      challengeId,
       transactionId: executed.transactionId,
       userToken: config.userToken,
       walletId: config.walletId,
@@ -220,7 +235,7 @@ export function createCircleWalletProvider(config: CircleProviderConfig) {
       );
     }
 
-    return recovered.txHash;
+    return rememberHash(config.walletId, recovered.txHash);
   }
 
   /**

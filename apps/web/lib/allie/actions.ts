@@ -4,7 +4,7 @@
  * She only ever returns one of these — the engine decides what happens next.
  * Three execution classes, which the capability layer enforces:
  *
- *   answer   — read-only, resolved from SwiftPay's own data
+ *   answer   — read-only, resolved from SaphraONE's own data
  *   execute  — ALLIE can complete it from the Agent Wallet, after confirmation
  *   prepare  — needs the user's own wallet signature, so ALLIE assembles the
  *              request and hands it to the product UI with everything filled in

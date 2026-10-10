@@ -1,5 +1,5 @@
 /**
- * SwiftPay Payroll Test Suite
+ * SaphraONE Payroll Test Suite
  * Critical test cases covering:
  * - Authorization (Personal vs Business)
  * - Ownership & IDOR Protection
@@ -81,7 +81,7 @@ function canTransitionRun(from, to) {
   return (ALLOWED_RUN_TRANSITIONS[from] || []).includes(to);
 }
 
-describe("SwiftPay Payroll - Critical Test Cases (Spec Section 92)", () => {
+describe("SaphraONE Payroll - Critical Test Cases (Spec Section 92)", () => {
   describe("1. Authorization & Account Scoping", () => {
     it("Personal accounts must be rejected from payroll operations", () => {
       const personalAccount = { account_type: "PERSONAL", wallet_address: "0xuser" };

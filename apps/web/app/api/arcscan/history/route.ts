@@ -7,6 +7,7 @@ import {
 } from "@/lib/arcscan-history";
 import { loadAgentWalletConfig } from "@/lib/agent-wallet/config";
 import { activityWindowStart, clampActivityDays } from "@/lib/activity/types";
+import { mintSenders, type MintSender } from "@/lib/multichain/senders";
 import { isArcMainnet } from "@/lib/network";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { walletHistoryFromRpc } from "@/lib/wallet-history";
@@ -24,6 +25,25 @@ function toTime(value: string | null) {
  * lib/wallet-history). Testnet keeps the explorer's full history and falls
  * back to the RPC if the explorer is down.
  */
+const zeroAddress = "0x0000000000000000000000000000000000000000";
+
+/**
+ * USDC swept in from another network lands as a CCTP mint, so the chain names
+ * no sender. Label those with the payer on that network ("0x6f97…464f on Base").
+ * Best effort: the plain transfer still shows if the lookup fails.
+ */
+async function labelSweptMints(address: string, transfers: WalletTransfer[]) {
+  const mints = transfers.filter(
+    (transfer) => transfer.direction === "in" && transfer.counterparty.toLowerCase() === zeroAddress,
+  );
+  if (mints.length === 0) return transfers;
+  const senders = await mintSenders(address, mints.map((transfer) => transfer.hash)).catch(() => ({}) as Record<string, MintSender>);
+  return transfers.map((transfer) => {
+    const from = transfer.direction === "in" ? senders[transfer.hash.toLowerCase()] : undefined;
+    return from ? { ...transfer, counterpartyLabel: from.label } : transfer;
+  });
+}
+
 async function walletTransfers(address: string, days: number | null) {
   // A window (Transaction History's three months) reads further than the
   // default newest-100.
@@ -58,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const transfers = await walletTransfers(address, days);
+    const transfers = await labelSweptMints(address, await walletTransfers(address, days));
 
     // ALLIE pays from the Agent Wallet, so those transfers never appear in the
     // primary wallet's history. Merge them in — they are the same person's

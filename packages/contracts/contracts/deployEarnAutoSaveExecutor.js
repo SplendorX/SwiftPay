@@ -12,7 +12,7 @@
  *   ARC_TESTNET_RPC_URL           RPC to deploy through
  *   PRIVATE_KEY                   deployer
  *   EARN_VAULT_ADDRESS            ERC-4626 vault to deposit into
- *   SWIFTPAY_EARN_OPERATOR_ADDRESS  address allowed to call executeAutoSave
+ *   SAPHRA_EARN_OPERATOR_ADDRESS  address allowed to call executeAutoSave
  *   SWIFTPAY_TIMELOCK_ADDRESS / SWIFTPAY_MULTISIG_ADDRESS  owner and guardian (see governance.js)
  */
 import dotenv from "dotenv";
@@ -40,8 +40,8 @@ async function main() {
     process.env.NEXT_PUBLIC_USDC_ADDRESS?.trim() || DEFAULT_ARC_USDC;
   const vault = process.env.EARN_VAULT_ADDRESS?.trim();
   const operator =
-    process.env.SWIFTPAY_EARN_OPERATOR_ADDRESS?.trim() ||
-    process.env.SWIFTPAY_RECURRING_OPERATOR_ADDRESS?.trim();
+    process.env.SAPHRA_EARN_OPERATOR_ADDRESS?.trim() ||
+    process.env.SAPHRA_RECURRING_OPERATOR_ADDRESS?.trim();
 
   if (!rpcUrl || !privateKey) {
     throw new Error("Missing ARC_TESTNET_RPC_URL or PRIVATE_KEY.");
@@ -53,7 +53,7 @@ async function main() {
   }
   if (!operator || !ethers.isAddress(operator)) {
     throw new Error(
-      "Set SWIFTPAY_EARN_OPERATOR_ADDRESS to the address that will run the cron.",
+      "Set SAPHRA_EARN_OPERATOR_ADDRESS to the address that will run the cron.",
     );
   }
   if (!ethers.isAddress(usdc)) {
@@ -112,7 +112,7 @@ async function main() {
   console.log("\nAdd to your .env:");
   console.log(`NEXT_PUBLIC_EARN_AUTOSAVE_EXECUTOR_ADDRESS=${address}`);
   console.log(
-    "SWIFTPAY_EARN_OPERATOR_PRIVATE_KEY=<key for the operator address above>",
+    "SAPHRA_EARN_OPERATOR_PRIVATE_KEY=<key for the operator address above>",
   );
   console.log(
     "\nUsers must then approve this address to spend their USDC before unattended deposits can run.",

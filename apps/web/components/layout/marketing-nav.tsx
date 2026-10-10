@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { PlatformBrand } from "@/components/brand/platform-brand";
+import { PlatformWordmark } from "@/components/brand/platform-wordmark";
 import { XLogoLink } from "@/components/brand/x-logo-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LaunchAppLink } from "@/components/landing/launch-app-link";
@@ -20,7 +20,7 @@ export function MarketingNav() {
     <header className="marketing-nav">
       <div className="marketing-nav-inner">
         <Link className="marketing-brand" href="/">
-          <PlatformBrand showName="desktop" />
+          <PlatformWordmark />
         </Link>
 
         <nav aria-label="Marketing" className="hidden items-center gap-1 md:flex">
@@ -44,7 +44,7 @@ export function MarketingNav() {
           <XLogoLink />
           <ThemeToggle />
           <LaunchAppLink className="hero-launch-btn marketing-nav-launch">
-            {t("common.openSwiftPay")}
+            {t("common.openSaphra")}
             <ArrowRight className="h-4 w-4" />
           </LaunchAppLink>
         </div>

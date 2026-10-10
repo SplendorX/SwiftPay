@@ -1,7 +1,7 @@
+import "@/lib/env-compat";
 import {
   createPublicClient,
   createWalletClient,
-  http,
   type Address,
   type Hash,
 } from "viem";
@@ -13,7 +13,7 @@ import { formatUnitsToDecimal, parseDecimalToUnits } from "@/lib/earn/decimal";
 import { erc20Abi } from "@/lib/contracts";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { arcTokens } from "@/lib/tokens";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 const rulesTable =
   process.env.SUPABASE_EARN_AUTO_SAVE_RULES_TABLE ?? "earn_auto_save_rules";
@@ -107,7 +107,7 @@ export function earnAutoSaveExecutorAddress(vaultAddress?: string | null): Addre
 }
 
 export const AUTO_SAVE_AUTHORIZATION_TEXT =
-  "You authorize SwiftPay to move USDC into Invest according to your Auto-Save settings, only when your available balance stays at or above your minimum. SwiftPay never takes performance fees on principal.";
+  "You authorize SaphraONE to move USDC into Invest according to your Auto-Save settings, only when your available balance stays at or above your minimum. SaphraONE never takes performance fees on principal.";
 
 /**
  * Operator keys only — never PRIVATE_KEY.
@@ -118,8 +118,8 @@ export const AUTO_SAVE_AUTHORIZATION_TEXT =
  */
 function getOperatorPrivateKey() {
   return (
-    process.env.SWIFTPAY_EARN_OPERATOR_PRIVATE_KEY?.trim() ||
-    process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim() ||
+    process.env.SAPHRA_EARN_OPERATOR_PRIVATE_KEY?.trim() ||
+    process.env.SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY?.trim() ||
     null
   );
 }
@@ -167,7 +167,7 @@ function createClients() {
   if (!key) return null;
 
   const account = privateKeyToAccount(key as `0x${string}`);
-  const transport = http(arcChain.rpcUrls.default.http[0]);
+  const transport = arcTransport();
   const publicClient = createPublicClient({ chain: arcChain, transport });
   const walletClient = createWalletClient({
     account,
@@ -243,7 +243,7 @@ export async function processDueAutoSaveRules(): Promise<{
   const list = (rules ?? []) as AutoSaveRule[];
   const publicClient = createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
   const usdc = arcTokens.USDC.address;
   const decimals = arcTokens.USDC.decimals;

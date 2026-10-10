@@ -1,6 +1,6 @@
 /**
  * BulkPay's intro artwork: one payment fanning out to many people, on
- * SwiftPay's cream disc (the same family as RecurePay's). SVG so it stays
+ * SaphraONE's cream disc (the same family as RecurePay's). SVG so it stays
  * crisp; the ticks draw in once (skipped with reduced motion).
  */
 export function BulkpayIllustration({ className }: { className?: string }) {

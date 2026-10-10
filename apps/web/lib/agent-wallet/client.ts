@@ -23,7 +23,7 @@ import {
   officialArcChainId,
   officialArcRpcUrl,
 } from "@/lib/network";
-import { getSwiftPaySendAddress, swiftPaySendAbi } from "@/lib/contracts";
+import { getSaphraSendAddress, swiftPaySendAbi } from "@/lib/contracts";
 import { arcTokens } from "@/lib/tokens";
 
 import {
@@ -130,7 +130,7 @@ export function readCircleError(error: unknown, fallback: string) {
 }
 
 function walletSetName(ownerWallet: string) {
-  return `SwiftPay ALLIE — ${ownerWallet.slice(0, 6)}…${ownerWallet.slice(-4)}`;
+  return `SaphraONE ALLIE — ${ownerWallet.slice(0, 6)}…${ownerWallet.slice(-4)}`;
 }
 
 export async function createAgentWalletSet(ownerWallet: string) {
@@ -221,7 +221,7 @@ export async function getAgentWalletBalance(
   return parseDecimalToUnits(match?.amount);
 }
 
-/** Balances for every asset SwiftPay supports, in 6-decimal units. */
+/** Balances for every asset SaphraONE supports, in 6-decimal units. */
 export async function getAgentWalletBalances(walletId: string) {
   const balances = await readTokenBalances(walletId);
 
@@ -531,7 +531,7 @@ export async function executeAgentBatch(
 
 /**
  * Agent payments settle through the same SwiftPaySend router every other
- * SwiftPay send uses, so the 0.1% platform fee is taken on-chain in the same
+ * SaphraONE send uses, so the 0.1% platform fee is taken on-chain in the same
  * transaction rather than as a second transfer we have to remember to make.
  *
  * The router pulls with `transferFrom`, so the Agent Wallet has to approve it
@@ -552,11 +552,11 @@ function arcPublicClient() {
 }
 
 export function agentSendRouter(): Address {
-  const configured = getSwiftPaySendAddress().trim();
+  const configured = getSaphraSendAddress().trim();
 
   if (!isAddress(configured)) {
     throw new Error(
-      "The SwiftPay send router is not configured. Set NEXT_PUBLIC_SWIFTPAY_SEND_ADDRESS.",
+      "The SaphraONE send router is not configured. Set NEXT_PUBLIC_SWIFTPAY_SEND_ADDRESS.",
     );
   }
 

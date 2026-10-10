@@ -387,7 +387,7 @@ export function ProductShowcase({
   if (isHeroPlacement) {
     return (
       <section
-        aria-label="SwiftPay product preview"
+        aria-label="SaphraONE product preview"
         className="landing-hero-showcase"
       >
         <FadeUp className="landing-hero-preview">
@@ -402,7 +402,7 @@ export function ProductShowcase({
 
   return (
     <section
-      aria-label="SwiftPay product preview"
+      aria-label="SaphraONE product preview"
       className="grid items-center gap-8 py-2 pb-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.15fr)] lg:gap-10"
     >
       <FadeUp className="lg:pr-2">

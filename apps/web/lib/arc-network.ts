@@ -1,6 +1,6 @@
 "use client";
 
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcChainRpcUrls } from "@/lib/chains";
 
 /**
  * Everything a wallet needs to add the active Arc network itself. Mobile wallets
@@ -12,11 +12,11 @@ export const arcAddChainParameter = {
   chainName: arcChain.name,
   iconUrls: [arcChain.iconUrl],
   nativeCurrency: arcChain.nativeCurrency,
-  rpcUrls: [...arcChain.rpcUrls.default.http],
+  rpcUrls: arcChainRpcUrls,
 } as const;
 
 /** What to type into a wallet that can't add networks by itself. */
-export const arcManualNetworkDetails = `Network name: ${arcChain.name} · RPC URL: ${arcChain.rpcUrls.default.http[0]} · Chain ID: ${arcChain.id} · Currency: ${arcChain.nativeCurrency.symbol} · Explorer: ${arcChain.blockExplorers.default.url}`;
+export const arcManualNetworkDetails = `Network name: ${arcChain.name} · RPC URL: ${arcChainRpcUrls[0]} · Chain ID: ${arcChain.id} · Currency: ${arcChain.nativeCurrency.symbol} · Explorer: ${arcChain.blockExplorers.default.url}`;
 
 /**
  * A network-switch failure, already worded for the person. Error formatters

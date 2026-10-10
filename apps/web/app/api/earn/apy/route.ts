@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, type Address } from "viem";
 
 import { fetchAaveApy } from "@/lib/earn/aave-apy";
 import { earnConfig } from "@/lib/earn/config";
 import { bpsToPercentString } from "@/lib/earn/decimal";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { arcTokens } from "@/lib/tokens";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 export const runtime = "nodejs";
 
@@ -70,7 +70,7 @@ export async function GET() {
     try {
       const client = createPublicClient({
         chain: arcChain,
-        transport: http(arcChain.rpcUrls.default.http[0]),
+        transport: arcTransport(),
       });
       const assets = await client.readContract({
         address: earnConfig.vaultAddress,

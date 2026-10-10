@@ -1,4 +1,4 @@
-// Server-only. SwiftPay Checkout charges: the merchant side (create, list,
+// Server-only. SaphraONE Checkout charges: the merchant side (create, list,
 // cancel) and the public payer side (view, tip, intent, confirm, storefront).
 import { getAddress, isAddress } from "viem";
 

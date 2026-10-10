@@ -443,9 +443,9 @@ export async function POST(request: NextRequest) {
     // the wallet: a signed wallet session, or a Circle login that holds it.
     // Naming a wallet is not enough — otherwise connecting a wallet to pay an
     // invoice (or anyone who knows an address) could quietly register it, and
-    // the owner would never meet SwiftPay as a new user.
+    // the owner would never meet SaphraONE as a new user.
     if (!(await canLinkCircleIdentity(walletAddress, body.circleUserToken))) {
-      return jsonError("Sign in with this wallet before creating a SwiftPay profile.", 401);
+      return jsonError("Sign in with this wallet before creating a SaphraONE profile.", 401);
     }
 
     if (circleSocialUuid) {
@@ -497,7 +497,7 @@ export async function POST(request: NextRequest) {
       await getOrCreateReferralProfile(walletAddress);
 
       const cookieStore = await cookies();
-      const cookieReferralToken = cookieStore.get("swiftpay_referral_token")?.value;
+      const cookieReferralToken = cookieStore.get("saphra_referral_token")?.value;
       const referralToken =
         typeof body.referralToken === "string" && body.referralToken.trim()
           ? body.referralToken.trim()

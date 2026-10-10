@@ -112,7 +112,7 @@ export function DashboardHome({
         ) : isConnected ? (
           <span aria-hidden className="dh-hello-skeleton" />
         ) : (
-          <p className="dh-hello-name">Welcome to SwiftPay</p>
+          <p className="dh-hello-name">Welcome to SaphraONE</p>
         )}
       </header>
 
@@ -239,7 +239,7 @@ export function DashboardHome({
 /** How far a finger travels to roll one row. */
 const wheelStep = 34;
 
-const rememberedNameKey = "swiftpay.greetingName";
+const rememberedNameKey = "saphra.greetingName";
 
 /**
  * The greeting name, remembered on this device so returning to the

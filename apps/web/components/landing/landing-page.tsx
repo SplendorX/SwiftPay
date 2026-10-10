@@ -315,7 +315,7 @@ export function LandingPage() {
       <FeatureStories />
       <BusinessShowcase />
 
-      {/* ── Why SwiftPay ── */}
+      {/* ── Why SaphraONE ── */}
       <section className="marketing-section">
         <div className="marketing-split">
           <FadeUp>
@@ -447,7 +447,7 @@ export function LandingPage() {
             </ul>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
               <LaunchAppLink className="hero-launch-btn">
-                {t("common.openSwiftPay")}
+                {t("common.openSaphra")}
                 <ArrowRight className="h-4 w-4" />
               </LaunchAppLink>
             </div>

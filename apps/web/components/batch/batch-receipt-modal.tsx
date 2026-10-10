@@ -70,7 +70,7 @@ function CopyButton({ value, label }: { label: string; value: string }) {
 }
 
 /**
- * Fill in names for recipients entered by address only, from their SwiftPay
+ * Fill in names for recipients entered by address only, from their SaphraONE
  * @usernames, so the receipt (and the PNG built from it) names everyone paid.
  */
 export function useNamedBatchReceipt<T extends BatchReceiptData>(receipt: T): T {
@@ -140,7 +140,7 @@ export function BatchReceiptModal<T extends BatchReceiptData>({
         role="dialog"
       >
         <span aria-hidden className="tx-receipt-watermark">
-          SwiftPay
+          SaphraONE
         </span>
 
         <header className="tx-receipt-head">

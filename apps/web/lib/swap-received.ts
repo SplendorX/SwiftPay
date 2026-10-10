@@ -3,12 +3,11 @@ import {
   decodeEventLog,
   formatUnits,
   getAddress,
-  http,
   parseAbi,
   type Hash,
 } from "viem";
 
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 const transferEventAbi = parseAbi([
@@ -34,7 +33,7 @@ export async function readSwapReceived(input: {
 
   const client = createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 
   let receipt;

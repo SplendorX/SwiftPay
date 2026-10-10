@@ -50,7 +50,7 @@ import "./request.css";
 // Saved requests are kept per network and per signed-in wallet, so one
 // account never sees another's, and testnet requests stay off mainnet.
 function requestsStorageKey(owner: string) {
-  return `swiftpay.payment.requests.v2:${arcNetworkTarget()}:${owner.toLowerCase()}`;
+  return `saphra.payment.requests.v2:${arcNetworkTarget()}:${owner.toLowerCase()}`;
 }
 
 type RequestHistoryStatus = "active" | "expired" | "paid" | "declined";
@@ -237,7 +237,7 @@ export function PaymentCollectionHub({
   const [shareError, setShareError] = useState<string | null>(null);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [requestId, setRequestId] = useState("");
-  // Whether the @username above is a real SwiftPay account.
+  // Whether the @username above is a real SaphraONE account.
   const [shareResolved, setShareResolved] = useState(false);
 
   const trimmedWalletAddress = connectedWallet ?? "";
@@ -250,7 +250,7 @@ export function PaymentCollectionHub({
   const normalizedShareUsername = normalizeUsername(shareUsername);
   const shareUsernameError = normalizedShareUsername
     ? validateUsername(normalizedShareUsername)
-    : "Enter a SwiftPay username.";
+    : "Enter a SaphraONE username.";
   const canGenerateLink = Boolean(
     origin && isWalletValid && isAmountValid && isConnected,
   );
@@ -463,7 +463,7 @@ export function PaymentCollectionHub({
       if (navigator.share) {
         await navigator.share({
           text: trimmedNote || `Payment request for ${trimmedAmount} ${token}`,
-          title: "SwiftPay payment request",
+          title: "SaphraONE payment request",
           url: requestLink,
         });
         return;
@@ -748,7 +748,7 @@ export function PaymentCollectionHub({
                 fgColor="currentColor"
                 marginSize={1}
                 size={168}
-                title="SwiftPay payment request"
+                title="SaphraONE payment request"
                 value={requestLink}
               />
             </motion.div>
@@ -764,7 +764,7 @@ export function PaymentCollectionHub({
             <Link2 className="h-4 w-4" /> Payment link
           </p>
           <p className="req-link" title={requestLink || undefined}>
-            {requestLink || "Anyone with the link can pay you, on SwiftPay or with any Arc wallet."}
+            {requestLink || "Anyone with the link can pay you, on SaphraONE or with any Arc wallet."}
           </p>
           <div className="req-share-actions">
             <Button

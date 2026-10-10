@@ -146,7 +146,7 @@ export function StorefrontPage({ username }: { username: string }) {
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Payments settle on Arc in seconds.{" "}
           <a className="font-medium text-primary hover:underline" href="/">
-            Get SwiftPay
+            Get SaphraONE
           </a>
         </p>
       </div>

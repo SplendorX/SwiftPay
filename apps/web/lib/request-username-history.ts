@@ -6,7 +6,7 @@ import { arcNetworkTarget } from "@/lib/network";
  * appear on mainnet.
  */
 function historyStorageKey(owner: string) {
-  return `swiftpay.request.username-history.v2:${arcNetworkTarget()}:${owner.toLowerCase()}`;
+  return `saphra.request.username-history.v2:${arcNetworkTarget()}:${owner.toLowerCase()}`;
 }
 const maxHistory = 8;
 

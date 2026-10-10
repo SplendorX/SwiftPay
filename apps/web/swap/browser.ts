@@ -1,4 +1,5 @@
 import { SWAP_FEE_BPS } from "@/lib/fees";
+import { withApproval } from "@/lib/tx-approval/client";
 import type { ArcTokenSymbol } from "@/lib/tokens";
 import { arcTokens } from "@/lib/tokens";
 import { arcAddChainParameter, arcSwitchErrorMessage } from "@/lib/arc-network";
@@ -412,6 +413,8 @@ async function callCircleUserWalletApi<T>(
   action: string,
   params: Record<string, unknown> = {},
 ) {
+  // Money-moving calls carry SaphraONE's own confirmation (lib/tx-approval).
+  params = await withApproval(action, params);
   const response = await fetch("/api/circle/user-wallets", {
     body: JSON.stringify({
       action,
@@ -639,7 +642,7 @@ function createCircleRefId(label: string) {
       ? globalThis.crypto.randomUUID()
       : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 
-  return `SwiftPay ${cleanedLabel || "transaction"} ${randomValue.slice(0, 8)}`.slice(
+  return `SaphraONE ${cleanedLabel || "transaction"} ${randomValue.slice(0, 8)}`.slice(
     0,
     50,
   );

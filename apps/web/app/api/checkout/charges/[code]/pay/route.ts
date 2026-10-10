@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const body = await readJsonBody(request);
     if (!body) throw new Error("A valid JSON body is required.");
     await requireRateLimit(`checkout-pay:${clientIp(request)}:${code}`, 20, 60);
-    // A bridge mint, a signed-in SwiftPay payer, or any other wallet. Only a
+    // A bridge mint, a signed-in SaphraONE payer, or any other wallet. Only a
     // label: either way the amount comes from the receipt alone.
     const sessionWallet = await getSessionOwnerWallet();
     const payload = await confirmChargePayment({

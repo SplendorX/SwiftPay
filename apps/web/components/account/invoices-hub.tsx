@@ -530,7 +530,7 @@ export function InvoicesHub() {
                 </span>
               </label>
               <div className="text-sm font-medium">
-                <span className="mb-2 block">SwiftPay username</span>
+                <span className="mb-2 block">SaphraONE username</span>
                 <UsernameField
                   id="invoice-customer-username"
                   onChange={setCustomerUsername}
@@ -667,7 +667,7 @@ export function InvoicesHub() {
                   <span>{formatInvoiceMoney(totals.total, currency)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Totals shown here are a preview. SwiftPay recalculates the final values on the server.
+                  Totals shown here are a preview. SaphraONE recalculates the final values on the server.
                 </p>
               </div>
             </div>

@@ -1,7 +1,7 @@
 /**
  * ALLIE Tier 1 classifier tests — zero LLM calls by construction.
  *
- * Run: pnpm --filter @swiftpay/web test:allie
+ * Run: pnpm --filter @saphra/web test:allie
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

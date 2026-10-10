@@ -36,7 +36,7 @@ export function formatSaved(amount: string | null | undefined) {
 
 // ── Hero ────────────────────────────────────────────────────────────────────
 
-/** Flowing ribbons behind the balance: SwiftPay's purple, in motion. */
+/** Flowing ribbons behind the balance: SaphraONE's purple, in motion. */
 function HeroWaves() {
   return (
     <svg aria-hidden className="save-hero-waves" preserveAspectRatio="xMidYMid slice" viewBox="0 0 400 220">

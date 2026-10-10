@@ -174,7 +174,7 @@ function SpatialBusinessDeck() {
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
             <span className="ml-2 hidden font-mono text-[11px] text-muted-foreground sm:inline">
-              https://app.swiftpay.finance/business
+              https://app.saphra.one/business
             </span>
           </div>
           <div className="flex items-center gap-2 text-[11px] font-medium text-foreground">
@@ -559,27 +559,27 @@ export function BusinessShowcase() {
     {
       feature: "Settlement Speed",
       legacy: "3 - 5 business days (ACH / SWIFT wires)",
-      swiftpay: "Sub-second (<1s) instant finality on Arc",
+      saphra: "Sub-second (<1s) instant finality on Arc",
     },
     {
       feature: "Processing Fees",
       legacy: "2.9% + $0.30 per payment + wire fees ($25-$50)",
-      swiftpay: "0.1% flat protocol fee with sub-cent gas",
+      saphra: "0.1% flat protocol fee with sub-cent gas",
     },
     {
       feature: "Custody & Control",
       legacy: "Centralized banks & processors can freeze accounts",
-      swiftpay: "Self-sovereign Circle Programmable Smart Wallets",
+      saphra: "Self-sovereign Circle Programmable Smart Wallets",
     },
     {
       feature: "Global Payroll",
       legacy: "Multiple FX conversions, correspondent bank delays",
-      swiftpay: "Single-click batch payout to 500 global wallets in USDC",
+      saphra: "Single-click batch payout to 500 global wallets in USDC",
     },
     {
       feature: "Dispute & Chargeback Risk",
       legacy: "High chargeback fraud & 90-day reversal windows",
-      swiftpay: "Zero chargebacks; immutable cryptographic settlement",
+      saphra: "Zero chargebacks; immutable cryptographic settlement",
     },
   ];
 
@@ -602,7 +602,7 @@ export function BusinessShowcase() {
           For Organizations & Teams
         </div>
         <h2 className="section-title text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-          SwiftPay for Business: Global Crypto Rails with Local Precision
+          SaphraONE for Business: Global Crypto Rails with Local Precision
         </h2>
         <p className="section-copy mt-3 text-base leading-7 text-muted-foreground sm:text-lg">
           Transform your organization&apos;s financial operations. Manage corporate treasury,
@@ -670,11 +670,11 @@ export function BusinessShowcase() {
               The Enterprise Edge
             </Badge>
             <h3 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl text-foreground">
-              Why Global Companies Choose SwiftPay Business
+              Why Global Companies Choose SaphraONE Business
             </h3>
             <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
               Traditional commercial banking and card networks were built decades ago for domestic fiat.
-              SwiftPay Business offers the instant finality, security, and low fees of stablecoins combined with
+              SaphraONE Business offers the instant finality, security, and low fees of stablecoins combined with
               the financial clarity, auditability, and structure modern teams require.
             </p>
 
@@ -715,11 +715,11 @@ export function BusinessShowcase() {
           </div>
         </div>
 
-        {/* ── Comparison Table: Legacy vs SwiftPay ── */}
+        {/* ── Comparison Table: Legacy vs SaphraONE ── */}
         <div className="mt-10 overflow-hidden rounded-xl border border-border bg-card">
           <div className="border-b border-border bg-muted/40 px-4 py-3 sm:px-6">
             <h4 className="font-heading text-sm font-bold text-foreground">
-              Direct Comparison: Legacy Commercial Banking vs. SwiftPay Business
+              Direct Comparison: Legacy Commercial Banking vs. SaphraONE Business
             </h4>
           </div>
           <div className="divide-y divide-border overflow-x-auto">
@@ -728,7 +728,7 @@ export function BusinessShowcase() {
                 <tr className="bg-muted/20 text-muted-foreground">
                   <th className="p-3.5 font-semibold sm:px-6">Metric / Capability</th>
                   <th className="p-3.5 font-semibold sm:px-6 text-rose-500/90">Traditional Banking & Cards</th>
-                  <th className="p-3.5 font-semibold sm:px-6 text-emerald-500">SwiftPay Business</th>
+                  <th className="p-3.5 font-semibold sm:px-6 text-emerald-500">SaphraONE Business</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -738,7 +738,7 @@ export function BusinessShowcase() {
                     <td className="p-3.5 text-muted-foreground sm:px-6">{row.legacy}</td>
                     <td className="p-3.5 font-medium text-emerald-600 dark:text-emerald-400 sm:px-6 flex items-center gap-1.5">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                      {row.swiftpay}
+                      {row.saphra}
                     </td>
                   </tr>
                 ))}

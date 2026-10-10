@@ -24,7 +24,7 @@ function withTimeout<T>(promise: PromiseLike<T>) {
 }
 
 /**
- * The status line on the Support panel: can SwiftPay reach its database and
+ * The status line on the Support panel: can SaphraONE reach its database and
  * the Arc network right now. Real checks, cached for a minute per instance,
  * so the panel never claims "all systems operational" on its own say-so.
  */

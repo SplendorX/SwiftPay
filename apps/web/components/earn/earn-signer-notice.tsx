@@ -25,7 +25,7 @@ export function EarnExternalWalletNotice({
       <p className="earn-footnote mt-2">
         Vault deposits and withdrawals are signed by your own wallet, so the
         position and the funds stay yours. Sign in with Google to use your
-        SwiftPay wallet, or connect an external wallet holding USDC on Arc.
+        SaphraONE wallet, or connect an external wallet holding USDC on Arc.
       </p>
       <p className="earn-footnote mt-2">
         Vaults and APYs stay browsable either way.

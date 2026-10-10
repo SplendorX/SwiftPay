@@ -7,7 +7,7 @@ import {
   getCircleLoginIdentity,
   readCircleLogin,
 } from "@/lib/circle-session";
-import { emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { emitOnePointsUpdated } from "@/lib/referral/use-one-points";
 import type { ReferralActivityType } from "@/lib/referral/types";
 
 export type RecordActivityInput = {
@@ -102,16 +102,16 @@ export async function recordPlatformTransactionActivity(
       data?.userCashback?.pointsAwarded > 0 &&
       !data?.userCashback?.alreadyProcessed
     ) {
-      emitSwiftPointsUpdated();
+      emitOnePointsUpdated();
       if (showToast) {
         toast.success(
-          `🎉 Cashback Earned: +${data.userCashback.pointsAwarded} SwiftPoints (${data.userCashback.usdcValue} USDC) for this transaction!`,
+          `🎉 Cashback Earned: +${data.userCashback.pointsAwarded} OnePoints (${data.userCashback.usdcValue} USDC) for this transaction!`,
         );
       }
     }
 
     if (data?.qualified) {
-      emitSwiftPointsUpdated();
+      emitOnePointsUpdated();
       if (showToast) {
         toast.success("🏆 Referral Milestone Reached! Welcome reward unlocked!");
       }

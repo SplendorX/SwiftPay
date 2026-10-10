@@ -10,7 +10,7 @@ import {
   type LightSurface,
 } from "@/components/settings/light-surface-picker";
 
-const themeStorageKey = "swiftpay.theme";
+const themeStorageKey = "saphra.theme";
 type ThemePref = "dark" | "light" | "system";
 
 function resolveTheme(pref: ThemePref): "dark" | "light" {

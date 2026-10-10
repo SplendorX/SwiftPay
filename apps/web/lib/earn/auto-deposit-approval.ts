@@ -6,7 +6,6 @@ import {
   custom,
   encodeFunctionData,
   getAddress,
-  http,
   parseUnits,
   type Address,
   type Chain,
@@ -14,6 +13,7 @@ import {
 
 import { erc20Abi } from "@/lib/contracts";
 import { onchainFacts } from "@/lib/onchain-facts";
+import { arcTransport } from "@/lib/chains";
 
 /**
  * Unattended deposits pull USDC through the vault's executor, so the owner
@@ -43,7 +43,7 @@ export async function approveAutoDeposit(input: {
 
   const publicClient = createPublicClient({
     chain: onchainFacts.chain as Chain,
-    transport: http(onchainFacts.rpcUrl),
+    transport: arcTransport(),
   });
   const current = (await publicClient.readContract({
     abi: erc20Abi,

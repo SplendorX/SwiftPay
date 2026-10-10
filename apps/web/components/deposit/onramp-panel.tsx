@@ -112,7 +112,7 @@ export function OnrampPanel() {
     const result = kit.openWindow({ onDepositSettled, session });
     if (result.status === "blocked") {
       if (result.reason === "popup_blocked") {
-        setError("Your browser blocked the window. Allow pop-ups for SwiftPay and tap again.");
+        setError("Your browser blocked the window. Allow pop-ups for SaphraONE and tap again.");
       } else {
         setInline(true);
       }
@@ -127,7 +127,7 @@ export function OnrampPanel() {
       <p className="section-eyebrow">Buy USDC</p>
       <h2 className="section-title">Bank transfer</h2>
       <p className="section-copy">
-        Pay from your bank and receive USDC in your SwiftPay wallet on{" "}
+        Pay from your bank and receive USDC in your SaphraONE wallet on{" "}
         {onchainFacts.chain.name}. Circle handles the payment and identity
         check. Available in the US and supported European countries.
       </p>

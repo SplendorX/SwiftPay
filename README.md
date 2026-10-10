@@ -1,6 +1,6 @@
-# SwiftPay
+# SaphraONE
 
-SwiftPay is now organized as an npm-workspaces monorepo.
+SaphraONE is now organized as an npm-workspaces monorepo.
 
 ## Layout
 
@@ -37,14 +37,14 @@ npm run send
 ## Earn (USDC yield)
 
 Earn uses Circle App Kit's Earn vaults (Morpho, ERC-4626) on whichever Arc
-network the app targets: `Arc_Testnet` on testnet, `Arc` on mainnet. SwiftPay
+network the app targets: `Arc_Testnet` on testnet, `Arc` on mainnet. SaphraONE
 does not run its own yield vault.
 
 Auto-Save deposits go through `EarnAutoSaveExecutor`, which pulls a user's
 approved USDC and deposits it into one ERC-4626 vault in the user's name:
 
 ```sh
-EARN_VAULT_ADDRESS=0x... pnpm --filter @swiftpay/contracts deploy:earn:autodeposit
+EARN_VAULT_ADDRESS=0x... pnpm --filter @saphra/contracts deploy:earn:autodeposit
 ```
 
 - UI: `/earn`
@@ -60,7 +60,7 @@ Swift+Save is a **non-interest-bearing** savings system: pockets + Spend&Save. T
 
 ```sh
 pnpm contracts:compile
-pnpm --filter @swiftpay/contracts test:save
+pnpm --filter @saphra/contracts test:save
 pnpm contracts:deploy-swiftsave
 ```
 
@@ -68,13 +68,13 @@ Copy `NEXT_PUBLIC_SWIFT_SAVE_VAULT_ADDRESS` from deploy output into `.env`.
 
 ## Going live on Arc mainnet
 
-SwiftPay is built to flip from Arc Testnet to Arc mainnet when official network details are published. Do not invent a chain ID, RPC, explorer, or token address.
+SaphraONE is built to flip from Arc Testnet to Arc mainnet when official network details are published. Do not invent a chain ID, RPC, explorer, or token address.
 
 1. Set `NEXT_PUBLIC_ARC_NETWORK=mainnet`.
 2. Copy official Arc mainnet values into `ARC_MAINNET_CHAIN_ID`, `ARC_MAINNET_RPC_URL`, `ARC_MAINNET_EXPLORER`, `ARC_MAINNET_USDC`, `ARC_MAINNET_EURC` (and the matching `NEXT_PUBLIC_*` token/RPC/explorer vars).
 3. Deploy **new** contracts on mainnet — do not reuse testnet addresses:
-   - `pnpm --filter @swiftpay/contracts deploy:swiftpaysend:mainnet`
-   - `pnpm --filter @swiftpay/contracts deploy:swiftsave:mainnet`
+   - `pnpm --filter @saphra/contracts deploy:swiftpaysend:mainnet`
+   - `pnpm --filter @saphra/contracts deploy:swiftsave:mainnet`
    - existing Earn / SwiftBatch / escrow / recurepay deploy scripts
 4. Point env at the new mainnet addresses. Savings custody is immutable; the launch vault already includes `depositFor` so payment + fee + Spend&Save stay one transaction.
 
@@ -108,8 +108,8 @@ Apply SQL: `packages/database/supabase/swift-save.sql`.
 Balances only update after on-chain confirmation. Spend&Save is enforced server-side: payments require balance for **payment + savings** (+ fees). Target pockets can **stop at target** or **continue beyond**.
 
 ```sh
-pnpm --filter @swiftpay/web test:save
-pnpm --filter @swiftpay/contracts test:save
+pnpm --filter @saphra/web test:save
+pnpm --filter @saphra/contracts test:save
 ```
 
 ### Wallet modes
@@ -158,7 +158,7 @@ SUPABASE_ACCOUNT_ACTIVITY_TABLE=account_activity
 
 ## Traction analytics
 
-SwiftPay includes real traction instrumentation for investor and operator reporting. It records product events into Supabase and aggregates actual MAU-style active wallets, stablecoin volume, transaction count, payment success rate, savings AUM, indexed Earn AUM, registered wallets, and recurring schedules.
+SaphraONE includes real traction instrumentation for investor and operator reporting. It records product events into Supabase and aggregates actual MAU-style active wallets, stablecoin volume, transaction count, payment success rate, savings AUM, indexed Earn AUM, registered wallets, and recurring schedules.
 
 Apply SQL:
 

@@ -1,8 +1,8 @@
+import "@/lib/env-compat";
 import {
   createPublicClient,
   createWalletClient,
   getAddress,
-  http,
   isAddress,
   parseUnits,
   type Address,
@@ -13,9 +13,10 @@ import { privateKeyToAccount } from "viem/accounts";
 
 import { erc20Abi } from "@/lib/contracts";
 import { onchainFacts } from "@/lib/onchain-facts";
+import { arcTransport } from "@/lib/chains";
 
 /**
- * The SwiftPoints treasury: the wallet that receives USDC when points are
+ * The OnePoints treasury: the wallet that receives USDC when points are
  * bought and pays it out when points are redeemed.
  *
  * Server-only. The key never leaves the server, and every caller here moves
@@ -39,8 +40,8 @@ function normalizeKey(value?: string | null): `0x${string}` | null {
 
 function treasuryPrivateKey() {
   return normalizeKey(
-    process.env.SWIFTPOINTS_TREASURY_PRIVATE_KEY ??
-      process.env.SWIFTPAY_CIRCLE_TREASURY_PRIVATE_KEY,
+    process.env.ONE_POINTS_TREASURY_PRIVATE_KEY ??
+      process.env.SAPHRA_CIRCLE_TREASURY_PRIVATE_KEY,
   );
 }
 
@@ -55,7 +56,7 @@ export function isTreasuryPayoutConfigured() {
  * one call; anything larger needs a human.
  */
 export function maxAutomaticPayoutUsdc() {
-  const raw = process.env.SWIFTPOINTS_MAX_PAYOUT_USDC?.trim();
+  const raw = process.env.ONE_POINTS_MAX_PAYOUT_USDC?.trim();
   const parsed = raw ? Number(raw) : Number.NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
 }
@@ -65,7 +66,7 @@ function clients() {
   if (!privateKey) return null;
 
   const chain = onchainFacts.chain as Chain;
-  const transport = http(onchainFacts.rpcUrl);
+  const transport = arcTransport();
   const account = privateKeyToAccount(privateKey);
 
   return {
@@ -87,6 +88,11 @@ export function treasuryPayoutAddress(): Address | null {
  * as "no funds moved" and reverses the points it already debited.
  */
 export async function payUsdcFromTreasury(input: {
+  /**
+   * An admin approved this payout by hand (admin rewards review), so it may
+   * exceed the automatic cap. Never set from a user-facing route.
+   */
+  adminApproved?: boolean;
   to: string;
   usdcAmount: number;
 }): Promise<Hash> {
@@ -95,7 +101,7 @@ export async function payUsdcFromTreasury(input: {
 
   if (!ctx || !usdc) {
     throw new TreasuryError(
-      "Payouts are not configured: set SWIFTPOINTS_TREASURY_PRIVATE_KEY.",
+      "Payouts are not configured: set ONE_POINTS_TREASURY_PRIVATE_KEY.",
     );
   }
 
@@ -108,7 +114,7 @@ export async function payUsdcFromTreasury(input: {
   }
 
   const cap = maxAutomaticPayoutUsdc();
-  if (input.usdcAmount > cap) {
+  if (input.usdcAmount > cap && !input.adminApproved) {
     throw new TreasuryError(
       `Redemptions above ${cap} USDC are reviewed manually. Redeem a smaller amount or contact support.`,
     );
@@ -127,7 +133,7 @@ export async function payUsdcFromTreasury(input: {
 
   if (balance < amountUnits) {
     throw new TreasuryError(
-      "The SwiftPoints treasury is temporarily out of USDC. Your points were not spent.",
+      "The OnePoints treasury is temporarily out of USDC. Your points were not spent.",
     );
   }
 

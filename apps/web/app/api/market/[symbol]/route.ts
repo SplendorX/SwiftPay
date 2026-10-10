@@ -4,7 +4,7 @@ import { jsonError, jsonOk } from "@/lib/http";
 
 export const runtime = "nodejs";
 
-/** Market data for the stablecoins SwiftPay holds, from CoinGecko. */
+/** Market data for the stablecoins SaphraONE holds, from CoinGecko. */
 const coinIds: Record<string, string> = { EURC: "euro-coin", USDC: "usd-coin" };
 const rangeDays: Record<string, number> = { "1d": 1, "1w": 7, "1m": 30 };
 

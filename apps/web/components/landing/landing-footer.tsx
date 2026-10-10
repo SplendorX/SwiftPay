@@ -13,7 +13,7 @@ const resourceLinks = [
   ...(arcChain.testnet
     ? [{ href: circleFaucetUrl, label: "Circle testnet faucet" }]
     : []),
-  { href: "https://x.com/getswiftpay?s=11", label: "X / Twitter" },
+  { href: "https://x.com/saphraone", label: "X / Twitter" },
 ];
 
 function FooterColumn({
@@ -79,7 +79,7 @@ export function LandingFooter() {
               </li>
             ))}
             <li>
-              <LaunchAppLink>{t("common.openSwiftPay")}</LaunchAppLink>
+              <LaunchAppLink>{t("common.openSaphra")}</LaunchAppLink>
             </li>
           </ul>
         </div>

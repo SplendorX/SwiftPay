@@ -8,6 +8,7 @@ import {
   Copy,
   CreditCard,
   HandCoins,
+  Network,
   QrCode,
   Share2,
   Wallet,
@@ -17,9 +18,11 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { DepositPanel } from "@/components/deposit/DepositPanel";
 import { OnrampPanel } from "@/components/deposit/onramp-panel";
+import { ReceiveFromNetwork } from "@/components/deposit/receive-from-network";
 import { ReceiveShareCard } from "@/components/dashboard/receive-share-card";
 import { Sheet, SheetContent, SheetDescription, SheetGrabber, SheetTitle } from "@/components/ui/sheet";
 import { arcChain } from "@/lib/chains";
+import { multichainEnabled } from "@/lib/multichain/flag";
 import { fetchProfile, formatUsernameLabel, profileUpdatedEventName } from "@/lib/profile";
 import { useSheetSide } from "@/lib/use-media-query";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
@@ -27,7 +30,13 @@ import { cn } from "@/lib/utils";
 
 import "./deposit.css";
 
-type View = "home" | "chain" | "bank";
+type View = "home" | "chain" | "bank" | "network";
+
+const viewTitles: Record<Exclude<View, "home">, string> = {
+  bank: "Bank transfer",
+  chain: multichainEnabled ? "Bridge from my wallet" : "From another chain",
+  network: "Receive from another network",
+};
 
 function shortAddress(value?: string | null) {
   return value ? `${value.slice(0, 6)}…${value.slice(-4)}` : "Not connected";
@@ -95,11 +104,11 @@ export function DepositHub() {
   async function share() {
     if (!address) return;
     const text = username
-      ? `Pay me on SwiftPay: ${formatUsernameLabel(username)} (or my ${arcChain.name} wallet ${address})`
+      ? `Pay me on SaphraONE: ${formatUsernameLabel(username)} (or my ${arcChain.name} wallet ${address})`
       : `My ${arcChain.name} wallet: ${address}`;
     try {
       if (navigator.share) {
-        await navigator.share({ text, title: "My SwiftPay account" });
+        await navigator.share({ text, title: "My SaphraONE account" });
       } else {
         await copy(username ? formatUsernameLabel(username) : address, username ? "username" : "address");
       }
@@ -115,10 +124,12 @@ export function DepositHub() {
           <button aria-label="Back" className="dep-round" onClick={() => setView("home")} type="button">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="dep-title">{view === "chain" ? "From another chain" : "Bank transfer"}</h1>
+          <h1 className="dep-title">{viewTitles[view]}</h1>
           <span />
         </header>
-        <div className="dep-panel">{view === "chain" ? <DepositPanel /> : <OnrampPanel />}</div>
+        <div className="dep-panel">
+          {view === "chain" ? <DepositPanel /> : view === "network" ? <ReceiveFromNetwork /> : <OnrampPanel />}
+        </div>
       </div>
     );
   }
@@ -136,7 +147,7 @@ export function DepositHub() {
       {/* Your account, ready to share */}
       <section className="dep-hero">
         <span aria-hidden className="dep-hero-glow" />
-        <p className="dep-hero-label">Your SwiftPay account</p>
+        <p className="dep-hero-label">Your SaphraONE account</p>
         {isConnected && address ? (
           <>
             <p className="dep-hero-name">{username ? formatUsernameLabel(username) : shortAddress(address)}</p>
@@ -172,18 +183,32 @@ export function DepositHub() {
           <ul className="dep-list">
             <li>
               <MethodRow
-                body="Anyone on SwiftPay pays your @username; any Arc wallet can send to your address."
+                body="Anyone on SaphraONE pays your @username; any Arc wallet can send to your address."
                 icon={<HandCoins className="h-5 w-5" />}
                 onClick={() => setReceiveOpen(true)}
                 title="Receive from anyone"
               />
             </li>
+            {multichainEnabled ? (
+              <li>
+                <MethodRow
+                  body="Get an address on Base, Polygon, Arbitrum and more. USDC sent there lands in your balance by itself."
+                  icon={<Network className="h-5 w-5" />}
+                  onClick={() => setView("network")}
+                  title="Receive from another network"
+                />
+              </li>
+            ) : null}
             <li>
               <MethodRow
-                body="Bring USDC from Ethereum, Base and other networks over Circle CCTP."
+                body={
+                  multichainEnabled
+                    ? "Move USDC you hold in MetaMask or another wallet over Circle CCTP."
+                    : "Bring USDC from Ethereum, Base and other networks over Circle CCTP."
+                }
                 icon={<Wallet className="h-5 w-5" />}
                 onClick={() => setView("chain")}
-                title="From another chain"
+                title={multichainEnabled ? "Bridge from my wallet" : "From another chain"}
               />
             </li>
             <li>

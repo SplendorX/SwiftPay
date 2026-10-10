@@ -135,7 +135,7 @@ export function SwiftSaveHub() {
   const [hideBalance, setHideBalance] = useState(false);
   useEffect(() => {
     try {
-      setHideBalance(window.localStorage.getItem("swiftpay.hide-balance") === "1");
+      setHideBalance(window.localStorage.getItem("saphra.hide-balance") === "1");
     } catch {
       setHideBalance(false);
     }
@@ -144,7 +144,7 @@ export function SwiftSaveHub() {
     setHideBalance((current) => {
       const next = !current;
       try {
-        window.localStorage.setItem("swiftpay.hide-balance", next ? "1" : "0");
+        window.localStorage.setItem("saphra.hide-balance", next ? "1" : "0");
       } catch {
         // Private mode: the choice lasts this visit.
       }
@@ -289,9 +289,9 @@ export function SwiftSaveHub() {
     function handleSavingsUpdated() {
       void loadAll();
     }
-    window.addEventListener("swiftpay:savings-updated", handleSavingsUpdated);
+    window.addEventListener("saphra:savings-updated", handleSavingsUpdated);
     return () => {
-      window.removeEventListener("swiftpay:savings-updated", handleSavingsUpdated);
+      window.removeEventListener("saphra:savings-updated", handleSavingsUpdated);
     };
   }, [loadAll]);
 
@@ -785,7 +785,7 @@ export function SwiftSaveHub() {
           <div className="min-w-0 flex-1">
             <p className="font-semibold">Authorize this wallet</p>
             <p className="text-sm text-muted-foreground">
-              Sign a one-time message so SwiftPay can manage your pockets.
+              Sign a one-time message so SaphraONE can manage your pockets.
             </p>
           </div>
           <Button

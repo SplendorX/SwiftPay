@@ -83,12 +83,12 @@ export function FeaturePromos() {
       title: "Save",
     },
     {
-      body: "Invite a friend. You both get SwiftPoints once they get started.",
+      body: "Invite a friend. You both get OnePoints once they get started.",
       // Referral activity cashback: points per qualifying payment the friend
       // makes, rising with the referrer's tier (see lib/referral/policy-service).
       extra: "Then earn cashback on every payment they make.",
       figure: `+${REFERRED_QUALIFICATION_REWARD_POINTS}`,
-      figureNote: "SwiftPoints each",
+      figureNote: "OnePoints each",
       href: "/referral",
       icon: Gift,
       id: "invite",
@@ -97,7 +97,7 @@ export function FeaturePromos() {
   ];
 
   return (
-    <div aria-label="Explore SwiftPay" className="feature-promos" role="list">
+    <div aria-label="Explore SaphraONE" className="feature-promos" role="list">
       {promos.map(({ body, extra, figure, figureNote, href, icon: Icon, id, title }) => (
         <Link
           className="feature-promo board-edge"

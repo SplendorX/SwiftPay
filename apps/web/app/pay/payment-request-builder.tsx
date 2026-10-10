@@ -151,7 +151,7 @@ export function PaymentRequestBuilder({
       if (navigator.share) {
         await navigator.share({
           text: trimmedNote || `Payment request for ${trimmedAmount} ${initialToken}`,
-          title: "SwiftPay payment request",
+          title: "SaphraONE payment request",
           url: requestLink,
         });
         return;
@@ -325,7 +325,7 @@ export function PaymentRequestBuilder({
                 fgColor="#160f24"
                 marginSize={1}
                 size={210}
-                title="SwiftPay payment request"
+                title="SaphraONE payment request"
                 value={requestLink}
               />
             </div>

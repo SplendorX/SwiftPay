@@ -15,7 +15,7 @@ export type ResolvedRecipient = {
 /**
  * Server-side recipient resolution for the payment engine.
  * Accepts an EVM address, a saved contact's name, or an @username backed by a
- * SwiftPay profile.
+ * SaphraONE profile.
  *
  * When a name could be either, how it was written decides: "@gentle" is a
  * username first (falling back to a contact), a bare "gentle" is the owner's

@@ -1,7 +1,7 @@
 {
-  "name": "@swiftpay/scripts",
+  "name": "@saphra/scripts",
   "version": "1.0.0",
-  "description": "Operational scripts for SwiftPay wallets, transfers, swaps, and bridge flows.",
+  "description": "Operational scripts for SaphraONE wallets, transfers, swaps, and bridge flows.",
   "private": true,
   "type": "module",
   "scripts": {

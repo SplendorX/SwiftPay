@@ -1,3 +1,4 @@
+import "@/lib/env-compat";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
@@ -23,6 +24,7 @@ const protectedRouteMatchers = [
 /** Called server-to-server by Circle; they carry no browser session. */
 const crossSiteExemptApiPrefixes = [
   "/api/circles/webhooks/",
+  "/api/multichain/webhooks/",
   "/api/recurring/webhooks/",
 ];
 
@@ -38,7 +40,7 @@ function allowedOrigins(request: NextRequest) {
   }
   for (const value of [
     process.env.NEXT_PUBLIC_APP_URL,
-    ...(process.env.SWIFTPAY_ALLOWED_ORIGINS ?? "").split(","),
+    ...(process.env.SAPHRA_ALLOWED_ORIGINS ?? "").split(","),
   ]) {
     try {
       if (value?.trim()) origins.add(new URL(value.trim()).origin);
@@ -164,7 +166,7 @@ export function proxy(request: NextRequest) {
     }
     if (isLockedApiRequest(request)) {
       return NextResponse.json(
-        { locked: true, message: "SwiftPay is locked. Unlock it to continue." },
+        { locked: true, message: "SaphraONE is locked. Unlock it to continue." },
         { headers: { "Cache-Control": "no-store" }, status: 423 },
       );
     }

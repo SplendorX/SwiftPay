@@ -30,7 +30,7 @@ export const checkoutErrors = {
     new BusinessHttpError({
       code: "STOREFRONT_NOT_FOUND",
       status: 404,
-      userMessage: "That business was not found on SwiftPay.",
+      userMessage: "That business was not found on SaphraONE.",
     }),
   onrampUnavailable: () =>
     new BusinessHttpError({

@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!recipient?.wallet_address) {
-      return jsonError("That SwiftPay username was not found.", 404);
+      return jsonError("That SaphraONE username was not found.", 404);
     }
 
     if (recipient.wallet_address.toLowerCase() === fromWallet) {
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
 
     const fromLabel =
       normalizeText(body.fromLabel, 80) ||
-      (fromUsername ? `@${fromUsername}` : "A SwiftPay user");
+      (fromUsername ? `@${fromUsername}` : "A SaphraONE user");
     const note = normalizeText(body.note, maxNoteLength);
     const duplicate = await hasNotificationForPaymentId(
       recipient.wallet_address,

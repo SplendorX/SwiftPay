@@ -80,7 +80,7 @@ export function verifyTotp(secret: string, code: string, lastStep = 0, now = Dat
 
 /** The otpauth:// URI an authenticator app scans. */
 export function otpauthUri(secret: string, accountLabel: string) {
-  const issuer = "SwiftPay";
+  const issuer = "SaphraONE";
   const label = encodeURIComponent(`${issuer}:${accountLabel}`);
   const params = new URLSearchParams({
     algorithm: "SHA1",

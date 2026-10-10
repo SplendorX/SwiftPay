@@ -44,7 +44,7 @@ export function Providers({
     <WagmiProvider config={config} initialState={initialState}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
-          appInfo={{ appName: "SwiftPay" }}
+          appInfo={{ appName: "SaphraONE" }}
           initialChain={arcChain}
           modalSize="compact"
           theme={rainbowTheme}

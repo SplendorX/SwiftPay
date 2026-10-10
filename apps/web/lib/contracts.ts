@@ -86,7 +86,7 @@ export const swiftRecurepayExecutorAddress =
   process.env.NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS?.trim() ?? "";
 
 /** Direct-send router: 0.1% platform fee + optional Spend&Save in one call. */
-export function getSwiftPaySendAddress() {
+export function getSaphraSendAddress() {
   // Bracket access so Next does not inline an empty string at compile time.
   return (
     process.env["NEXT_PUBLIC_SWIFTPAY_SEND_ADDRESS"]?.trim() ||
@@ -95,7 +95,7 @@ export function getSwiftPaySendAddress() {
   );
 }
 
-export const swiftPaySendAddress = getSwiftPaySendAddress();
+export const swiftPaySendAddress = getSaphraSendAddress();
 
 export const sendPlatformFeeBasisPoints = 10;
 

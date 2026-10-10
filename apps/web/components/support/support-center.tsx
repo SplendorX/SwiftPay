@@ -227,7 +227,7 @@ function ArticleList({ articles, onOpen }: { articles: SupportArticle[]; onOpen:
 }
 
 /**
- * SwiftPay Support: instant answers from the help library, and a person when
+ * SaphraONE Support: instant answers from the help library, and a person when
  * those run out. Used in the help panel (a bottom sheet on phones, a side
  * panel on desktop), on /support, and from the lock screen as a guest.
  */
@@ -401,7 +401,7 @@ export function SupportCenter({
           <div className="support-home-hero px-5 pb-24 pt-6 text-white">
             <div className="flex items-start justify-between gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt="SwiftPay" className="h-10 w-10 rounded-xl" height={40} src="/icons/icon-192.png" width={40} />
+              <img alt="SaphraONE" className="h-10 w-10 rounded-xl" height={40} src="/icons/icon-192.png" width={40} />
               {closeButton}
             </div>
             <p className="mt-7 font-heading text-[1.7rem] font-bold leading-tight tracking-tight">
@@ -523,7 +523,7 @@ export function SupportCenter({
 
             <p className="flex items-center justify-center gap-1.5 pt-1 text-center text-[0.7rem] text-muted-foreground">
               <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
-              SwiftPay will never ask for your seed phrase, PIN or private key.
+              SaphraONE will never ask for your seed phrase, PIN or private key.
             </p>
           </div>
         </div>
@@ -640,7 +640,7 @@ export function SupportCenter({
                     </span>
                     <div>
                       <p className="text-sm font-semibold">
-                        {entry.urgent ? "Let's get this to our team now" : "Talk to the SwiftPay team"}
+                        {entry.urgent ? "Let's get this to our team now" : "Talk to the SaphraONE team"}
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {entry.urgent
@@ -761,7 +761,7 @@ export function SupportCenter({
             </Button>
           </div>
           <p className="mt-1.5 text-center text-[0.68rem] text-muted-foreground">
-            SwiftPay will never ask for your seed phrase or private key.
+            SaphraONE will never ask for your seed phrase or private key.
           </p>
         </form>
       ) : null}
@@ -986,7 +986,7 @@ function TicketThread({
                     )}
                   >
                     {message.sender === "agent" ? (
-                      <p className="mb-0.5 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-primary">SwiftPay team</p>
+                      <p className="mb-0.5 text-[0.68rem] font-bold uppercase tracking-[0.12em] text-primary">SaphraONE team</p>
                     ) : null}
                     <p className="whitespace-pre-line">{message.body}</p>
                     <p className="mt-1 text-[0.65rem] opacity-70">{timeAgo(message.createdAt)}</p>

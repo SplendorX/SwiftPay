@@ -7,7 +7,7 @@ const notificationsTable =
 const notificationDismissalsTable =
   process.env.SUPABASE_NOTIFICATION_DISMISSALS_TABLE ??
   "savings_notification_dismissals";
-const notificationsChangedEventName = "swiftpay:notifications-changed";
+const notificationsChangedEventName = "saphra:notifications-changed";
 
 export const notificationsChangedEvent = notificationsChangedEventName;
 

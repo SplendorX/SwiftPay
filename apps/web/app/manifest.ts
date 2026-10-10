@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 import { checkoutEnabled } from "@/lib/checkout/flag";
 
 /**
- * Makes SwiftPay installable: "Add to Home Screen" on iPhone and Android,
+ * Makes SaphraONE installable: "Add to Home Screen" on iPhone and Android,
  * "Install app" in Chrome and Edge on desktop. It opens in its own window,
  * without browser bars, straight into the dashboard.
  */
@@ -20,10 +20,10 @@ export default function manifest(): MetadataRoute.Manifest {
       { purpose: "maskable", sizes: "512x512", src: "/icons/maskable-512.png", type: "image/png" },
     ],
     id: "/",
-    name: "SwiftPay",
+    name: "SaphraONE",
     orientation: "any",
     scope: "/",
-    short_name: "SwiftPay",
+    short_name: "SaphraONE",
     // Long-press the app icon (Android, desktop) to jump straight in.
     shortcuts: [
       { name: "Send", short_name: "Send", url: "/send", icons: [{ sizes: "192x192", src: "/icons/icon-192.png" }] },

@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { AlertCircle, ExternalLink, Loader2, TrendingUp } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { EarnExternalWalletNotice } from "@/components/earn/earn-signer-notice";
+import { TransferProgressOverlay } from "@/components/send/transfer-progress";
+import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
 import {
   browserDeposit,
@@ -20,8 +21,11 @@ import {
 import { notifyEarnPositionUpdated } from "@/lib/earn/selected-vault";
 import type { EarnDepositQuote, EarnTxResult, EarnVault } from "@/lib/earn/types";
 import { formatUsdc, isValidUsdcAmount, parseUsdc } from "@/lib/onchain-money";
+import { confirmFlow } from "@/lib/tx-approval/client";
 
 type EarnDepositProps = {
+  /** The Circle wallet id: one confirmation for the whole deposit or withdrawal (lib/tx-approval). */
+  circleWalletId?: string | null;
   connectedAddress?: string | null;
   currentChainId?: number;
   resolveProvider?: (() => Promise<unknown>) | null;
@@ -34,6 +38,7 @@ type EarnDepositProps = {
 };
 
 export function EarnDeposit({
+  circleWalletId,
   connectedAddress,
   currentChainId,
   initialAmount = "",
@@ -48,6 +53,8 @@ export function EarnDeposit({
   const [result, setResult] = useState<EarnTxResult | null>(null);
   const [busy, setBusy] = useState<"preview" | "deposit" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The moving-coin animation: runs with the deposit, then plays its check.
+  const [depositDone, setDepositDone] = useState(false);
 
   const amountValid = isValidUsdcAmount(amount);
 
@@ -81,24 +88,23 @@ export function EarnDeposit({
     setError(null);
     try {
       parseUsdc(amount);
-      const nextResult = await browserDeposit({
-        amount,
-        currentChainId,
-        resolveProvider,
-        switchChainAsync,
-        vaultAddress,
-      });
+      const nextResult = await confirmFlow(
+        circleWalletId,
+        { amount, maxUses: 4, recipients: [], title: "Invest USDC", token: "USDC" },
+        () =>
+          browserDeposit({
+            amount,
+            currentChainId,
+            resolveProvider,
+            switchChainAsync,
+            vaultAddress,
+          }),
+      );
       setResult(nextResult);
+      setDepositDone(true);
       setAmount("");
       setQuote(null);
       notifyEarnPositionUpdated();
-      toast.success("Deposit submitted", {
-        action: {
-          label: "View",
-          onClick: () => window.open(nextResult.explorerUrl, "_blank"),
-        },
-        description: `${formatUsdc(parseUsdc(nextResult.amount || amount))} USDC deposited.`,
-      });
     } catch (cause) {
       if (!(cause instanceof EarnRejectedError)) {
         setError(cause instanceof Error ? cause.message : "Deposit failed.");
@@ -135,6 +141,28 @@ export function EarnDeposit({
 
   return (
     <div className="earn-form earn-panel-form">
+      <TransferProgressOverlay
+        active={busy === "deposit" || depositDone}
+        current={0}
+        details={
+          result
+            ? {
+                amount: result.amount ? `${formatUsdc(parseUsdc(result.amount))} USDC` : undefined,
+                eyebrow: "Invest",
+                explorerUrl: result.explorerUrl,
+                rows: selectedVault ? [{ label: "Vault", value: vaultName(selectedVault) }] : undefined,
+              }
+            : undefined
+        }
+        doneSubtitle={selectedVault ? `Deposited into ${vaultName(selectedVault)}.` : "Deposited into your vault."}
+        doneTitle="Investment successful"
+        from={<TokenIcon className="h-8 w-8" symbol="USDC" />}
+        onDone={() => setDepositDone(false)}
+        state={depositDone ? "done" : "running"}
+        steps={[selectedVault ? `Investing in ${vaultName(selectedVault)}` : "Investing in the vault"]}
+        title="Investing"
+        to={<TrendingUp className="h-6 w-6 text-primary" />}
+      />
       <p className="earn-label">
         {selectedVault ? vaultName(selectedVault) : "Selected vault"}
       </p>

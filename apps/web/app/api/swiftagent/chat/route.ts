@@ -75,7 +75,7 @@ type ChatResponse = {
   reason?: string;
   intentId?: string;
   upgradeRequired?: boolean;
-  /** SwiftPoints charged for calls past today's included Pro budget. */
+  /** OnePoints charged for calls past today's included Pro budget. */
   overagePoints?: number;
   rail?: string;
   estimatedFeeUnits?: string;
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       };
     } else {
       // 4. Daily LLM budget (Pro only). Past it, each further model call
-      //    costs 0.002 USDC in SwiftPoints so Pro keeps working all day.
+      //    costs 0.002 USDC in OnePoints so Pro keeps working all day.
       const budget = await checkLlmBudget(ownerWallet);
       // Calls still covered by today's budget; anything past this is paid.
       let includedCalls = budget.allowed ? budget.remaining : 0;
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
           action: {
             type: "Clarify",
             question: budget.exhausted
-              ? `You've used today's included ALLIE Pro requests. Extra requests cost ${allieOveragePoints()} SwiftPoints (0.002 USDC) each, and your SwiftPoints balance is too low. Direct instructions still work, and the free budget resets at 00:00 UTC.`
+              ? `You've used today's included ALLIE Pro requests. Extra requests cost ${allieOveragePoints()} OnePoints (0.002 USDC) each, and your OnePoints balance is too low. Direct instructions still work, and the free budget resets at 00:00 UTC.`
               : "ALLIE Pro can't check today's request budget right now. Direct instructions still work; try again in a moment.",
           },
           tier: 1,
@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
 
     // 9. Money-moving actions go through the policy engine and stop there —
     //    only /api/swiftagent/execute can execute, and only after the person
-    //    explicitly confirms. Everything else resolves against SwiftPay's own
+    //    explicitly confirms. Everything else resolves against SaphraONE's own
     //    data or is prepared for the product UI to finish.
     const movesMoney =
       action.type === "PaymentIntent" || action.type === "BatchPay";
@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({
             ...response,
             allowed: false,
-            reason: `I couldn't find ${leg.recipient} in your contacts or as a SwiftPay username.`,
+            reason: `I couldn't find ${leg.recipient} in your contacts or as a SaphraONE username.`,
           } satisfies ChatResponse);
         }
 

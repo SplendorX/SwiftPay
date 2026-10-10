@@ -17,7 +17,7 @@ import { bottomSheetClassName, useSheetSide } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
 /**
- * The header's help button: opens SwiftPay Support; a dot means a reply is
+ * The header's help button: opens SaphraONE Support; a dot means a reply is
  * waiting. It also owns the panel for the rest of the app: the mobile menu
  * (where this button is hidden) opens it with `openSupport()`. A bottom
  * sheet on phones and tablets, a side panel on desktop.
@@ -93,8 +93,8 @@ export function SupportLauncher({ className }: { className?: string }) {
           side={side}
         >
           {side === "bottom" ? <SheetGrabber className="bg-white/40" /> : null}
-          <SheetTitle className="sr-only">SwiftPay Support</SheetTitle>
-          <SheetDescription className="sr-only">Answers to common questions, and a way to reach the SwiftPay team.</SheetDescription>
+          <SheetTitle className="sr-only">SaphraONE Support</SheetTitle>
+          <SheetDescription className="sr-only">Answers to common questions, and a way to reach the SaphraONE team.</SheetDescription>
           <SupportCenter onClose={() => setOpen(false)} onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>

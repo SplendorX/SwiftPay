@@ -4,7 +4,7 @@ import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { TransactionHistory } from "@/components/transactions/transaction-history";
 
 export const metadata = {
-  title: "Transactions — SwiftPay",
+  title: "Transactions — SaphraONE",
 };
 
 export default function Transactions() {

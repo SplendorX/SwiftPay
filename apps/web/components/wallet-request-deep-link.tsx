@@ -40,7 +40,7 @@ const handlesItsOwnRequests = new Set(["metaMask", "metaMaskSDK", "io.metamask"]
 /**
  * Only real app links (okex://, trust://…). An https "universal" link opened
  * from script usually loads in this tab instead of opening the app, replacing
- * SwiftPay mid-request, so those are never used.
+ * SaphraONE mid-request, so those are never used.
  */
 function appLinkOnly(link: string | undefined) {
   if (!link) return undefined;

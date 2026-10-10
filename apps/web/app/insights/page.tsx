@@ -4,7 +4,7 @@ import { PlatformProfileControls } from "@/components/platform-profile-controls"
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 
 export const metadata = {
-  title: "Insights — SwiftPay",
+  title: "Insights — SaphraONE",
 };
 
 export default function Insights() {

@@ -73,7 +73,7 @@ function plural(count: number, word: string) {
 const businessOnly = (title: string): AllieOutcome => ({
   kind: "panel",
   title,
-  summary: `${title} is part of SwiftPay Business. Switch this account to Business to use it.`,
+  summary: `${title} is part of SaphraONE Business. Switch this account to Business to use it.`,
   rows: [],
   cta: "Upgrade to Business",
   href: "/settings#account-type",
@@ -615,7 +615,7 @@ function createInvoice(action: CreateInvoiceAction, isBusiness: boolean): AllieO
     return {
       kind: "prepare",
       title: "Request a payment",
-      summary: "Invoices are part of SwiftPay Business — I've set this up as a payment request instead.",
+      summary: "Invoices are part of SaphraONE Business — I've set this up as a payment request instead.",
       rows: [
         { label: "Amount", value: action.amountUsdc ? `${action.amountUsdc} ${action.asset}` : "Any amount" },
         ...(action.customer ? [{ label: "From", value: action.customer }] : []),

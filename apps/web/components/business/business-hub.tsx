@@ -107,7 +107,7 @@ export function BusinessHub() {
   }, [load, range]);
 
   useEffect(() => {
-    setHideBalances(localStorage.getItem("swiftpay.hideBalances") === "1");
+    setHideBalances(localStorage.getItem("saphra.hideBalances") === "1");
   }, []);
 
   const can = useCallback(
@@ -209,7 +209,7 @@ export function BusinessHub() {
           onHide={() => {
             const next = !hideBalances;
             setHideBalances(next);
-            localStorage.setItem("swiftpay.hideBalances", next ? "1" : "0");
+            localStorage.setItem("saphra.hideBalances", next ? "1" : "0");
           }}
           onRange={setRange}
           onTab={setTab}

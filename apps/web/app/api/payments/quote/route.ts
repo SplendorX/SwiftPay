@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAddress, zeroHash } from "viem";
 
-import { getSwiftPaySendAddress, swiftBatchFeeRecipient } from "@/lib/contracts";
+import { getSaphraSendAddress, swiftBatchFeeRecipient } from "@/lib/contracts";
 import {
   feePercentLabel,
   formatFeeAmount,
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   const paymentAmountUnits = BigInt(amount.amount_units);
   const feeUnits = platformFeeUnits(paymentAmountUnits, SEND_FEE_BPS);
   const feeRecipient = swiftBatchFeeRecipient;
-  const sendRouter = getSwiftPaySendAddress();
+  const sendRouter = getSaphraSendAddress();
   const vault = swiftSaveVaultAddress();
 
   try {

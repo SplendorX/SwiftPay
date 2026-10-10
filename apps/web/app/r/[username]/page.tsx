@@ -60,12 +60,12 @@ export default function ReferralLandingPage() {
           // Store in localStorage & cookies for signup attribution
           if (typeof window !== "undefined") {
             try {
-              window.localStorage.setItem("swiftpay_referral_token", token);
+              window.localStorage.setItem("saphra_referral_token", token);
               if (wallet) {
-                window.localStorage.setItem("swiftpay_referrer_wallet", wallet);
+                window.localStorage.setItem("saphra_referrer_wallet", wallet);
               }
               // Set cookie valid for 30 days
-              document.cookie = `swiftpay_referral_token=${encodeURIComponent(
+              document.cookie = `saphra_referral_token=${encodeURIComponent(
                 token,
               )}; path=/; max-age=2592000; SameSite=Lax`;
             } catch {
@@ -95,7 +95,7 @@ export default function ReferralLandingPage() {
     <main className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background flex flex-col justify-between p-4 sm:p-6 lg:p-8">
       {/* Brand Header */}
       <header className="max-w-5xl w-full mx-auto flex items-center justify-between py-4">
-        <Link href="/" aria-label="SwiftPay home" className="flex items-center">
+        <Link href="/" aria-label="SaphraONE home" className="flex items-center">
           <PlatformBrand />
         </Link>
 
@@ -124,7 +124,7 @@ export default function ReferralLandingPage() {
             {/* Main Headline */}
             <div className="space-y-3">
               <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-foreground leading-tight">
-                You’re invited to SwiftPay by{" "}
+                You’re invited to SaphraONE by{" "}
                 <span className="text-primary underline decoration-primary/40 underline-offset-8">
                   @{displayName}
                 </span>
@@ -140,7 +140,7 @@ export default function ReferralLandingPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-base sm:text-lg">
                     <Coins className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    20 SwiftPoints Welcome Reward
+                    20 OnePoints Welcome Reward
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                     Automatically credited once your payments add up to 250+ USDC.
@@ -167,7 +167,7 @@ export default function ReferralLandingPage() {
                   Everyday Transaction Cashback on All Sends
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Earn automatic SwiftPoints cashback on every platform send or payment from 20 USDC/EURC up:{" "}
+                  Earn automatic OnePoints cashback on every platform send or payment from 20 USDC/EURC up:{" "}
                   <strong className="text-foreground">1 pt (20+)</strong>,{" "}
                   <strong className="text-foreground">5 pts (100+)</strong>,{" "}
                   <strong className="text-foreground">20 pts (500+)</strong>, and{" "}
@@ -216,7 +216,7 @@ export default function ReferralLandingPage() {
                 onClick={handleGetStarted}
                 className="w-full sm:w-auto min-w-[280px] h-12 text-base font-bold gap-2 shadow-md hover:shadow-lg transition-all"
               >
-                Claim 20 SwiftPoints & Get Started
+                Claim 20 OnePoints & Get Started
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <p className="text-xs text-muted-foreground">
@@ -229,7 +229,7 @@ export default function ReferralLandingPage() {
 
       {/* Footer */}
       <footer className="max-w-5xl w-full mx-auto py-4 text-center text-xs text-muted-foreground border-t border-border/40">
-        © {new Date().getFullYear()} SwiftPay. All rights reserved. Universal Referral Network.
+        © {new Date().getFullYear()} SaphraONE. All rights reserved. Universal Referral Network.
       </footer>
     </main>
   );

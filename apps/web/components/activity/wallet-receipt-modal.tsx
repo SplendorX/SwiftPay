@@ -49,7 +49,7 @@ export function WalletReceiptModal({
       const url = await buildReceiptPngDataUrl(receiptTransfer, walletAddress, username);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `swiftpay-receipt-${transfer.hash.slice(0, 12)}.png`;
+      anchor.download = `saphra-receipt-${transfer.hash.slice(0, 12)}.png`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -69,7 +69,7 @@ export function WalletReceiptModal({
       if (navigator.share) {
         await navigator.share({
           text,
-          title: "SwiftPay transaction receipt",
+          title: "SaphraONE transaction receipt",
           url: explorerUrl,
         });
         return;

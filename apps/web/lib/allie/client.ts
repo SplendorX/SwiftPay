@@ -96,7 +96,7 @@ export type AllieChatResponse = {
   reason?: string;
   intentId?: string;
   upgradeRequired?: boolean;
-  /** SwiftPoints charged for calls past today's included Pro budget. */
+  /** OnePoints charged for calls past today's included Pro budget. */
   overagePoints?: number;
   rail?: string;
   estimatedFeeUnits?: string;
@@ -397,11 +397,11 @@ export function shortenAddress(value: string) {
 
 export type AlliePlan = {
   monthlyFeeUsdc: number;
-  /** The same Pro term paid in SwiftPoints. */
+  /** The same Pro term paid in OnePoints. */
   monthlyFeePoints: number;
   termDays: number;
   dailyCallBudget: number;
-  /** Each call past the daily budget, charged to SwiftPoints. */
+  /** Each call past the daily budget, charged to OnePoints. */
   overageFeeUsdc: number;
   overageFeePoints: number;
   dailyEscalationBudget: number;
@@ -457,7 +457,7 @@ export async function activateAlliePro(
   return parseResponse<AllieSubscriptionState & { txHash: string }>(response);
 }
 
-/** Pay for ALLIE Pro from the SwiftPoints balance. */
+/** Pay for ALLIE Pro from the OnePoints balance. */
 export async function activateAllieProWithPoints(input: WalletContext) {
   const response = await fetch("/api/allie/subscription", {
     body: JSON.stringify({ ...input, paymentMethod: "swiftpoints" }),

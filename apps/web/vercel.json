@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/checkout",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/multichain",
+      "schedule": "0 11 * * *"
     }
   ]
 }

@@ -2,132 +2,28 @@ import { AppKit, isRetryableError } from "@circle-fin/app-kit";
 import { createViemAdapterFromProvider } from "@circle-fin/adapter-viem-v2";
 import type { Address } from "viem";
 
+import { MULTICHAIN_CHAINS, type MultichainChain } from "@/lib/multichain/chains";
 import { isArcMainnet } from "@/lib/network";
 import { explorerTxUrl } from "@/lib/onchain-facts";
 import { parseUsdc } from "@/lib/onchain-money";
 
-export type DepositSourceChain = {
-  appKitChain:
-    | "Base_Sepolia"
-    | "Ethereum_Sepolia"
-    | "Arbitrum_Sepolia"
-    | "Optimism_Sepolia"
-    | "Avalanche_Fuji"
-    | "Polygon_Amoy_Testnet"
-    | "Base"
-    | "Ethereum"
-    | "Arbitrum"
-    | "Optimism"
-    | "Avalanche"
-    | "Polygon";
-  chainId: number;
-  explorerTx: (hash: string) => string;
-  name: string;
-  usdcAddress: Address;
-};
+export type DepositSourceChain = Pick<
+  MultichainChain,
+  "appKitChain" | "chainId" | "explorerTx" | "name" | "usdcAddress"
+>;
 
-const TESTNET_SOURCE_CHAINS: readonly DepositSourceChain[] = [
-  {
-    appKitChain: "Base_Sepolia",
-    chainId: 84_532,
-    explorerTx: (hash) => `https://sepolia.basescan.org/tx/${hash}`,
-    name: "Base Sepolia",
-    usdcAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  },
-  {
-    appKitChain: "Ethereum_Sepolia",
-    chainId: 11_155_111,
-    explorerTx: (hash) => `https://sepolia.etherscan.io/tx/${hash}`,
-    name: "Ethereum Sepolia",
-    usdcAddress: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  },
-  {
-    appKitChain: "Arbitrum_Sepolia",
-    chainId: 421_614,
-    explorerTx: (hash) => `https://sepolia.arbiscan.io/tx/${hash}`,
-    name: "Arbitrum Sepolia",
-    usdcAddress: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
-  },
-  {
-    appKitChain: "Optimism_Sepolia",
-    chainId: 11_155_420,
-    explorerTx: (hash) => `https://sepolia-optimism.etherscan.io/tx/${hash}`,
-    name: "Optimism Sepolia",
-    usdcAddress: "0x5fd84259d66Cd46123540766Be4dF2941bD271c8",
-  },
-  {
-    appKitChain: "Avalanche_Fuji",
-    chainId: 43_113,
-    explorerTx: (hash) => `https://testnet.snowtrace.io/tx/${hash}`,
-    name: "Avalanche Fuji",
-    usdcAddress: "0x5425890298aed601595a70AB815c96711a31Bc65",
-  },
-  {
-    appKitChain: "Polygon_Amoy_Testnet",
-    chainId: 80_002,
-    explorerTx: (hash) => `https://amoy.polygonscan.com/tx/${hash}`,
-    name: "Polygon Amoy",
-    usdcAddress: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
-  },
-];
-
-// USDC addresses match Circle's own chain data (@circle-fin/adapter-circle-wallets).
-const MAINNET_SOURCE_CHAINS: readonly DepositSourceChain[] = [
-  {
-    appKitChain: "Base",
-    chainId: 8_453,
-    explorerTx: (hash) => `https://basescan.org/tx/${hash}`,
-    name: "Base",
-    usdcAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-  },
-  {
-    appKitChain: "Ethereum",
-    chainId: 1,
-    explorerTx: (hash) => `https://etherscan.io/tx/${hash}`,
-    name: "Ethereum",
-    usdcAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-  },
-  {
-    appKitChain: "Arbitrum",
-    chainId: 42_161,
-    explorerTx: (hash) => `https://arbiscan.io/tx/${hash}`,
-    name: "Arbitrum",
-    usdcAddress: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-  },
-  {
-    appKitChain: "Optimism",
-    chainId: 10,
-    explorerTx: (hash) => `https://optimistic.etherscan.io/tx/${hash}`,
-    name: "Optimism",
-    usdcAddress: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
-  },
-  {
-    appKitChain: "Avalanche",
-    chainId: 43_114,
-    explorerTx: (hash) => `https://snowtrace.io/tx/${hash}`,
-    name: "Avalanche",
-    usdcAddress: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
-  },
-  {
-    appKitChain: "Polygon",
-    chainId: 137,
-    explorerTx: (hash) => `https://polygonscan.com/tx/${hash}`,
-    name: "Polygon",
-    usdcAddress: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-  },
-];
-
-/** Chains USDC can be bridged from, matching the Arc network this build targets. */
-export const DEPOSIT_SOURCE_CHAINS = isArcMainnet()
-  ? MAINNET_SOURCE_CHAINS
-  : TESTNET_SOURCE_CHAINS;
+/**
+ * Chains USDC can be bridged from, matching the Arc network this build
+ * targets. The list itself lives in the multichain registry.
+ */
+export const DEPOSIT_SOURCE_CHAINS: readonly DepositSourceChain[] = MULTICHAIN_CHAINS;
 
 export function depositSourceByChainId(chainId: number) {
   return DEPOSIT_SOURCE_CHAINS.find((chain) => chain.chainId === chainId);
 }
 
 /**
- * The four stages SwiftPay shows while a deposit is in flight.
+ * The four stages SaphraONE shows while a deposit is in flight.
  *
  * App Kit routes USDC over one of two CCTP providers and they name their steps
  * differently: CCTPv2 emits `approve`/`burn`/`fetchAttestation`/`mint`, CCTPx
@@ -183,7 +79,7 @@ export class DepositRejectedError extends Error {
   }
 }
 
-function isRejection(value: unknown): boolean {
+export function isRejection(value: unknown): boolean {
   const message =
     value instanceof Error
       ? value.message
@@ -209,14 +105,14 @@ export function getDepositErrorMessage(message: string) {
   const normalized = message.toLowerCase();
 
   // Circle's developer-controlled adapter only signs for wallets in the
-  // deployment's own wallet set. SwiftPay provisions user-controlled (ENDUSER)
+  // deployment's own wallet set. SaphraONE provisions user-controlled (ENDUSER)
   // wallets, so a server-signed top up cannot sign for them — say that plainly
   // rather than surfacing a raw RPC dump.
   if (
     normalized.includes("cannot find target wallet") ||
     normalized.includes("not accessible to the caller")
   ) {
-    return "This wallet is not one SwiftPay can sign for on that chain. Server-signed top ups need a developer-controlled Circle wallet that holds USDC on the source chain — connect a self-custody wallet and bridge from there instead.";
+    return "This wallet is not one SaphraONE can sign for on that chain. Server-signed top ups need a developer-controlled Circle wallet that holds USDC on the source chain — connect a self-custody wallet and bridge from there instead.";
   }
 
   if (
@@ -232,7 +128,7 @@ export function getDepositErrorMessage(message: string) {
     normalized.includes("unsupported chain") ||
     normalized.includes("unsupported route")
   ) {
-    return "SwiftPay cannot bridge from that network. Pick another source chain.";
+    return "SaphraONE cannot bridge from that network. Pick another source chain.";
   }
 
   if (
@@ -359,7 +255,7 @@ export async function bridgeUsdcToArc(input: {
   /**
    * Where the minted USDC lands on Arc. Required on purpose: a deposit that
    * quietly defaults to the signing wallet can strand funds outside the
-   * SwiftPay balance the depositor was looking at.
+   * SaphraONE balance the depositor was looking at.
    */
   recipientAddress: Address;
   /**

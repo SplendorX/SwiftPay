@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { emitOnePointsUpdated } from "@/lib/referral/use-one-points";
 
 interface RedeemModalProps {
   availablePoints: number;
@@ -55,9 +55,9 @@ export function RedeemModal({
       : !isValidAddress
         ? "Enter a valid destination wallet address."
         : parsedPoints < 100
-          ? "The minimum redemption is 100 SwiftPoints ($1.00)."
+          ? "The minimum redemption is 100 OnePoints ($1.00)."
           : parsedPoints > availablePoints
-            ? `You only have ${availablePoints.toLocaleString()} SwiftPoints.`
+            ? `You only have ${availablePoints.toLocaleString()} OnePoints.`
             : null;
 
   const handleQuickPercent = (pct: number) => {
@@ -71,7 +71,7 @@ export function RedeemModal({
 
     setLoading(true);
     try {
-      const res = await fetch("/api/swiftpoints/redeem", {
+      const res = await fetch("/api/one-points/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -88,10 +88,10 @@ export function RedeemModal({
       }
 
       toast.success(
-        `Successfully requested redemption of ${parsedPoints} SwiftPoints for ${usdcValue} USDC!`,
+        `Successfully requested redemption of ${parsedPoints} OnePoints for ${usdcValue} USDC!`,
       );
       setOpen(false);
-      emitSwiftPointsUpdated();
+      emitOnePointsUpdated();
       onSuccess?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Redemption failed.";
@@ -112,7 +112,7 @@ export function RedeemModal({
             className="gap-1.5 font-medium"
           >
             <Coins className="h-4 w-4 text-amber-500" />
-            Redeem SwiftPoints
+            Redeem OnePoints
           </Button>
         )}
       </DialogTrigger>
@@ -120,10 +120,10 @@ export function RedeemModal({
         <DialogHeader className="space-y-1 text-left">
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             <Coins className="h-5 w-5 text-amber-500" />
-            Redeem SwiftPoints for USDC
+            Redeem OnePoints for USDC
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Convert your points at fixed rate of 100 SwiftPoints = $1.00 USDC directly to your wallet.
+            Convert your points at fixed rate of 100 OnePoints = $1.00 USDC directly to your wallet.
           </DialogDescription>
         </DialogHeader>
 
@@ -132,7 +132,7 @@ export function RedeemModal({
           <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3.5 py-2 text-xs">
             <span className="text-muted-foreground">Available to Redeem:</span>
             <span className="font-semibold text-foreground">
-              {availablePoints.toLocaleString()} SwiftPoints (~${(availablePoints * 0.01).toFixed(2)} USDC)
+              {availablePoints.toLocaleString()} OnePoints (~${(availablePoints * 0.01).toFixed(2)} USDC)
             </span>
           </div>
 
@@ -173,7 +173,7 @@ export function RedeemModal({
             </div>
             {parsedPoints < 100 && (
               <p className="text-[11px] text-destructive">
-                Minimum redemption threshold is 100 SwiftPoints.
+                Minimum redemption threshold is 100 OnePoints.
               </p>
             )}
             {parsedPoints > availablePoints && (

@@ -53,7 +53,7 @@ export function allieSenderLabel(wallet?: string | null) {
 }
 
 /**
- * Public SwiftPay @usernames for the given wallets. Wallets without an
+ * Public SaphraONE @usernames for the given wallets. Wallets without an
  * account (or not yet resolved) are absent, so callers fall back to the
  * address.
  */

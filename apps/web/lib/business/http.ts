@@ -32,7 +32,7 @@ export function jsonBusinessError(error: unknown) {
 
   const message =
     error instanceof Error ? error.message : "Something went wrong.";
-  console.error("[swiftpay-business]", error);
+  console.error("[saphra-business]", error);
   return NextResponse.json({ message }, { status: 500 });
 }
 

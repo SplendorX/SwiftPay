@@ -18,7 +18,7 @@ import type { VerifiedOutflow } from "@/lib/referral/verify-activity";
  * - One-time qualification
  * - Atomic tier evaluation
  * - Idempotent ledger entry minting
- * - Double-sided reward: Tier-based for Referrer, 20 SwiftPoints for Referred
+ * - Double-sided reward: Tier-based for Referrer, 20 OnePoints for Referred
  */
 export async function qualifyReferral(input: {
   referralId: string;
@@ -157,7 +157,7 @@ export async function qualifyReferral(input: {
     },
   });
 
-  // 6b. Referred Account Reward (20 SwiftPoints once)
+  // 6b. Referred Account Reward (20 OnePoints once)
   const referredEntryType =
     referral.referred_account_type === "BUSINESS"
       ? "REFERRED_BUSINESS_QUALIFICATION_REWARD"
@@ -166,7 +166,7 @@ export async function qualifyReferral(input: {
   await recordLedgerEntry({
     walletAddress: referral.referred_wallet,
     entryType: referredEntryType,
-    points: policy.referredAccountRewardPoints, // 20 SwiftPoints
+    points: policy.referredAccountRewardPoints, // 20 OnePoints
     idempotencyKey: `referral:${referral.id}:referred_reward`,
     description: "Welcome reward for completing qualifying activation",
     referralId: referral.id,
@@ -219,16 +219,16 @@ export async function qualifyReferral(input: {
   void createSavingsNotificationResult({
     ownerWallet: referral.referrer_wallet,
     kind: "payment_received",
-    title: `Referral Qualified (+${policy.referrerDirectRewardPoints} SwiftPoints)`,
-    body: `Your referral has successfully qualified! +${policy.referrerDirectRewardPoints} SwiftPoints have been credited to your rewards ledger.`,
+    title: `Referral Qualified (+${policy.referrerDirectRewardPoints} OnePoints)`,
+    body: `Your referral has successfully qualified! +${policy.referrerDirectRewardPoints} OnePoints have been credited to your rewards ledger.`,
     metadata: { referralId: referral.id, points: policy.referrerDirectRewardPoints },
   });
 
   void createSavingsNotificationResult({
     ownerWallet: referral.referred_wallet,
     kind: "payment_received",
-    title: `Welcome Reward Unlocked (+${policy.referredAccountRewardPoints} SwiftPoints)`,
-    body: `Congratulations on activating your SwiftPay account! +${policy.referredAccountRewardPoints} SwiftPoints have been credited to your rewards wallet.`,
+    title: `Welcome Reward Unlocked (+${policy.referredAccountRewardPoints} OnePoints)`,
+    body: `Congratulations on activating your SaphraONE account! +${policy.referredAccountRewardPoints} OnePoints have been credited to your rewards wallet.`,
     metadata: { referralId: referral.id, points: policy.referredAccountRewardPoints },
   });
 
@@ -253,7 +253,7 @@ export type ReferralProgressContribution = {
 
 /**
  * A referral contribution from a receipt-verified outflow. Only payments that
- * went through SwiftPay and paid its fee count: a plain token transfer costs
+ * went through SaphraONE and paid its fee count: a plain token transfer costs
  * nothing, so otherwise a new wallet could reach a milestone by moving the
  * same money between its owner's own wallets.
  */
@@ -316,8 +316,8 @@ export function readLastSyncedAt(metadata: Record<string, unknown> | null | unde
  * whichever writer finishes last sees the full total.
  *
  * Upon qualifying:
- * - Direct reward issued to Referrer (tier-based SwiftPoints)
- * - Welcome reward issued to Referred user (20 SwiftPoints across ALL tiers)
+ * - Direct reward issued to Referrer (tier-based OnePoints)
+ * - Welcome reward issued to Referred user (20 OnePoints across ALL tiers)
  */
 export async function evaluateReferralProgressAndQualify(input: {
   referredWallet: string;

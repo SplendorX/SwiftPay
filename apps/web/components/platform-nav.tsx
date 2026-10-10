@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   Settings,
+  Trophy,
   Store,
   TrendingUp,
   UsersRound,
@@ -20,6 +21,7 @@ import { usePathname } from "next/navigation";
 import { useOptionalAccount } from "@/components/account/account-provider";
 import { useT } from "@/components/locale-provider";
 import { checkoutEnabled } from "@/lib/checkout/flag";
+import { rewardsV2Enabled } from "@/lib/rewards/config";
 import { navLabelKeys } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +52,8 @@ export const platformNavItems = [
   { href: "/save", label: "Save", icon: PiggyBank },
   { href: "/earn", label: "Invest", icon: TrendingUp },
   { href: "/insights", label: "Insights", icon: ChartNoAxesColumn },
+  // Rewards (OnePoints) appears once NEXT_PUBLIC_REWARDS_V2 is on.
+  ...(rewardsV2Enabled() ? [{ href: "/rewards", label: "Rewards", icon: Trophy }] : []),
   { href: "/referral", label: "Invite & Earn", icon: Gift },
   { href: "/settings", label: "Settings", icon: Settings },
 ] satisfies Array<{

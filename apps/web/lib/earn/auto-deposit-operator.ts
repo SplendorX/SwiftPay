@@ -1,8 +1,8 @@
+import "@/lib/env-compat";
 import {
   createPublicClient,
   createWalletClient,
   getAddress,
-  http,
   parseUnits,
   type Address,
   type Chain,
@@ -24,6 +24,7 @@ import {
 } from "@/lib/earn/auto-save";
 import { hasEntitlement } from "@/lib/referral/entitlement-service";
 import { onchainFacts } from "@/lib/onchain-facts";
+import { arcTransport } from "@/lib/chains";
 
 /**
  * Runs the UNATTENDED half of Earn auto-deposit.
@@ -36,8 +37,8 @@ import { onchainFacts } from "@/lib/onchain-facts";
 
 function operatorPrivateKey() {
   return (
-    process.env.SWIFTPAY_EARN_OPERATOR_PRIVATE_KEY?.trim() ||
-    process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim() ||
+    process.env.SAPHRA_EARN_OPERATOR_PRIVATE_KEY?.trim() ||
+    process.env.SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY?.trim() ||
     null
   );
 }
@@ -54,7 +55,7 @@ function clients() {
   if (!privateKey) return null;
 
   const chain = onchainFacts.chain as Chain;
-  const transport = http(onchainFacts.rpcUrl);
+  const transport = arcTransport();
   const account = privateKeyToAccount(privateKey as `0x${string}`);
 
   return {

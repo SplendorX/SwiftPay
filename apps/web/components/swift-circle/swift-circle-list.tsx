@@ -419,7 +419,7 @@ function CreateCircleSheet({
             <span>Invite people</span>
             <Input onChange={(event) => onInvitesChange(event.target.value)} placeholder="@alice @bob" value={invites} />
             <em>
-              SwiftPay usernames, separated by spaces or commas.
+              SaphraONE usernames, separated by spaces or commas.
               {limits?.max_members ? ` Up to ${limits.max_members} members.` : ""}
             </em>
           </label>

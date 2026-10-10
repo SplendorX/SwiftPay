@@ -49,7 +49,7 @@ export const de: Messages = {
     uploadLogo: "Logo hochladen",
     explore: "Entdecken",
     seeFeatures: "Funktionen ansehen",
-    openSwiftPay: "SwiftPay öffnen",
+    openSaphra: "SaphraONE öffnen",
     product: "Produkt",
     contract: "Vertrag",
     notSet: "Nicht gesetzt",
@@ -77,7 +77,7 @@ export const de: Messages = {
     dashboardTitle: "Dashboard",
     dashboardSubtitle: "Finanzielle Schaltzentrale",
     overviewTitle: "Übersicht",
-    overviewSubtitle: "So läuft dein Unternehmen auf SwiftPay",
+    overviewSubtitle: "So läuft dein Unternehmen auf SaphraONE",
     invoicesTitle: "Rechnungen",
     invoicesSubtitle: "Erstelle, sende und verfolge professionelle Zahlungsanfragen",
     checkoutTitle: "Kasse",
@@ -104,7 +104,7 @@ export const de: Messages = {
     settingsTitle: "Einstellungen",
     settingsSubtitle: "Kontoeinstellungen",
     businessProfileTitle: "Unternehmensprofil",
-    businessProfileSubtitle: "Öffentliche Unternehmensmarke auf SwiftPay",
+    businessProfileSubtitle: "Öffentliche Unternehmensmarke auf SaphraONE",
   },
   settings: {
     fullName: "Vollständiger Name",
@@ -116,7 +116,7 @@ export const de: Messages = {
     lightSurface: "Helle Oberfläche",
     languageTitle: "Sprache",
     languageBody:
-      "Wähle die Sprache für die gesamte SwiftPay-Plattform. Sie wird auf deinem Gerät und Profil gespeichert.",
+      "Wähle die Sprache für die gesamte SaphraONE-Plattform. Sie wird auf deinem Gerät und Profil gespeichert.",
     accountTitle: "Konto",
     accountBody:
       "Privatkonten können zu Unternehmen wechseln. Wallet und Aktivität bleiben. Der Wechsel ist nicht umkehrbar.",
@@ -132,12 +132,12 @@ export const de: Messages = {
     preferencesEyebrow: "Einstellungen",
     preferencesTitle: "Kontoeinstellungen",
     preferencesCopy:
-      "Verwalte die Profilwerte, die SwiftPay in Wallet- und Zahlungsabläufen verwendet.",
+      "Verwalte die Profilwerte, die SaphraONE in Wallet- und Zahlungsabläufen verwendet.",
     dark: "Dunkel",
     light: "Hell",
     system: "System",
     cashmere: "Cashmere",
-    cashmereBody: "Warmes Pergamentlicht, die originale SwiftPay-Oberfläche.",
+    cashmereBody: "Warmes Pergamentlicht, die originale SaphraONE-Oberfläche.",
     liquidGlass: "Weiß",
     liquidGlassBody: "Weiße Boards mit einer sanften, matten Anhebung.",
     connectToSeeType: "Verbinde eine Wallet, um den Kontotyp zu sehen.",
@@ -203,12 +203,12 @@ export const de: Messages = {
     continue: "Weiter",
     profileEyebrow: "Deine Identität",
     profileTitle: "So finden dich andere",
-    profileSubtitle: "Dieser Nutzername ist deine Zahlungsidentität auf SwiftPay.",
+    profileSubtitle: "Dieser Nutzername ist deine Zahlungsidentität auf SaphraONE.",
     username: "Nutzername",
     bio: "Bio",
     bioHint: "Optional. 160 Zeichen.",
     accountEyebrow: "Arbeitsbereich",
-    accountTitle: "Wie möchtest du SwiftPay nutzen?",
+    accountTitle: "Wie möchtest du SaphraONE nutzen?",
     accountSubtitle: "Wähle das Konto, das zu deinen Zahlungen passt.",
     individualTitle: "Privat",
     individualDescription: "Für private Zahlungen, Sparen und dein Geld.",
@@ -226,7 +226,7 @@ export const de: Messages = {
     connectToContinueBody:
       "Melde dich an, um Konto, Sprache und Zahlungsidentität einzurichten.",
     preparingAccount: "Dein Konto wird vorbereitet…",
-    howWillYouUse: "Wie möchtest du SwiftPay nutzen?",
+    howWillYouUse: "Wie möchtest du SaphraONE nutzen?",
     howWillYouUseBody:
       "Wähle zuerst Privat oder Unternehmen. Die Profilfelder passen danach zum gewählten Konto.",
     personalTitle: "Privat",
@@ -239,7 +239,7 @@ export const de: Messages = {
     continuePersonal: "Mit Privat fortfahren",
     businessCardTitle: "Unternehmen",
     businessCardDescription:
-      "Ein professioneller SwiftPay-Arbeitsbereich für Unternehmen, Freelancer und Organisationen.",
+      "Ein professioneller SaphraONE-Arbeitsbereich für Unternehmen, Freelancer und Organisationen.",
     businessBullet1: "Professionelles Unternehmensprofil",
     businessBullet2: "Professionelle Übersicht",
     businessBullet3: "Rechnungen",
@@ -250,12 +250,16 @@ export const de: Messages = {
       "Lege die öffentliche Identität fest, die Kunden auf Rechnungen sehen. Du kannst das später in den Einstellungen ändern.",
     createBusinessCta: "Unternehmensprofil erstellen",
     enterUsername: "Gib einen Nutzernamen ein.",
+    usernameChecking: "Wird geprüft…",
+    usernameAvailable: "@{name} ist verfügbar.",
+    usernameTaken: "Dieser Nutzername ist vergeben. Versuch einen anderen.",
+    countryHint: "Dein Konto wird für die Region deines Landes eingerichtet.",
   },
   landing: {
-    kicker: "SwiftPay auf Arc",
+    kicker: "SaphraONE auf Arc",
     heroTitleBefore: "Mehr tun mit",
     heroLead:
-      "Willkommen bei SwiftPay, einer Allround-Zahlungsplattform. Tausche, sende, fordere an, zahle in Batches, spare und plane Stablecoin-Zahlungen aus einer Wallet. Gas wird in USDC bezahlt – was du siehst, gibst du aus.",
+      "Willkommen bei SaphraONE, einer Allround-Zahlungsplattform. Tausche, sende, fordere an, zahle in Batches, spare und plane Stablecoin-Zahlungen aus einer Wallet. Gas wird in USDC bezahlt – was du siehst, gibst du aus.",
     productEyebrow: "Produkt",
     productTitle: "Eine Plattform. Alle Zahlungen.",
     productCopy:
@@ -310,7 +314,7 @@ export const de: Messages = {
     storyPayTitle: "Einmal senden. Sofort abwickeln.",
     storyPayBody:
       "Sende USDC oder EURC in wenigen Tipps. Empfänger lösen sich über Nutzername oder Wallet, Gebühren bleiben sichtbar, Arc bestätigt sofort.",
-    storyPayAlt: "Jemand entspannt im Bett und sendet eine SwiftPay-Zahlung vom Laptop",
+    storyPayAlt: "Jemand entspannt im Bett und sendet eine SaphraONE-Zahlung vom Laptop",
     storyCircleKicker: "Circle",
     storyCircleTitle: "Geld als Gruppe bewegen, nicht als Tabelle.",
     storyCircleBody:
@@ -321,7 +325,7 @@ export const de: Messages = {
     storyRecureBody:
       "Mach aus einer Zahlung einen Zeitplan. Setze Frequenz, Start und Ende und verwalte jeden Lauf in RecurePay.",
     storyRecureAlt: "Jemand schläft im Bett neben Laptop und Kaffee, während die Zahlungen planmäßig laufen",
-    whyEyebrow: "Warum SwiftPay",
+    whyEyebrow: "Warum SaphraONE",
     whyTitle: "Gebaut wie Fintech. Abgewickelt onchain.",
     whyCopy:
       "Zahlungen fühlen sich an wie Geld bewegen. Salden, Routen und Belege bleiben lesbar von der ersten Verbindung bis zum ArcScan-Beleg.",
@@ -350,16 +354,16 @@ export const de: Messages = {
       "Du signierst jede Zahlung. Die Abwicklung ist öffentlich auf Arc. Die folgenden Aussagen gelten im Produkt heute.",
     trustNoncustodialTitle: "Nicht-kustodial",
     trustNoncustodialBody:
-      "SwiftPay hält deine Mittel nie. Jede Transaktion wird von deiner Wallet signiert und direkt auf Arc abgewickelt.",
+      "SaphraONE hält deine Mittel nie. Jede Transaktion wird von deiner Wallet signiert und direkt auf Arc abgewickelt.",
     trustVerifiedTitle: "Verifizierte Verträge",
     trustVerifiedBody:
       "Der Smart-Contract-Quellcode ist auf ArcScan veröffentlicht. Du kannst prüfen, was der Vertrag tut, bevor du genehmigst.",
     trustVerifiedLink: "Auf ArcScan ansehen",
     trustTestnetTitle: "Testnet, kein echtes Geld",
     trustTestnetBody:
-      "SwiftPay läuft derzeit auf Arc Testnet. Es ist kein echtes Geld gefährdet. Ein Mainnet-Start wird separat angekündigt.",
+      "SaphraONE läuft derzeit auf Arc Testnet. Es ist kein echtes Geld gefährdet. Ein Mainnet-Start wird separat angekündigt.",
     faqEyebrow: "FAQ",
-    faqTitle: "Häufige SwiftPay-Fragen.",
+    faqTitle: "Häufige SaphraONE-Fragen.",
     faqCopy:
       "Eine aktuelle Karte von Dashboard, Sparen, Ertrag, Swap, Anfragen, Wiederkehrend, Batch, privatem Senden und Wallet-Profil.",
     faq1Q: "Was ist auf dem Dashboard?",
@@ -367,7 +371,7 @@ export const de: Messages = {
       "Nutze das Dashboard für Portfoliowert, Token-Salden, Direktüberweisungen, Begünstigte, Belege und Aktivität. Das Senden ist als schrittweiser Zahlungsfluss organisiert.",
     faq2Q: "Welche Seiten gibt es?",
     faq2A:
-      "SwiftPay umfasst Dashboard, Save, Ertrag, Swap, BulkPay, RecurePay, Zahlungsanfragen, Circle, Docs und Einstellungen. Die Hauptabläufe sind direkt aus dem Produktbereich verlinkt.",
+      "SaphraONE umfasst Dashboard, Save, Ertrag, Swap, BulkPay, RecurePay, Zahlungsanfragen, Circle, Docs und Einstellungen. Die Hauptabläufe sind direkt aus dem Produktbereich verlinkt.",
     faq3Q: "Worin unterscheiden sich Save und Ertrag?",
     faq3A:
       "Save erstellt zinslose Sparfächer und Spend&Save-Regeln. Ertrag ist getrennt und zeigt Vault-Performance, Ertragskontext und Auto-Save, wo unterstützt.",
@@ -377,17 +381,17 @@ export const de: Messages = {
     faq5Q: "Wie verwalten Nutzer ihr Wallet-Profil?",
     faq5A:
       "Melde dich mit einer Circle-Google-Wallet an oder verbinde eine externe Wallet. In den Einstellungen lassen sich Profil, Nutzername und Foto auf dem Gerät bearbeiten.",
-    faq6Q: "Welches Netzwerk und welche Assets nutzt SwiftPay?",
+    faq6Q: "Welches Netzwerk und welche Assets nutzt SaphraONE?",
     faq6A:
       "Die App ist um {network} gebaut, mit USDC-nativem Gas und Stablecoin-Abläufen wie USDC und EURC. Transaktionen zeigen ArcScan-Kontext, wo verfügbar.",
     ctaEyebrow: "Loslegen",
-    ctaTitle: "Geld bewegt sich besser mit SwiftPay.",
+    ctaTitle: "Geld bewegt sich besser mit SaphraONE.",
     ctaCopy:
       "Eine Wallet. Sofortige Abwicklung. Zahlungen, die sich fertig anfühlen, sobald du bestätigst.",
     ctaPoint1: "USDC und EURC auf Arc",
     ctaPoint2: "Zahlen, Circle, RecurePay, Batch, Sparen",
     ctaPoint3: "Gas in USDC",
-    ctaImageAlt: "Eine Zahlung in SwiftPay senden",
+    ctaImageAlt: "Eine Zahlung in SaphraONE senden",
     closeSignIn: "Anmeldung schließen",
     footerTagline:
       "Mehr tun mit USDC. Tausche, sende, fordere an, zahle in Batches, spare und plane Stablecoin-Zahlungen aus einer Wallet auf Arc.",
@@ -400,7 +404,7 @@ export const de: Messages = {
     footerPaymentLinks: "Zahlungslinks",
     footerScheduled: "Geplante Zahlungen",
     footerBatch: "Sammelzahlung",
-    footerLegal: "© 2026 SwiftPay. Die Stablecoin-Zahlungsschicht",
+    footerLegal: "© 2026 SaphraONE. Die Stablecoin-Zahlungsschicht",
     showcaseSwapCopy:
       "Tausche USDC und EURC auf {network} über Circle-Routen.",
     showcaseGetQuote: "Angebot holen",
@@ -472,7 +476,7 @@ export const de: Messages = {
     pockets: "Fächer",
   },
   earn: {
-    eyebrow: "SwiftPay Invest",
+    eyebrow: "SaphraONE Invest",
     heading: "Invest",
     body: "Lass dein ungenutztes USDC arbeiten und behalte es für künftige Zahlungen verfügbar.",
     production: "Produktion",
@@ -499,7 +503,7 @@ export const de: Messages = {
     noPending: "Keine offenen Einladungen.",
     create: "Erstellen",
     startCircle: "Einen Circle starten",
-    startCircleBody: "Standardmäßig privat. Lade Mitglieder per SwiftPay-Nutzername ein.",
+    startCircleBody: "Standardmäßig privat. Lade Mitglieder per SaphraONE-Nutzername ein.",
     circleName: "Circle-Name",
     authorizeToLoad: "Autorisiere diese Wallet, um Circles und Einladungen zu laden.",
   },

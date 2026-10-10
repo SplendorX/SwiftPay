@@ -9,7 +9,7 @@ const reservedUsernames = new Set([
   "root",
   "settings",
   "support",
-  "swiftpay",
+  "saphra",
   "wallet",
 ]);
 

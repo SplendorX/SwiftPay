@@ -238,7 +238,7 @@ export type PublicProfile = DirectoryHit & {
   category?: string | null;
   contactEmail?: string | null;
   country?: string | null;
-  /** When the account joined SwiftPay (ISO timestamp). */
+  /** When the account joined SaphraONE (ISO timestamp). */
   memberSince?: string | null;
   phone?: string | null;
   website?: string | null;

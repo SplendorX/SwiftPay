@@ -45,7 +45,7 @@ function Detail({ icon: Icon, children }: { icon: LucideIcon; children: ReactNod
 }
 
 /**
- * A SwiftPay public profile. Businesses show how to reach them; a person's
+ * A SaphraONE public profile. Businesses show how to reach them; a person's
  * page shows only their country and join date, never email or phone.
  */
 export default function PublicProfilePage() {
@@ -82,7 +82,7 @@ export default function PublicProfilePage() {
           <ArrowLeft className="h-4 w-4" />
           Back
         </button>
-        <Link aria-label="SwiftPay home" href="/">
+        <Link aria-label="SaphraONE home" href="/">
           <PlatformBrand />
         </Link>
       </header>
@@ -91,7 +91,7 @@ export default function PublicProfilePage() {
         <section className="public-profile-card">
           <h1 className="public-profile-name">Profile not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            No SwiftPay account uses @{username}. Check the spelling and try again.
+            No SaphraONE account uses @{username}. Check the spelling and try again.
           </p>
         </section>
       ) : !profile ? (

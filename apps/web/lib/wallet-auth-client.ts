@@ -15,7 +15,7 @@ function walletSignInRequestKey(ownerWallet: string) {
 }
 
 /** Fired on window when the server wallet session cookie is cleared or replaced. */
-export const walletSessionChangedEventName = "swiftpay:wallet-session-changed";
+export const walletSessionChangedEventName = "saphra:wallet-session-changed";
 
 export function notifyWalletSessionChanged() {
   if (typeof window === "undefined") {

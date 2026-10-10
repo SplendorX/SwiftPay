@@ -38,7 +38,7 @@ import {
   type AllieExecutionResponse,
 } from "@/lib/allie/client";
 import { useVoiceDictation } from "@/lib/allie/use-voice-dictation";
-import { emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { emitOnePointsUpdated } from "@/lib/referral/use-one-points";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { markAgentWalletActive } from "@/lib/wallet-mode";
 import { cn } from "@/lib/utils";
@@ -414,8 +414,8 @@ export function ChatWindow({
           message,
           sessionId,
         });
-        // A paid extra request lowered the SwiftPoints balance shown elsewhere.
-        if (response.overagePoints) emitSwiftPointsUpdated();
+        // A paid extra request lowered the OnePoints balance shown elsewhere.
+        if (response.overagePoints) emitOnePointsUpdated();
         const pro: ProMark | undefined = isProTier(response.tier)
           ? { overagePoints: response.overagePoints }
           : undefined;
@@ -573,6 +573,8 @@ export function ChatWindow({
       }
 
       updateAction(entry.id, { state: "executing", executionError: null });
+      // Close the go-ahead modal now: the card shows ALLIE processing.
+      setConfirmTarget(null);
 
       try {
         const execution = await confirmAlliePayment({ ...context, intentId });
@@ -967,7 +969,7 @@ export function ChatWindow({
             : undefined
         }
         busy={confirmEntry?.state === "executing"}
-        description="SwiftPay will submit this from your ALLIE Agent Wallet. This cannot be undone once it settles on Arc."
+        description="SaphraONE will submit this from your ALLIE Agent Wallet. This cannot be undone once it settles on Arc."
         onCancel={() => setConfirmTarget(null)}
         onConfirm={() => {
           if (confirmTarget) {

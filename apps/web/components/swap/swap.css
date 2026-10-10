@@ -1,16 +1,17 @@
 /* Swap. In its own file (not globals.css), so the build cache can't serve a stale copy. */
 
-.swap2-page {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+.swap3-page {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   width: 100%;
-  max-width: 32rem;
+  max-width: 28rem;
+  min-height: calc(100dvh - 7rem);
   margin: 0 auto;
-  padding-bottom: 2rem;
+  padding-bottom: 1.5rem;
 }
 
-.swap2-bar {
+.swap3-bar {
   display: grid;
   grid-template-columns: 2.75rem 1fr 2.75rem;
   align-items: center;
@@ -18,185 +19,336 @@
   padding-top: 0.25rem;
 }
 
-.swap2-title {
+.swap3-title {
   text-align: center;
   font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 650;
 }
 
-.swap2-round {
+.swap3-round {
   display: grid;
   place-items: center;
   width: 2.75rem;
   height: 2.75rem;
-  border: 1px solid var(--border);
   border-radius: 9999px;
   background: var(--card);
   color: var(--foreground);
-  transition: background-color 150ms ease;
+  box-shadow: 0 4px 14px color-mix(in oklch, var(--foreground) 8%, transparent);
+  transition: background-color 150ms ease, opacity 150ms ease;
 }
 
-.swap2-round:hover {
+.swap3-round:hover:not(:disabled) {
   background: var(--muted);
 }
 
-.swap2-lede {
-  text-align: center;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: var(--muted-foreground);
+.swap3-round:disabled {
+  opacity: 0.5;
 }
 
-/* The two legs, stacked with the flip button over their seam. */
-.swap2-legs {
-  position: relative;
+/* The amount being typed, large and centred. */
+.swap3-display {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.4rem;
-}
-
-.swap2-leg {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.6rem;
-  padding: 1rem 1.1rem 1.1rem;
-  border: 1px solid var(--border);
-  border-radius: 1.25rem;
-  background: var(--card);
-}
-
-.swap2-leg:focus-within {
-  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
-}
-
-.swap2-leg.is-receive {
-  background: color-mix(in oklch, var(--primary) 6%, var(--card));
-}
-
-.swap2-leg-top {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.82rem;
-  color: var(--muted-foreground);
-}
-
-.swap2-leg-top strong {
-  color: var(--foreground);
-  font-weight: 650;
-}
-
-.swap2-leg-main {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.swap2-amount {
-  width: 100%;
-  min-width: 0;
   flex: 1;
+  align-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  min-height: 9rem;
+  padding: 1rem 0;
+}
+
+.swap3-amount {
+  max-width: 100%;
   overflow: hidden;
-  border: 0;
-  background: transparent;
-  outline: none;
   font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(1.75rem, 8vw, 2.25rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: clamp(2.75rem, 14vw, 4rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
 }
 
-.swap2-amount::placeholder,
-.swap2-amount.is-empty {
-  color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+.swap3-amount.is-empty {
+  color: color-mix(in oklch, var(--foreground) 85%, transparent);
 }
 
-.swap2-token {
-  flex-shrink: 0;
-  width: 8.5rem;
+.swap3-sign {
+  margin-right: 0.04em;
 }
 
-.swap2-flip {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 2;
+.swap3-estimate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.4rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.swap3-estimate-error {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--destructive);
+}
+
+.swap3-controls {
   display: grid;
-  place-items: center;
-  width: 2.9rem;
-  height: 2.9rem;
-  border: 4px solid var(--background);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+/* "With US Dollars" — the asset being spent, tap to switch direction. */
+.swap3-source {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 1.25rem;
+  background: var(--card);
+  text-align: left;
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 5%, transparent);
+  transition: background-color 150ms ease;
+}
+
+.swap3-source:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--muted) 60%, var(--card));
+}
+
+.swap3-source-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+}
+
+.swap3-source-name,
+.swap3-source-balance {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.swap3-source-name {
+  flex: 1;
+}
+
+.swap3-source-balance {
+  justify-items: end;
+  text-align: right;
+}
+
+.swap3-source strong {
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+
+.swap3-source span > span {
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+
+.swap3-chips {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.swap3-chip {
+  height: 2.6rem;
+  border-radius: 9999px;
+  background: var(--card);
+  font-size: 0.85rem;
+  font-weight: 550;
+  color: var(--foreground);
+  transition: background-color 150ms ease, opacity 150ms ease;
+}
+
+.swap3-chip:hover:not(:disabled) {
+  background: var(--muted);
+}
+
+.swap3-chip:disabled {
+  opacity: 0.5;
+}
+
+.swap3-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 3.25rem;
   border-radius: 9999px;
   background: var(--primary);
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--primary-foreground);
-  transform: translate(-50%, -50%);
-  transition: transform 220ms ease, background-color 150ms ease;
+  transition: opacity 150ms ease, transform 120ms ease;
 }
 
-.swap2-flip:hover {
-  background: var(--primary-hover, var(--primary));
-  transform: translate(-50%, -50%) rotate(180deg);
+.swap3-cta:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .swap2-flip:hover {
-    transform: translate(-50%, -50%);
+.swap3-cta:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.swap3-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+/* A computer with a mouse or trackpad has a keyboard: typing fills the
+   amount (SwapPanel listens for it), so the on-screen keypad only shows on
+   touch screens. */
+.swap3-type-hint {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swap3-keypad {
+    display: none;
+  }
+
+  .swap3-type-hint {
+    display: inline;
   }
 }
 
-.swap2-details {
+.swap3-key {
+  display: grid;
+  place-items: center;
+  height: 3.6rem;
+  border-radius: 1rem;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease;
+}
+
+.swap3-key:hover:not(:disabled),
+.swap3-key:active:not(:disabled) {
+  background: color-mix(in oklch, var(--muted) 70%, transparent);
+}
+
+.swap3-key:disabled {
+  opacity: 0.4;
+}
+
+/* Review */
+.swap3-summary {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 1.75rem 0 0.75rem;
+  text-align: center;
+}
+
+.swap3-coins {
+  display: flex;
+  margin-bottom: 0.6rem;
+}
+
+.swap3-coin {
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 3px solid var(--background);
+  border-radius: 9999px;
+}
+
+.swap3-coin + .swap3-coin {
+  margin-left: -0.6rem;
+}
+
+.swap3-summary-amount {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: var(--font-heading), Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(1.6rem, 7vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.swap3-summary-pay {
+  font-size: 0.95rem;
+  color: var(--muted-foreground);
+}
+
+.swap3-details {
   display: grid;
   padding: 0.35rem 1.1rem;
-  border: 1px solid var(--border);
-  border-radius: 1.1rem;
+  border-radius: 1.25rem;
   background: var(--card);
 }
 
-.swap2-details > div {
+.swap3-details > div {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.6rem 0;
+  padding: 0.85rem 0;
   font-size: 0.88rem;
 }
 
-.swap2-details > div + div {
-  border-top: 1px dashed var(--border);
+.swap3-details > div + div {
+  border-top: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
 }
 
-.swap2-details dt {
+.swap3-details dt {
   flex-shrink: 0;
   color: var(--muted-foreground);
 }
 
-.swap2-details dd {
+.swap3-details dd {
   display: inline-flex;
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
   gap: 0.35rem;
-  font-weight: 600;
+  font-weight: 550;
   text-align: right;
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
-.swap2-status {
+.swap3-status {
   color: var(--primary);
 }
 
-.dark .swap2-status {
+.dark .swap3-status {
   color: var(--link);
 }
 
-.swap2-error {
+.swap3-note {
+  padding: 0 0.75rem;
+  text-align: center;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+.swap3-error {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
@@ -208,16 +360,14 @@
   color: var(--destructive);
 }
 
-.swap2-cta {
-  width: 100%;
-  height: 3.25rem;
-  border-radius: 0.9rem;
-  font-size: 1rem;
-  font-weight: 700;
+.swap3-footer {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 1rem;
 }
 
-.swap2-requote,
-.swap2-link {
+.swap3-text-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -228,16 +378,20 @@
   color: var(--primary);
 }
 
-.dark .swap2-requote,
-.dark .swap2-link {
+.dark .swap3-text-btn {
   color: var(--link);
 }
 
-.swap2-requote:disabled {
+.swap3-text-btn:disabled {
   opacity: 0.5;
 }
 
-.swap2-requote:hover:not(:disabled),
-.swap2-link:hover {
+.swap3-text-btn:hover:not(:disabled) {
   text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swap3-cta:active:not(:disabled) {
+    transform: none;
+  }
 }

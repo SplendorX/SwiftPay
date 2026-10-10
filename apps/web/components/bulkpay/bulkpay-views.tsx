@@ -5,13 +5,10 @@ import {
   ArrowLeft,
   CheckCircle2,
   Copy,
-  Download,
   ExternalLink,
   FileUp,
   Loader2,
-  ReceiptText,
   Send,
-  Share2,
   ShieldCheck,
   UserRound,
   Users,
@@ -24,7 +21,6 @@ import type { ReactNode } from "react";
 import { BulkpayIllustration } from "@/components/bulkpay/bulkpay-illustration";
 import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
-import { formatBatchReceiptTime } from "@/lib/batch-receipt";
 import { arcTokenSymbols, type ArcTokenSymbol } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
 
@@ -404,89 +400,4 @@ export function BulkpaySummary({
   );
 }
 
-export type BulkpayReceiptView = {
-  contractAddress: string;
-  explorerUrl: string | null;
-  feeAmount: string;
-  id: string;
-  mode: string;
-  payoutTotal: string;
-  recipientCount: number;
-  recipients: Array<{ address: string; amount: string; label?: string; line: number }>;
-  submittedAt: string;
-  token: ArcTokenSymbol;
-  txHash: string | null;
-};
 
-/** The batch sent during this visit, with its share and download actions. */
-export function BulkpayLastReceipt({
-  onDownload,
-  onShare,
-  receipt,
-}: {
-  onDownload: () => void;
-  onShare: () => void;
-  receipt: BulkpayReceiptView;
-}) {
-  return (
-    <section className="bulkpay-card">
-      <div className="bulkpay-card-head">
-        <h2>Last batch</h2>
-        <span className="bulkpay-head-icon">
-          <ReceiptText className="h-4 w-4" />
-        </span>
-      </div>
-
-      <div className="bulkpay-receipt">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="bulkpay-receipt-label">Sent</p>
-            <p className="bulkpay-receipt-amount">{receipt.payoutTotal}</p>
-            <p className="text-sm text-muted-foreground">
-              {receipt.recipientCount.toLocaleString()} {receipt.recipientCount === 1 ? "person" : "people"} ·{" "}
-              {receipt.mode}
-            </p>
-          </div>
-          <TokenIcon className="h-9 w-9 rounded-full" symbol={receipt.token} />
-        </div>
-        <div className="bulkpay-receipt-grid">
-          <div>
-            <p>Fee</p>
-            <strong>{receipt.feeAmount}</strong>
-          </div>
-          <div>
-            <p>Submitted</p>
-            <strong>{formatBatchReceiptTime(receipt.submittedAt)}</strong>
-          </div>
-        </div>
-        <div className="bulkpay-receipt-meta">
-          <span>
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            Contract {shortAddress(receipt.contractAddress)}
-          </span>
-          <span>
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-            {receipt.txHash ? `Hash ${shortAddress(receipt.txHash)}` : "Hash pending from wallet provider"}
-          </span>
-        </div>
-      </div>
-
-      <div className="bulkpay-receipt-actions">
-        <Button className="h-11 w-full sm:w-auto sm:flex-1" onClick={onShare} type="button" variant="outline">
-          <Share2 className="h-4 w-4" />
-          Share
-        </Button>
-        <Button className="h-11 w-full sm:w-auto sm:flex-1" onClick={onDownload} type="button" variant="outline">
-          <Download className="h-4 w-4" />
-          Download PNG
-        </Button>
-      </div>
-      {receipt.explorerUrl ? (
-        <a className="bulkpay-link" href={receipt.explorerUrl} rel="noreferrer" target="_blank">
-          <ExternalLink className="h-4 w-4" />
-          Open ArcScan receipt
-        </a>
-      ) : null}
-    </section>
-  );
-}

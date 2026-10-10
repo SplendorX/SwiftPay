@@ -1,6 +1,6 @@
+import "@/lib/env-compat";
 import {
   createWalletClient,
-  http,
   isAddress,
   type Address,
   type Hash,
@@ -10,7 +10,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createRecurringPublicClient } from "@/lib/recurring/circle-adapter";
 import { erc20Abi } from "@/lib/contracts";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 let workspaceEnvLoaded = false;
 const loadedEnv: Record<string, string> = {};
@@ -56,8 +56,8 @@ function normalizePrivateKey(value: string) {
 
 function treasuryPrivateKeys() {
   return [
-    envValue("SWIFTPAY_CIRCLE_TREASURY_PRIVATE_KEY"),
-    envValue("SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY"),
+    envValue("SAPHRA_CIRCLE_TREASURY_PRIVATE_KEY"),
+    envValue("SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY"),
     envValue("PRIVATE_KEY"),
     envValue("EVM_PRIVATE_KEY"),
   ]
@@ -76,7 +76,7 @@ function createTreasuryClients(treasury: Address) {
       const walletClient = createWalletClient({
         account,
         chain: arcChain,
-        transport: http(arcChain.rpcUrls.default.http[0]),
+        transport: arcTransport(),
       });
       return { account, publicClient, walletClient };
     } catch {
@@ -87,14 +87,14 @@ function createTreasuryClients(treasury: Address) {
 }
 
 /**
- * Thin adapter over existing SwiftPay / Circle / Arc rails.
- * Circle (the SwiftPay feature) never calls raw Circle APIs from route handlers.
+ * Thin adapter over existing SaphraONE / Circle / Arc rails.
+ * Circle (the SaphraONE feature) never calls raw Circle APIs from route handlers.
  */
 export function circleTreasuryAddress(): Address | null {
   for (const value of [
-    envValue("SWIFTPAY_CIRCLE_TREASURY_ADDRESS"),
+    envValue("SAPHRA_CIRCLE_TREASURY_ADDRESS"),
     envValue("TREASURY_WALLET"),
-    envValue("SWIFTPAY_RECURRING_OPERATOR_ADDRESS"),
+    envValue("SAPHRA_RECURRING_OPERATOR_ADDRESS"),
     envValue("EVM_WALLET_ADDRESS"),
     envValue("WALLET_ADDRESS"),
   ]) {

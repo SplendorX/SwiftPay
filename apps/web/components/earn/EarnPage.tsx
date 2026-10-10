@@ -162,6 +162,7 @@ export function EarnPage() {
             title="Deposit USDC"
           >
             <EarnDeposit
+              circleWalletId={earnWallet.circleWalletId}
               connectedAddress={walletAddress}
               currentChainId={earnWallet.currentChainId}
               initialAmount={initialAction === "deposit" ? initialAmount : undefined}
@@ -180,6 +181,7 @@ export function EarnPage() {
             title="Withdraw USDC"
           >
             <EarnWithdraw
+              circleWalletId={earnWallet.circleWalletId}
               connectedAddress={walletAddress}
               currentChainId={earnWallet.currentChainId}
               initialAmount={initialAction === "withdraw" ? initialAmount : undefined}

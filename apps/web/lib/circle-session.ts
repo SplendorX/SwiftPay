@@ -2,6 +2,7 @@
 
 import { isArcMainnet } from "@/lib/network";
 import { type ArcTokenSymbol } from "@/lib/tokens";
+import { withApproval } from "@/lib/tx-approval/client";
 import {
   clearPlatformProfileConnected,
   markPlatformProfileConnected,
@@ -71,13 +72,13 @@ export class CircleClientError extends Error {
   }
 }
 
-export const circleSessionEventName = "swiftpay:circle-session";
+export const circleSessionEventName = "saphra:circle-session";
 
 // Circle's test and live environments issue separate device tokens, logins
 // and wallets, so each network keeps its own. A testnet session saved in the
 // browser must never be replayed against Circle's live environment. Testnet
 // keeps the original key names so existing testnet sessions carry on.
-const circleKeyPrefix = isArcMainnet() ? "swiftpay.circle.mainnet" : "swiftpay.circle";
+const circleKeyPrefix = isArcMainnet() ? "saphra.circle.mainnet" : "saphra.circle";
 
 export const circleStorageKeys = {
   deviceEncryptionKey: `${circleKeyPrefix}.deviceEncryptionKey`,
@@ -234,9 +235,9 @@ export function clearCircleSession(options: { clearDevice?: boolean } = {}) {
   });
 
   try {
-    window.localStorage.removeItem("swiftpay.activeWorkspaceId");
-    window.localStorage.removeItem("swiftpay.preferredWalletMode");
-    window.localStorage.removeItem("swiftpay.greetingName");
+    window.localStorage.removeItem("saphra.activeWorkspaceId");
+    window.localStorage.removeItem("saphra.preferredWalletMode");
+    window.localStorage.removeItem("saphra.greetingName");
   } catch {}
 
   clearPlatformProfileConnected();
@@ -409,11 +410,11 @@ export function isCircleDeviceIdError(error: unknown) {
 }
 
 export const circleDeviceIdHelp =
-  "Circle needs to verify this device again. Nothing was sent. You'll be signed out the next time you open SwiftPay; sign back in and try again.";
+  "Circle needs to verify this device again. Nothing was sent. You'll be signed out the next time you open SaphraONE; sign back in and try again.";
 
-const staleSessionKey = "swiftpay.circleSessionStale";
+const staleSessionKey = "saphra.circleSessionStale";
 /** Set just before the automatic sign-out, so sign-in can say why. */
-export const circleSignedOutNoticeKey = "swiftpay.signedOutNotice";
+export const circleSignedOutNoticeKey = "saphra.signedOutNotice";
 
 /**
  * Circle can no longer use this sign-in on this device (its device record is
@@ -572,6 +573,8 @@ export async function callCircleWalletApi<T>(
   action: string,
   params: Record<string, unknown> = {},
 ): Promise<T & CircleClientErrorPayload> {
+  // Money-moving calls carry SaphraONE's own confirmation (lib/tx-approval).
+  params = await withApproval(action, params);
   try {
     return await callCircleWalletApiOnce<T>(action, params);
   } catch (error) {

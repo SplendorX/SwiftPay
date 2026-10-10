@@ -87,12 +87,12 @@ export async function processReferralActivityCashback(input: {
           Math.floor(Math.max(0, input.feePaidUsd) * 100 * 100) / 100,
         );
   if (cashbackPoints <= 0) {
-    return { cashbackAwarded: false, reason: "No SwiftPay fee was paid on this transaction." };
+    return { cashbackAwarded: false, reason: "No SaphraONE fee was paid on this transaction." };
   }
   const deltaUnits = pointsToInternalUnits(cashbackPoints);
   const idempotencyKey = `referral:${referral.id}:transaction:${input.transactionId}:activity_cashback`;
 
-  // 7. Credit SwiftPoints ledger (Referrer ONLY)
+  // 7. Credit OnePoints ledger (Referrer ONLY)
   const entryType =
     referral.referred_account_type === "BUSINESS"
       ? "REFERRER_BUSINESS_ACTIVITY_CASHBACK"

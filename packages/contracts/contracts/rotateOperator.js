@@ -27,20 +27,20 @@ dotenv.config({ path: envPath, quiet: true });
 const ROLES = {
   earn: {
     executorEnv: "NEXT_PUBLIC_EARN_AUTOSAVE_EXECUTOR_ADDRESS",
-    keyEnv: "SWIFTPAY_EARN_OPERATOR_PRIVATE_KEY",
-    addressEnv: "SWIFTPAY_EARN_OPERATOR_ADDRESS",
+    keyEnv: "SAPHRA_EARN_OPERATOR_PRIVATE_KEY",
+    addressEnv: "SAPHRA_EARN_OPERATOR_ADDRESS",
     label: "EarnAutoSaveExecutor",
   },
   payroll: {
     executorEnv: "NEXT_PUBLIC_SWIFTPAY_PAYROLL_EXECUTOR_ADDRESS",
-    keyEnv: "SWIFTPAY_PAYROLL_OPERATOR_PRIVATE_KEY",
-    addressEnv: "SWIFTPAY_PAYROLL_OPERATOR_ADDRESS",
+    keyEnv: "SAPHRA_PAYROLL_OPERATOR_PRIVATE_KEY",
+    addressEnv: "SAPHRA_PAYROLL_OPERATOR_ADDRESS",
     label: "SwiftPayrollExecutor",
   },
   recurring: {
     executorEnv: "NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS",
-    keyEnv: "SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY",
-    addressEnv: "SWIFTPAY_RECURRING_OPERATOR_ADDRESS",
+    keyEnv: "SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY",
+    addressEnv: "SAPHRA_RECURRING_OPERATOR_ADDRESS",
     label: "RecurePayExecutor",
   },
 };

@@ -8,7 +8,7 @@ import { PayerBackButton } from "@/components/checkout/payer-back-button";
 import { ChargeReceiptCard } from "@/components/checkout/charge-receipt-card";
 import { PayWithBridge } from "@/components/checkout/pay-with-bridge";
 import { PayWithOnramp } from "@/components/checkout/pay-with-onramp";
-import { PayWithSwiftPay } from "@/components/checkout/pay-with-swiftpay";
+import { PayWithSaphra } from "@/components/checkout/pay-with-saphra";
 import { PayWithWallet } from "@/components/checkout/pay-with-wallet";
 import { TipPicker } from "@/components/checkout/tip-picker";
 import { formatMoney, moneyNumber, roundMoney } from "@/lib/account/money";
@@ -17,7 +17,7 @@ import type { PublicChargePayload } from "@/lib/checkout/types";
 import { trackTractionEvent } from "@/lib/traction/client";
 import { cn } from "@/lib/utils";
 
-type Method = "card" | "chain" | "swiftpay" | "wallet";
+type Method = "card" | "chain" | "saphra" | "wallet";
 
 const POLL_MS = 2_500;
 
@@ -58,7 +58,7 @@ export function PayChargePage({ code }: { code: string }) {
     void fetchOnrampEnabled().then(setOnrampEnabled);
   }, []);
 
-  // Live status while the charge is open: a SwiftPay payment made in another
+  // Live status while the charge is open: a SaphraONE payment made in another
   // tab, or by someone else at the counter, flips this page too.
   useEffect(() => {
     if (status !== "OPEN") return;
@@ -132,7 +132,7 @@ export function PayChargePage({ code }: { code: string }) {
   // Circle Onramp delivers USDC only.
   const methods: Array<{ icon: typeof Wallet; id: Method; label: string }> = [
     { icon: Wallet, id: "wallet", label: "Any wallet" },
-    { icon: Store, id: "swiftpay", label: "SwiftPay" },
+    { icon: Store, id: "saphra", label: "SaphraONE" },
     ...(onrampEnabled && charge.currency === "USDC"
       ? [{ icon: CreditCard, id: "card" as const, label: "Card or bank" }]
       : []),
@@ -266,7 +266,7 @@ export function PayChargePage({ code }: { code: string }) {
               ) : method === "chain" ? (
                 <PayWithBridge onUpdate={applyPayload} payload={payload} total={total} />
               ) : (
-                <PayWithSwiftPay payload={payload} total={total} />
+                <PayWithSaphra payload={payload} total={total} />
               )}
             </>
           )}
@@ -275,7 +275,7 @@ export function PayChargePage({ code }: { code: string }) {
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Payments settle on Arc in seconds.{" "}
           <a className="font-medium text-primary hover:underline" href="/">
-            Get SwiftPay
+            Get SaphraONE
           </a>
         </p>
       </div>

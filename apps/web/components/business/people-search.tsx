@@ -76,7 +76,7 @@ export function PeopleSearchDialog({
         <DialogHeader className="border-b border-border px-4 py-3">
           <DialogTitle className="text-sm">Search profiles</DialogTitle>
           <DialogDescription className="sr-only">
-            Find SwiftPay users and businesses
+            Find SaphraONE users and businesses
           </DialogDescription>
           <div className="relative mt-2">
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

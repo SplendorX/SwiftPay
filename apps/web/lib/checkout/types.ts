@@ -1,5 +1,5 @@
 /**
- * SwiftPay Checkout: quick in-person charges. Shared by the server, the API
+ * SaphraONE Checkout: quick in-person charges. Shared by the server, the API
  * routes and the browser, so it stays free of server-only imports.
  */
 

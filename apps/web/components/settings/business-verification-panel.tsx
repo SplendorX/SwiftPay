@@ -20,7 +20,7 @@ function maskId(value: string) {
 /**
  * Business verification: unlocked by a complete profile, then a registration
  * number or tax ID checked against an official register where a free one
- * exists, or by the SwiftPay team where it doesn't.
+ * exists, or by the SaphraONE team where it doesn't.
  */
 export function BusinessVerificationPanel({
   circleSocialUuid,
@@ -128,7 +128,7 @@ export function BusinessVerificationPanel({
           <p className="mt-1 text-muted-foreground">
             {submission.method === "AUTOMATIC" && submission.source
               ? `Confirmed with ${submission.source}`
-              : "Confirmed by the SwiftPay team"}
+              : "Confirmed by the SaphraONE team"}
             {submission.registryName ? ` as “${submission.registryName}”` : ""} · {maskId(submission.idNumber)}
           </p>
           {state.status !== "VERIFIED" ? (
@@ -153,7 +153,7 @@ export function BusinessVerificationPanel({
           <p className="font-semibold">Under review</p>
           <p className="mt-1 text-muted-foreground">
             {submission.idType === "VAT" ? "VAT number" : submission.idType === "LEI" ? "LEI" : "ID"}{" "}
-            {maskId(submission.idNumber)} is with the SwiftPay team. Most reviews finish within two
+            {maskId(submission.idNumber)} is with the SaphraONE team. Most reviews finish within two
             business days.
           </p>
           {submission.note ? <p className="mt-1 text-xs text-muted-foreground">{submission.note}</p> : null}
@@ -196,7 +196,7 @@ export function BusinessVerificationPanel({
           >
             <span className="block font-medium">{candidate.label}</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
-              {candidate.automatic ? `Checked instantly · ${candidate.source}` : "Reviewed by the SwiftPay team"}
+              {candidate.automatic ? `Checked instantly · ${candidate.source}` : "Reviewed by the SaphraONE team"}
             </span>
           </button>
         ))}
@@ -229,7 +229,7 @@ export function BusinessVerificationPanel({
       </Button>
       <p className="text-xs text-muted-foreground">
         The number must belong to {state.country?.name ? `a business registered in ${state.country.name}` : "your business"}{" "}
-        under the name on your profile. One number can verify one SwiftPay business.
+        under the name on your profile. One number can verify one SaphraONE business.
       </p>
     </>,
   );

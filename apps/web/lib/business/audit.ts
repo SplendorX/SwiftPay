@@ -18,6 +18,6 @@ export async function writeBusinessAudit(input: {
       workspace_id: input.workspaceId,
     });
   } catch (error) {
-    console.error("[swiftpay-business] audit write failed", error);
+    console.error("[saphra-business] audit write failed", error);
   }
 }

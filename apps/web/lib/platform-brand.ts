@@ -1,2 +1,2 @@
-export const platformBrandName = "SwiftPay";
+export const platformBrandName = "SaphraONE";
 export const platformBrandTagline = "Stablecoin payment infrastructure";

@@ -11,7 +11,7 @@ export default function BusinessPage() {
       <PlatformChrome
         actions={<PlatformProfileControls />}
         hideHeader={true}
-        subtitle="How your business is doing on SwiftPay"
+        subtitle="How your business is doing on SaphraONE"
         title="Overview"
       >
         <BusinessOverview />

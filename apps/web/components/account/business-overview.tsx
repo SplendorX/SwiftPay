@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { createPublicClient, formatUnits, getAddress, http, isAddress } from "viem";
+import { createPublicClient, formatUnits, getAddress, isAddress } from "viem";
 import { useReadContract } from "wagmi";
 
 import { useAccountContext } from "@/components/account/account-provider";
@@ -27,7 +27,7 @@ import type { PayrollDashboardSummary } from "@/lib/payroll/types";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { erc20Abi } from "@/lib/contracts";
 import { arcTokens } from "@/lib/tokens";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 import type { WalletTransfer } from "@/lib/arcscan-history";
 import {
   callCircleWalletApi,
@@ -57,7 +57,7 @@ import "./overview.css";
 
 const arcPublicClient = createPublicClient({
   chain: arcChain,
-  transport: http(arcChain.rpcUrls.default.http[0]),
+  transport: arcTransport(),
 });
 
 export function BusinessOverview() {
@@ -279,7 +279,7 @@ export function BusinessOverview() {
         <div className="ov-card ov-pad">
           <h2 className="ov-section-title">{t("business.overview")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Business overview is exclusive to SwiftPay Business accounts. Upgrade this account to Business to unlock invoicing, payroll, and business analytics.
+            Business overview is exclusive to SaphraONE Business accounts. Upgrade this account to Business to unlock invoicing, payroll, and business analytics.
           </p>
           <Button asChild className="mt-5 h-11">
             <Link href="/settings#account-type">Upgrade to Business</Link>
@@ -291,7 +291,7 @@ export function BusinessOverview() {
 
   const completion = profileCompletionPercent(profile);
   const businessDisplayName =
-    profile?.business_name || account?.username || "SwiftPay Business";
+    profile?.business_name || account?.username || "SaphraONE Business";
 
   // 4. Compute 100% REAL data models without dummy placeholders
   const {

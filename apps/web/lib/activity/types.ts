@@ -1,6 +1,6 @@
 /**
  * Account activity: every confirmed transaction the account made, labelled with
- * the SwiftPay feature that performed it. Shared by the /api/activity route and
+ * the SaphraONE feature that performed it. Shared by the /api/activity route and
  * the dashboard, so it stays free of server-only imports.
  */
 
@@ -18,6 +18,7 @@ export const activitySources = [
   "agent",
   "points",
   "checkout",
+  "deposit",
 ] as const;
 
 export type ActivitySource = (typeof activitySources)[number];
@@ -111,8 +112,10 @@ export const activityFeatureMeta: Record<
   recurepay: { label: "RecurePay", href: "/recurepay" },
   // ALLIE lives in the Pay with ALLIE bubble, opened from Activity directly.
   agent: { label: "ALLIE", href: null },
-  points: { label: "SwiftPoints", href: "/referral" },
-  // In-person payments to a business through SwiftPay Checkout.
+  points: { label: "OnePoints", href: "/referral" },
+  // In-person payments to a business through SaphraONE Checkout.
   checkout: { label: "Checkout", href: null },
+  // USDC received on another network and moved to Arc.
+  deposit: { label: "Deposit", href: "/deposit" },
   wallet: { label: "Wallet", href: null },
 };

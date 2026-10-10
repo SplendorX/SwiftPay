@@ -5,7 +5,7 @@
  *   node contracts/checkRecurePayOperator.js [executorAddress]
  *
  * Compares three addresses: the one derived from
- * SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY, SWIFTPAY_RECURRING_OPERATOR_ADDRESS,
+ * SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY, SAPHRA_RECURRING_OPERATOR_ADDRESS,
  * and the executor's on-chain operator(). The key itself is never printed.
  */
 import dotenv from "dotenv";
@@ -22,14 +22,14 @@ async function main() {
     process.env.ARC_TESTNET_RPC_URL || "https://rpc.testnet.arc.network";
   const executorAddress =
     process.argv[2] || process.env.NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS?.trim();
-  const key = process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim();
-  const listed = process.env.SWIFTPAY_RECURRING_OPERATOR_ADDRESS?.trim();
+  const key = process.env.SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY?.trim();
+  const listed = process.env.SAPHRA_RECURRING_OPERATOR_ADDRESS?.trim();
 
   if (!executorAddress || !ethers.isAddress(executorAddress)) {
     throw new Error("Pass the executor address or set NEXT_PUBLIC_SWIFTRECUREPAY_EXECUTOR_ADDRESS.");
   }
   if (!key) {
-    throw new Error("SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY is not set in .env.");
+    throw new Error("SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY is not set in .env.");
   }
 
   const fromKey = new ethers.Wallet(key).address;
@@ -50,7 +50,7 @@ async function main() {
   console.log("  owner                  :", owner);
   console.log("  on-chain operator()    :", onChain);
   console.log("Operator key's address   :", fromKey);
-  console.log("SWIFTPAY_RECURRING_OPERATOR_ADDRESS:", listed ?? "(not set)");
+  console.log("SAPHRA_RECURRING_OPERATOR_ADDRESS:", listed ?? "(not set)");
   console.log("Operator gas balance     :", ethers.formatEther(balance), "(native USDC)");
   console.log("");
 

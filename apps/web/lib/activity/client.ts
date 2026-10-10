@@ -5,7 +5,7 @@ import type {
 } from "@/lib/activity/types";
 import { getCircleLoginIdentity, readCircleLogin } from "@/lib/circle-session";
 
-export const accountActivityChangedEventName = "swiftpay:account-activity";
+export const accountActivityChangedEventName = "saphra:account-activity";
 
 function circleSocialUuid() {
   try {

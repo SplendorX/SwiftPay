@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 
 import {
   createCircleWalletSession,
@@ -8,6 +8,7 @@ import { setUnlockCookie } from "@/lib/app-lock/server";
 import { readJsonRecord } from "@/lib/http";
 import { sessionWallets } from "@/lib/wallet-session";
 import { consumeRateLimit } from "@/lib/rate-limit";
+import { notifySignIn } from "@/lib/security/sign-in-alert";
 
 export const runtime = "nodejs";
 
@@ -70,6 +71,19 @@ export async function POST(request: NextRequest) {
     await setWalletSessionCookies(response, issued.token);
     if (issued.lock && issued.freshSignIn) {
       await setUnlockCookie(response, issued.lock.owner_wallet, issued.lock.timeout_minutes);
+    }
+    if (issued.freshSignIn) {
+      // "You signed in" email, after the response so signing in never waits.
+      const ownerWallet = issued.session.ownerWallet;
+      const headers = new Headers(request.headers);
+      after(() =>
+        notifySignIn({
+          headers,
+          host: request.nextUrl.host,
+          origin: request.nextUrl.origin,
+          ownerWallet,
+        }),
+      );
     }
     return response;
   } catch (error) {

@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { AlertCircle, ExternalLink, Loader2, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 
 import { EarnExternalWalletNotice } from "@/components/earn/earn-signer-notice";
+import { TransferProgressOverlay } from "@/components/send/transfer-progress";
+import { TokenIcon } from "@/components/token-icon";
 import { Button } from "@/components/ui/button";
 import {
   browserPosition,
@@ -24,8 +25,11 @@ import type {
   EarnWithdrawQuote,
 } from "@/lib/earn/types";
 import { formatUsdc, isValidUsdcAmount, parseUsdc } from "@/lib/onchain-money";
+import { confirmFlow } from "@/lib/tx-approval/client";
 
 type EarnWithdrawProps = {
+  /** The Circle wallet id: one confirmation for the whole deposit or withdrawal (lib/tx-approval). */
+  circleWalletId?: string | null;
   connectedAddress?: string | null;
   currentChainId?: number;
   resolveProvider?: (() => Promise<unknown>) | null;
@@ -38,6 +42,7 @@ type EarnWithdrawProps = {
 };
 
 export function EarnWithdraw({
+  circleWalletId,
   connectedAddress,
   currentChainId,
   initialAmount = "",
@@ -107,31 +112,33 @@ export function EarnWithdraw({
     }
   }
 
+  // The moving-coin animation: vault → wallet, ending on the receipt.
+  const [withdrawDone, setWithdrawDone] = useState(false);
+
   async function handleWithdraw() {
     if (!vaultAddress || !connectedAddress || !amountValid || busy) return;
     setBusy("withdraw");
     setError(null);
     try {
       parseUsdc(amount);
-      const nextResult = await browserWithdraw({
-        amount,
-        currentChainId,
-        resolveProvider,
-        switchChainAsync,
-        vaultAddress,
-      });
+      const nextResult = await confirmFlow(
+        circleWalletId,
+        { amount, maxUses: 4, recipients: [], title: "Withdraw from Invest", token: "USDC" },
+        () =>
+          browserWithdraw({
+            amount,
+            currentChainId,
+            resolveProvider,
+            switchChainAsync,
+            vaultAddress,
+          }),
+      );
       setResult(nextResult);
+      setWithdrawDone(true);
       setAmount("");
       setQuote(null);
       notifyEarnPositionUpdated();
       await loadPosition();
-      toast.success("Withdrawal submitted", {
-        action: {
-          label: "View",
-          onClick: () => window.open(nextResult.explorerUrl, "_blank"),
-        },
-        description: `${nextResult.amount} USDC withdrawn.`,
-      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Withdraw failed.");
     } finally {
@@ -167,6 +174,28 @@ export function EarnWithdraw({
 
   return (
     <div className="earn-form earn-panel-form">
+      <TransferProgressOverlay
+        active={busy === "withdraw" || withdrawDone}
+        current={0}
+        details={
+          result
+            ? {
+                amount: result.amount ? `${result.amount} USDC` : undefined,
+                eyebrow: "Invest",
+                explorerUrl: result.explorerUrl,
+                rows: selectedVault ? [{ label: "From", value: vaultName(selectedVault) }] : undefined,
+              }
+            : undefined
+        }
+        doneSubtitle="Funds are back in your wallet."
+        doneTitle="Withdrawal successful"
+        from={<TrendingUp className="h-6 w-6 text-primary" />}
+        onDone={() => setWithdrawDone(false)}
+        state={withdrawDone ? "done" : "running"}
+        steps={[selectedVault ? `Withdrawing from ${vaultName(selectedVault)}` : "Withdrawing from the vault"]}
+        title="Withdrawing"
+        to={<TokenIcon className="h-8 w-8" symbol="USDC" />}
+      />
       <p className="earn-label">
         {selectedVault ? vaultName(selectedVault) : "Selected vault"}
       </p>

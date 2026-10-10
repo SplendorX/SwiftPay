@@ -6,7 +6,7 @@ import { PlatformBrand } from "@/components/brand/platform-brand";
 import { SupportCenter } from "@/components/support/support-center";
 
 /**
- * SwiftPay Support as a page. Public: guests — like someone paying an invoice
+ * SaphraONE Support as a page. Public: guests — like someone paying an invoice
  * without an account — get help here too.
  */
 export default function SupportPage() {
@@ -16,7 +16,7 @@ export default function SupportPage() {
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
           <PlatformBrand />
           <Link className="text-sm font-medium text-muted-foreground hover:text-foreground" href="/dashboard">
-            Back to SwiftPay
+            Back to SaphraONE
           </Link>
         </div>
       </header>

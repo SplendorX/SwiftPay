@@ -24,7 +24,7 @@ export function HeroWelcome() {
       <p className="hero-welcome-lead">{t("landing.heroLead")}</p>
       <div className="hero-welcome-actions">
         <LaunchAppLink className="hero-launch-btn">
-          {t("common.openSwiftPay")}
+          {t("common.openSaphra")}
           <ArrowRight className="h-4 w-4" />
         </LaunchAppLink>
         <Button asChild className="hero-features-btn" size="lg" variant="outline">

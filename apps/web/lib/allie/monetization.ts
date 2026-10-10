@@ -4,11 +4,11 @@ import { randomUUID } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { platformFeeRecipient } from "@/lib/fees";
 import {
-  getOrCreateSwiftPointsAccount,
+  getOrCreateOnePointsAccount,
   pointsToInternalUnits,
   recordLedgerEntry,
 } from "@/lib/referral/ledger-service";
-import { SWIFTPOINTS_USD_PER_POINT } from "@/lib/referral/types";
+import { ONE_POINTS_USD_PER_POINT } from "@/lib/referral/types";
 
 export type AllieTier = "free" | "pro";
 
@@ -27,10 +27,10 @@ export const defaultDailyEscalationBudget = 10;
 /** 0.002 USDC at 6 decimals. Charged per approved payment, not per LLM call. */
 export const defaultPerPaymentFeeUnits = 2_000n;
 
-/** How long one Pro payment (USDC or SwiftPoints) lasts. */
+/** How long one Pro payment (USDC or OnePoints) lasts. */
 export const allieProTermDays = 30;
 
-/** 0.002 USDC per ALLIE model call past the daily budget, paid in SwiftPoints. */
+/** 0.002 USDC per ALLIE model call past the daily budget, paid in OnePoints. */
 export const defaultOverageFeeUsdc = 0.002;
 
 export function allieOverageFeeUsdc() {
@@ -38,14 +38,14 @@ export function allieOverageFeeUsdc() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultOverageFeeUsdc;
 }
 
-/** The overage fee in SwiftPoints: 0.002 USDC = 0.2 points. */
+/** The overage fee in OnePoints: 0.002 USDC = 0.2 points. */
 export function allieOveragePoints() {
-  return Number((allieOverageFeeUsdc() / SWIFTPOINTS_USD_PER_POINT).toFixed(2));
+  return Number((allieOverageFeeUsdc() / ONE_POINTS_USD_PER_POINT).toFixed(2));
 }
 
-/** The Pro fee in SwiftPoints, at the points' USDC value (5 USDC = 500). */
+/** The Pro fee in OnePoints, at the points' USDC value (5 USDC = 500). */
 export function allieProPricePoints() {
-  return Math.ceil(allieProMonthlyFeeUsdc() / SWIFTPOINTS_USD_PER_POINT);
+  return Math.ceil(allieProMonthlyFeeUsdc() / ONE_POINTS_USD_PER_POINT);
 }
 
 export function allieProMonthlyFeeUsdc() {
@@ -231,10 +231,10 @@ export async function checkLlmBudget(
   }
 }
 
-/** Whether the wallet's SwiftPoints cover `calls` overage calls. */
+/** Whether the wallet's OnePoints cover `calls` overage calls. */
 export async function canPayAllieOverage(ownerWallet: string, calls = 1) {
   try {
-    const account = await getOrCreateSwiftPointsAccount(ownerWallet.toLowerCase());
+    const account = await getOrCreateOnePointsAccount(ownerWallet.toLowerCase());
     const needed = pointsToInternalUnits(allieOveragePoints() * calls);
     return BigInt(account.available_balance_units) >= needed;
   } catch {
@@ -243,7 +243,7 @@ export async function canPayAllieOverage(ownerWallet: string, calls = 1) {
 }
 
 /**
- * Charge one overage call to SwiftPoints. Called once per model call that
+ * Charge one overage call to OnePoints. Called once per model call that
  * ran past the daily budget. Returns false when the balance could not cover
  * it; the call has already happened, so this never throws.
  */
@@ -275,7 +275,7 @@ export async function chargeAllieOverage(
 }
 
 /**
- * Pay for ALLIE Pro with SwiftPoints. A renewal while Pro is active extends
+ * Pay for ALLIE Pro with OnePoints. A renewal while Pro is active extends
  * from the current expiry, so no paid days are lost. The ledger key names the
  * term being bought, so a double submit cannot charge for it twice.
  */
@@ -295,7 +295,7 @@ export async function subscribeAllieProWithPoints(ownerWallet: string) {
     points: -price,
     // Same term start → same key: a retried or doubled request is one charge.
     idempotencyKey: `allie_pro_${wallet}_${new Date(activeUntil > now ? activeUntil : Math.floor(now / 60_000) * 60_000).toISOString()}`,
-    description: `ALLIE Pro, ${allieProTermDays} days (${price} SwiftPoints)`,
+    description: `ALLIE Pro, ${allieProTermDays} days (${price} OnePoints)`,
     metadata: {
       source: "allie_pro",
       feature: "ALLIE_PRO",

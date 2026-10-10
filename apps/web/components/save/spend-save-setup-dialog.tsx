@@ -256,7 +256,7 @@ export function SpendSaveSetupDialog({
             <div className="space-y-3">
               <p className="text-sm font-medium">Eligible payments</p>
               <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
-                <p className="font-medium">All eligible SwiftPay outgoing payments</p>
+                <p className="font-medium">All eligible SaphraONE outgoing payments</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Excludes savings deposits/withdrawals, internal transfers,
                   failed, reversed, refund, and system transactions.

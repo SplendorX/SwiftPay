@@ -1,0 +1,52 @@
+/* Optional referral code on the sign-in screen (referral-code-field.tsx). */
+.sign-in-referral-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.dark .sign-in-referral-toggle {
+  color: var(--link, #a5b4fc);
+}
+
+.sign-in-referral {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+}
+
+.sign-in-referral-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.sign-in-referral-label span {
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.sign-in-referral-input {
+  height: 2.75rem;
+  width: 100%;
+  padding: 0 0.9rem;
+  border: 1px solid var(--input, var(--border));
+  border-radius: 0.9rem;
+  background: var(--background);
+  font-size: 0.95rem;
+}
+
+.sign-in-referral-input:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--primary) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.sign-in-referral-hint {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}

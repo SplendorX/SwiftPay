@@ -2,7 +2,7 @@
  * Tier 1 coverage for the product capabilities, and the precedence between
  * them — a broad status phrase must never swallow a money movement.
  *
- * Run: pnpm --filter @swiftpay/web test:allie
+ * Run: pnpm --filter @saphra/web test:allie
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

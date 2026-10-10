@@ -181,7 +181,7 @@ export function PickerSheet<T extends string>({
   );
 }
 
-/** A page header in the SwiftPay style: round back button, centred title, an action. */
+/** A page header in the SaphraONE style: round back button, centred title, an action. */
 export function RecurepayBar({
   action,
   backHref,
@@ -863,7 +863,7 @@ export function RecurepayCompose({
             <span className="min-w-0 flex-1 text-left">
               <span className="block font-semibold">Autopay</span>
               <span className="block text-sm text-muted-foreground">
-                Pay automatically when due, even with SwiftPay closed. You approve a limit on-chain once; it only ever pays this
+                Pay automatically when due, even with SaphraONE closed. You approve a limit on-chain once; it only ever pays this
                 recipient this amount.
               </span>
             </span>

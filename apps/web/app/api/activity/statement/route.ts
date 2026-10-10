@@ -34,7 +34,7 @@ function escapeRegExp(value: string) {
 }
 
 /**
- * Money to or from a SwiftPay account reads as its @username, not the
+ * Money to or from a SaphraONE account reads as its @username, not the
  * wallet: each row's counterparty, full or shortened in the title, is
  * swapped for the name. Wallets without an account keep the address.
  */
@@ -109,8 +109,8 @@ export async function GET(request: NextRequest) {
         username: account?.username ?? null,
         wallet: ownerWallet,
       },
-      // On-chain transfers no SwiftPay feature recorded are complete from
-      // this time; SwiftPay's own records cover the whole range.
+      // On-chain transfers no SaphraONE feature recorded are complete from
+      // this time; SaphraONE's own records cover the whole range.
       onchainCoverageFrom: coverage,
       generatedAt: new Date().toISOString(),
       items: await withUsernames(items),

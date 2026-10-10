@@ -3,6 +3,7 @@ import {
   encodeFunctionData,
   http,
   erc20Abi as viemErc20Abi,
+  formatUnits,
   maxUint256,
   zeroAddress,
   zeroHash,
@@ -13,11 +14,13 @@ import {
 
 import {
   erc20Abi,
-  getSwiftPaySendAddress,
+  getSaphraSendAddress,
   swiftPaySendAbi,
 } from "@/lib/contracts";
 import { arcChain } from "@/lib/chains";
 import { callCircleWalletApi } from "@/lib/circle-session";
+import { arcTokens } from "@/lib/tokens";
+import { withTxApproval } from "@/lib/tx-approval/client";
 
 type ExternalWrite = (args: {
   address: Address;
@@ -28,6 +31,8 @@ type ExternalWrite = (args: {
 }) => Promise<Hash>;
 
 type CircleExecutor = {
+  /** The Circle wallet paying: lets the send be confirmed once for all its calls. */
+  walletId?: string;
   execute: (callData: Hex, contractAddress: Address, refId: string) => Promise<{
     txHash?: string;
     transactionId?: string;
@@ -60,7 +65,7 @@ export type BundledSendResult = {
 };
 
 export function sendRouterAddress(override?: string): Address | null {
-  const value = (override || getSwiftPaySendAddress()).trim();
+  const value = (override || getSaphraSendAddress()).trim();
   if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
     return null;
   }
@@ -170,7 +175,7 @@ async function confirmOnChain(chainId: number, hash: Hash, what: "approval" | "p
   }
 }
 
-export async function executeBundledSend(
+async function runBundledSend(
   input: BundledSendInput,
 ): Promise<BundledSendResult> {
   const router = await resolveSendRouter(input.router);
@@ -289,4 +294,33 @@ export async function executeCircleContract(params: {
     userToken: params.userToken,
     walletId: params.walletId,
   });
+}
+
+/**
+ * Send with the router. A Circle-wallet send is confirmed once (Face ID, PIN
+ * or 2FA, see lib/tx-approval) for both its approval and the payment; the
+ * server checks the recipient and amount of each call against it.
+ */
+export async function executeBundledSend(
+  input: BundledSendInput,
+): Promise<BundledSendResult> {
+  const walletId = input.mode === "circle" ? input.circleExecutor?.walletId : undefined;
+  if (!walletId) {
+    return runBundledSend(input);
+  }
+  const token = Object.values(arcTokens).find(
+    (entry) => entry.address.toLowerCase() === input.token.toLowerCase(),
+  );
+  return withTxApproval(
+    {
+      amount: formatUnits(input.paymentUnits, token?.decimals ?? 6),
+      destination: input.recipient,
+      kind: "send",
+      maxUses: 2,
+      title: "Send money",
+      token: token?.symbol ?? "USDC",
+      walletId,
+    },
+    () => runBundledSend(input),
+  );
 }

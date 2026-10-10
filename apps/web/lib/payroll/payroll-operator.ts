@@ -1,8 +1,8 @@
+import "@/lib/env-compat";
 import {
   createPublicClient,
   createWalletClient,
   getAddress,
-  http,
   isAddress,
   keccak256,
   parseUnits,
@@ -21,6 +21,7 @@ import {
   isEntitlementActive,
 } from "@/lib/referral/entitlement-service";
 import type { PayrollRunRecord } from "@/lib/payroll/types";
+import { arcTransport } from "@/lib/chains";
 
 /**
  * Settles approved payroll runs without a human present.
@@ -40,8 +41,8 @@ export function payrollExecutorAddress(): Address | null {
 
 function operatorPrivateKey() {
   const raw =
-    process.env.SWIFTPAY_PAYROLL_OPERATOR_PRIVATE_KEY?.trim() ||
-    process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim();
+    process.env.SAPHRA_PAYROLL_OPERATOR_PRIVATE_KEY?.trim() ||
+    process.env.SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY?.trim();
   if (!raw) return null;
   const key = (raw.startsWith("0x") ? raw : `0x${raw}`) as `0x${string}`;
   return /^0x[a-fA-F0-9]{64}$/.test(key) ? key : null;
@@ -56,7 +57,7 @@ function clients() {
   if (!privateKey) return null;
 
   const chain = onchainFacts.chain as Chain;
-  const transport = http(onchainFacts.rpcUrl);
+  const transport = arcTransport();
   const account = privateKeyToAccount(privateKey);
 
   return {

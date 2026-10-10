@@ -16,6 +16,7 @@ import { WalletConnectButton } from "@/components/wallet-connect-button";
 import { formatMoney, moneyNumber } from "@/lib/account/money";
 import { switchToArc } from "@/lib/arc-network";
 import { arcChain } from "@/lib/chains";
+import { showSuccess } from "@/components/success-popup";
 import { payPublicCharge, registerChargeIntentClient } from "@/lib/checkout/client";
 import type { PublicChargePayload } from "@/lib/checkout/types";
 import { erc20Abi } from "@/lib/contracts";
@@ -31,7 +32,7 @@ import { fetchWalletSessionForAddress } from "@/lib/wallet-auth-client";
  */
 type Phase = "idle" | "switching" | "intent" | "signing" | "confirming" | "recording";
 
-const pendingKey = (code: string) => `swiftpay:charge-payment:${code}`;
+const pendingKey = (code: string) => `saphra:charge-payment:${code}`;
 
 function readPending(code: string) {
   try {
@@ -157,9 +158,19 @@ export function PayWithWallet({
       await publicClient?.waitForTransactionReceipt({ hash });
 
       const recorded = await record(hash);
+      if (recorded) {
+        showSuccess({
+          amount: `${total} ${charge.currency}`,
+          eyebrow: "Checkout",
+          explorerUrl: `${arcChain.blockExplorers.default.url}/tx/${hash}`,
+          rows: [{ label: "To", value: business.name }],
+          subtitle: `Paid ${business.name}.`,
+          title: "Payment successful",
+        });
+      }
 
       // The activity label only applies to someone already signed in to
-      // SwiftPay with this wallet. A guest payer is never contacted,
+      // SaphraONE with this wallet. A guest payer is never contacted,
       // registered or remembered.
       if (recorded) {
         const session = await fetchWalletSessionForAddress(address).catch(() => null);
@@ -277,7 +288,7 @@ export function PayWithWallet({
 
       <p className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-        Pay from any wallet on Arc. No SwiftPay account needed, and paying doesn&rsquo;t sign you up
+        Pay from any wallet on Arc. No SaphraONE account needed, and paying doesn&rsquo;t sign you up
         or save your wallet. The money goes straight to {business.name}.
       </p>
     </div>

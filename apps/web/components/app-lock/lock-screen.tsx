@@ -267,8 +267,8 @@ export function LockScreen({
           side={sheetSide}
         >
           {sheetSide === "bottom" ? <SheetGrabber className="bg-white/40" /> : null}
-          <SheetTitle className="sr-only">SwiftPay Support</SheetTitle>
-          <SheetDescription className="sr-only">Get help without unlocking SwiftPay.</SheetDescription>
+          <SheetTitle className="sr-only">SaphraONE Support</SheetTitle>
+          <SheetDescription className="sr-only">Get help without unlocking SaphraONE.</SheetDescription>
           <SupportCenter guest onClose={() => setSupportOpen(false)} />
         </SheetContent>
       </Sheet>

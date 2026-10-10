@@ -64,7 +64,7 @@ function isStandalone() {
   );
 }
 
-/** Whether SwiftPay can be installed here, and how. */
+/** Whether SaphraONE can be installed here, and how. */
 export function useInstallApp() {
   const hasPrompt = useSyncExternalStore(subscribe, () => Boolean(deferredPrompt), () => false);
   const justInstalled = useSyncExternalStore(subscribe, () => installed, () => false);
@@ -120,15 +120,15 @@ const steps: Record<Exclude<Platform, "android" | "desktop">, { icon: typeof Sha
   ios: [
     { icon: Share, text: "Tap the Share button in Safari's toolbar." },
     { icon: PlusSquare, text: "Scroll down and tap “Add to Home Screen”." },
-    { icon: Smartphone, text: "Tap Add. SwiftPay opens from your home screen like any app." },
+    { icon: Smartphone, text: "Tap Add. SaphraONE opens from your home screen like any app." },
   ],
   "mac-safari": [
     { icon: Share, text: "In Safari's menu bar, choose File." },
     { icon: PlusSquare, text: "Choose “Add to Dock”, then Add." },
-    { icon: MonitorDown, text: "SwiftPay opens from your Dock in its own window." },
+    { icon: MonitorDown, text: "SaphraONE opens from your Dock in its own window." },
   ],
   unsupported: [
-    { icon: MonitorDown, text: "Open SwiftPay in Chrome or Edge on your computer, or Safari on iPhone." },
+    { icon: MonitorDown, text: "Open SaphraONE in Chrome or Edge on your computer, or Safari on iPhone." },
     { icon: Download, text: "Choose Install app (or Add to Home Screen)." },
   ],
 };
@@ -146,13 +146,13 @@ function InstallGuide({ onOpenChange, open, platform }: { open: boolean; onOpenC
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Install SwiftPay</DialogTitle>
+          <DialogTitle>Install SaphraONE</DialogTitle>
           <DialogDescription>
             {platform === "ios"
-              ? "Add SwiftPay to your home screen in three taps."
+              ? "Add SaphraONE to your home screen in three taps."
               : platform === "unsupported"
                 ? "This browser can't install apps."
-                : "Keep SwiftPay one tap away."}
+                : "Keep SaphraONE one tap away."}
           </DialogDescription>
         </DialogHeader>
         <ol className="space-y-3">
@@ -203,7 +203,7 @@ export function InstallAppButton({ className, label = "Install app" }: { classNa
   );
 }
 
-const dismissKey = "swiftpay:install-banner-dismissed";
+const dismissKey = "saphra:install-banner-dismissed";
 
 /** The dashboard's "Get the app" card: once, dismissible, never when installed. */
 export function InstallAppBanner({ className }: { className?: string }) {
@@ -241,7 +241,7 @@ export function InstallAppBanner({ className }: { className?: string }) {
     >
       <Image alt="" className="h-12 w-12 shrink-0 rounded-xl shadow-sm" height={48} src="/icons/apple-touch-icon.png" width={48} />
       <div className="min-w-0 flex-1">
-        <p className="font-heading text-sm font-semibold">Get the SwiftPay app</p>
+        <p className="font-heading text-sm font-semibold">Get the SaphraONE app</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {install.platform === "ios"
             ? "Add it to your home screen — full screen, one tap away."
@@ -270,11 +270,11 @@ export function InstallAppSettingsCard() {
     <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border p-4">
       <Image alt="" className="h-12 w-12 rounded-xl" height={48} src="/icons/apple-touch-icon.png" width={48} />
       <div className="min-w-0 flex-1">
-        <p className="font-semibold">SwiftPay app</p>
+        <p className="font-semibold">SaphraONE app</p>
         <p className="text-sm text-muted-foreground">
           {install.installed
             ? "You're using the installed app."
-            : "Install SwiftPay on this device — iPhone, Android or computer — and open it like any other app."}
+            : "Install SaphraONE on this device — iPhone, Android or computer — and open it like any other app."}
         </p>
       </div>
       {install.installed ? null : <InstallAppButton />}

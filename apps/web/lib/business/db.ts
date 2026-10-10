@@ -29,7 +29,7 @@ export function readBusinessDbError(
   }
 
   if (message.toLowerCase().includes("does not exist")) {
-    return "Create the business tables with packages/database/supabase/business-workspaces.sql before using SwiftPay Business.";
+    return "Create the business tables with packages/database/supabase/business-workspaces.sql before using SaphraONE Business.";
   }
 
   if (error?.code === "23505") {

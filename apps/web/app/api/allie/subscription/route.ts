@@ -22,6 +22,8 @@ import {
   subscribeAllieProWithPoints,
 } from "@/lib/allie/monetization";
 import { verifyAllieProPayment } from "@/lib/allie/verify-pro-payment";
+import { rewardsV2Enabled } from "@/lib/rewards/config";
+import { recordPremiumPayment } from "@/lib/rewards/premium";
 
 export const runtime = "nodejs";
 
@@ -30,7 +32,7 @@ const proTermDays = allieProTermDays;
 type SubscribeBody = {
   circleSocialUuid?: unknown;
   ownerWallet?: unknown;
-  /** "swiftpoints" pays from the SwiftPoints balance; otherwise USDC by txHash. */
+  /** "swiftpoints" pays from the OnePoints balance; otherwise USDC by txHash. */
   paymentMethod?: unknown;
   txHash?: unknown;
 };
@@ -38,11 +40,11 @@ type SubscribeBody = {
 function plan() {
   return {
     monthlyFeeUsdc: allieProMonthlyFeeUsdc(),
-    /** The same Pro term, paid in SwiftPoints. */
+    /** The same Pro term, paid in OnePoints. */
     monthlyFeePoints: allieProPricePoints(),
     termDays: proTermDays,
     dailyCallBudget: allieDailyLlmCallBudget(),
-    /** Each call past the daily budget, charged to SwiftPoints. */
+    /** Each call past the daily budget, charged to OnePoints. */
     overageFeeUsdc: allieOverageFeeUsdc(),
     overageFeePoints: allieOveragePoints(),
     dailyEscalationBudget: allieDailyEscalationBudget(),
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
  * payment is checked on Arc before Pro is granted: a successful USDC transfer
  * of at least the fee, from this wallet to the Pro fee recipient, made in the
  * last two hours and after the wallet's previous activation (so an old
- * payment cannot be replayed). Or pay with SwiftPoints (paymentMethod).
+ * payment cannot be replayed). Or pay with OnePoints (paymentMethod).
  */
 export async function POST(request: NextRequest) {
   const body = await readJsonRecord<SubscribeBody>(request);
@@ -125,7 +127,12 @@ export async function POST(request: NextRequest) {
     return jsonError("Only the owner can change this plan.", 401);
   }
 
-  // Paying with SwiftPoints: the debit itself is the proof of payment.
+  // Rewards v2: Pro is paid in USDC only.
+  if (body.paymentMethod === "swiftpoints" && rewardsV2Enabled()) {
+    return jsonError("ALLIE Pro is paid in USDC now. Pay with your wallet instead.", 410);
+  }
+
+  // Paying with OnePoints: the debit itself is the proof of payment.
   if (body.paymentMethod === "swiftpoints") {
     try {
       const paid = await subscribeAllieProWithPoints(ownerWallet);
@@ -137,9 +144,9 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      return /insufficient swiftpoints/i.test(message)
+      return /insufficient one points/i.test(message)
         ? jsonError(
-            `ALLIE Pro costs ${allieProPricePoints()} SwiftPoints and your balance is too low.`,
+            `ALLIE Pro costs ${allieProPricePoints()} OnePoints and your balance is too low.`,
             402,
           )
         : jsonError(message || "ALLIE Pro could not be activated.", 500);
@@ -164,6 +171,21 @@ export async function POST(request: NextRequest) {
   if (!check.ok) {
     // 503 tells the client to keep the payment for a retry; 422 is final.
     return jsonError(check.reason, check.retryable ? 503 : 422);
+  }
+
+  // Rewards v2: record the payment as a premium purchase (discounts are
+  // claimed against these). The unique hash also stops one payment
+  // activating Pro twice.
+  if (rewardsV2Enabled()) {
+    const recorded = await recordPremiumPayment({
+      amountUsdc: allieProMonthlyFeeUsdc(),
+      description: `ALLIE Pro, ${proTermDays} days`,
+      feeRecipient: allieProFeeRecipient(),
+      ownerWallet,
+      product: "ALLIE_PRO",
+      txHash,
+    });
+    if (!recorded.ok) return jsonError(recorded.reason, recorded.status);
   }
 
   try {

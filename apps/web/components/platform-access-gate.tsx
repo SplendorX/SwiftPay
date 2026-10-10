@@ -189,7 +189,7 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted">
             Use Google login or connect and authorize an external wallet on the
-            Home page to access the SwiftPay platform.
+            Home page to access the SaphraONE platform.
           </p>
           <Link
             className="sp-bubble mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-swift-600 px-4 text-sm font-bold text-white shadow-[0_14px_34px_rgba(66,17,143,0.24)] transition hover:-translate-y-0.5 hover:bg-swift-700"
@@ -205,7 +205,7 @@ export function PlatformAccessGate({ children }: { children: ReactNode }) {
   return children;
 }
 
-/** "allowed" once this browser is signed in to SwiftPay (Google, email or wallet). */
+/** "allowed" once this browser is signed in to SaphraONE (Google, email or wallet). */
 export function usePlatformAccess() {
   return useContext(PlatformAccessContext);
 }

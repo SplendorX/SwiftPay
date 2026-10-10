@@ -8,7 +8,7 @@ import { arcChain } from "@/lib/chains";
 /**
  * Wallet diagnostics for phones, where there is no console to read.
  * Hidden unless the page is opened with ?walletdebug=1 (remembered for the
- * tab). Shows the connected wallet, the network SwiftPay believes it is on
+ * tab). Shows the connected wallet, the network SaphraONE believes it is on
  * next to what the wallet reports, the networks the WalletConnect session
  * approved, and every request sent to the wallet with its outcome.
  */
@@ -24,7 +24,7 @@ type WalletConnectProvider = {
   signer?: { client?: { events?: { on: (e: string, l: (p: unknown) => void) => void } } };
 };
 
-const flagKey = "swiftpay.walletdebug";
+const flagKey = "saphra.walletdebug";
 
 function enabled() {
   if (typeof window === "undefined") return false;
@@ -61,12 +61,12 @@ export function WalletDebugPanel() {
     const onDebug = (event: Event) => log(String((event as CustomEvent).detail));
     const onHide = () => log(`page hidden (${document.visibilityState}) — a wallet app probably opened`);
     const onShow = () => { if (document.visibilityState === "visible") log("page visible again"); };
-    window.addEventListener("swiftpay:walletdebug", onDebug);
+    window.addEventListener("saphra:walletdebug", onDebug);
     window.addEventListener("pagehide", onHide);
     document.addEventListener("visibilitychange", onShow);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") onHide(); });
     return () => {
-      window.removeEventListener("swiftpay:walletdebug", onDebug);
+      window.removeEventListener("saphra:walletdebug", onDebug);
       window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onShow);
     };
@@ -115,7 +115,7 @@ export function WalletDebugPanel() {
       setInfo({
         wallet: provider.session?.peer?.metadata?.name ?? connector.name,
         "app link": provider.session?.peer?.metadata?.redirect?.native ?? "-",
-        "SwiftPay thinks chain": String(chainId ?? "-"),
+        "SaphraONE thinks chain": String(chainId ?? "-"),
         "wallet reports chain": walletChain,
         "Arc chain id": String(arcChain.id),
         "session approved chains": approved || "(not WalletConnect)",

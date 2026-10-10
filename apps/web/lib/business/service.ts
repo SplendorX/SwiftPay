@@ -611,7 +611,7 @@ export async function completeOnboarding(input: {
 
   const profile = await loadUserProfile(actorWallet);
   if (!profile) {
-    throw businessErrors.invalid("Create your SwiftPay profile before continuing.");
+    throw businessErrors.invalid("Create your SaphraONE profile before continuing.");
   }
 
   if (
@@ -968,9 +968,9 @@ export function normalizeBusinessWallet(value: string) {
 }
 
 /**
- * Map wallets to their public SwiftPay @usernames. A business identity wins
+ * Map wallets to their public SaphraONE @usernames. A business identity wins
  * over a personal profile for the wallet it receives into. Wallets without a
- * SwiftPay account are simply absent from the result.
+ * SaphraONE account are simply absent from the result.
  */
 export async function usernamesForWallets(
   wallets: string[],

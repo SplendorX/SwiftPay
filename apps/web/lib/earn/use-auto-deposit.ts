@@ -32,7 +32,8 @@ export type AutoDepositState = {
   rule: AutoDepositRule | null;
   saveRule: (input: SaveRuleInput) => Promise<void>;
   saving: boolean;
-  unlock: () => Promise<void>;
+  /** `txHash`: the USDC payment for the term (Rewards v2). */
+  unlock: (txHash?: string) => Promise<void>;
   unlockCost: number;
   unlocked: boolean;
 };
@@ -121,15 +122,17 @@ export function useAutoDeposit(input: {
     void refresh();
   }, [refresh]);
 
-  const unlock = useCallback(async () => {
+  /** `txHash`: the USDC payment for the term (Rewards v2). */
+  const unlock = useCallback(async (txHash?: string) => {
     setSaving(true);
     setError(null);
     try {
       await readJson(
-        await fetch("/api/swiftpoints/entitlements", {
+        await fetch("/api/one-points/entitlements", {
           body: JSON.stringify({
             circleSocialUuid,
             feature: "EARN_AUTO_DEPOSIT",
+            txHash,
             // Pressing this while access is still running is a renewal, and
             // has to say so or the server treats it as already unlocked and
             // extends nothing.

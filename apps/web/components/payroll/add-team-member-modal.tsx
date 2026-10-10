@@ -16,7 +16,7 @@ export type TeamMemberPrefill = {
   fullName?: string;
   role?: string;
   memberType?: MemberType;
-  swiftpayUsername?: string;
+  saphraUsername?: string;
   walletAddress?: string;
   amount?: string;
   frequency?: PaymentFrequency;
@@ -53,7 +53,7 @@ export function AddTeamMemberModal({
   const [destinationType, setDestinationType] = useState<PaymentDestinationType>(
     initial?.walletAddress ? "EXTERNAL_WALLET" : "SWIFTPAY_USER",
   );
-  const [swiftpayUsername, setSwiftpayUsername] = useState(initial?.swiftpayUsername ?? "");
+  const [saphraUsername, setSaphraUsername] = useState(initial?.saphraUsername ?? "");
   const [walletAddress, setWalletAddress] = useState(initial?.walletAddress ?? "");
 
   // Step 3: Payment Setup
@@ -74,7 +74,7 @@ export function AddTeamMemberModal({
     setRole("");
     setMemberType("EMPLOYEE");
     setDestinationType("SWIFTPAY_USER");
-    setSwiftpayUsername("");
+    setSaphraUsername("");
     setWalletAddress("");
     setPaymentType("FIXED");
     setAmount("2500");
@@ -99,7 +99,7 @@ export function AddTeamMemberModal({
           role: role || null,
           memberType,
           paymentDestinationType: destinationType,
-          swiftpayUsername: destinationType === "SWIFTPAY_USER" ? swiftpayUsername : null,
+          saphraUsername: destinationType === "SWIFTPAY_USER" ? saphraUsername : null,
           walletAddress: destinationType === "EXTERNAL_WALLET" ? walletAddress : null,
           preferredAsset: "USDC",
           defaultPaymentAmount: paymentType === "FIXED" ? amount : "0",
@@ -228,7 +228,7 @@ export function AddTeamMemberModal({
               >
                 <AtSign className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <div>
-                  <p className="text-sm font-semibold">SwiftPay User</p>
+                  <p className="text-sm font-semibold">SaphraONE User</p>
                   <p className="text-xs text-muted-foreground">Pay via @username</p>
                 </div>
               </button>
@@ -252,14 +252,14 @@ export function AddTeamMemberModal({
             {destinationType === "SWIFTPAY_USER" ? (
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">
-                  SwiftPay Username *
+                  SaphraONE Username *
                 </label>
                 <div className="mt-1">
                   <UsernameField
                     id="team-member-username"
-                    onChange={setSwiftpayUsername}
+                    onChange={setSaphraUsername}
                     placeholder="janedoe"
-                    value={swiftpayUsername}
+                    value={saphraUsername}
                   />
                 </div>
               </div>
@@ -378,7 +378,7 @@ export function AddTeamMemberModal({
             <div className="flex items-center justify-between border-b border-border pb-2">
               <span className="text-muted-foreground">Payment Destination</span>
               <span className="font-semibold text-foreground font-mono text-xs">
-                {destinationType === "SWIFTPAY_USER" ? `@${swiftpayUsername}` : walletAddress}
+                {destinationType === "SWIFTPAY_USER" ? `@${saphraUsername}` : walletAddress}
               </span>
             </div>
             <div className="flex items-center justify-between border-b border-border pb-2">
@@ -420,8 +420,8 @@ export function AddTeamMemberModal({
                   return;
                 }
                 if (step === 2) {
-                  if (destinationType === "SWIFTPAY_USER" && !swiftpayUsername.trim()) {
-                    setError("Please enter the SwiftPay username.");
+                  if (destinationType === "SWIFTPAY_USER" && !saphraUsername.trim()) {
+                    setError("Please enter the SaphraONE username.");
                     return;
                   }
                   if (destinationType === "EXTERNAL_WALLET" && !walletAddress.trim()) {

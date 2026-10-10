@@ -82,7 +82,7 @@ export default function TeamManagementPage() {
       fullName: params.get("name") ?? undefined,
       role: params.get("role") ?? undefined,
       memberType: type === "CONTRACTOR" || type === "EMPLOYEE" ? type : undefined,
-      swiftpayUsername: params.get("username") ?? undefined,
+      saphraUsername: params.get("username") ?? undefined,
       walletAddress: params.get("wallet") ?? undefined,
       amount: params.get("amount") ?? undefined,
       frequency:

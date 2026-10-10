@@ -1,4 +1,4 @@
-// Server-only. Everything an account did in a period: SwiftPay's own records
+// Server-only. Everything an account did in a period: SaphraONE's own records
 // merged with the wallet's (and its ALLIE Agent Wallet's) on-chain transfers.
 // Shared by statements and Insights.
 import { isAddress } from "viem";

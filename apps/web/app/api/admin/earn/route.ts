@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, type Address } from "viem";
 
 import { fetchAaveApy } from "@/lib/earn/aave-apy";
 import { earnConfig, earnModeBanner } from "@/lib/earn/config";
@@ -8,7 +8,7 @@ import { swiftPayVaultAbi, yieldStrategyAbi } from "@/lib/earn/abis";
 import { isAdminAuthorized } from "@/lib/admin-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
 import { arcTokens } from "@/lib/tokens";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 export const runtime = "nodejs";
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const banner = earnModeBanner();
   const client = createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 
   let totalAssets = 0n;

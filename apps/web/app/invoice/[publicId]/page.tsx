@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { showSuccess } from "@/components/success-popup";
 import { erc20Abi as viemErc20Abi, formatUnits, getAddress, parseUnits } from "viem";
 import {
   useAccount,
@@ -48,7 +48,7 @@ type PublicInvoice = Awaited<ReturnType<typeof fetchPublicInvoice>>;
  */
 type Phase = "idle" | "switching" | "signing" | "confirming" | "recording";
 
-const pendingKey = (publicId: string) => `swiftpay:invoice-payment:${publicId}`;
+const pendingKey = (publicId: string) => `saphra:invoice-payment:${publicId}`;
 
 function readPending(publicId: string) {
   try {
@@ -167,9 +167,17 @@ export default function PublicInvoicePage() {
           setPending(null);
           setLastHash(hash);
           applyPayload({ ...payload!, invoice: confirmed.invoice });
-          toast.success(
-            confirmed.invoice.status === "PAID" ? "Payment confirmed" : "Partial payment recorded",
-          );
+          showSuccess({
+            amount: `${amount} ${invoice.currency}`,
+            eyebrow: "Invoice",
+            explorerUrl: `${arcChain.blockExplorers.default.url}/tx/${hash}`,
+            rows: [{ label: "Invoice", value: invoice.invoice_number }],
+            subtitle:
+              confirmed.invoice.status === "PAID"
+                ? "The invoice is paid in full."
+                : "Recorded as a partial payment.",
+            title: confirmed.invoice.status === "PAID" ? "Payment confirmed" : "Partial payment recorded",
+          });
           setPhase("idle");
           return true;
         } catch (err) {
@@ -268,7 +276,7 @@ export default function PublicInvoicePage() {
       const recorded = await record(hash, amount);
 
       // Cashback and the activity label only apply to someone already signed
-      // in to SwiftPay with this wallet. A guest payer is never contacted,
+      // in to SaphraONE with this wallet. A guest payer is never contacted,
       // registered or remembered.
       if (recorded) {
         const session = await fetchWalletSessionForAddress(address).catch(() => null);
@@ -551,7 +559,7 @@ export default function PublicInvoicePage() {
 
                 <p className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  Pay from any wallet — no SwiftPay account needed. Paying doesn&rsquo;t sign you up
+                  Pay from any wallet — no SaphraONE account needed. Paying doesn&rsquo;t sign you up
                   or save your wallet; the funds go straight to {payload.business.name}.
                 </p>
 
@@ -562,7 +570,7 @@ export default function PublicInvoicePage() {
                 </div>
 
                 <Button asChild className="h-11 w-full" variant="outline">
-                  <a href={payHref}>Pay with my SwiftPay account</a>
+                  <a href={payHref}>Pay with my SaphraONE account</a>
                 </Button>
               </div>
             )}
@@ -600,8 +608,8 @@ export default function PublicInvoicePage() {
               Need help?
             </a>
             {" · "}
-            <a className="font-medium text-primary hover:underline" href="https://getswiftpay.xyz">
-              getswiftpay.xyz
+            <a className="font-medium text-primary hover:underline" href="https://app.saphra.one">
+              app.saphra.one
             </a>
           </p>
         </div>

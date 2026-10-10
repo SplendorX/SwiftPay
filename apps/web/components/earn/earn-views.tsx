@@ -331,7 +331,7 @@ export function AutomateCard({
   const status = loading
     ? "Checking…"
     : !unlocked
-      ? `${unlockCost} SwiftPoints for 6 months`
+      ? `${unlockCost} OnePoints for 6 months`
       : rule?.enabled
         ? `${rule.frequency[0].toUpperCase()}${rule.frequency.slice(1)} · ${Number(rule.amount_usdc).toFixed(2)} USDC · ${rule.mode === "UNATTENDED" ? "Fully automatic" : "Sweep on visit"}`
         : "Unlocked · not set up yet";

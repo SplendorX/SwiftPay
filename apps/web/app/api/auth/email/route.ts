@@ -1,6 +1,6 @@
 import { secureCookieFor } from "@/lib/secure-cookie";
 import { cookies } from "next/headers";
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { getAddress, isAddress } from "viem";
 
 import {
@@ -28,6 +28,7 @@ import {
 } from "@/lib/wallet-session";
 import { appLockForSession, setUnlockCookie } from "@/lib/app-lock/server";
 import { mfaPendingForSignIn } from "@/lib/two-factor/server";
+import { notifySignIn, saveVerifiedContactEmail } from "@/lib/security/sign-in-alert";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 /**
- * Email sign-in for SwiftPay, backed by Supabase Auth and a Circle
+ * Email sign-in for SaphraONE, backed by Supabase Auth and a Circle
  * user-controlled wallet:
  *   start    → Supabase emails a 6-digit code
  *   verify   → code checked; a Circle user token is issued for the PIN wallet
@@ -126,10 +127,24 @@ export async function POST(request: NextRequest) {
       return jsonError(errorMessage(error, "Your wallet could not be verified."), 502);
     }
 
+    await saveVerifiedContactEmail(ownerWallet, session.email);
+
     const previous = readWalletToken(
       cookieStore.get(walletSessionCookieName)?.value,
       "session",
     );
+    if (!previous) {
+      // "You signed in" email, after the response so signing in never waits.
+      const headers = new Headers(request.headers);
+      after(() =>
+        notifySignIn({
+          headers,
+          host: request.nextUrl.host,
+          origin: request.nextUrl.origin,
+          ownerWallet,
+        }),
+      );
+    }
     const appLock = await appLockForSession([
       ownerWallet,
       ...(previous ? sessionWallets(previous) : []),

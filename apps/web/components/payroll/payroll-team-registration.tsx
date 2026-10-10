@@ -10,7 +10,6 @@ import {
   encodeFunctionData,
   formatUnits,
   getAddress,
-  http,
   isAddress,
   parseUnits,
   type Address,
@@ -22,13 +21,16 @@ import { swiftPayrollExecutorAbi } from "@/lib/contracts";
 import { onchainFacts } from "@/lib/onchain-facts";
 import { fetchTeamMembers } from "@/lib/payroll/client";
 import type { PaymentFrequency, TeamMemberRecord } from "@/lib/payroll/types";
+import { arcTokenSymbols, arcTokens } from "@/lib/tokens";
+import { confirmFlow } from "@/lib/tx-approval/client";
 import { useSigningWallet } from "@/lib/use-signing-wallet";
+import { arcTransport } from "@/lib/chains";
 
 /**
  * Registers the business's team with the payroll executor.
  *
  * The executor pays only wallets registered here, each up to a cap per pay
- * period. So even SwiftPay's own operator key can never send payroll money
+ * period. So even SaphraONE's own operator key can never send payroll money
  * anywhere else, or more than the cap, without the business signing first.
  */
 
@@ -90,7 +92,7 @@ export function PayrollTeamRegistration({
       );
       const client = createPublicClient({
         chain: onchainFacts.chain as Chain,
-        transport: http(onchainFacts.rpcUrl),
+        transport: arcTransport(),
       });
 
       const payable = members.filter((member) => isAddress(member.wallet_address));
@@ -155,7 +157,7 @@ export function PayrollTeamRegistration({
       });
       const client = createPublicClient({
         chain: onchainFacts.chain as Chain,
-        transport: http(onchainFacts.rpcUrl),
+        transport: arcTransport(),
       });
 
       // One transaction per pay period; most teams share a single one.
@@ -164,29 +166,50 @@ export function PayrollTeamRegistration({
         byPeriod.set(row.period, [...(byPeriod.get(row.period) ?? []), row]);
       }
 
-      for (const [period, rows] of byPeriod) {
-        const hash = await walletClient.sendTransaction({
-          data: encodeFunctionData({
-            abi: swiftPayrollExecutorAbi,
-            args: [
-              token,
-              rows.map((row) => row.wallet),
-              rows.map((row) => row.cap),
-              BigInt(period),
-            ],
-            functionName: "setPayees",
-          }),
-          to: executor,
-        });
-        await client.waitForTransactionReceipt({ hash });
-      }
+      // One confirmation (lib/tx-approval) for every period's transaction.
+      // Registering pays nobody; the amount shown is the caps being set.
+      const symbol =
+        arcTokenSymbols.find(
+          (key) => arcTokens[key].address.toLowerCase() === token.toLowerCase(),
+        ) ?? "USDC";
+      await confirmFlow(
+        wallet.circleWalletId,
+        {
+          amount: formatUnits(
+            outdated.reduce((sum, row) => sum + row.cap, BigInt(0)),
+            arcTokens[symbol].decimals,
+          ),
+          maxUses: byPeriod.size,
+          recipients: [],
+          title: `Register ${outdated.length} ${outdated.length === 1 ? "person" : "people"} for automatic payroll`,
+          token: symbol,
+        },
+        async () => {
+          for (const [period, rows] of byPeriod) {
+            const hash = await walletClient.sendTransaction({
+              data: encodeFunctionData({
+                abi: swiftPayrollExecutorAbi,
+                args: [
+                  token,
+                  rows.map((row) => row.wallet),
+                  rows.map((row) => row.cap),
+                  BigInt(period),
+                ],
+                functionName: "setPayees",
+              }),
+              to: executor,
+            });
+            await client.waitForTransactionReceipt({ hash });
+          }
+        },
+      );
 
       toast.success("Team registered for automatic payroll");
       await load();
     } catch (cause) {
       const message =
         cause instanceof Error ? cause.message.split("\n")[0] : "Registration failed.";
-      if (!/user rejected|denied|4001/i.test(message)) {
+      if (!/user rejected|denied|cancelled|4001/i.test(message)) {
         setError(message);
       }
     } finally {
@@ -210,7 +233,7 @@ export function PayrollTeamRegistration({
             <p className="mt-0.5 text-xs text-muted-foreground">
               Automatic payroll can only pay the people you register here, each
               up to 125% of their usual pay per pay period. Nobody else can be
-              added to a run — not even by SwiftPay.
+              added to a run — not even by SaphraONE.
             </p>
             {payees ? (
               <p className="mt-1 text-[11px] text-muted-foreground">

@@ -60,7 +60,7 @@ export function trackSwiftSaveEvent(
   if (typeof window !== "undefined") {
     try {
       window.dispatchEvent(
-        new CustomEvent("swiftpay:analytics", { detail: payload }),
+        new CustomEvent("saphra:analytics", { detail: payload }),
       );
     } catch {
       // ignore

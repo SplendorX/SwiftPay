@@ -4,6 +4,7 @@
  */
 import {
   encodeFunctionData,
+  formatUnits,
   maxUint256,
   type Address,
   type Hash,
@@ -21,6 +22,8 @@ import {
 } from "@/lib/circle-tx";
 import { erc20Abi } from "@/lib/contracts";
 import { swiftSaveVaultAbi } from "@/lib/save/abis";
+import { arcTokens } from "@/lib/tokens";
+import { confirmFlow } from "@/lib/tx-approval/client";
 
 type CircleContractChallenge = {
   challengeId?: string;
@@ -171,6 +174,25 @@ export async function circleVaultDeposit(input: {
   refPrefix?: string;
   readAllowance?: (spender: Address) => Promise<bigint>;
 }): Promise<{ txHash?: Hash; transactionId?: string }> {
+  const token = Object.values(arcTokens).find(
+    (entry) => entry.address.toLowerCase() === input.token.toLowerCase(),
+  );
+  // One confirmation for approve + deposit. Saving pays nobody, so the
+  // server refuses any call in it that would.
+  return confirmFlow(
+    input.executor.walletId,
+    {
+      amount: formatUnits(input.amountUnits, token?.decimals ?? 6),
+      maxUses: 3,
+      recipients: [],
+      title: "Add to savings",
+      token: token?.symbol ?? "USDC",
+    },
+    () => depositToVault(input),
+  );
+}
+
+async function depositToVault(input: Parameters<typeof circleVaultDeposit>[0]) {
   const prefix = input.refPrefix ?? "swift-save-deposit";
 
   let approvalTxHash: Hash | undefined;

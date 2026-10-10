@@ -1,8 +1,8 @@
+import "@/lib/env-compat";
 import {
   createPublicClient,
   decodeEventLog,
   getAddress,
-  http,
   isAddress,
   parseAbi,
   type Address,
@@ -14,10 +14,11 @@ import { readReferralDbError, referralDb, referralTables } from "@/lib/referral/
 import { recordLedgerEntry } from "@/lib/referral/ledger-service";
 import { platformFeeRecipient } from "@/lib/fees";
 import { onchainFacts } from "@/lib/onchain-facts";
-import type { SwiftPointsPurchaseRecord } from "@/lib/referral/types";
+import type { OnePointsPurchaseRecord } from "@/lib/referral/types";
+import { arcTransport } from "@/lib/chains";
 
 /**
- * Buying SwiftPoints with on-chain USDC.
+ * Buying OnePoints with on-chain USDC.
  *
  * Points are money-adjacent, so nothing is credited on a client's say-so. The
  * caller supplies a transaction hash and the server proves, from the chain,
@@ -26,7 +27,7 @@ import type { SwiftPointsPurchaseRecord } from "@/lib/referral/types";
  * credited twice.
  */
 
-/** 100 SwiftPoints per USDC, matching SWIFTPOINTS_USD_PER_POINT. */
+/** 100 OnePoints per USDC, matching ONE_POINTS_USD_PER_POINT. */
 export const POINTS_PER_USDC = 100;
 export const MINIMUM_PURCHASE_POINTS = 100;
 
@@ -37,8 +38,8 @@ const transferEventAbi = parseAbi([
 /** Where purchase payments must land. */
 export function pointsTreasuryAddress(): Address | null {
   const configured =
-    process.env.SWIFTPOINTS_TREASURY_ADDRESS?.trim() ||
-    process.env.NEXT_PUBLIC_SWIFTPOINTS_TREASURY_ADDRESS?.trim() ||
+    process.env.ONE_POINTS_TREASURY_ADDRESS?.trim() ||
+    process.env.NEXT_PUBLIC_ONE_POINTS_TREASURY_ADDRESS?.trim() ||
     platformFeeRecipient();
 
   return configured && isAddress(configured) ? getAddress(configured) : null;
@@ -51,7 +52,7 @@ export function pointsForUsdc(usdcAmount: number) {
 function publicClient() {
   return createPublicClient({
     chain: onchainFacts.chain as Chain,
-    transport: http(onchainFacts.rpcUrl),
+    transport: arcTransport(),
   });
 }
 
@@ -62,16 +63,16 @@ function publicClient() {
  * replaying another wallet's payment, paying the wrong address, paying less
  * than claimed, or submitting the same hash twice.
  */
-export async function purchaseSwiftPoints(input: {
+export async function purchaseOnePoints(input: {
   txHash: string;
   walletAddress: string;
-}): Promise<SwiftPointsPurchaseRecord> {
+}): Promise<OnePointsPurchaseRecord> {
   const wallet = input.walletAddress.toLowerCase();
   const treasury = pointsTreasuryAddress();
 
   if (!treasury) {
     throw new Error(
-      "Buying SwiftPoints is not configured: set SWIFTPOINTS_TREASURY_ADDRESS.",
+      "Buying OnePoints is not configured: set ONE_POINTS_TREASURY_ADDRESS.",
     );
   }
 
@@ -94,7 +95,7 @@ export async function purchaseSwiftPoints(input: {
   }
 
   if (existing.data) {
-    const record = existing.data as SwiftPointsPurchaseRecord;
+    const record = existing.data as OnePointsPurchaseRecord;
     if (record.wallet_address !== wallet) {
       throw new Error("That payment was already credited to another wallet.");
     }
@@ -150,7 +151,7 @@ export async function purchaseSwiftPoints(input: {
 
   if (paidUnits <= BigInt(0)) {
     throw new Error(
-      "That transaction does not contain a USDC payment from your wallet to the SwiftPoints treasury.",
+      "That transaction does not contain a USDC payment from your wallet to the OnePoints treasury.",
     );
   }
 
@@ -159,14 +160,14 @@ export async function purchaseSwiftPoints(input: {
 
   if (points < MINIMUM_PURCHASE_POINTS) {
     throw new Error(
-      `The smallest purchase is ${MINIMUM_PURCHASE_POINTS} SwiftPoints (${
+      `The smallest purchase is ${MINIMUM_PURCHASE_POINTS} OnePoints (${
         MINIMUM_PURCHASE_POINTS / POINTS_PER_USDC
       } USDC).`,
     );
   }
 
   const { entry } = await recordLedgerEntry({
-    description: `Bought ${points} SwiftPoints for ${usdcAmount.toFixed(2)} USDC`,
+    description: `Bought ${points} OnePoints for ${usdcAmount.toFixed(2)} USDC`,
     entryType: "PURCHASE",
     idempotencyKey: `purchase:${input.txHash.toLowerCase()}`,
     metadata: { txHash: input.txHash.toLowerCase(), usdcAmount },
@@ -195,7 +196,7 @@ export async function purchaseSwiftPoints(input: {
     );
   }
 
-  return inserted.data as SwiftPointsPurchaseRecord;
+  return inserted.data as OnePointsPurchaseRecord;
 }
 
 export async function listPurchases(walletAddress: string, limit = 50) {
@@ -211,5 +212,5 @@ export async function listPurchases(walletAddress: string, limit = 50) {
     throw new Error(readReferralDbError(error, "Failed to load purchases."));
   }
 
-  return (data ?? []) as SwiftPointsPurchaseRecord[];
+  return (data ?? []) as OnePointsPurchaseRecord[];
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getOrCreateReferralProfile } from "@/lib/referral/attribution-service";
-import { getSwiftPointsSummary } from "@/lib/referral/ledger-service";
+import { getOnePointsSummary } from "@/lib/referral/ledger-service";
 import { getTierProgress } from "@/lib/referral/tier-service";
 import { ReferralAuthError, requireReferralActorWallet } from "@/lib/referral/auth";
 import { referralDb, referralTables } from "@/lib/referral/db";
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     });
 
     const profile = await getOrCreateReferralProfile(actorWallet);
-    const swiftPoints = await getSwiftPointsSummary(actorWallet);
+    const onePoints = await getOnePointsSummary(actorWallet);
     const tierProgress = getTierProgress(profile.total_successful_referrals);
 
     const supabase = referralDb();
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       successfulPersonalReferrals: profile.successful_personal_referrals,
       successfulBusinessReferrals: profile.successful_business_referrals,
       tierProgress,
-      swiftPoints,
+      onePoints,
     });
   } catch (error) {
     if (error instanceof ReferralAuthError) {

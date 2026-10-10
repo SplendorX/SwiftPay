@@ -1,4 +1,4 @@
-export const openAllieEventName = "swiftpay:open-allie";
+export const openAllieEventName = "saphra:open-allie";
 
 /** Open the Pay with ALLIE bubble from anywhere on the page. */
 export function openAllie() {

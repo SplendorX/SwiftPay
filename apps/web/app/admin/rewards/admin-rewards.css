@@ -1,0 +1,199 @@
+/* Admin · Rewards (app/admin/rewards/page.tsx). */
+.ar-page {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding-bottom: 3rem;
+}
+
+.ar-auth {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ar-input {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+}
+
+.ar-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.5rem;
+  padding: 0 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--card);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ar-btn.is-primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.ar-btn.is-danger {
+  border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+  color: var(--destructive);
+}
+
+.ar-btn:disabled {
+  opacity: 0.45;
+}
+
+.ar-message {
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.7rem;
+  background: color-mix(in oklch, #16a34a 12%, var(--card));
+  font-size: 0.875rem;
+}
+
+.ar-message.is-error {
+  background: color-mix(in oklch, var(--destructive) 12%, var(--card));
+  color: var(--destructive);
+}
+
+.ar-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ar-tab {
+  padding: 0.6rem 0.9rem;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.ar-tab[aria-selected="true"] {
+  border-color: var(--primary);
+  color: var(--foreground);
+}
+
+.ar-section {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
+.ar-section h2 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ar-hint {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.ar-empty {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.ar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.ar-facts {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+.ar-facts strong {
+  font-size: 0.95rem;
+  color: var(--foreground);
+}
+
+.ar-facts a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--primary);
+}
+
+.ar-tag {
+  justify-self: start;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.ar-tag.is-warn {
+  background: color-mix(in oklch, #d97706 14%, var(--card));
+  color: #b45309;
+}
+
+.ar-error {
+  color: var(--destructive);
+  overflow-wrap: anywhere;
+}
+
+.ar-decision {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.ar-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ar-form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.ar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.6rem;
+}
+
+.ar-grid label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 720px) {
+  .ar-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ar-auth {
+    flex-direction: column;
+  }
+}

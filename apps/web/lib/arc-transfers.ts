@@ -13,14 +13,13 @@
 import {
   createPublicClient,
   formatUnits,
-  http,
   parseAbiItem,
   type Address,
   type Hash,
 } from "viem";
 
 import type { WalletTransfer } from "@/lib/arcscan-history";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
 
 export const NATIVE_USDC_EVENT_ADDRESS =
@@ -64,12 +63,14 @@ function transferSources() {
  * dedicated endpoint instead.
  */
 export function createArcRpcClient() {
-  const url =
-    process.env.ARC_SERVER_RPC_URL?.trim() || arcChain.rpcUrls.default.http[0];
   return createPublicClient({
     chain: arcChain,
-    // Rate-limit (429) answers are retried with backoff.
-    transport: http(url, { retryCount: 4, retryDelay: 500 }),
+    // Rate-limit (429) answers are retried with backoff, then the backups.
+    transport: arcTransport({
+      primary: process.env.ARC_SERVER_RPC_URL?.trim(),
+      retryCount: 4,
+      retryDelay: 500,
+    }),
   });
 }
 
@@ -124,7 +125,7 @@ async function transferLogs(
  * Where outgoing transfers are read: the token contracts' own (ERC-20)
  * events, like the explorer's list. The native USDC event also fires for
  * every gas payment, which would fill the history with fee rows, and a
- * SwiftPay send always goes through the ERC-20 interface.
+ * SaphraONE send always goes through the ERC-20 interface.
  */
 function outgoingSources() {
   const sources = new Map<string, TransferSource>();

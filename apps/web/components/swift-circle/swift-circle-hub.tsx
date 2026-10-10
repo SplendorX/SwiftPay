@@ -592,7 +592,7 @@ export function SwiftCircleHub() {
               chainId: args.chainId,
             }) as Promise<Hash>,
       circleExecutor: isCircleMode
-        ? { execute: executeCircleCall }
+        ? { execute: executeCircleCall, walletId: circleWallet?.id }
         : undefined,
       readAllowance: publicClient
         ? async (spender) =>
@@ -829,18 +829,35 @@ export function SwiftCircleHub() {
     }
   }
 
-  async function run(label: string, fn: () => Promise<void>) {
+  /** A Circle action that moves money: ends on the success popup. */
+  function runPayment(label: string, payment: { amount?: string; title: string }, fn: () => Promise<void>) {
+    return run(label, fn, payment);
+  }
+
+  /**
+   * Run a Circle action. The success popup is kept for money that actually
+   * moved (pass `payment`); everything else (photos, invites, proposals,
+   * votes, roles) gets a small toast.
+   */
+  async function run(
+    label: string,
+    fn: () => Promise<void>,
+    payment?: { amount?: string; title: string },
+  ) {
     setBusy(true);
     setError(null);
     let failed: string | null = null;
     try {
       await fn();
-      if (label) {
+      if (payment) {
         showSuccess({
+          amount: payment.amount,
           eyebrow: "Circle",
           subtitle: label,
-          title: "Task complete",
+          title: payment.title,
         });
+      } else if (label) {
+        toast.success(label);
       }
     } catch (err) {
       failed = errorMessage(err);
@@ -1232,15 +1249,15 @@ export function SwiftCircleHub() {
                 <Coins className="h-4 w-4 text-amber-500 shrink-0" />
                 {circleCashback.eligible ? (
                   <span>
-                    Earn <strong>+{circleCashback.points} SwiftPoints</strong> ({circleCashback.usdcValue} USDC) cashback!
+                    Earn <strong>+{circleCashback.points} OnePoints</strong> ({circleCashback.usdcValue} USDC) cashback!
                   </span>
                 ) : (
-                  <span>Cashback: Earn SwiftPoints on sends worth $20 or more</span>
+                  <span>Cashback: Earn OnePoints on sends worth $20 or more</span>
                 )}
               </div>
               <p className="mt-0.5 text-[11px] opacity-90">
                 {circleCashback.eligible && circleCashback.nextTier ? (
-                  <>Send {circleCashback.nextTier.needed} more {circle.currency} to earn <strong>+{circleCashback.nextTier.points} SwiftPoints</strong>.</>
+                  <>Send {circleCashback.nextTier.needed} more {circle.currency} to earn <strong>+{circleCashback.nextTier.points} OnePoints</strong>.</>
                 ) : (
                   <>Platform cashback tiers: 1 pt ($20+), 5 pts ($100+), 20 pts ($500+), 50 pts ($1,000+).{circle.currency === "EURC" ? " EURC counts at the live euro rate." : ""}</>
                 )}
@@ -1372,7 +1389,7 @@ export function SwiftCircleHub() {
                 {circleCashback.eligible ? (
                   <p className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
                     <Coins className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                    Cashback: +{circleCashback.points} SwiftPoints ({circleCashback.usdcValue} USDC)
+                    Cashback: +{circleCashback.points} OnePoints ({circleCashback.usdcValue} USDC)
                   </p>
                 ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -1396,7 +1413,18 @@ export function SwiftCircleHub() {
                   className="mt-3"
                   disabled={busy}
                   onClick={() =>
-                    void run("Payment submitted", async () => {
+                    void runPayment(
+                      "Payment submitted",
+                      {
+                        amount: formatUsd(
+                          ((review.recipients as Array<{ amount: string }>) ?? []).reduce(
+                            (sum, row) => sum + Number(row.amount),
+                            0,
+                          ),
+                        ),
+                        title: "Payment sent",
+                      },
+                      async () => {
                       const intent = review.intent as { id: string };
                       const recs = (review.recipients as Array<{
                         wallet: string;
@@ -1718,7 +1746,7 @@ export function SwiftCircleHub() {
                 <Button
                   disabled={busy}
                   onClick={() =>
-                    void run("Request paid", async () => {
+                    void runPayment("Request paid", { amount: formatUsd(item.amount), title: "Payment sent" }, async () => {
                       const proposal = await createPayment(
                         circleId,
                         address,
@@ -2343,7 +2371,10 @@ export function SwiftCircleHub() {
                           className="mt-2"
                           disabled={busy}
                           onClick={() =>
-                            void run("Pocket withdrawal submitted", async () => {
+                            void runPayment(
+                              "Pocket withdrawal submitted",
+                              { amount: formatUsd(item.amount), title: "Withdrawal sent" },
+                              async () => {
                               await executePocketWithdrawal(item);
                             })
                           }

@@ -27,8 +27,8 @@ import { PlatformAccessGate } from "@/components/platform-access-gate";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformProfileControls } from "@/components/platform-profile-controls";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AddTeamMemberModal } from "@/components/payroll/add-team-member-modal";
-import { PayrollDashboardSkeleton } from "@/components/payroll/payroll-dashboard-skeleton";
 import { PayrollStatusBadge } from "@/components/payroll/payroll-status-badge";
 import { fetchPayrollDashboard } from "@/lib/payroll/client";
 import type { PayrollDashboardSummary, PayrollRunStatus } from "@/lib/payroll/types";
@@ -128,6 +128,29 @@ const shortcuts = [
   },
 ];
 
+/** The loading state, shaped like the page so nothing jumps when it arrives. */
+function PayrollLoading() {
+  return (
+    <div aria-busy="true" aria-label="Loading payroll" className="pr-page">
+      <header className="pr-bar">
+        <Link aria-label="Back to the business overview" className="pr-round" href="/business">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="pr-title">Payroll</h1>
+        <Skeleton className="h-11 w-11 rounded-full" />
+      </header>
+      <Skeleton className="h-[13.5rem] rounded-[1.4rem]" />
+      <Skeleton className="h-[6.4rem] rounded-[1.25rem]" />
+      <div className="pr-stats">
+        {[0, 1, 2, 3].map((index) => (
+          <Skeleton className="h-[6rem] rounded-[1.1rem]" key={index} />
+        ))}
+      </div>
+      <Skeleton className="h-64 rounded-[1.25rem]" />
+    </div>
+  );
+}
+
 export default function PayrollDashboardPage() {
   const { account, ownerWallet, circleSocialUuid, loading: accountLoading } = useAccountContext();
   const [summary, setSummary] = useState<PayrollDashboardSummary | null>(null);
@@ -166,10 +189,11 @@ export default function PayrollDashboardPage() {
       <PlatformAccessGate>
         <PlatformChrome
           actions={<PlatformProfileControls />}
+          hideHeader
           subtitle="Manage your team and run payments from one place."
           title="Payroll"
         >
-          <PayrollDashboardSkeleton />
+          <PayrollLoading />
         </PlatformChrome>
       </PlatformAccessGate>
     );
@@ -180,7 +204,7 @@ export default function PayrollDashboardPage() {
       <PlatformAccessGate>
         <PlatformChrome
           actions={<PlatformProfileControls />}
-          subtitle="Exclusive to SwiftPay Business accounts"
+          subtitle="Exclusive to SaphraONE Business accounts"
           title="Payroll"
         >
           <div className="mx-auto my-12 max-w-xl overflow-hidden rounded-2xl border border-border bg-card p-8 text-center shadow-xs">
@@ -191,7 +215,7 @@ export default function PayrollDashboardPage() {
               Business Account Required
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Payroll is exclusive to SwiftPay Business accounts. Upgrade your account to manage
+              Payroll is exclusive to SaphraONE Business accounts. Upgrade your account to manage
               your team and run batch settlements.
             </p>
             <Button asChild className="mt-6" size="lg">

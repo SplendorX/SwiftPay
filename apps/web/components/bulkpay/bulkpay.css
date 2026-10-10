@@ -3,7 +3,7 @@
  * Kept out of globals.css on purpose: the build cache once served a stale
  * globals.css, so these rules never shipped. Its own file always compiles.
  *
- * One transaction, many people: a SwiftPay-gradient total up top, the people
+ * One transaction, many people: a SaphraONE-gradient total up top, the people
  * on the left, a live summary on the right, then a review sheet to confirm. */
 
 .bulkpay-page {

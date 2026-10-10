@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowDownToLine,
   ArrowLeftRight,
   Banknote,
   CalendarClock,
@@ -35,6 +36,7 @@ export const featureIcons: Record<ActivityFeed, LucideIcon | null> = {
   agent: null,
   batch: Users,
   checkout: Store,
+  deposit: ArrowDownToLine,
   circle: UsersRound,
   earn: TrendingUp,
   invoice: FileText,

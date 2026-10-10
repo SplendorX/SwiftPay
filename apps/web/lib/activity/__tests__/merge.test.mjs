@@ -2,7 +2,7 @@
  * Account activity merge — folds on-chain transfers into the feature that
  * produced them, without losing anything the wallet actually saw.
  *
- * Run: pnpm --filter @swiftpay/web test:activity
+ * Run: pnpm --filter @saphra/web test:activity
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";

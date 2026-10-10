@@ -7,7 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase-server";
  * every wallet wants to grant:
  *
  * - SWEEP: the rule decides *when* and *how much*; the owner still signs.
- *   Offered as one tap the next time they open SwiftPay. Works for Circle and
+ *   Offered as one tap the next time they open SaphraONE. Works for Circle and
  *   external wallets alike, needs nothing deployed, but only fires when they
  *   visit — the schedule is a floor, not a guarantee.
  *

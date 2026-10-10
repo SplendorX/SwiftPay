@@ -3,7 +3,6 @@ import {
   decodeEventLog,
   formatUnits,
   getAddress,
-  http,
   parseAbi,
   type Chain,
   type Hash,
@@ -13,6 +12,7 @@ import { allieProFeeRecipient } from "@/lib/allie/monetization";
 import { getPlatformFeeRecipientAddresses } from "@/lib/arcscan-history";
 import { onchainFacts } from "@/lib/onchain-facts";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
+import { arcTransport } from "@/lib/chains";
 
 const transferEventAbi = parseAbi([
   "event Transfer(address indexed from, address indexed to, uint256 value)",
@@ -59,7 +59,7 @@ export async function verifyWalletOutflow(
 ): Promise<VerifiedOutflow | null> {
   const client = createPublicClient({
     chain: onchainFacts.chain as Chain,
-    transport: http(onchainFacts.rpcUrl),
+    transport: arcTransport(),
   });
 
   let receipt;

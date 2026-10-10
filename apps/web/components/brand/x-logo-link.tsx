@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 export function XLogoLink({ className }: { className?: string }) {
   return (
     <a
-      aria-label="SwiftPay on X"
+      aria-label="SaphraONE on X"
       className={cn("marketing-x-link", className)}
-      href="https://x.com/getswiftpay?s=11"
+      href="https://x.com/saphraone"
       rel="noreferrer"
       target="_blank"
     >

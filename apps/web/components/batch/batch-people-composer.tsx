@@ -329,7 +329,7 @@ export const BatchPeopleComposer = forwardRef<
         <div className="min-w-0">
           <h2 className="bp-title">Who are you paying?</h2>
           <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            Enter a SwiftPay username or paste a wallet address, set an amount, then add the next person.
+            Enter a SaphraONE username or paste a wallet address, set an amount, then add the next person.
           </p>
         </div>
         <div className="bp-tools">

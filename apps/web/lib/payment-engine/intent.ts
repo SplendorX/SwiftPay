@@ -4,7 +4,7 @@ import type { Address } from "viem";
 import { officialArcChainId } from "@/lib/network";
 
 /**
- * A PaymentIntent is the single object every SwiftPay initiator produces.
+ * A PaymentIntent is the single object every SaphraONE initiator produces.
  * Humans, businesses, and ALLIE all create the same shape — the policy engine
  * and the router decide how (and whether) it settles.
  */

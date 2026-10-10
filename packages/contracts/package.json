@@ -1,7 +1,7 @@
 {
-  "name": "@swiftpay/contracts",
+  "name": "@saphra/contracts",
   "version": "1.0.0",
-  "description": "SwiftPay smart contracts and deployment scripts.",
+  "description": "SaphraONE smart contracts and deployment scripts.",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,7 +21,7 @@
     "retire:recurepay": "node contracts/retireRecurePayExecutor.js",
     "check:recurepay": "node contracts/checkRecurePayOperator.js",
     "deploy:earn:autodeposit": "node contracts/deployEarnAutoSaveExecutor.js",
-    "deploy:payroll:executor": "node contracts/deploySwiftPayrollExecutor.js",
+    "deploy:payroll:executor": "node contracts/deploySaphrarollExecutor.js",
     "rotate:operator": "node contracts/rotateOperator.js",
     "rotate:payroll:operator": "node contracts/rotateOperator.js payroll",
     "rotate:recurring:operator": "node contracts/rotateOperator.js recurring",

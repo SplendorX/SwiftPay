@@ -48,7 +48,7 @@ import {
 export const runtime = "nodejs";
 
 const noStore = { "Cache-Control": "no-store" };
-const passkeyChallengeCookieName = "swiftpay_app_lock_challenge";
+const passkeyChallengeCookieName = "saphra_app_lock_challenge";
 const passkeyChallengeTtlMs = 5 * 60_000;
 
 function json(body: unknown, status = 200) {
@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
 
   // Everything else changes an existing lock and needs it open.
   if (!lock) return jsonError("The app lock is off.", 404);
-  if (context.locked) return jsonError("Unlock SwiftPay first.", 423, { locked: true });
+  if (context.locked) return jsonError("Unlock SaphraONE first.", 423, { locked: true });
 
   if (action === "touch") {
     const response = json({ unlocked: true });
@@ -387,10 +387,10 @@ export async function POST(request: NextRequest) {
       })),
       preferredAuthenticatorType: "localDevice",
       rpID: relyingParty(request).rpID,
-      rpName: "SwiftPay",
-      userDisplayName: "SwiftPay app lock",
+      rpName: "SaphraONE",
+      userDisplayName: "SaphraONE app lock",
       userID: new TextEncoder().encode(lock.owner_wallet),
-      userName: `SwiftPay ${lock.owner_wallet.slice(0, 6)}…${lock.owner_wallet.slice(-4)}`,
+      userName: `SaphraONE ${lock.owner_wallet.slice(0, 6)}…${lock.owner_wallet.slice(-4)}`,
     });
     const response = json({ options });
     await setChallengeCookie(response, {

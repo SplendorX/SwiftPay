@@ -7,7 +7,6 @@ import {
   encodeFunctionData,
   erc20Abi,
   getAddress,
-  http,
   isAddress,
   type Address,
   type Chain,
@@ -18,13 +17,14 @@ import { onchainFacts } from "@/lib/onchain-facts";
 
 import { prepareFunding, type WalletContext } from "@/lib/allie/client";
 import { arcTokens } from "@/lib/tokens";
+import { arcTransport } from "@/lib/chains";
 
 /**
  * Move USDC from the user's primary wallet into the Agent Wallet.
  *
- * The transfer is signed in the browser — SwiftPay never holds those keys, so
+ * The transfer is signed in the browser — SaphraONE never holds those keys, so
  * the server can only validate the request and hand back the exact transfer to
- * sign. Same signing path as every other SwiftPay payment.
+ * sign. Same signing path as every other SaphraONE payment.
  */
 export async function fundAgentWalletOnchain(
   input: WalletContext & {
@@ -131,7 +131,7 @@ export async function payAllieProFee(input: {
   // payment that is already in a block.
   const receipt = await createPublicClient({
     chain: onchainFacts.chain as Chain,
-    transport: http(onchainFacts.rpcUrl),
+    transport: arcTransport(),
   }).waitForTransactionReceipt({ hash, timeout: 90_000 });
 
   if (receipt.status !== "success") {

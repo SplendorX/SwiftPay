@@ -14,8 +14,8 @@ import {
  * Follows the same storage-plus-event shape as the preferred wallet mode, so
  * changing it in Settings reaches an already-mounted dashboard.
  */
-export const displayCurrencyEventName = "swiftpay:display-currency";
-export const displayCurrencyKey = "swiftpay.display-currency";
+export const displayCurrencyEventName = "saphra:display-currency";
+export const displayCurrencyKey = "saphra.display-currency";
 
 export const DEFAULT_DISPLAY_CURRENCY: SupportedCurrencyCode = "USD";
 

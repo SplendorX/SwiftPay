@@ -1,6 +1,6 @@
 {
-  "name": "@swiftpay/database",
+  "name": "@saphra/database",
   "version": "1.0.0",
-  "description": "Database schema and SQL assets for SwiftPay.",
+  "description": "Database schema and SQL assets for SaphraONE.",
   "private": true
 }

@@ -84,6 +84,7 @@ import {
 } from "@/lib/circle-tx";
 import { usePlatformWallet } from "@/lib/use-platform-wallet";
 import { arcChain } from "@/lib/chains";
+import { showSuccess } from "@/components/success-popup";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -129,7 +130,7 @@ export default function SavingsPocketDetailPage() {
   const [hideBalance, setHideBalance] = useState(false);
   useEffect(() => {
     try {
-      setHideBalance(window.localStorage.getItem("swiftpay.hide-balance") === "1");
+      setHideBalance(window.localStorage.getItem("saphra.hide-balance") === "1");
     } catch {
       setHideBalance(false);
     }
@@ -138,7 +139,7 @@ export default function SavingsPocketDetailPage() {
     setHideBalance((current) => {
       const next = !current;
       try {
-        window.localStorage.setItem("swiftpay.hide-balance", next ? "1" : "0");
+        window.localStorage.setItem("saphra.hide-balance", next ? "1" : "0");
       } catch {
         // Private mode: the choice lasts this visit.
       }
@@ -162,9 +163,23 @@ export default function SavingsPocketDetailPage() {
   const [isActing, setIsActing] = useState(false);
   const [pendingTxHash, setPendingTxHash] = useState<Hash | undefined>();
   const [pendingConfirm, setPendingConfirm] = useState<{
+    amount: string;
     mode: "deposit" | "withdraw";
     transactionId: string;
   } | null>(null);
+
+  /** The finished animation with the pocket's receipt. */
+  function showPocketSuccess(mode: "deposit" | "withdraw", amount: string, txHash?: string) {
+    showSuccess({
+      amount: `${amount} ${pocket?.currency ?? "USDC"}`,
+      eyebrow: "Save",
+      explorerUrl: txHash ? `${arcChain.blockExplorers.default.url}/tx/${txHash}` : undefined,
+      rows: pocket ? [{ label: "Pocket", value: pocket.name }] : undefined,
+      subtitle:
+        mode === "deposit" ? "Money was added to your pocket." : "Funds are back in your wallet.",
+      title: mode === "deposit" ? "Deposit successful" : "Withdrawal successful",
+    });
+  }
 
   const currency = pocket?.currency ?? "USDC";
   const token = arcTokens[currency];
@@ -339,6 +354,7 @@ export default function SavingsPocketDetailPage() {
             txHash: hash,
           });
           setSuccess("Deposit confirmed.");
+          showPocketSuccess("deposit", confirm.amount, hash);
         } else {
           await confirmWithdraw(pocketRef.id, {
             ownerWallet: owner,
@@ -347,6 +363,7 @@ export default function SavingsPocketDetailPage() {
             txHash: hash,
           });
           setSuccess("Withdrawal confirmed.");
+          showPocketSuccess("withdraw", confirm.amount, hash);
         }
         setAmountMode(null);
         setPendingConfirm(null);
@@ -534,6 +551,7 @@ export default function SavingsPocketDetailPage() {
             txHash: result.txHash,
           });
           setSuccess("Nice! Money was added to your pocket.");
+          showPocketSuccess("deposit", amount, result.txHash);
           setAmountMode(null);
           await load();
           void refetchBalance();
@@ -552,6 +570,7 @@ export default function SavingsPocketDetailPage() {
           });
           setPendingTxHash(hash);
           setPendingConfirm({
+            amount,
             mode: "deposit",
             transactionId: prepared.transaction.id,
           });
@@ -583,6 +602,7 @@ export default function SavingsPocketDetailPage() {
             txHash: result.txHash,
           });
           setSuccess("Withdrawal confirmed on-chain and pocket updated.");
+          showPocketSuccess("withdraw", amount, result.txHash);
           setAmountMode(null);
           await load();
           void refetchBalance();
@@ -600,6 +620,7 @@ export default function SavingsPocketDetailPage() {
           });
           setPendingTxHash(hash);
           setPendingConfirm({
+            amount,
             mode: "withdraw",
             transactionId: prepared.transaction.id,
           });

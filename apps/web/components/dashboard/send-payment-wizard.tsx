@@ -36,6 +36,8 @@ export type SendSettlementQuote = {
   feeLabel: string;
   saveAmount?: string;
   saveLabel?: string;
+  /** The Spend&Save rate in percent, when it applies (e.g. "1.00"). */
+  savePercent?: string;
   totalRequired: string;
 };
 
@@ -663,15 +665,15 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                 <Coins className="h-4 w-4 text-amber-500 shrink-0" />
                 {cashbackCalculation.eligible ? (
                   <span>
-                    Earn <strong>+{cashbackCalculation.points} SwiftPoints</strong> ({cashbackCalculation.usdcValue} USDC) cashback!
+                    Earn <strong>+{cashbackCalculation.points} OnePoints</strong> ({cashbackCalculation.usdcValue} USDC) cashback!
                   </span>
                 ) : (
-                  <span>General Cashback: Earn SwiftPoints on transactions worth $20 or more</span>
+                  <span>General Cashback: Earn OnePoints on transactions worth $20 or more</span>
                 )}
               </div>
               <p className="mt-1 text-[11px] opacity-90">
                 {cashbackCalculation.eligible && cashbackCalculation.nextTier ? (
-                  <>Send {cashbackCalculation.nextTier.needed} more {selectedToken} to earn <strong>+{cashbackCalculation.nextTier.points} SwiftPoints</strong>.</>
+                  <>Send {cashbackCalculation.nextTier.needed} more {selectedToken} to earn <strong>+{cashbackCalculation.nextTier.points} OnePoints</strong>.</>
                 ) : (
                   <>Platform cashback tiers: 1 pt ($20+), 5 pts ($100+), 20 pts ($500+), 50 pts ($1,000+).{selectedToken === "EURC" ? " EURC counts at the live euro rate." : ""}</>
                 )}
@@ -771,7 +773,7 @@ export function SendPaymentWizard(props: SendPaymentWizardProps) {
                   ? ([
                       [
                         "Cashback earned",
-                        `+${cashbackCalculation.points} SwiftPoints (${cashbackCalculation.usdcValue} USDC)`,
+                        `+${cashbackCalculation.points} OnePoints (${cashbackCalculation.usdcValue} USDC)`,
                       ],
                     ] as const)
                   : ([

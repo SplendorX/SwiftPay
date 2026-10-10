@@ -1,0 +1,205 @@
+/* Receive from another network. Its own file (not globals.css), so the build cache can't serve a stale copy. */
+
+.mc-receive {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.9rem;
+}
+
+.mc-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 1.2rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  background: var(--card);
+}
+
+.mc-card-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted-foreground);
+}
+
+.mc-qr {
+  padding: 0.5rem;
+  border-radius: 0.9rem;
+  background: #ffffff;
+}
+
+.mc-address {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.mc-address > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mc-facts {
+  display: grid;
+  width: 100%;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+.mc-facts li {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.mc-facts li:first-child {
+  color: var(--foreground);
+}
+
+.mc-facts li:first-child svg {
+  margin-top: 0.1rem;
+  color: #d97706;
+}
+
+.mc-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem 0;
+  font-size: 0.88rem;
+  color: var(--muted-foreground);
+}
+
+.mc-note {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+.mc-error {
+  font-size: 0.85rem;
+  color: var(--destructive);
+}
+
+.mc-arriving-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mc-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.mc-check:disabled {
+  opacity: 0.55;
+}
+
+/* Incoming list (receive screen and dashboard) */
+.mc-incoming {
+  display: grid;
+  padding: 0.1rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--card);
+}
+
+.mc-incoming-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+}
+
+.mc-incoming-row + .mc-incoming-row {
+  border-top: 1px solid var(--border);
+}
+
+.mc-incoming-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 12%, var(--muted));
+  color: var(--primary);
+}
+
+.mc-incoming-row.is-credited .mc-incoming-icon {
+  background: color-mix(in oklch, #16a34a 14%, var(--muted));
+  color: #16a34a;
+}
+
+.mc-incoming-row.is-failed .mc-incoming-icon,
+.mc-incoming-row.is-on-hold .mc-incoming-icon {
+  background: color-mix(in oklch, #d97706 14%, var(--muted));
+  color: #d97706;
+}
+
+.mc-incoming-row.is-arriving .mc-incoming-icon svg,
+.mc-incoming-row.is-retrying .mc-incoming-icon svg {
+  animation: mc-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes mc-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-incoming-row .mc-incoming-icon svg {
+    animation: none;
+  }
+}
+
+.mc-incoming-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.1rem;
+}
+
+.mc-incoming-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.mc-incoming-sub {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+.mc-incoming-link {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+}
+
+.mc-incoming-link:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}

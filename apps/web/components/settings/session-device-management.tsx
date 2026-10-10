@@ -397,7 +397,7 @@ export function SessionDeviceManagement({
                 ? activeMode === "circle"
                   ? "Signed in with Google and Circle wallet"
                   : "External wallet profile activated"
-                : "Connect a wallet or sign in with Google to use SwiftPay"
+                : "Connect a wallet or sign in with Google to use SaphraONE"
             }
             label="Platform access"
             status={hasPlatformAccess ? "Active" : "Inactive"}

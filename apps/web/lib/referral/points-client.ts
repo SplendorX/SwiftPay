@@ -15,7 +15,7 @@ import { erc20Abi } from "@/lib/contracts";
 import { onchainFacts } from "@/lib/onchain-facts";
 
 /**
- * Client side of the SwiftPoints economy.
+ * Client side of the OnePoints economy.
  *
  * Buying points is a real USDC transfer to the treasury followed by a server
  * call that verifies it on chain. The transfer is sent through whichever
@@ -34,7 +34,7 @@ async function readJson<T>(response: Response): Promise<T> {
     | null;
 
   if (!response.ok) {
-    throw new Error(payload?.message || "SwiftPoints request failed.");
+    throw new Error(payload?.message || "OnePoints request failed.");
   }
 
   return payload as T;
@@ -50,7 +50,7 @@ export async function fetchPurchaseConfig(input: {
   }
 
   return readJson<PointsPurchaseConfig>(
-    await fetch(`/api/swiftpoints/purchase?${params.toString()}`, {
+    await fetch(`/api/one-points/purchase?${params.toString()}`, {
       cache: "no-store",
     }),
   );
@@ -71,17 +71,17 @@ export async function fetchPurchaseConfig(input: {
  * so the caller can offer a retry. After this one it must not, because a retry
  * would send a second payment.
  */
-export class SwiftPointsCreditError extends Error {
+export class OnePointsCreditError extends Error {
   readonly txHash: string;
 
   constructor(message: string, txHash: string) {
     super(message);
-    this.name = "SwiftPointsCreditError";
+    this.name = "OnePointsCreditError";
     this.txHash = txHash;
   }
 }
 
-export async function buySwiftPoints(input: {
+export async function buyOnePoints(input: {
   circleSocialUuid?: string;
   resolveProvider: () => Promise<unknown>;
   treasuryAddress: string;
@@ -89,7 +89,7 @@ export async function buySwiftPoints(input: {
   walletAddress: string;
 }): Promise<{ points: number; txHash: string }> {
   if (!isAddress(input.treasuryAddress)) {
-    throw new Error("The SwiftPoints treasury address is not configured.");
+    throw new Error("The OnePoints treasury address is not configured.");
   }
 
   const usdc = onchainFacts.usdcAddress;
@@ -125,7 +125,7 @@ export async function buySwiftPoints(input: {
     // failed attempt the user can simply retry.
     const message = cause instanceof Error ? cause.message : "";
     if (/submitted and is still confirming/i.test(message)) {
-      throw new SwiftPointsCreditError(
+      throw new OnePointsCreditError(
         `Your ${input.usdcAmount} USDC payment was submitted but is still confirming, so the points could not be credited yet. Do not pay again — contact support with your wallet address and it will be credited once.`,
         "",
       );
@@ -135,7 +135,7 @@ export async function buySwiftPoints(input: {
 
   try {
     const result = await readJson<{ purchase: { points: number } }>(
-      await fetch("/api/swiftpoints/purchase", {
+      await fetch("/api/one-points/purchase", {
         body: JSON.stringify({
           circleSocialUuid: input.circleSocialUuid,
           txHash,
@@ -148,14 +148,14 @@ export async function buySwiftPoints(input: {
     return { points: result.purchase.points, txHash };
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Crediting failed.";
-    throw new SwiftPointsCreditError(
+    throw new OnePointsCreditError(
       `${message} Your ${input.usdcAmount} USDC payment went through (${txHash.slice(0, 10)}…) but the points were not credited yet. Do not pay again — quote this transaction to support and it will be credited once.`,
       txHash,
     );
   }
 }
 
-export async function giftSwiftPointsRequest(input: {
+export async function giftOnePointsRequest(input: {
   circleSocialUuid?: string;
   note?: string;
   points: number;
@@ -163,7 +163,7 @@ export async function giftSwiftPointsRequest(input: {
   walletAddress: string;
 }) {
   return readJson<{ gift: { id: string; points: number } }>(
-    await fetch("/api/swiftpoints/gift", {
+    await fetch("/api/one-points/gift", {
       body: JSON.stringify(input),
       headers: { "Content-Type": "application/json" },
       method: "POST",

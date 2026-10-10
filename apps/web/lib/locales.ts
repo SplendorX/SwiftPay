@@ -26,8 +26,8 @@ export const APP_LOCALES: Array<{
   { id: "ko", english: "Korean", native: "한국어", dir: "ltr" },
 ];
 
-export const localeStorageKey = "swiftpay.locale";
-export const localeChangedEventName = "swiftpay:locale-changed";
+export const localeStorageKey = "saphra.locale";
+export const localeChangedEventName = "saphra:locale-changed";
 
 export function isAppLocale(value: string): value is AppLocale {
   return APP_LOCALES.some((locale) => locale.id === value);

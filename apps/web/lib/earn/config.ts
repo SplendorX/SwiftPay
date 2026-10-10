@@ -2,7 +2,7 @@ import { arcExplorerUrl } from "@/lib/chains";
 import type { Address } from "viem";
 
 /**
- * SwiftPay Earn network / yield mode configuration.
+ * SaphraONE Earn network / yield mode configuration.
  *
  * Modes:
  * - live: verified Aave Pool + aToken configured; real protocol yield

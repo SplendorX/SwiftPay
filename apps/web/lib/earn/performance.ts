@@ -36,7 +36,7 @@ export type EarnPerformanceSummary = {
   totalEarned: string;
   /** Estimated gross yield before performance fee (from net + fee rate). */
   estimatedGrossYield: string;
-  /** Estimated SwiftPay fee share of yield (decimal string). */
+  /** Estimated SaphraONE fee share of yield (decimal string). */
   estimatedFee: string;
   /** Whether summary has enough indexed history to be meaningful. */
   hasHistory: boolean;

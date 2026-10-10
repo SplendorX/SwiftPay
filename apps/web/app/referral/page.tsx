@@ -40,8 +40,10 @@ import { TierBadge } from "@/components/referral/tier-badge";
 import { TierProgressCard } from "@/components/referral/tier-progress-card";
 import { ReferralBenefitsTable } from "@/components/referral/referral-benefits-table";
 import { ReferralProgressList } from "@/components/referral/referral-progress-list";
-import type { ReferralDashboardData, SwiftPointsLedgerEntry } from "@/lib/referral/types";
+import type { ReferralDashboardData, OnePointsLedgerEntry } from "@/lib/referral/types";
 
+import { rewardsV2Enabled } from "@/lib/rewards/config";
+import { InviteEarnV2 } from "@/components/referral/invite-earn-v2";
 import "./referral.css";
 
 type Tab = "referrals" | "ledger" | "ladder";
@@ -56,7 +58,25 @@ function cashbackFor(tier: ReferralDashboardData["currentTier"]) {
         : "1.0 pt per transaction over 10 USDC";
 }
 
-export default function ReferralPage() {
+/** Invite & Earn v2 (USDC) when NEXT_PUBLIC_REWARDS_V2 is on; the points version otherwise. */
+export default function ReferralRoute() {
+  if (!rewardsV2Enabled()) return <ReferralPage />;
+  return (
+    <PlatformChrome
+      actions={<PlatformProfileControls />}
+      // The page draws its own bar with a back button.
+      hideHeader
+      subtitle="Earn USDC on your referrals' fees"
+      title="Invite & Earn"
+    >
+      <PlatformAccessGate>
+        <InviteEarnV2 />
+      </PlatformAccessGate>
+    </PlatformChrome>
+  );
+}
+
+function ReferralPage() {
   const {
     address: platformAddress,
     circleSocialUuid,
@@ -78,7 +98,7 @@ export default function ReferralPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<ReferralDashboardData | null>(null);
-  const [ledgerEntries, setLedgerEntries] = useState<SwiftPointsLedgerEntry[]>([]);
+  const [ledgerEntries, setLedgerEntries] = useState<OnePointsLedgerEntry[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("referrals");
   const [linkCopied, setLinkCopied] = useState(false);
@@ -129,7 +149,7 @@ export default function ReferralPage() {
       });
       if (circleSocialUuid) params.set("circleSocialUuid", circleSocialUuid);
 
-      const res = await fetch(`/api/swiftpoints/ledger?${params.toString()}`);
+      const res = await fetch(`/api/one-points/ledger?${params.toString()}`);
       const json = await res.json();
       if (res.ok) {
         setLedgerEntries(json.entries || []);
@@ -207,7 +227,7 @@ export default function ReferralPage() {
   return (
     <PlatformChrome
       title="Invite & Earn"
-      subtitle="Invite friends & businesses to earn SwiftPoints and ongoing cashback"
+      subtitle="Invite friends & businesses to earn OnePoints and ongoing cashback"
       actions={<PlatformProfileControls />}
       // The page draws its own bar with a back button.
       hideHeader
@@ -225,7 +245,7 @@ export default function ReferralPage() {
             <div className="ref-empty">
               <Gift className="h-9 w-9" />
               <p className="ref-empty-title">Connect your wallet</p>
-              <p>Connect your account to get your invite link, tier progress and SwiftPoints balance.</p>
+              <p>Connect your account to get your invite link, tier progress and OnePoints balance.</p>
             </div>
           ) : !data ? (
             <div className="ref-empty">
@@ -242,15 +262,15 @@ export default function ReferralPage() {
               <ReferralIllustration className="ref-illustration" />
               <h2 className="ref-intro-title">Invite friends. Earn together.</h2>
               <p className="ref-intro-body">
-                Share your link. When a friend or business joins SwiftPay and qualifies, you both earn SwiftPoints
+                Share your link. When a friend or business joins SaphraONE and qualifies, you both earn OnePoints
                 you can redeem for USDC, and you keep earning cashback on their activity.
               </p>
               <ul className="ref-intro-points">
                 <li>
-                  <Gift className="h-4 w-4" /> Up to 100 SwiftPoints per personal referral, 200 per business
+                  <Gift className="h-4 w-4" /> Up to 100 OnePoints per personal referral, 200 per business
                 </li>
                 <li>
-                  <Users className="h-4 w-4" /> Your friend gets 20 SwiftPoints when they qualify
+                  <Users className="h-4 w-4" /> Your friend gets 20 OnePoints when they qualify
                 </li>
                 <li>
                   <Zap className="h-4 w-4" /> Ongoing cashback on their transactions over 10 USDC
@@ -267,7 +287,7 @@ export default function ReferralPage() {
                 }
               />
               <button className="ref-text-link" onClick={() => setShowIntro(false)} type="button">
-                See my SwiftPoints
+                See my OnePoints
               </button>
             </div>
           ) : (
@@ -278,17 +298,20 @@ export default function ReferralPage() {
                 <div className="ref-hero-top">
                   <span className="ref-hero-eyebrow">
                     <Coins className="h-4 w-4" />
-                    Available SwiftPoints
+                    Available OnePoints
                   </span>
                   <TierBadge className="ref-hero-tier" tier={data.currentTier} />
                 </div>
-                <p className="ref-hero-amount">{data.swiftPoints.available.toLocaleString()}</p>
+                <p className="ref-hero-amount">{data.onePoints.available.toLocaleString()}</p>
                 <p className="ref-hero-sub">
-                  ≈ {data.swiftPoints.usdcEquivalent.toFixed(2)} USDC · 1 point = 0.01 USDC
+                  ≈ {data.onePoints.usdcEquivalent.toFixed(2)} USDC · 1 point = 0.01 USDC
                 </p>
                 <div className="ref-hero-actions">
+                  {/* Rewards v2: no redeeming or buying; the Rewards page takes over points. */}
+                  {rewardsV2Enabled() ? null : (
+                  <>
                   <RedeemModal
-                    availablePoints={data.swiftPoints.available}
+                    availablePoints={data.onePoints.available}
                     onSuccess={refreshAll}
                     trigger={
                       <button className="ref-hero-action" type="button">
@@ -313,8 +336,10 @@ export default function ReferralPage() {
                     }
                     userWallet={activeWallet || ""}
                   />
+                  </>
+                  )}
                   <GiftPointsModal
-                    availablePoints={data.swiftPoints.available}
+                    availablePoints={data.onePoints.available}
                     circleSocialUuid={circleSocialUuid}
                     onSuccess={refreshAll}
                     trigger={
@@ -361,9 +386,9 @@ export default function ReferralPage() {
                   <span className="ref-stat-top">
                     Lifetime earned <TrendingUp className="h-4 w-4" />
                   </span>
-                  <span className="ref-stat-value">{data.swiftPoints.lifetimeEarned.toLocaleString()}</span>
+                  <span className="ref-stat-value">{data.onePoints.lifetimeEarned.toLocaleString()}</span>
                   <span className="ref-stat-foot">
-                    {data.swiftPoints.redeemed.toLocaleString()} redeemed · {data.swiftPoints.pending} pending
+                    {data.onePoints.redeemed.toLocaleString()} redeemed · {data.onePoints.pending} pending
                   </span>
                 </div>
                 <div className="ref-stat">

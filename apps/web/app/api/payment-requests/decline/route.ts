@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
         : null;
     const declinedByLabel = declinedByUsername
       ? formatUsernameLabel(declinedByUsername)
-      : "A SwiftPay user";
+      : "A SaphraONE user";
 
     const marked = await markPaymentRequestNotificationDeclined({
       id: notificationId,

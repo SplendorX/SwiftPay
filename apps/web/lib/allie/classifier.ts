@@ -229,7 +229,7 @@ function normalizeRecipient(raw: string) {
 
 /**
  * For payment requests: always a username. Requests hand off to a form that
- * looks up SwiftPay usernames, not the owner's contacts.
+ * looks up SaphraONE usernames, not the owner's contacts.
  */
 function normalizeRequestee(raw: string) {
   const name = normalizeRecipient(raw);

@@ -74,6 +74,36 @@ export function officialArcRpcUrl() {
   return isArcMainnet() ? "" : "https://rpc.testnet.arc.network";
 }
 
+/**
+ * Public backups, tried in order when the main RPC fails. The official Arc
+ * RPCs sit behind Cloudflare, which sometimes blocks an IP outright (error
+ * 1006); with no backup every balance then read as 0.
+ */
+const ARC_MAINNET_BACKUP_RPC_URLS = [
+  "https://arc.drpc.org",
+  "https://5042.rpc.thirdweb.com",
+];
+const ARC_TESTNET_BACKUP_RPC_URLS = [
+  "https://arc-testnet.drpc.org",
+  "https://5042002.rpc.thirdweb.com",
+];
+
+/**
+ * Every Arc RPC to try, main one first: the configured RPC, then
+ * NEXT_PUBLIC_ARC_RPC_FALLBACK_URLS (comma-separated), then the public backups.
+ */
+export function arcRpcUrls(): string[] {
+  const extra = (process.env.NEXT_PUBLIC_ARC_RPC_FALLBACK_URLS ?? "")
+    .split(",")
+    .map((url) => url.trim());
+  const urls = [
+    officialArcRpcUrl(),
+    ...extra,
+    ...(isArcMainnet() ? ARC_MAINNET_BACKUP_RPC_URLS : ARC_TESTNET_BACKUP_RPC_URLS),
+  ];
+  return [...new Set(urls.filter(Boolean))];
+}
+
 export function officialArcChainId(): number | null {
   const raw =
     process.env.NEXT_PUBLIC_ARC_CHAIN_ID?.trim() ||

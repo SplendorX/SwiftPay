@@ -26,7 +26,7 @@ import {
 import type { Chain } from "viem";
 import { cookieStorage, createStorage, http, type Config } from "wagmi";
 
-import { arcChain, arcMainnet, arcTestnet } from "@/lib/chains";
+import { arcChain, arcMainnet, arcTestnet, arcTransport } from "@/lib/chains";
 
 // Re-exported so existing imports keep working; server code should import
 // these from "@/lib/chains" to avoid loading RainbowKit.
@@ -37,7 +37,7 @@ const configuredProjectId =
   process.env.NEXT_PUBLIC_PROJECT_ID?.trim() ||
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim();
 const invalidProjectIds = new Set([
-  "swiftpay-demo-project",
+  "saphra-demo-project",
   "YOUR_PROJECT_ID",
 ]);
 
@@ -66,7 +66,7 @@ const okxWalletMobileLink: typeof okxWallet = (params) => {
         const link = `${OKX_APP_LINK}/wc?uri=${encodeURIComponent(uri)}`;
         // Seen only by the ?walletdebug=1 diagnostics panel.
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("swiftpay:walletdebug", { detail: `OKX link built: ${link.slice(0, 60)}…` }));
+          window.dispatchEvent(new CustomEvent("saphra:walletdebug", { detail: `OKX link built: ${link.slice(0, 60)}…` }));
         }
         return link;
       },
@@ -80,8 +80,8 @@ const appUrl =
 export const metadata = {
   description:
     "A stablecoin payment platform for USDC and EURC transfers, receiving, swaps, and ArcScan receipts.",
-  icons: [`${appUrl}/brand/swiftpay-mark.png`],
-  name: "SwiftPay",
+  icons: [`${appUrl}/brand/saphra-mark.png`],
+  name: "SaphraONE",
   url: appUrl,
 };
 
@@ -116,11 +116,13 @@ export const config = getDefaultConfig({
   // Every chain in `networks` needs a transport: WalletConnect reads one per
   // chain and crashes on a missing entry, so connecting a wallet did nothing.
   // Built from the list itself so the two cannot drift apart again.
+  // Arc reads fall over to backup RPCs (lib/chains), so one blocked RPC
+  // doesn't show every balance as 0.
   transports: {
-    [arcTestnet.id]: http(arcTestnet.rpcUrls.default.http[0]),
     ...Object.fromEntries(
       networks.map((chain) => [chain.id, http(chain.rpcUrls.default.http[0])]),
     ),
+    [arcChain.id]: arcTransport(),
   },
   wallets: [
     {

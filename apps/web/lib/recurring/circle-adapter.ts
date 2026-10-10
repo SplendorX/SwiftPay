@@ -1,7 +1,7 @@
+import "@/lib/env-compat";
 import {
   createPublicClient,
   createWalletClient,
-  http,
   type Address,
   type Hash,
   type Hex,
@@ -16,10 +16,10 @@ import {
 } from "@/lib/contracts";
 import { buildAutopayExecutionId } from "@/lib/recurring-utils";
 import { arcTokens, type ArcTokenSymbol } from "@/lib/tokens";
-import { arcChain } from "@/lib/chains";
+import { arcChain, arcTransport } from "@/lib/chains";
 
 function getOperatorPrivateKey() {
-  return process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim() || null;
+  return process.env.SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY?.trim() || null;
 }
 
 export function isRecurringOperatorConfigured() {
@@ -29,7 +29,7 @@ export function isRecurringOperatorConfigured() {
 export function createRecurringPublicClient() {
   return createPublicClient({
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 }
 
@@ -44,7 +44,7 @@ export function createRecurringArcClients() {
   const walletClient = createWalletClient({
     account,
     chain: arcChain,
-    transport: http(arcChain.rpcUrls.default.http[0]),
+    transport: arcTransport(),
   });
 
   return { account, publicClient, walletClient };

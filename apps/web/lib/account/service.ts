@@ -25,6 +25,8 @@ import { chargeSummary } from "@/lib/checkout/summary";
 import { sendInvoiceEmail } from "@/lib/email/invoice-email";
 import { createSavingsNotificationResult } from "@/lib/save/notifications";
 import { normalizeUsername, validateUsername } from "@/lib/profile-utils";
+import { checkUsernameAvailability } from "@/lib/account/username-availability";
+import { findCountry } from "@/lib/countries";
 
 function nowIso() {
   return new Date().toISOString();
@@ -256,6 +258,8 @@ export async function completeAccountOnboarding(input: {
   circleSocialUuid?: unknown;
   /** The Google / email sign-in address, used as the starting contact email. */
   contactEmail?: unknown;
+  /** Required: the account is set up for this country's region. */
+  country?: string | null;
   fullName?: string | null;
   locale: string;
   logoUrl?: string | null;
@@ -270,6 +274,10 @@ export async function completeAccountOnboarding(input: {
   const username = normalizeUsername(input.username);
   const usernameError = validateUsername(username);
   if (usernameError) throw accountErrors.invalid(usernameError);
+  const availability = await checkUsernameAvailability(username, actorWallet);
+  if (!availability.available) throw accountErrors.invalid(availability.message);
+  const country = findCountry(input.country);
+  if (!country) throw accountErrors.invalid("Choose your country.");
   const targetType: AccountType = input.accountKind === "business" ? "BUSINESS" : "PERSONAL";
   // The full name is what the top bar shows for a personal account.
   const fullName =
@@ -283,6 +291,7 @@ export async function completeAccountOnboarding(input: {
     account_type_selected: true,
     account_upgraded_at: targetType === "BUSINESS" ? nowIso() : null,
     bio: typeof input.bio === "string" ? input.bio.trim().slice(0, 160) || null : account.bio,
+    country: country.name,
     locale: input.locale || account.locale,
     onboarding_completed_at: nowIso(),
     updated_at: nowIso(),
@@ -313,6 +322,7 @@ export async function completeAccountOnboarding(input: {
       businessName: input.businessName ?? "",
       category: input.businessCategory ?? null,
       contactEmail: contactEmailFrom(input.contactEmail),
+      country: country.name,
       description: input.businessDescription ?? null,
       logoUrl: input.logoUrl ?? null,
       website: input.website ?? null,
@@ -727,7 +737,7 @@ export async function createInvoice(input: {
   if (customerUsername) {
     const found = await findWalletByUsername(customerUsername);
     if (!found) {
-      throw accountErrors.invalid("That SwiftPay username was not found.");
+      throw accountErrors.invalid("That SaphraONE username was not found.");
     }
   }
   const origin = input.origin?.replace(/\/$/, "") ?? "";
@@ -807,7 +817,7 @@ export async function createInvoice(input: {
   if (issued.customer_email) {
     const profile = await loadBusinessProfile(targetWallet).catch(() => null);
     emailDelivery = await sendInvoiceEmail({
-      businessName: profile?.business_name?.trim() || "A SwiftPay business",
+      businessName: profile?.business_name?.trim() || "A SaphraONE business",
       invoice: issued,
       replyTo: profile?.contact_email,
     });
@@ -877,7 +887,7 @@ export async function updateInvoice(input: {
   if (customerUsername) {
     const found = await findWalletByUsername(customerUsername);
     if (!found) {
-      throw accountErrors.invalid("That SwiftPay username was not found.");
+      throw accountErrors.invalid("That SaphraONE username was not found.");
     }
   }
   const supabase = accountDb();
@@ -966,7 +976,7 @@ export async function emailInvoice(input: {
 
   const profile = await loadBusinessProfile(targetWallet).catch(() => null);
   const status = await sendInvoiceEmail({
-    businessName: profile?.business_name?.trim() || "A SwiftPay business",
+    businessName: profile?.business_name?.trim() || "A SaphraONE business",
     invoice,
     replyTo: profile?.contact_email,
     // One re-send per invoice per minute: a double click is one email.

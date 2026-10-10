@@ -104,7 +104,7 @@ export function PayWithOnramp({
     const result = kit.openWindow({ onDepositSettled, session });
     if (result.status === "blocked") {
       if (result.reason === "popup_blocked") {
-        setError("Your browser blocked the window. Allow pop-ups for SwiftPay and tap again.");
+        setError("Your browser blocked the window. Allow pop-ups for SaphraONE and tap again.");
       } else {
         setInline(true);
       }

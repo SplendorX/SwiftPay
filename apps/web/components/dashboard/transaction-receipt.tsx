@@ -61,7 +61,7 @@ export function TransactionReceipt({
   transfer,
 }: {
   amount: string;
-  /** "@username" for a SwiftPay account, otherwise a short address or label. */
+  /** "@username" for a SaphraONE account, otherwise a short address or label. */
   counterpartyName: string;
   explorerUrl: string;
   labels: { received: string; sent: string; title: string };
@@ -102,7 +102,7 @@ export function TransactionReceipt({
         role="dialog"
       >
         <span aria-hidden className="tx-receipt-watermark">
-          SwiftPay
+          SaphraONE
         </span>
 
         <header className="tx-receipt-head">

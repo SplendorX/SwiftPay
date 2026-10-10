@@ -193,7 +193,7 @@ export default function AdminEarnPage() {
                     <dd>{data.apy.grossApyDisplay ?? "N/A"}</dd>
                   </div>
                   <div>
-                    <dt>Net (after SwiftPay fee)</dt>
+                    <dt>Net (after SaphraONE fee)</dt>
                     <dd>{data.apy.netApyDisplay ?? "N/A"}</dd>
                   </div>
                   <div>

@@ -17,7 +17,7 @@ const stopWords = new Set([
   "a", "an", "the", "i", "me", "my", "we", "our", "you", "your", "is", "are", "was", "be", "to",
   "of", "in", "on", "for", "and", "or", "it", "this", "that", "do", "does", "did", "can", "could",
   "how", "what", "why", "when", "where", "with", "have", "has", "not", "no", "please", "help",
-  "swiftpay", "hi", "hey", "want", "need", "would", "like", "get", "about", "there", "so", "just",
+  "saphra", "hi", "hey", "want", "need", "would", "like", "get", "about", "there", "so", "just",
   "am", "im", "i'm", "from", "at", "by", "if", "any", "some", "should", "will", "way",
 ]);
 
@@ -95,7 +95,7 @@ function score(entry: Indexed, words: string[], lowered: string, path: string | 
 export function searchArticles(query: string, path: string | null = null, limit = 5) {
   const lowered = query.toLowerCase();
   const words = tokens(query);
-  // "What is SwiftPay?" is all stop words, but it is exactly an article title.
+  // "What is SaphraONE?" is all stop words, but it is exactly an article title.
   if (words.length === 0) {
     const exact = index.find((entry) => plain(entry.article.title) === plain(lowered));
     return exact ? [{ article: exact.article, score: 10 }] : [];

@@ -1,0 +1,31 @@
+/* The wordmark is an image sized in em, so the existing font-size scales
+   (.platform-wordmark-header, -hero, .tx-receipt-wordmark, the hero strip)
+   keep setting its size. The stacked "ONE" makes it tall: 1.7em puts the
+   "Saphra" letters at roughly the old text size. */
+.platform-wordmark {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.platform-wordmark-img {
+  display: block;
+  height: 1.7em;
+  width: auto;
+  max-width: none;
+}
+
+.platform-wordmark-on-dark {
+  display: none;
+}
+
+html.dark .platform-wordmark-on-light,
+.dark .platform-wordmark-on-light {
+  display: none;
+}
+
+html.dark .platform-wordmark-on-dark,
+.dark .platform-wordmark-on-dark {
+  display: block;
+}

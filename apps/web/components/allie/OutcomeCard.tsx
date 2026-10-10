@@ -60,7 +60,7 @@ function Action({ cta, href }: { cta?: string; href?: string }) {
 
 /**
  * Renders everything ALLIE can produce that is not a payment awaiting
- * confirmation: answers from SwiftPay's own data, and hand-offs to the product
+ * confirmation: answers from SaphraONE's own data, and hand-offs to the product
  * that owns an action she cannot sign for.
  */
 export function OutcomeCard({ outcome }: { outcome: AllieOutcome }) {

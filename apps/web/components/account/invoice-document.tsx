@@ -54,7 +54,7 @@ export function InvoiceDocument({ invoice }: { invoice: InvoiceDocumentModel }) 
             )}
             <div>
               <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
-                SwiftPay invoice
+                SaphraONE invoice
               </p>
               <h1 className="mt-1 font-heading text-2xl">{invoice.businessName}</h1>
               {invoice.businessUsername ? (

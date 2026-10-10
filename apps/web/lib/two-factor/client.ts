@@ -60,13 +60,13 @@ export function twoFactorErrorMessage(cause: unknown) {
     }
     return cause.message;
   }
-  return "Couldn't reach SwiftPay. Check your connection and try again.";
+  return "Couldn't reach SaphraONE. Check your connection and try again.";
 }
 
 /** Save backup codes as a text file. */
 export function downloadBackupCodes(codes: string[]) {
   const text = [
-    "SwiftPay two-factor backup codes",
+    "SaphraONE two-factor backup codes",
     "Each code works once. Keep them somewhere safe.",
     "",
     ...codes,
@@ -75,7 +75,7 @@ export function downloadBackupCodes(codes: string[]) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = "swiftpay-backup-codes.txt";
+  link.download = "saphra-backup-codes.txt";
   link.click();
   URL.revokeObjectURL(url);
 }

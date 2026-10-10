@@ -339,7 +339,7 @@ html[data-theme="dark"] textarea::placeholder {
 /* ── Design tokens & utilities ── */
 
 :root {
-  --swift-pay-gradient: linear-gradient(160deg, #3b82f6 0%, #6366f1 48%, #8b5cf6 100%);
+  --swift-pay-gradient: linear-gradient(160deg, #5f15f4 0%, #3435f7 50%, #0f65fd 100%);
 }
 
 .text-primary-gradient {
@@ -387,16 +387,6 @@ html[data-theme="dark"] textarea::placeholder {
   color: transparent;
 }
 
-.platform-wordmark {
-  display: inline-flex;
-  align-items: baseline;
-  font-family: var(--font-sora), Sora, ui-sans-serif, system-ui, sans-serif;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.06em;
-  white-space: nowrap;
-}
-
 @media (max-width: 639px) {
   .platform-brand-name-desktop {
     display: none;
@@ -410,8 +400,7 @@ html[data-theme="dark"] textarea::placeholder {
 
 /* The official lockup: the app top bar's size, used everywhere the brand
    sits in a header (landing nav, footer, invoices, onboarding). A 2.2rem mark
-   with a 1.3rem wordmark centred on it; the gradient "Pay" keeps its
-   descender room without pushing the text up. */
+   with the wordmark centred on it. */
 .platform-wordmark-header {
   align-items: center;
   font-size: 1.3rem;
@@ -420,43 +409,13 @@ html[data-theme="dark"] textarea::placeholder {
   overflow: visible;
 }
 
-.platform-wordmark-header .platform-wordmark-pay {
-  padding-right: 0.28em;
-  margin-right: 1px;
-  margin-bottom: -0.1em;
-  background-size: 108% 100%;
-}
-
 .platform-wordmark-hero {
   font-size: clamp(2.75rem, 6vw, 4.5rem);
   line-height: 0.92;
 }
 
-.platform-wordmark-swift {
-  color: #0a0a0a;
-}
-
 .hero-welcome-accent {
   display: inline-block;
-  background: var(--swift-pay-gradient);
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-position: left center;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-
-html.dark .platform-wordmark-swift,
-.dark .platform-wordmark-swift {
-  color: var(--foreground);
-}
-
-.platform-wordmark-pay {
-  display: inline-block;
-  padding-bottom: 0.1em;
-  letter-spacing: -0.02em;
   background: var(--swift-pay-gradient);
   background-repeat: no-repeat;
   background-size: 100% 100%;
@@ -2786,12 +2745,12 @@ select:focus {
 
 @media (min-width: 1024px) {
   .landing-showcase .hero-brand-display,
-  section[aria-label="SwiftPay product preview"] .hero-brand-display {
+  section[aria-label="SaphraONE product preview"] .hero-brand-display {
     align-items: flex-start;
     text-align: left;
   }
 
-  section[aria-label="SwiftPay product preview"] .landing-hero-brand-strip .hero-brand-display {
+  section[aria-label="SaphraONE product preview"] .landing-hero-brand-strip .hero-brand-display {
     align-items: center;
     text-align: center;
   }
@@ -3816,7 +3775,7 @@ select:focus {
   box-shadow: 0 18px 40px color-mix(in oklch, var(--foreground) 12%, transparent);
 }
 
-/* SwiftPoints: anchored under its button on wide screens. On phones the
+/* OnePoints: anchored under its button on wide screens. On phones the
    button isn't at the right edge (more controls sit beside it), so a panel
    hung from it ran off the left of the screen — pin it to the viewport
    instead, like notifications. */
@@ -3987,7 +3946,7 @@ select:focus {
   border: 1px solid color-mix(in oklch, var(--foreground) 8%, transparent);
 }
 
-/* ─── SwiftPay Earn ─────────────────────────────────────────────────────── */
+/* ─── SaphraONE Earn ─────────────────────────────────────────────────────── */
 
 .earn-page {
   display: flex;
@@ -6155,7 +6114,7 @@ html[data-theme="dark"] .earn-balance-earned {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PREMIUM FINTECH UPGRADE — SwiftPay v2 visual polish
+   PREMIUM FINTECH UPGRADE — SaphraONE v2 visual polish
    Design reference: Stripe / Ramp / Mercury
    Strategy: additive-only; extends existing tokens; no shared-platform edits
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -6722,7 +6681,7 @@ html[data-light-surface="glass"]:not(.dark):not([data-theme="dark"]) .marketing-
   font-weight: 700;
 }
 
-/* ── Why SwiftPay value cards: more breathing room ── */
+/* ── Why SaphraONE value cards: more breathing room ── */
 
 .marketing-value-card {
   padding: 1.25rem;
@@ -7089,31 +7048,6 @@ html[data-light-surface="glass"]:not(.dark):not([data-theme="dark"]) .styled-sel
 
 .sp-toggle[data-on="true"] .sp-toggle-knob {
   transform: translateX(1.16rem);
-}
-
-.sp-success-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in oklch, var(--background) 72%, transparent);
-  padding: 1.5rem 1rem;
-  backdrop-filter: blur(10px);
-}
-
-.sp-success-card {
-  width: 100%;
-  max-width: 36rem;
-  max-height: 100%;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--swift-panel-radius);
-  background: var(--card);
-  padding: 1.25rem;
-  box-shadow: 0 28px 70px -28px rgb(15 23 42 / 0.45);
-  animation: sp-page-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes sp-page-enter {
@@ -7668,7 +7602,6 @@ html[data-light-surface="glass"]:not(.dark):not([data-theme="dark"]) .styled-sel
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sp-success-card,
   .app-main-content {
     animation: none !important;
   }
@@ -8290,7 +8223,7 @@ html[data-theme="dark"] {
   --allie-accent-soft: #e11d48;
 }
 
-/* ALLIE's surfaces wear her cobalt in place of the SwiftPay purple: every
+/* ALLIE's surfaces wear her cobalt in place of the SaphraONE purple: every
  * `--primary` inside them (buttons, focus rings, chips, glows) follows. */
 .allie-panel,
 .allie-dock,
@@ -8314,7 +8247,7 @@ html[data-theme="dark"] {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9999px;
-  background: #2638e8 url("/brand/allie-avatar-256.webp") center / cover no-repeat;
+  background: #2638e8 url("/brand/allie-avatar-256.webp?v=one") center / cover no-repeat;
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--allie-blue) 35%, transparent);
 }
 
@@ -10247,10 +10180,6 @@ html.dark .allie-stage,
 
 .tx-receipt-wordmark {
   font-size: 1.3rem;
-}
-
-.tx-receipt-wordmark .platform-wordmark-pay {
-  padding-right: 0.2em;
 }
 
 .tx-receipt-close {
@@ -12329,7 +12258,7 @@ html.dark .tx-receipt-status,
 }
 
 /* ── RecurePay (scheduled payments) ─────────────────────────────────────────
- * A calm flow: an illustrated welcome, a "next payment" hero in the SwiftPay
+ * A calm flow: an illustrated welcome, a "next payment" hero in the SaphraONE
  * gradient, a timeline of what's coming, then a Kuda-style form and review. */
 
 .recurepay-page {
@@ -15447,7 +15376,7 @@ html.dark .public-profile-verified,
 }
 
 /* App-open splash (components/splash-screen.tsx). */
-.swiftpay-splash {
+.saphra-splash {
   position: fixed;
   inset: 0;
   z-index: 2147483000;
@@ -15459,24 +15388,24 @@ html.dark .public-profile-verified,
   background: var(--background);
   transition: opacity 500ms ease, visibility 500ms ease;
   /* Safety net: never cover the app if JavaScript fails to run. */
-  animation: swiftpay-splash-timeout 0s linear 8s forwards;
+  animation: saphra-splash-timeout 0s linear 8s forwards;
 }
 
-.swiftpay-splash-leaving {
+.saphra-splash-leaving {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
-.swiftpay-splash-mark {
+.saphra-splash-mark {
   width: 88px;
   height: 88px;
   border-radius: 22px;
   box-shadow: 0 18px 48px -18px rgba(91, 33, 182, 0.55);
-  animation: swiftpay-splash-pulse 1.4s ease-in-out infinite;
+  animation: saphra-splash-pulse 1.4s ease-in-out infinite;
 }
 
-.swiftpay-splash-bar {
+.saphra-splash-bar {
   position: relative;
   width: 72px;
   height: 3px;
@@ -15485,17 +15414,17 @@ html.dark .public-profile-verified,
   background: color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
-.swiftpay-splash-bar::after {
+.saphra-splash-bar::after {
   content: "";
   position: absolute;
   inset: 0;
   width: 40%;
   border-radius: inherit;
   background: var(--primary);
-  animation: swiftpay-splash-slide 1.1s ease-in-out infinite;
+  animation: saphra-splash-slide 1.1s ease-in-out infinite;
 }
 
-@keyframes swiftpay-splash-pulse {
+@keyframes saphra-splash-pulse {
   0%,
   100% {
     transform: scale(1);
@@ -15505,7 +15434,7 @@ html.dark .public-profile-verified,
   }
 }
 
-@keyframes swiftpay-splash-slide {
+@keyframes saphra-splash-slide {
   0% {
     transform: translateX(-100%);
   }
@@ -15514,7 +15443,7 @@ html.dark .public-profile-verified,
   }
 }
 
-@keyframes swiftpay-splash-timeout {
+@keyframes saphra-splash-timeout {
   to {
     opacity: 0;
     visibility: hidden;
@@ -15523,8 +15452,8 @@ html.dark .public-profile-verified,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .swiftpay-splash-mark,
-  .swiftpay-splash-bar::after {
+  .saphra-splash-mark,
+  .saphra-splash-bar::after {
     animation: none;
   }
 }

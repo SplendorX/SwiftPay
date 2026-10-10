@@ -21,7 +21,7 @@ async function parseJson<T>(response: Response): Promise<T> {
   if (!contentType.includes("application/json") || text.trimStart().startsWith("<!")) {
     throw new Error(
       response.ok
-        ? "SwiftPay returned a non-JSON response."
+        ? "SaphraONE returned a non-JSON response."
         : `Request failed (${response.status}).`,
     );
   }

@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  buySwiftPoints,
+  buyOnePoints,
   fetchPurchaseConfig,
-  SwiftPointsCreditError,
+  OnePointsCreditError,
 } from "@/lib/referral/points-client";
-import { emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { emitOnePointsUpdated } from "@/lib/referral/use-one-points";
 import { useSigningWallet } from "@/lib/use-signing-wallet";
 import { onchainFacts } from "@/lib/onchain-facts";
 
@@ -96,7 +96,7 @@ export function BuyPointsModal({
     const progress = toast.loading("Confirm the payment in your wallet…");
 
     try {
-      const result = await buySwiftPoints({
+      const result = await buyOnePoints({
         circleSocialUuid,
         resolveProvider: wallet.resolveProvider,
         treasuryAddress: treasury,
@@ -104,14 +104,14 @@ export function BuyPointsModal({
         walletAddress: userWallet,
       });
 
-      toast.success(`${result.points} SwiftPoints added`, {
+      toast.success(`${result.points} OnePoints added`, {
         description: `Paid ${amount.toFixed(2)} USDC on ${onchainFacts.chain.name}.`,
         id: progress,
       });
-      emitSwiftPointsUpdated();
+      emitOnePointsUpdated();
       onSuccess?.();
     } catch (cause) {
-      const paid = cause instanceof SwiftPointsCreditError;
+      const paid = cause instanceof OnePointsCreditError;
       toast.error(
         cause instanceof Error ? cause.message : "Could not buy points.",
         { duration: paid ? 20000 : 6000, id: progress },
@@ -137,7 +137,7 @@ export function BuyPointsModal({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Buy SwiftPoints</DialogTitle>
+          <DialogTitle>Buy OnePoints</DialogTitle>
           <DialogDescription>
             Pay in USDC on {onchainFacts.chain.name}. Points arrive once the
             payment confirms on chain.

@@ -1,6 +1,6 @@
 import { formatMoney, moneyNumber } from "@/lib/account/money";
 import type { BusinessAsset, InvoiceItemRecord } from "@/lib/account/types";
-import { drawSwiftPayBrand, loadBrandImage, roundRect } from "@/lib/brand-canvas";
+import { drawSaphraBrand, loadBrandImage, roundRect } from "@/lib/brand-canvas";
 
 type ReceiptInput = {
   amountReceived: string;
@@ -42,7 +42,7 @@ export async function downloadInvoiceReceipt(input: ReceiptInput) {
   context.fillStyle = card;
   context.fill();
 
-  await drawSwiftPayBrand(context, 108, 88, 72);
+  await drawSaphraBrand(context, 108, 88, 72);
 
   if (input.logoUrl) {
     const logo = await loadBrandImage(input.logoUrl);
@@ -106,10 +106,10 @@ export async function downloadInvoiceReceipt(input: ReceiptInput) {
 
   context.fillStyle = muted;
   context.font = "500 18px Manrope, sans-serif";
-  context.fillText("Receipt issued by SwiftPay", 108, height - 86);
+  context.fillText("Receipt issued by SaphraONE", 108, height - 86);
 
   const link = document.createElement("a");
-  link.download = `SwiftPay-${input.invoiceNumber}.png`;
+  link.download = `SaphraONE-${input.invoiceNumber}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
 }

@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
+import { rewardsV2Enabled } from "@/lib/rewards/config";
 
 interface ShareModalProps {
   referralLink: string;
@@ -33,8 +34,11 @@ export function ShareModal({ referralLink, referralToken, trigger }: ShareModalP
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<"link" | "qr">("link");
 
-  const shareTitle = "Join me on SwiftPay!";
-  const shareText = `Use my invite link to join SwiftPay and claim a 20 SwiftPoint welcome bonus: ${referralLink}`;
+  const shareTitle = "Join me on SaphraONE!";
+  // Rewards v2 has no OnePoints welcome bonus.
+  const shareText = rewardsV2Enabled()
+    ? `Join me on SaphraONE, the easiest way to send and receive stablecoins: ${referralLink}`
+    : `Use my invite link to join SaphraONE and claim a 20 ONE Point welcome bonus: ${referralLink}`;
 
   const copyToClipboard = async () => {
     try {
@@ -54,14 +58,14 @@ export function ShareModal({ referralLink, referralToken, trigger }: ShareModalP
 
   const handleShareTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-      "Join me on SwiftPay for instant zero-fee USDC payments, yield, and rewards! Get a 20 SwiftPoints bonus with my link:",
+      "Join me on SaphraONE for instant zero-fee USDC payments, yield, and rewards! Get a 20 OnePoints bonus with my link:",
     )}&url=${encodeURIComponent(referralLink)}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleShareTelegram = () => {
     const url = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(
-      "Join me on SwiftPay! Claim your 20 SwiftPoints welcome reward.",
+      "Join me on SaphraONE! Claim your 20 OnePoints welcome reward.",
     )}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
@@ -80,7 +84,7 @@ export function ShareModal({ referralLink, referralToken, trigger }: ShareModalP
     const url = URL.createObjectURL(svgBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `swiftpay-referral-${referralToken}.svg`;
+    a.download = `saphra-referral-${referralToken}.svg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -102,7 +106,7 @@ export function ShareModal({ referralLink, referralToken, trigger }: ShareModalP
         <DialogHeader className="space-y-1 text-left">
           <DialogTitle className="text-xl font-bold">Invite Friends & Businesses</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Share your personal link to earn SwiftPoints and lifelong transaction cashback.
+            Share your personal link to earn OnePoints and lifelong transaction cashback.
           </DialogDescription>
         </DialogHeader>
 
@@ -205,7 +209,7 @@ export function ShareModal({ referralLink, referralToken, trigger }: ShareModalP
 
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
               🎁 <strong className="text-foreground">Double-Sided Reward:</strong> Your invited friend gets{" "}
-              <strong className="text-primary">20 SwiftPoints</strong> upon qualified activation, and you earn full points matching your tier!
+              <strong className="text-primary">20 OnePoints</strong> upon qualified activation, and you earn full points matching your tier!
             </div>
           </div>
         ) : (

@@ -152,7 +152,7 @@ export function EmailSignIn({
         blockchain: arcCircleBlockchain,
         refId: `swiftpay-arc-${Date.now()}`,
         userToken: login.userToken,
-        walletName: "SwiftPay",
+        walletName: "SaphraONE",
       },
     );
     if (created.challengeId) {
@@ -249,7 +249,7 @@ export function EmailSignIn({
             <p className="text-sm font-semibold">Continue with email</p>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            New or returning, we&apos;ll email you a code. Your SwiftPay wallet is
+            New or returning, we&apos;ll email you a code. Your SaphraONE wallet is
             protected by a PIN only you know.
           </p>
         </>

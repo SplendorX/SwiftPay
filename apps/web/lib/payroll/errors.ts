@@ -33,7 +33,7 @@ export function isPayrollError(error: unknown): error is PayrollError {
 }
 
 export const payrollErrors = {
-  businessAccountRequired(msg = "Only SwiftPay Business accounts can access Payroll.") {
+  businessAccountRequired(msg = "Only SaphraONE Business accounts can access Payroll.") {
     return new PayrollError("BUSINESS_ACCOUNT_REQUIRED", msg, 403);
   },
   teamMemberNotFound(msg = "Team member was not found.") {
@@ -64,7 +64,7 @@ export const payrollErrors = {
       400,
     );
   },
-  invalidDestination(msg = "Invalid payment destination. Enter a valid SwiftPay username or 0x… wallet address.") {
+  invalidDestination(msg = "Invalid payment destination. Enter a valid SaphraONE username or 0x… wallet address.") {
     return new PayrollError("INVALID_PAYMENT_DESTINATION", msg, 400);
   },
   itemAlreadyPaid(msg = "This recipient payment has already settled.") {

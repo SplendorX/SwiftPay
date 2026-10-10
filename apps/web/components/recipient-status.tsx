@@ -51,7 +51,7 @@ export function RecipientSpinner({
  *   @name was not found.                       (the lookup's own error)
  *   ✓ @splendor · 0x4a16…676d                  (username resolved)
  *   ✓ Belongs to @splendor · 0x4a16…676d       (pasted wallet of a user)
- *   ✓ Wallet 0x1234…abcd (no SwiftPay account) (pasted external wallet)
+ *   ✓ Wallet 0x1234…abcd (no SaphraONE account) (pasted external wallet)
  */
 export function RecipientStatus({
   className,
@@ -64,7 +64,7 @@ export function RecipientStatus({
   resolution: RecipientResolution;
 }) {
   const { error, isResolving, isValid, resolvedAddress, resolvedUsername } = resolution;
-  // A pasted wallet may belong to a SwiftPay user: name them too.
+  // A pasted wallet may belong to a SaphraONE user: name them too.
   const lookup = !resolvedUsername && isValid ? resolvedAddress : null;
   const pastedUsername = useWalletUsernames([lookup])(lookup);
 
@@ -83,7 +83,7 @@ export function RecipientStatus({
             ? `@${resolvedUsername} · ${short}`
             : pastedUsername
               ? `Belongs to @${pastedUsername} · ${short}`
-              : `Wallet ${short} (no SwiftPay account)`}
+              : `Wallet ${short} (no SaphraONE account)`}
         </span>
       </span>
     );

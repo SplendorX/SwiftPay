@@ -1,5 +1,5 @@
 import { formatMoney, moneyNumber } from "@/lib/account/money";
-import { downloadCanvas, drawSwiftPayBrand, loadBrandImage, roundRect } from "@/lib/brand-canvas";
+import { downloadCanvas, drawSaphraBrand, loadBrandImage, roundRect } from "@/lib/brand-canvas";
 import type { PublicChargePayload } from "@/lib/checkout/types";
 import { explorerTxUrl } from "@/lib/onchain-facts";
 
@@ -28,7 +28,7 @@ export async function downloadChargeReceipt(payload: PublicChargePayload) {
   context.fillStyle = card;
   context.fill();
 
-  await drawSwiftPayBrand(context, 108, 88, 72);
+  await drawSaphraBrand(context, 108, 88, 72);
 
   let nameX = 108;
   if (business.logoUrl) {
@@ -99,7 +99,7 @@ export async function downloadChargeReceipt(payload: PublicChargePayload) {
 
   context.fillStyle = muted;
   context.font = "500 18px Manrope, sans-serif";
-  context.fillText("Receipt issued by SwiftPay", 108, height - 86);
+  context.fillText("Receipt issued by SaphraONE", 108, height - 86);
 
-  downloadCanvas(canvas, `SwiftPay-receipt-${charge.code}.png`);
+  downloadCanvas(canvas, `SaphraONE-receipt-${charge.code}.png`);
 }

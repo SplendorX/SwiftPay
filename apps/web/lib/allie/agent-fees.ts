@@ -45,7 +45,7 @@ function readRecipient(value: string): Address | null {
  * fee on-chain in the same call — so that fee needs no transfer of its own,
  * and the contract's own fee recipient is the authority on where it goes.
  *
- * ALLIE's per-payment fee is SwiftPay-specific and the router knows nothing
+ * ALLIE's per-payment fee is SaphraONE-specific and the router knows nothing
  * about it, so it stays a separate transfer. A fee whose recipient is
  * unconfigured is skipped rather than silently folded into the payment.
  */

@@ -50,6 +50,7 @@ import { QuickActions } from "@/components/dashboard/quick-actions";
 import { FeaturePromos } from "@/components/dashboard/feature-promos";
 import { DashboardTransactions } from "@/components/dashboard/dashboard-transactions";
 import { DashboardHome } from "@/components/dashboard/home/dashboard-home";
+import { DashboardIncoming } from "@/components/deposit/dashboard-incoming";
 import { DashboardCircleInvites } from "@/components/swift-circle/circle-invite-inbox";
 import { useWalletTransfers } from "@/lib/use-wallet-transfers";
 import {
@@ -68,7 +69,7 @@ import { showSuccess } from "@/components/success-popup";
 import { useOptionalWorkspace } from "@/components/business/workspace-provider";
 import { PlatformChrome } from "@/components/layout/platform-chrome";
 import { PlatformAccessGate } from "@/components/platform-access-gate";
-import { emitSwiftPointsUpdated } from "@/lib/referral/use-swiftpoints";
+import { emitOnePointsUpdated } from "@/lib/referral/use-one-points";
 import { recordAccountActivity } from "@/lib/activity/client";
 import { recordPlatformTransactionActivity } from "@/lib/referral/activity-client";
 import { LazyQRCodeSVG } from "@/components/lazy-qr-code";
@@ -674,7 +675,7 @@ export function DashboardContent({
   // that pointed here, carry their details in the query: pass them on.
   const hasPaymentPrefill = ["requestId", "to", "recipient", "username", "amount", "businessPayment", "invoice", "charge"]
     .some((key) => searchParams.has(key));
-  // Paying a business invoice from a SwiftPay account: the invoice page sends
+  // Paying a business invoice from a SaphraONE account: the invoice page sends
   // its public id so the payment is recorded against the invoice.
   const invoicePublicId =
     new URLSearchParams(dashboardPrefillQuery).get("invoice")?.trim() || "";
@@ -687,7 +688,7 @@ export function DashboardContent({
     "idle" | "recording" | "recorded" | "failed"
   >("idle");
   const recordedInvoiceHashes = useRef<Set<string>>(new Set());
-  // Paying a Checkout charge (/c/<code> → "Pay with SwiftPay"): the code rides
+  // Paying a Checkout charge (/c/<code> → "Pay with SaphraONE"): the code rides
   // along so the send is recorded against the charge.
   const chargeCode =
     new URLSearchParams(dashboardPrefillQuery).get("charge")?.trim().toUpperCase() || "";
@@ -730,7 +731,6 @@ export function DashboardContent({
   const [recurringDraft, setRecurringDraft] =
     useState<RecurringScheduleDraft>(createRecurringDraft);
   const [recurringNotice, setRecurringNotice] = useState<string | null>(null);
-  const shownSuccessKey = useRef<string | null>(null);
   const [paymentNarration, setPaymentNarration] = useState("");
   const [transactionHash, setTransactionHash] = useState<Hash>();
   const [transactionLabel, setTransactionLabel] = useState("");
@@ -1244,7 +1244,7 @@ export function DashboardContent({
 
   useEffect(() => {
     try {
-      setHideBalance(window.localStorage.getItem("swiftpay.hide-balance") === "1");
+      setHideBalance(window.localStorage.getItem("saphra.hide-balance") === "1");
     } catch {
       setHideBalance(false);
     }
@@ -1792,7 +1792,7 @@ export function DashboardContent({
         pendingSpendSavePayment.current = null;
         void refreshBalances();
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("swiftpay:savings-updated"));
+          window.dispatchEvent(new CustomEvent("saphra:savings-updated"));
         }
         return;
       }
@@ -1969,59 +1969,7 @@ export function DashboardContent({
     transactionLabel,
   ]);
 
-  useEffect(() => {
-    const confirmed =
-      transactionReceipt?.status === "success" || circleSendSettled;
-    if (!confirmed) {
-      return;
-    }
-
-    const key = transactionHash ?? transactionReceipt?.transactionHash ?? "settled";
-    if (shownSuccessKey.current === key) {
-      return;
-    }
-    shownSuccessKey.current = key;
-    showSuccess({
-      amount: paymentAmount
-        ? `${paymentAmount} ${selectedToken}`
-        : undefined,
-      explorerUrl: transactionExplorerUrl,
-      eyebrow: "Pay",
-      rows: [
-        { label: "To", value: recipientDisplayLabel || trimmedRecipientAddress },
-        {
-          label: "Status",
-          value:
-            lastExecutedChainId === 84532
-              ? "Confirmed on Base Sepolia"
-              : "Confirmed on Arc",
-        },
-        ...(lastCashbackPoints.current
-          ? [{ label: "Cashback Earned", value: `+${lastCashbackPoints.current} SwiftPoints` }]
-          : []),
-        ...(recurringNotice
-          ? [{ label: "Recurring", value: recurringNotice }]
-          : []),
-      ],
-      subtitle: paymentAmount
-        ? `${paymentAmount} ${selectedToken} is on the way.`
-        : paymentStatus,
-      title: "Payment successful",
-    });
-  }, [
-    circleSendSettled,
-    lastExecutedChainId,
-    paymentAmount,
-    paymentStatus,
-    recipientDisplayLabel,
-    recurringNotice,
-    selectedToken,
-    transactionExplorerUrl,
-    transactionHash,
-    transactionReceipt?.status,
-    transactionReceipt?.transactionHash,
-    trimmedRecipientAddress,
-  ]);
+  // A settled send ends on SendHub's animation receipt (components/send).
 
 
   useEffect(() => {
@@ -2572,6 +2520,7 @@ export function DashboardContent({
         chainId: arcChain.id,
         circleExecutor: {
           execute: executePaymentCircleCall,
+          walletId: circleWallet?.id,
         },
         router: liveQuote?.sendRouter ?? paymentQuote?.sendRouter,
         feeRecipient: (liveQuote?.feeRecipient || feeRecipientValue) as Address,
@@ -3456,6 +3405,9 @@ export function DashboardContent({
                   saveLabel: paymentQuote?.spendSave.active
                     ? `Spend&Save ${paymentQuote.spendSave.percentage}% to ${paymentQuote.spendSave.pocketName ?? "your pocket"} is included in this transaction.`
                     : undefined,
+                  savePercent: paymentQuote?.spendSave.active
+                    ? paymentQuote.spendSave.percentage
+                    : undefined,
                   totalRequired:
                     paymentQuote?.totalRequired ??
                     formatUnits(
@@ -3551,7 +3503,7 @@ export function DashboardContent({
                 const next = !current;
                 try {
                   window.localStorage.setItem(
-                    "swiftpay.hide-balance",
+                    "saphra.hide-balance",
                     next ? "1" : "0",
                   );
                 } catch {
@@ -3636,7 +3588,7 @@ export function DashboardContent({
     setHideBalance((current) => {
       const next = !current;
       try {
-        window.localStorage.setItem("swiftpay.hide-balance", next ? "1" : "0");
+        window.localStorage.setItem("saphra.hide-balance", next ? "1" : "0");
       } catch {
         // ignore
       }
@@ -3651,6 +3603,7 @@ export function DashboardContent({
       banners={
         <>
           <InstallAppBanner />
+          <DashboardIncoming />
           {isTreasuryMismatch && treasuryAddress ? (
             <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-950 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-3">
@@ -3787,7 +3740,7 @@ export function DashboardContent({
                   fgColor="#160f24"
                   marginSize={1}
                   size={220}
-                  title="SwiftPay payment request"
+                  title="SaphraONE payment request"
                   value={
                     paymentRequestUrl ||
                     `ethereum:${walletAddress}@${arcChain.id}`

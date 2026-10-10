@@ -37,7 +37,7 @@ function messageFrom(cause: unknown) {
 }
 
 /**
- * Settings → App lock: a 6-digit PIN asked for whenever SwiftPay is opened
+ * Settings → App lock: a 6-digit PIN asked for whenever SaphraONE is opened
  * again, with Face ID / fingerprint as a shortcut where the device has it.
  *
  * `compact` is the onboarding version: turning it on and adding Face ID /
@@ -205,7 +205,7 @@ export function AppLockSettings({
       {compact ? null : (
         <p className="text-sm text-muted-foreground">
           Ask for a PIN{biometricsAvailable ? ` or ${biometricLabel()}` : ""} whenever you come
-          back to SwiftPay. If you forget your PIN, sign out and sign in again to get back in.
+          back to SaphraONE. If you forget your PIN, sign out and sign in again to get back in.
         </p>
       )}
 
@@ -241,14 +241,14 @@ export function AppLockSettings({
           {compact ? (
             <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Lock className="h-4 w-4 text-primary" />
-              App lock is on. SwiftPay locks after 1 minute away.
+              App lock is on. SaphraONE locks after 1 minute away.
             </p>
           ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Lock after I leave for</p>
               <p className="text-xs text-muted-foreground">
-                Closing SwiftPay or switching away for this long locks it.
+                Closing SaphraONE or switching away for this long locks it.
               </p>
             </div>
             <select
@@ -278,7 +278,7 @@ export function AppLockSettings({
               <p className="text-xs text-muted-foreground">
                 {biometricsAvailable
                   ? (status.passkeys ?? 0) > 0
-                    ? "Set up. Add this device too if you use SwiftPay on more than one."
+                    ? "Set up. Add this device too if you use SaphraONE on more than one."
                     : "Unlock without typing your PIN."
                   : "This device or browser doesn't offer it. Your PIN still works."}
               </p>

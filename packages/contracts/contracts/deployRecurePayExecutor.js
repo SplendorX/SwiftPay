@@ -24,8 +24,8 @@ async function main() {
   // The operator must be the address of the key the server signs Autopay
   // runs with. Falling back to the fee recipient (as this script once did)
   // deploys an executor the server cannot drive, so require it explicitly.
-  const operator = process.env.SWIFTPAY_RECURRING_OPERATOR_ADDRESS?.trim();
-  const operatorKey = process.env.SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY?.trim();
+  const operator = process.env.SAPHRA_RECURRING_OPERATOR_ADDRESS?.trim();
+  const operatorKey = process.env.SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY?.trim();
   const feeRecipient =
     process.env.PLATFORM_FEE_RECIPIENT?.trim() ||
     process.env.NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT?.trim();
@@ -35,14 +35,14 @@ async function main() {
   }
   if (!operator || !ethers.isAddress(operator)) {
     throw new Error(
-      "Set SWIFTPAY_RECURRING_OPERATOR_ADDRESS to the address of SWIFTPAY_RECURRING_OPERATOR_PRIVATE_KEY.",
+      "Set SAPHRA_RECURRING_OPERATOR_ADDRESS to the address of SAPHRA_RECURRING_OPERATOR_PRIVATE_KEY.",
     );
   }
   if (operatorKey) {
     const keyAddress = new ethers.Wallet(operatorKey).address;
     if (keyAddress.toLowerCase() !== operator.toLowerCase()) {
       throw new Error(
-        `SWIFTPAY_RECURRING_OPERATOR_ADDRESS (${operator}) does not match the operator key's address (${keyAddress}).`,
+        `SAPHRA_RECURRING_OPERATOR_ADDRESS (${operator}) does not match the operator key's address (${keyAddress}).`,
       );
     }
   }

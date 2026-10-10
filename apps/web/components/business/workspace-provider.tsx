@@ -26,7 +26,7 @@ import { ensureProfile, profileUpdatedEventName } from "@/lib/profile";
 import { walletSessionChangedEventName } from "@/lib/wallet-auth-client";
 import { useOptionalAccount } from "@/components/account/account-provider";
 
-const storageKey = "swiftpay.activeWorkspaceId";
+const storageKey = "saphra.activeWorkspaceId";
 
 type WorkspaceContextValue = {
   actorReady: boolean;

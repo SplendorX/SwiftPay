@@ -8,7 +8,7 @@ import { jsonError, readJsonRecord } from "@/lib/http";
 export const runtime = "nodejs";
 
 /**
- * Resolve wallet addresses to public SwiftPay @usernames.
+ * Resolve wallet addresses to public SaphraONE @usernames.
  *
  * `agentOwners` separately names whose ALLIE Agent Wallet an address is, so a
  * payment ALLIE made can read "@owner via ALLIE". It is kept apart from

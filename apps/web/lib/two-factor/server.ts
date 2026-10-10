@@ -1,3 +1,4 @@
+import "@/lib/env-compat";
 import crypto from "node:crypto";
 
 import { createSupabaseAdminClient } from "@/lib/supabase-server";
@@ -25,7 +26,7 @@ export type TwoFactorRow = {
  * every authenticator unreadable. Without it, 2FA can't be turned on.
  */
 function encryptionKey() {
-  const raw = process.env.SWIFTPAY_MFA_KEY?.trim();
+  const raw = process.env.SAPHRA_MFA_KEY?.trim();
   if (!raw) return null;
   const key = /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
   return key.length === 32 ? key : null;
@@ -37,7 +38,7 @@ export function twoFactorAvailable() {
 
 export function encryptSecret(secret: string) {
   const key = encryptionKey();
-  if (!key) throw new Error("SWIFTPAY_MFA_KEY is not set.");
+  if (!key) throw new Error("SAPHRA_MFA_KEY is not set.");
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const body = Buffer.concat([cipher.update(secret, "utf8"), cipher.final(), cipher.getAuthTag()]);
@@ -46,7 +47,7 @@ export function encryptSecret(secret: string) {
 
 export function decryptSecret(value: string) {
   const key = encryptionKey();
-  if (!key) throw new Error("SWIFTPAY_MFA_KEY is not set.");
+  if (!key) throw new Error("SAPHRA_MFA_KEY is not set.");
   const [version, iv, body] = value.split(".");
   if (version !== "v1" || !iv || !body) throw new Error("Unreadable secret.");
   const data = Buffer.from(body, "base64url");
@@ -66,7 +67,7 @@ export function normalizeBackupCode(code: string) {
 }
 
 function hashBackupCode(code: string) {
-  return crypto.createHash("sha256").update(`swiftpay-2fa:${normalizeBackupCode(code)}`).digest("hex");
+  return crypto.createHash("sha256").update(`saphra-2fa:${normalizeBackupCode(code)}`).digest("hex");
 }
 
 export function generateBackupCodes() {

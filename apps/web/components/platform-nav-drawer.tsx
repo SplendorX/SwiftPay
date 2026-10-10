@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useOptionalAccount } from "@/components/account/account-provider";
-import { PlatformBrand } from "@/components/brand/platform-brand";
+import { PlatformWordmark } from "@/components/brand/platform-wordmark";
 import { useT } from "@/components/locale-provider";
 import { platformNavItems } from "@/components/platform-nav";
 import { navLabelKeys } from "@/lib/i18n";
@@ -70,8 +70,8 @@ export function PlatformNavDrawer() {
         role="dialog"
       >
         <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-4">
-          <Link aria-label="SwiftPay home" className="rounded-lg" href="/dashboard" onClick={() => setOpen(false)}>
-            <PlatformBrand showName="always" />
+          <Link aria-label="SaphraONE home" className="rounded-lg" href="/dashboard" onClick={() => setOpen(false)}>
+            <PlatformWordmark />
           </Link>
           <button
             aria-label={t("common.closeNav")}

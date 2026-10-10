@@ -59,7 +59,7 @@ export function PerformanceCard({
           <dd>{underlyingApyDisplay}</dd>
         </div>
         <div>
-          <dt>SwiftPay fee</dt>
+          <dt>SaphraONE fee</dt>
           <dd>
             {feePercent}% of yield
             {summary?.hasHistory && summary.estimatedFee !== "0" ? (
@@ -110,7 +110,7 @@ export function PerformanceCard({
         {mode === "simulation"
           ? "Simulation, not real yield. Figures do not represent economic returns."
           : summary?.note ??
-            "SwiftPay takes a performance fee only on positive yield above the vault high-water mark, never on deposits."}
+            "SaphraONE takes a performance fee only on positive yield above the vault high-water mark, never on deposits."}
       </p>
     </article>
   );
